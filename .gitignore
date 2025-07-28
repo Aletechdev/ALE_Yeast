@@ -1,0 +1,70 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pkl
+*.pickle
+
+# Virtual environment folders
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+*.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs and local runtime files
+*.log
+*.out
+*.err
+*.bak
+
+# Nextflow work and cache directories
+work/
+.nxf*
+.nextflow*
+trace.txt
+timeline.html
+report.html
+dag.png
+*.dot
+
+# VSCode and JetBrains IDE settings
+.vscode/
+.idea/
+
+# Test/coverage tools
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Build files
+build/
+dist/
+*.egg-info/
+
+# Temporary files and backups
+*~
+*.swp
+*.swo
+*.tmp
+
+# Custom secrets or credentials
+secrets.env
+credentials.json
+
+
+data/
