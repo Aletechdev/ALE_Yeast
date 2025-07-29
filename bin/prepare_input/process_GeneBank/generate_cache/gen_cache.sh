@@ -1,5 +1,5 @@
 
-# /data/ #/Users/zhlia/Documents/GitRepo/tmp_NF_AMP/data/BakerYeast_reference/
+# /data/ #/Users/zhlia/Documents/GitRepo/NF_ALE/data/BakerYeast_reference/
 # ├─ snpeff_cache/
 # │  ├─ draft_ref.52/
 # │  │  ├─ snpEff.config
@@ -9,7 +9,7 @@
 # │  ├─ Saccharomyces_cerevisiae/
 # │  │  ├─ 52_draft/
 
-data_folder="/Users/zhiweili/Documents/Repo/NF_ALE/data/BakerYeast_reference"
+data_folder="/Users/zhlia/Documents/GitRepo/NF_ALE/data/BakerYeast_reference"
 species="Saccharomyces_cerevisiae"
 genome_name="draft_ref"
 version="52"
@@ -40,7 +40,8 @@ docker run --rm -v ${snpEff_cache_folder}:/data -w /data quay.io/biocontainers/s
 # need to make another 2 folder to pass Sarek input check null.${genome_name}.${version} (empty folder) and format for SnpEff ${genome_name}.${version}.${genome_name}.${version} (with snpEffect.config: draft_ref.52.draft_ref.52.genome)
 mkdir -p "${snpEff_cache_folder}/null.${genome_name}.${version}"
 cp -r  "${snpeff_data_folder}" "${snpEff_cache_folder}/${genome_name}.${version}.${genome_name}.${version}"
-echo "${genome_name}.${version}.${genome_name}.${version}.genome : ${genome_name}.${version}" >> "${snpEff_cache_folder}/${genome_name}.${version}.${genome_name}.${version}/snpEff.config"
+# echo "${genome_name}.${version}.${genome_name}.${version}.genome : ${genome_name}.${version}" >> "${snpEff_cache_folder}/${genome_name}.${version}.${genome_name}.${version}/snpEff.config"
+echo "${genome_name}.${version}.genome : ${genome_name}.${version}" >> "${snpEff_cache_folder}/${genome_name}.${version}.${genome_name}.${version}/snpEff.config"
 
 ####
 # # build for VEP:
