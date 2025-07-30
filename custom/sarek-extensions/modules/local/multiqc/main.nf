@@ -4,8 +4,8 @@ process MULTIQC {
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/multiqc:1.17--pyhdfd78af_0' :
-        'biocontainers/multiqc:1.17--pyhdfd78af_0' }" 
-        // # user older version to run on ARM architecture
+        'biocontainers/multiqc:1.17--pyhdfd78af_0' }"
+        // Use older version for Apple Silicon ARM compatibility
 
     input:
     path  multiqc_files, stageAs: "?/*"
