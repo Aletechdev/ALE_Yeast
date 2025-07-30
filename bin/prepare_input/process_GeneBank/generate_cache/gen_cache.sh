@@ -23,9 +23,11 @@ mkdir -p "${snpEff_cache_folder}"
 # for snpEff build
 snpeff_data_folder="${snpEff_cache_folder}/data/${genome_name}.${version}"
 mkdir -p "${snpeff_data_folder}"
-# empty folder for sarek input check
-snpEff_genome_folder="${snpEff_cache_folder}/${genome_name}.${version}"
-mkdir -p "${snpEff_genome_folder}"
+# empty folder for sarek input check ?
+snpEff_genome_folder_v351="${snpEff_cache_folder}/${genome_name}.${version}" # for SnpEff 3.5.1
+mkdir -p "${snpEff_genome_folder_v351}"
+snpEff_genome_folder_v340="${snpEff_cache_folder}/${genome_name}.${version}.${genome_name}.${version}" # for SnpEff 3.4.0
+mkdir -p "${snpEff_genome_folder_v340}"
 
 #step 1: configure a new genome
 echo "# ${species} genome ${genome_name}, version ${version}" > "${snpEff_cache_folder}/snpEff.config"
@@ -37,12 +39,22 @@ cp "${data_folder}/draft_ref52.gff3" "${snpeff_data_folder}/draft_ref52.gff3"
 awk -F'\t' '$3 != "source"' "${snpeff_data_folder}/draft_ref52.gff3" > "${snpeff_data_folder}/genes.gff"
 
 docker run --rm -v ${snpEff_cache_folder}:/data -w /data quay.io/biocontainers/snpeff:5.1--hdfd78af_2 snpEff build -gff3 -v draft_ref.52 -noCheckCds -noCheckProtein
+
+
+echo "${genome_name}.${version}.${genome_name}.${version}.genome : ${genome_name}.${version}" >> "${snpEff_genome_folder_v340}/snpEff.config" #for Sarek 3.4.0
+
+# add permission to the snpEff config file
+chmod 644 "${snpEff_cache_folder}/snpEff.config"
+chmod 644 "${snpEff_genome_folder_v340}/snpEff.config"
+cp -r  "${snpeff_data_folder}/." "${snpEff_genome_folder_v351}"
 # need to make another 2 folder to pass Sarek input check null.${genome_name}.${version} (empty folder) and format for SnpEff ${genome_name}.${version}.${genome_name}.${version} (with snpEffect.config: draft_ref.52.draft_ref.52.genome)
 mkdir -p "${snpEff_cache_folder}/null.${genome_name}.${version}"
-cp -r  "${snpeff_data_folder}" "${snpEff_cache_folder}/${genome_name}.${version}.${genome_name}.${version}"
-# echo "${genome_name}.${version}.${genome_name}.${version}.genome : ${genome_name}.${version}" >> "${snpEff_cache_folder}/${genome_name}.${version}.${genome_name}.${version}/snpEff.config"
-echo "${genome_name}.${version}.genome : ${genome_name}.${version}" >> "${snpEff_cache_folder}/${genome_name}.${version}.${genome_name}.${version}/snpEff.config"
+cp -r  "${snpeff_data_folder}/." "${snpEff_genome_folder_v340}" # for Sarek 3.4.0
+# Add config file to the genome folder for sarek compatibility
+cp "${snpEff_cache_folder}/snpEff.config" "${snpEff_genome_folder_v351}/snpEff.config"
 
+# Fix permissions for GFF3 files to work with sarek 3.5.1 Docker user ID mapping
+find "${snpEff_cache_folder}" -name "*.gff3" -exec chmod 644 {} \;
 ####
 # # build for VEP:
 # vep_cache_folder="${data_folder}/vep_cache/${species}/${version}_${genome_name}/"
