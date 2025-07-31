@@ -89,6 +89,8 @@ include { MULTIQC                                           } from '../../../../
 
 
 // // Basic VCF filtering
+include {BCFTOOLS_FILTER                                    } from '../../modules/nf-core/bcftools/filter/main'
+include {TABIX_TABIX as TABIX_VCF_FILTER                    } from '../../modules/nf-core/tabix/tabix/main'
 // include { VCF_FILTER_BASIC                                  } from '../../subworkflows/local/vcf_filter_basic/main
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -798,8 +800,18 @@ workflow SAREK {
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_TUMOR_ONLY_ALL.out.vcf_all)
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all)
 
-        // QC
-        VCF_QC_BCFTOOLS_VCFTOOLS(vcf_to_annotate, intervals_bed_combined)
+        // Index VCFs for filtering (BCFTOOLS_FILTER requires indexed VCFs)
+        TABIX_VCF_FILTER(vcf_to_annotate)
+        
+        // Combine VCF and TBI for filtering input
+        vcf_with_tbi = vcf_to_annotate.join(TABIX_VCF_FILTER.out.tbi, failOnDuplicate: true, failOnMismatch: true)
+        
+        // Basic filtering of VCF files
+        BCFTOOLS_FILTER(vcf_with_tbi)
+        vcf_to_annotate_filtered = BCFTOOLS_FILTER.out.vcf
+
+        // QC on both original and filtered VCFs for comparison in reports
+        VCF_QC_BCFTOOLS_VCFTOOLS(vcf_to_annotate.mix(vcf_to_annotate_filtered), intervals_bed_combined)
 
         reports = reports.mix(VCF_QC_BCFTOOLS_VCFTOOLS.out.bcftools_stats.collect{ meta, stats -> [ stats ] })
         reports = reports.mix(VCF_QC_BCFTOOLS_VCFTOOLS.out.vcftools_tstv_counts.collect{ meta, counts -> [ counts ] })
@@ -808,7 +820,7 @@ workflow SAREK {
         reports = reports.mix(BAM_VARIANT_CALLING_GERMLINE_ALL.out.out_indexcov.collect{ meta, indexcov -> indexcov.flatten() })
         reports = reports.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.out_indexcov.collect{ meta, indexcov -> indexcov.flatten() })
 
-        CHANNEL_VARIANT_CALLING_CREATE_CSV(vcf_to_annotate, params.outdir)
+        CHANNEL_VARIANT_CALLING_CREATE_CSV(vcf_to_annotate.mix(vcf_to_annotate_filtered), params.outdir)
 
         // Gather used variant calling softwares versions
         versions = versions.mix(BAM_VARIANT_CALLING_GERMLINE_ALL.out.versions)
@@ -816,6 +828,8 @@ workflow SAREK {
         versions = versions.mix(BAM_VARIANT_CALLING_TUMOR_ONLY_ALL.out.versions)
         versions = versions.mix(POST_VARIANTCALLING.out.versions)
         versions = versions.mix(VCF_QC_BCFTOOLS_VCFTOOLS.out.versions)
+        versions = versions.mix(TABIX_VCF_FILTER.out.versions)
+        versions = versions.mix(BCFTOOLS_FILTER.out.versions)
 
         // ANNOTATE
         if (params.step == 'annotate') vcf_to_annotate = input_sample
@@ -823,9 +837,9 @@ workflow SAREK {
         if (params.tools.split(',').contains('merge') || params.tools.split(',').contains('snpeff') || params.tools.split(',').contains('vep')|| params.tools.split(',').contains('bcfann')) {
 
             vep_fasta = (params.vep_include_fasta) ? fasta : [[id: 'null'], []]
-
+            // TODO seperate vcf_to_anotate and vcf_to_annotate_filtered,
             VCF_ANNOTATE_ALL(
-                vcf_to_annotate.map{meta, vcf -> [ meta + [ file_name: vcf.baseName ], vcf ] },
+                vcf_to_annotate.mix(vcf_to_annotate_filtered).map{meta, vcf -> [ meta + [ file_name: vcf.baseName ], vcf ] },
                 vep_fasta,
                 params.tools,
                 params.snpeff_db,
@@ -838,14 +852,16 @@ workflow SAREK {
                 bcftools_annotations,
                 bcftools_annotations_tbi,
                 bcftools_header_lines)
-
+            // view VCF_ANNOTATE_ALL
+            VCF_ANNOTATE_ALL.out.vcf_ann.view()
             // Gather used softwares versions
             versions = versions.mix(VCF_ANNOTATE_ALL.out.versions)
             reports = reports.mix(VCF_ANNOTATE_ALL.out.reports)
+
+            // merge germline VCFs, and then subtract tumor-only VCFs
         }
     }
-
-    // Basic filtering of the VCF files
+    
 
     //
     // Collate and save software versions
