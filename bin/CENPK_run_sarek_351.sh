@@ -1,4 +1,5 @@
-run_folder="/Users/zhlia/Documents/GitRepo/NF_ALE"
+# run_folder="/Users/zhlia/Documents/GitRepo/NF_ALE"
+run_folder="/Users/zhiweili/Documents/Repo/NF_ALE"
 nextflow run ../nf-core-sarek_3.5.1/3_5_1/main.nf -profile arm,docker \
     --input ${run_folder}/data/data_a_paper/sub_sample/samplesheet.csv \
     --outdir ${run_folder}/output  --genome draft_ref.52 --igenomes_ignore \

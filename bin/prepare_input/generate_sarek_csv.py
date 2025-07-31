@@ -3,10 +3,10 @@ from collections import defaultdict
 
 # data_dir = "/Users/zhiweili/Documents/Repo/tmp_NF_AMP/data/dicarboxylic_acids/data_a_test/sub_sample"  # adjust to your folder
 # out_dir = "/Users/zhiweili/Documents/Repo/tmp_NF_AMP/data/dicarboxylic_acids/data_a_test/sub_sample"  # adjust to your folder
-# data_dir = "/Users/zhiweili/Documents/Repo/NF_ALE/data/data_a_paper/sub_sample"  # adjust to your folder
-# out_dir = "/Users/zhiweili/Documents/Repo/NF_ALE/data/data_a_paper/sub_sample"  # adjust to your folder
-data_dir = "/Users/zhlia/Documents/GitRepo/NF_ALE/data/data_a_paper/sub_sample"  # adjust to your folder
-out_dir = "/Users/zhlia/Documents/GitRepo/NF_ALE/data/data_a_paper/sub_sample"  # adjust to your folder
+data_dir = "/Users/zhiweili/Documents/Repo/NF_ALE/data/data_a_paper/sub_sample"  # adjust to your folder
+out_dir = "/Users/zhiweili/Documents/Repo/NF_ALE/data/data_a_paper/sub_sample"  # adjust to your folder
+# data_dir = "/Users/zhlia/Documents/GitRepo/NF_ALE/data/data_a_paper/sub_sample"  # adjust to your folder
+# out_dir = "/Users/zhlia/Documents/GitRepo/NF_ALE/data/data_a_paper/sub_sample"  # adjust to your folder
 out_file = "samplesheet.csv"
 # This script generates a samplesheet for Sarek from fastq files in a specified directory.
 # It assumes the fastq files are named in a specific format and organizes them by sample and lane.

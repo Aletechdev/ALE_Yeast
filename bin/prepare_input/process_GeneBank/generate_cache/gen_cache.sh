@@ -16,7 +16,8 @@
 set -euo pipefail
 
 # Configuration variables
-data_folder="/Users/zhlia/Documents/GitRepo/NF_ALE/data/BakerYeast_reference"
+# data_folder="/Users/zhlia/Documents/GitRepo/NF_ALE/data/BakerYeast_reference"
+data_folder="/Users/zhiweili/Documents/Repo/NF_ALE/data/BakerYeast_reference"
 species="Saccharomyces_cerevisiae"
 genome_name="draft_ref"
 version="52"

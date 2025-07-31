@@ -87,6 +87,9 @@ include { VCF_ANNOTATE_ALL                                  } from '../../subwor
 // include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main' // change this to custom multiqc module if needed
 include { MULTIQC                                           } from '../../../../custom/sarek-extensions/modules/local/multiqc/main' // change this to custom multiqc module if needed
 
+
+// // Basic VCF filtering
+// include { VCF_FILTER_BASIC                                  } from '../../subworkflows/local/vcf_filter_basic/main
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -841,6 +844,8 @@ workflow SAREK {
             reports = reports.mix(VCF_ANNOTATE_ALL.out.reports)
         }
     }
+
+    // Basic filtering of the VCF files
 
     //
     // Collate and save software versions
