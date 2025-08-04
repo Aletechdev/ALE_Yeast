@@ -2,19 +2,17 @@
 
 ## Environment-Specific Configurations
 
-### Apple Silicon (Local Development)
-- **Commit**: `cbe4a0bd1d33cb6cd3b5994d12476e1490a5baae`
+### Apple Silicon (Local Development, not maintained)
 - **Profile**: `arm,docker`
-- **Notes**: Required for Apple Silicon compatibility
+- **Notes**: Required for Apple Silicon compatibility, lower priority for Apple Silicon machines local run
 
 ### Azure Linux VM (Production)
-- **Profile**: `docker` (standard)
+- **Profile**: `AzureD4as,docker` (standard)
 - **Recommended**: Use original configuration for production deployment
 
 ## Deployment Strategy
 1. For local Apple Silicon development: Use current ARM-compatible settings
-2. For production Azure deployment: Revert Docker profile to remove ARM-specific configurations
-3. Test both environments before major releases
+2. For production Azure deployment: 
 
 ## Key Files
 - `bin/CENPK_run_sarek_351.sh`: Main execution script
@@ -26,12 +24,12 @@
 ### Integration Point (REVISED)
 - **Location**: `nf-core-sarek_3.5.1/3_5_1/workflows/sarek/main.nf` around line 801
 - **Target**: Filter `vcf_to_annotate` channel (before annotation)
-- **Rationale**: More flexible during custom SnpEff/VEP database testing
+- **Rationale**: More flexible during custom SnpEff/VEP database testing, will add breseq gdtools for annotation, where the output will be in .gb format
 
 ### Implementation Steps
-1. **Add BCFTOOLS_FILTER module** after building vcf_to_annotate channel
+1. **Add BCFTOOLS_FILTER module** from nf-core: `nf-core modules install bcftools/filter`
 2. **Create filter configuration** at `conf/modules/bcftools_filter.config`
-3. **Use filtered VCFs** for downstream QC and annotation
+3. **New channel vcf_filtered** for downstream QC and annotation
 4. **Output structure**: `variant_calling_filtered/{tool}/{sample}/`
 
 ### Integration Code Location
@@ -44,9 +42,6 @@ include { BCFTOOLS_FILTER } from '../modules/nf-core/bcftools/filter/main'
 BCFTOOLS_FILTER(vcf_to_annotate)
 vcf_filtered = BCFTOOLS_FILTER.out.vcf
 
-// Replace vcf_to_annotate with vcf_filtered in downstream processes:
-// - VCF_QC_BCFTOOLS_VCFTOOLS(vcf_filtered, intervals_bed_combined)
-// - VCF_ANNOTATE_ALL uses vcf_filtered instead of vcf_to_annotate
 ```
 
 ### Filter Configuration
@@ -60,8 +55,12 @@ vcf_filtered = BCFTOOLS_FILTER.out.vcf
 # Tool-specific configurations possible via meta.variantcaller
 ```
 
-### Benefits of Pre-Annotation Filtering
+### Benefits of Basic Pre-Annotation Filtering
 - **Independent of annotation setup** - Works regardless of SnpEff/VEP configuration
-- **Faster annotation** - Fewer variants to annotate
-- **Flexible testing** - Can iterate on filters without re-annotation
 - **Quality-based filtering** - Focus on high-confidence variants
+- a bigger vcf channel `vcf_to_annotate.mix(vcf_to_annotate_filtered)` is created for annotation, due to the pipeline is under development, and the unfiltered but annotatied vcf files will be valuable for troubleshooting.
+- **TODO**: decide when to filter the VCF files, before or after the VCF annotation
+
+
+
+Next feature for development: VCF files merging for normal samples,
