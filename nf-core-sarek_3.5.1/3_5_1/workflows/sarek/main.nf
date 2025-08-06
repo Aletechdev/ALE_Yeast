@@ -691,6 +691,7 @@ workflow SAREK {
                 meta.patient    = normal[0]
                 meta.sex        = normal[1].sex
                 meta.tumor_id   = tumor[1].sample
+                meta.ploidy     = tumor[1].ploidy ?: '2' // Use tumor ploidy if not use 2, priority the tumor/mutated sample's ploidy
 
                 [ meta, normal[2], normal[3], tumor[2], tumor[3] ]
             }

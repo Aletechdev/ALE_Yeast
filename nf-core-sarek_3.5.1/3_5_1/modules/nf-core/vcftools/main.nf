@@ -85,6 +85,10 @@ process VCFTOOLS {
     task.ext.when == null || task.ext.when
 
     script:
+    // Log when vcftools is skipped due to polyploidy
+    if (meta.ploidy && meta.ploidy.toString().toInteger() > 2) {
+        log.info "Skipping VCFtools for sample ${meta.sample} due to polyploidy (ploidy=${meta.ploidy}). VCFtools has limited support for polyploid data."
+    }
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def args_list = args.tokenize()
