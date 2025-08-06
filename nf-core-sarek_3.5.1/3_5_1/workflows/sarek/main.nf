@@ -84,8 +84,8 @@ include { VCF_QC_BCFTOOLS_VCFTOOLS                          } from '../../subwor
 include { VCF_ANNOTATE_ALL                                  } from '../../subworkflows/local/vcf_annotate_all/main'
 
 // MULTIQC
-// include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main' // change this to custom multiqc module if needed
-include { MULTIQC                                           } from '../../../../custom/sarek-extensions/modules/local/multiqc/main' // change this to custom multiqc module if needed
+include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main' // change this to custom multiqc module if needed
+// include { MULTIQC                                           } from '../../../../custom/sarek-extensions/modules/local/multiqc/main' // change this to custom multiqc module if needed, for Apple Silicon
 
 
 // // Basic VCF filtering

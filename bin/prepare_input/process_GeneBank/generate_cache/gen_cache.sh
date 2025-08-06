@@ -15,91 +15,188 @@
 
 set -euo pipefail
 
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
 # Configuration variables
-# data_folder="/Users/zhlia/Documents/GitRepo/NF_ALE/data/BakerYeast_reference"
-data_folder="/Users/zhiweili/Documents/Repo/NF_ALE/data/BakerYeast_reference"
-species="Saccharomyces_cerevisiae"
-genome_name="draft_ref"
-version="52"
+readonly DATA_FOLDER="/home/azureuser/Docs/NF_ALE/data/BakerYeast_reference"
+readonly SPECIES="Saccharomyces_cerevisiae"
+readonly GENOME_NAME="draft_ref"
+readonly VERSION="52"
+readonly SNPEFF_DOCKER_IMAGE="quay.io/biocontainers/snpeff:5.1--hdfd78af_2"
 
-# Build for SnpEff
-# Source: https://pcingola.github.io/SnpEff/snpeff/build_db/#step-1-configure-a-new-genome
+# Derived paths
+readonly SNPEFF_CACHE_FOLDER="${DATA_FOLDER}/snpeff_cache"
+readonly SNPEFF_DATA_FOLDER="${SNPEFF_CACHE_FOLDER}/data/${GENOME_NAME}.${VERSION}"
+readonly SNPEFF_GENOME_FOLDER_V351="${SNPEFF_CACHE_FOLDER}/${GENOME_NAME}.${VERSION}"
+readonly SNPEFF_GENOME_FOLDER_V340="${SNPEFF_CACHE_FOLDER}/${GENOME_NAME}.${VERSION}.${GENOME_NAME}.${VERSION}"
 
-echo "Setting up SnpEff cache directories..."
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
 
-# Create main cache directory
-snpEff_cache_folder="${data_folder}/snpeff_cache"
-mkdir -p "${snpEff_cache_folder}"
+log_info() {
+    echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - $1" >&2
+}
 
-# Create SnpEff data directory
-snpeff_data_folder="${snpEff_cache_folder}/data/${genome_name}.${version}"
-mkdir -p "${snpeff_data_folder}"
+log_error() {
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $1" >&2
+}
 
-# Create Sarek compatibility directories
-snpEff_genome_folder_v351="${snpEff_cache_folder}/${genome_name}.${version}"  # for Sarek 3.5.1
-mkdir -p "${snpEff_genome_folder_v351}"
+cleanup_on_error() {
+    log_error "Script failed. Cleaning up incomplete cache directories..."
+    rm -rf "${SNPEFF_CACHE_FOLDER}" 2>/dev/null || true
+}
 
-snpEff_genome_folder_v340="${snpEff_cache_folder}/${genome_name}.${version}.${genome_name}.${version}"  # for Sarek 3.4.0
-mkdir -p "${snpEff_genome_folder_v340}"
+validate_prerequisites() {
+    log_info "Validating prerequisites..."
+    
+    if [[ ! -f "${DATA_FOLDER}/draft_ref52.gff3" ]]; then
+        log_error "Required GFF3 file not found: ${DATA_FOLDER}/draft_ref52.gff3"
+        exit 1
+    fi
+    
+    if ! command -v docker &> /dev/null; then
+        log_error "Docker is not installed or not in PATH"
+        exit 1
+    fi
+    
+    if ! docker images "${SNPEFF_DOCKER_IMAGE}" --format "table {{.Repository}}:{{.Tag}}" | grep -q "${SNPEFF_DOCKER_IMAGE}"; then
+        log_info "Pulling SnpEff Docker image..."
+        docker pull "${SNPEFF_DOCKER_IMAGE}"
+    fi
+}
 
-# Step 1: Configure new genome
-echo "Configuring SnpEff genome..."
-echo "# ${species} genome ${genome_name}, version ${version}" > "${snpEff_cache_folder}/snpEff.config"
-echo "${genome_name}.${version}.genome : ${genome_name}.${version}" >> "${snpEff_cache_folder}/snpEff.config"
+# =============================================================================
+# CORE FUNCTIONS
+# =============================================================================
 
-# Copy and clean GFF file
-echo "Processing GFF file..."
-cp "${data_folder}/draft_ref52.gff3" "${snpeff_data_folder}/draft_ref52.gff3"
-# Remove 'source' entries from GFF file (third column)
-awk -F'\t' '$3 != "source"' "${snpeff_data_folder}/draft_ref52.gff3" > "${snpeff_data_folder}/genes.gff"
+create_directories() {
+    log_info "Creating SnpEff cache directories..."
+    
+    mkdir -p "${SNPEFF_CACHE_FOLDER}"
+    mkdir -p "${SNPEFF_DATA_FOLDER}"
+    mkdir -p "${SNPEFF_GENOME_FOLDER_V351}"  # for Sarek 3.5.1
+    mkdir -p "${SNPEFF_GENOME_FOLDER_V340}"  # for Sarek 3.4.0
+    mkdir -p "${SNPEFF_CACHE_FOLDER}/null.${GENOME_NAME}.${VERSION}"  # for Sarek input check
+}
 
-# Build SnpEff database
-echo "Building SnpEff database..."
-docker run --rm \
-    -v "${snpEff_cache_folder}:/data" \
-    -w /data \
-    quay.io/biocontainers/snpeff:5.1--hdfd78af_2 \
-    snpEff build -gff3 -v draft_ref.52 -noCheckCds -noCheckProtein
+configure_snpeff_genome() {
+    log_info "Configuring SnpEff genome..."
+    
+    cat > "${SNPEFF_CACHE_FOLDER}/snpEff.config" << EOF
+# ${SPECIES} genome ${GENOME_NAME}, version ${VERSION}
+${GENOME_NAME}.${VERSION}.genome : ${GENOME_NAME}.${VERSION}
+EOF
+}
 
-# Configure for Sarek 3.4.0 compatibility
-echo "Setting up Sarek compatibility..."
-echo "${genome_name}.${version}.${genome_name}.${version}.genome : ${genome_name}.${version}" >> "${snpEff_genome_folder_v340}/snpEff.config"
+process_gff_file() {
+    log_info "Processing GFF file..."
+    
+    local source_gff="${DATA_FOLDER}/draft_ref52.gff3"
+    local temp_gff="${SNPEFF_DATA_FOLDER}/draft_ref52.gff3"
+    local clean_gff="${SNPEFF_DATA_FOLDER}/genes.gff"
+    
+    cp "${source_gff}" "${temp_gff}"
+    
+    # Remove 'source' entries from GFF file (third column)
+    awk -F'\t' '$3 != "source"' "${temp_gff}" > "${clean_gff}"
+    
+    log_info "GFF file processed: $(wc -l < "${clean_gff}") features"
+}
 
-# Set proper permissions
-chmod 644 "${snpEff_cache_folder}/snpEff.config"
-chmod 644 "${snpEff_genome_folder_v340}/snpEff.config"
+build_snpeff_database() {
+    log_info "Building SnpEff database..."
+    
+    if ! docker run --rm \
+        -v "${SNPEFF_CACHE_FOLDER}:/data" \
+        -w /data \
+        "${SNPEFF_DOCKER_IMAGE}" \
+        snpEff build -gff3 -v "${GENOME_NAME}.${VERSION}" -noCheckCds -noCheckProtein; then
+        log_error "SnpEff database build failed"
+        return 1
+    fi
+    
+    log_info "SnpEff database build completed successfully"
+}
 
-# Copy data to compatibility directories
-cp -r "${snpeff_data_folder}/." "${snpEff_genome_folder_v351}"
-cp -r "${snpeff_data_folder}/." "${snpEff_genome_folder_v340}"
+setup_sarek_compatibility() {
+    log_info "Setting up Sarek compatibility..."
+    
+    # Configure for Sarek 3.4.0 compatibility
+    cat > "${SNPEFF_GENOME_FOLDER_V340}/snpEff.config" << EOF
+${GENOME_NAME}.${VERSION}.${GENOME_NAME}.${VERSION}.genome : ${GENOME_NAME}.${VERSION}
+EOF
+    
+    # Copy data to compatibility directories
+    cp -r "${SNPEFF_DATA_FOLDER}/." "${SNPEFF_GENOME_FOLDER_V351}"
+    cp -r "${SNPEFF_DATA_FOLDER}/." "${SNPEFF_GENOME_FOLDER_V340}"
+    
+    # Add config files to genome folders for Sarek compatibility
+    cp "${SNPEFF_CACHE_FOLDER}/snpEff.config" "${SNPEFF_GENOME_FOLDER_V351}/snpEff.config"
+    
+    log_info "Sarek compatibility setup completed"
+}
 
-# Create null directory for Sarek input check
-mkdir -p "${snpEff_cache_folder}/null.${genome_name}.${version}"
+set_permissions() {
+    log_info "Setting file permissions..."
+    
+    # Set proper permissions for config files
+    chmod 644 "${SNPEFF_CACHE_FOLDER}/snpEff.config"
+    chmod 644 "${SNPEFF_GENOME_FOLDER_V340}/snpEff.config"
+    chmod 644 "${SNPEFF_GENOME_FOLDER_V351}/snpEff.config"
+    
+    # Fix permissions for GFF3 files (Docker user ID mapping compatibility)
+    find "${SNPEFF_CACHE_FOLDER}" -name "*.gff3" -exec chmod 644 {} \;
+}
 
-# Add config files to genome folders for Sarek compatibility
-cp "${snpEff_cache_folder}/snpEff.config" "${snpEff_genome_folder_v351}/snpEff.config"
+# =============================================================================
+# MAIN EXECUTION
+# =============================================================================
 
-# Fix permissions for GFF3 files (Docker user ID mapping compatibility)
-echo "Setting file permissions..."
-find "${snpEff_cache_folder}" -name "*.gff3" -exec chmod 644 {} \;
+main() {
+    log_info "Starting SnpEff cache generation for ${SPECIES} ${GENOME_NAME}.${VERSION}"
+    
+    # Set up error handling
+    trap cleanup_on_error ERR
+    
+    # Execute pipeline steps
+    validate_prerequisites
+    create_directories
+    configure_snpeff_genome
+    process_gff_file
+    build_snpeff_database
+    setup_sarek_compatibility
+    set_permissions
+    
+    log_info "SnpEff cache generation completed successfully!"
+    log_info "Cache location: ${SNPEFF_CACHE_FOLDER}"
+    
+    # Display usage information
+    cat << 'EOF'
 
-echo "SnpEff cache generation completed successfully!"
-
-# VEP cache setup (commented out)
-# echo "Setting up VEP cache..."
-# vep_cache_folder="${data_folder}/vep_cache/${species}/${version}_${genome_name}/"
-# mkdir -p "${vep_cache_folder}"
+# =============================================================================
+# USAGE EXAMPLE
+# =============================================================================
 
 # Example Sarek pipeline command:
-# nextflow run nf-core/sarek -r 3.4.0 -profile docker \
-#     --input /path/to/samplesheet.csv \
-#     --outdir /path/to/output \
-#     --genome draft_ref.52 \
-#     --igenomes_ignore \
-#     --fasta /path/to/draft_ref52.fasta \
-#     --skip_tools baserecalibrator \
-#     -c /path/to/nextflow.config \
-#     --tools freebayes,mutect2,cnvkit,snpeff \
-#     --split_fastq 0 \
-#     --snpeff_cache "${data_folder}/snpeff_cache" \
-#     --snpeff_db draft_ref.52
+nextflow run nf-core/sarek -r 3.4.0 -profile docker \
+    --input /path/to/samplesheet.csv \
+    --outdir /path/to/output \
+    --genome draft_ref.52 \
+    --igenomes_ignore \
+    --fasta /path/to/draft_ref52.fasta \
+    --skip_tools baserecalibrator \
+    -c /path/to/nextflow.config \
+    --tools freebayes,mutect2,cnvkit,snpeff \
+    --split_fastq 0 \
+    --snpeff_cache /path/to/snpeff_cache \
+    --snpeff_db draft_ref.52
+EOF
+}
+
+# Execute main function if script is run directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
