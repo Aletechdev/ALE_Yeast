@@ -13,6 +13,12 @@
                 "errorMessage": "Patient ID must be provided and cannot contain spaces",
                 "meta": ["patient"]
             },
+            "experiment": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Experiment ID must be provided and cannot contain spaces",
+                "meta": ["patient"]
+            },
             "sample": {
                 "type": "string",
                 "pattern": "^\\S+$",
@@ -40,6 +46,13 @@
                 "meta": ["ploidy"],
                 "default": 2,
                 "minimum": 1
+            },
+            "clonal_or_population": {
+                "type": "string",
+                "errorMessage": "clonal_or_population must be either 'clonal' or 'population'. Defaults to 'clonal' if none is supplied.",
+                "meta": ["clonal_or_population"],
+                "default": "clonal",
+                "enum": ["clonal", "population"]
             },
             "lane": {
                 "type": "string",
@@ -122,26 +135,54 @@
         },
         "anyOf": [
             {
+                "required": ["patient", "sample"],
                 "dependentRequired": {
-                    "lane": ["fastq_1"]
+                    "lane": ["fastq_1"],
+                    "fastq_2": ["fastq_1"],
+                    "spring_2": ["spring_1"]
                 }
             },
             {
+                "required": ["patient", "sample"],
                 "dependentRequired": {
-                    "lane": ["spring_1"]
+                    "lane": ["spring_1"],
+                    "fastq_2": ["fastq_1"],
+                    "spring_2": ["spring_1"]
                 }
             },
             {
+                "required": ["patient", "sample"],
                 "dependentRequired": {
-                    "lane": ["bam"]
+                    "lane": ["bam"],
+                    "fastq_2": ["fastq_1"],
+                    "spring_2": ["spring_1"]
+                }
+            },
+            {
+                "required": ["experiment", "sample"],
+                "dependentRequired": {
+                    "lane": ["fastq_1"],
+                    "fastq_2": ["fastq_1"],
+                    "spring_2": ["spring_1"]
+                }
+            },
+            {
+                "required": ["experiment", "sample"],
+                "dependentRequired": {
+                    "lane": ["spring_1"],
+                    "fastq_2": ["fastq_1"],
+                    "spring_2": ["spring_1"]
+                }
+            },
+            {
+                "required": ["experiment", "sample"],
+                "dependentRequired": {
+                    "lane": ["bam"],
+                    "fastq_2": ["fastq_1"],
+                    "spring_2": ["spring_1"]
                 }
             }
         ],
-        "dependentRequired": {
-            "fastq_2": ["fastq_1"],
-            "spring_2": ["spring_1"]
-        },
-        "required": ["patient", "sample"],
-        "uniqueEntries": ["lane", "patient", "sample"]
+        "uniqueEntries": ["lane", "patient", "experiment", "sample"]
     }
 }

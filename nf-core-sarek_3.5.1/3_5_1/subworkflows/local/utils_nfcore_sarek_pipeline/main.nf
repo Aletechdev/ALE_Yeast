@@ -125,8 +125,17 @@ if (params.tools && (params.tools.split(',').contains('vep')    || params.tools.
         Channel.fromList(samplesheetToList(params.input, "$projectDir/assets/schema_input.json")) :
         Channel.fromList(samplesheetToList(params.input_restart, "$projectDir/assets/schema_input.json"))
 
+    // Convert experiment to patient if experiment column is used
+    ch_from_samplesheet_processed = ch_from_samplesheet.map { meta, fastq_1, fastq_2, spring_1, spring_2, table, cram, crai, bam, bai, vcf, variantcaller ->
+        if (meta.experiment && !meta.patient) {
+            meta.patient = meta.experiment
+            meta.remove('experiment')
+        }
+        return [meta, fastq_1, fastq_2, spring_1, spring_2, table, cram, crai, bam, bai, vcf, variantcaller]
+    }
+
     SAMPLESHEET_TO_CHANNEL(
-        ch_from_samplesheet,
+        ch_from_samplesheet_processed,
         params.aligner,
         params.ascat_alleles,
         params.ascat_loci,
