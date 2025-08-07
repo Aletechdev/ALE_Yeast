@@ -533,6 +533,42 @@
                     "type": "string",
                     "fa_icon": "fas fa-align-center",
                     "description": "Text file with the header lines of `bcftools_annotations`"
+                },
+                "filter_freebayes": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-filter",
+                    "description": "Enable FreeBayes-specific variant filtering",
+                    "help_text": "Apply quality-based filtering specifically to FreeBayes variants. This includes basic quality filters and extraction of high-impact variants."
+                },
+                "freebayes_qual_threshold": {
+                    "type": "number",
+                    "default": 20,
+                    "fa_icon": "fas fa-filter",
+                    "description": "Minimum variant quality score for FreeBayes filtering",
+                    "help_text": "Variants with QUAL score below this threshold will be filtered out."
+                },
+                "freebayes_dp_threshold": {
+                    "type": "number",
+                    "default": 10,
+                    "fa_icon": "fas fa-filter", 
+                    "description": "Minimum total depth for FreeBayes variants",
+                    "help_text": "Variants with total depth (DP) below this threshold will be filtered out."
+                },
+                "freebayes_af_threshold": {
+                    "type": "number",
+                    "default": 0.05,
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "fa_icon": "fas fa-filter",
+                    "description": "Minimum allele frequency for FreeBayes variants",
+                    "help_text": "Variants with allele frequency (AF) below this threshold will be filtered out."
+                },
+                "freebayes_high_impact": {
+                    "type": "boolean",
+                    "default": true,
+                    "fa_icon": "fas fa-filter",
+                    "description": "Extract high-impact variants separately",
+                    "help_text": "Create separate output files containing only high-impact variants as determined by variant consequence annotations."
                 }
             }
         },

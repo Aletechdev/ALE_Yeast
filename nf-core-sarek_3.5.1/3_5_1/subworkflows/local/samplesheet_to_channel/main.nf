@@ -37,7 +37,9 @@ workflow  SAMPLESHEET_TO_CHANNEL{
     ch_from_samplesheet.dump(tag:"ch_from_samplesheet")
     input_sample = ch_from_samplesheet.map{ meta, fastq_1, fastq_2, spring_1, spring_2, table, cram, crai, bam, bai, vcf, variantcaller ->
         // generate patient_sample key to group lanes together
-        [ meta.patient + meta.sample, [meta, fastq_1, fastq_2, spring_1, spring_2, table, cram, crai, bam, bai, vcf, variantcaller] ]
+        // Handle both 'patient' and 'experiment' fields
+        def patient_id = meta.patient ?: meta.experiment
+        [ patient_id + meta.sample, [meta, fastq_1, fastq_2, spring_1, spring_2, table, cram, crai, bam, bai, vcf, variantcaller] ]
     }.tap{ ch_with_patient_sample } // save the channel
     .groupTuple() //group by patient_sample to get all lanes
     .map { patient_sample, ch_items ->
@@ -141,7 +143,7 @@ workflow  SAMPLESHEET_TO_CHANNEL{
     // Two checks for ensuring that the pipeline stops with a meaningful error message if
     // 1. the sample-sheet only contains normal-samples, but some of the requested tools require tumor-samples, and
     // 2. the sample-sheet only contains tumor-samples, but some of the requested tools require normal-samples.
-    input_sample.filter{ it[0].status == 1 }.ifEmpty{ // In this case, the sample-sheet contains no tumor-samples
+    input_sample.filter{ it[0].status == 1 || it[0].status == '1' }.ifEmpty{ // In this case, the sample-sheet contains no tumor-samples
         if (!build_only_index) {
             def tools_tumor = ['ascat', 'controlfreec', 'mutect2', 'msisensorpro']
             def tools_tumor_asked = []
@@ -154,7 +156,7 @@ workflow  SAMPLESHEET_TO_CHANNEL{
         }
     }
 
-    input_sample.filter{ it[0].status == 0 }.ifEmpty{ // In this case, the sample-sheet contains no normal/germline-samples
+    input_sample.filter{ it[0].status == 0 || it[0].status == '0' }.ifEmpty{ // In this case, the sample-sheet contains no normal/germline-samples
         def tools_requiring_normal_samples = ['ascat', 'deepvariant', 'haplotypecaller', 'msisensorpro']
         def requested_tools_requiring_normal_samples = []
         tools_requiring_normal_samples.each{ tool_requiring_normal_samples ->

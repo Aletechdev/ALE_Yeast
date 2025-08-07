@@ -83,14 +83,17 @@ include { VCF_QC_BCFTOOLS_VCFTOOLS                          } from '../../subwor
 // Annotation
 include { VCF_ANNOTATE_ALL                                  } from '../../subworkflows/local/vcf_annotate_all/main'
 
+// FreeBayes filtering
+include { VCF_FILTER_FREEBAYES                              } from '../../subworkflows/local/vcf_filter_freebayes/main'
+
 // MULTIQC
 include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main' // change this to custom multiqc module if needed
 // include { MULTIQC                                           } from '../../../../custom/sarek-extensions/modules/local/multiqc/main' // change this to custom multiqc module if needed, for Apple Silicon
 
 
 // // Basic VCF filtering
-include {BCFTOOLS_FILTER                                    } from '../../modules/nf-core/bcftools/filter/main'
-include {TABIX_TABIX as TABIX_VCF_FILTER                    } from '../../modules/nf-core/tabix/tabix/main'
+// include {BCFTOOLS_FILTER                                    } from '../../modules/nf-core/bcftools/filter/main'
+// include {TABIX_TABIX as TABIX_VCF_FILTER                    } from '../../modules/nf-core/tabix/tabix/main'
 // include { VCF_FILTER_BASIC                                  } from '../../subworkflows/local/vcf_filter_basic/main
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -820,8 +823,8 @@ workflow SAREK {
         versions = versions.mix(BAM_VARIANT_CALLING_TUMOR_ONLY_ALL.out.versions)
         versions = versions.mix(POST_VARIANTCALLING.out.versions)
         versions = versions.mix(VCF_QC_BCFTOOLS_VCFTOOLS.out.versions)
-        versions = versions.mix(TABIX_VCF_FILTER.out.versions)
-        versions = versions.mix(BCFTOOLS_FILTER.out.versions)
+        // versions = versions.mix(TABIX_VCF_FILTER.out.versions)
+        // versions = versions.mix(BCFTOOLS_FILTER.out.versions)
 
         // ANNOTATE
         if (params.step == 'annotate') vcf_to_annotate = input_sample
@@ -846,6 +849,13 @@ workflow SAREK {
                 bcftools_header_lines)
             // view VCF_ANNOTATE_ALL
             VCF_ANNOTATE_ALL.out.vcf_ann.view()
+            
+            // // Apply FreeBayes-specific filtering if enabled
+            // if (params.filter_freebayes) {
+            //     VCF_FILTER_FREEBAYES(VCF_ANNOTATE_ALL.out.vcf_ann)
+            //     versions = versions.mix(VCF_FILTER_FREEBAYES.out.versions)
+            // }
+            
             // Gather used softwares versions
             versions = versions.mix(VCF_ANNOTATE_ALL.out.versions)
             reports = reports.mix(VCF_ANNOTATE_ALL.out.reports)
