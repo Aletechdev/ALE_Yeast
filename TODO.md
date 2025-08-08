@@ -7,6 +7,7 @@
 - **Impact**: Prevents Mutect2 VCFs from being sent to annotation pipeline
 - **Location**: `subworkflows/local/bam_variant_calling_somatic_all/main.nf:223`
 - **Status**: Needs investigation
+- **Notes**: check the impact of not using GATK filterMutect2, and if it's possible to generate in house empty db?
 
 ## Completed Tasks
 - ✅ Fixed FreeBayes filtering configuration and output publishing
