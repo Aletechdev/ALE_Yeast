@@ -804,7 +804,10 @@ workflow SAREK {
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_TUMOR_ONLY_ALL.out.vcf_all)
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all)
 
-
+        //debug view mutect2 somatic vcf:
+        vcf_to_annotate.view { meta, vcf ->
+            "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}"
+        }
         // QC on both original and filtered VCFs for comparison in reports
         VCF_QC_BCFTOOLS_VCFTOOLS(vcf_to_annotate, intervals_bed_combined)
 
@@ -848,14 +851,21 @@ workflow SAREK {
                 bcftools_annotations_tbi,
                 bcftools_header_lines)
             // view VCF_ANNOTATE_ALL
-            VCF_ANNOTATE_ALL.out.vcf_ann.view()
+            // VCF_ANNOTATE_ALL.out.vcf_ann.view()
+            VCF_ANNOTATE_ALL.out.vcf_ann.view { meta, vcf, tbi -> 
+                "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}, tbi: ${tbi.getName()}"
+            }
             
-            // // Apply FreeBayes-specific filtering if enabled
-            // if (params.filter_freebayes) {
-            //     VCF_FILTER_FREEBAYES(VCF_ANNOTATE_ALL.out.vcf_ann)
-            //     versions = versions.mix(VCF_FILTER_FREEBAYES.out.versions)
-            // }
+            // Apply FreeBayes-specific filtering
+            // ch_vcf_annotated = VCF_ANNOTATE_ALL.out.vcf_ann
+            // ch_vcf_annotated.view()
+            // VCF_FILTER_FREEBAYES()
+            // VCF_FILTER_FREEBAYES(VCF_ANNOTATE_ALL.out.vcf_ann)
+            // versions = versions.mix(VCF_FILTER_FREEBAYES.out.versions)
+            VCF_FILTER_FREEBAYES(VCF_ANNOTATE_ALL.out.vcf_ann)
             
+
+            // processs mutect2 output:
             // Gather used softwares versions
             versions = versions.mix(VCF_ANNOTATE_ALL.out.versions)
             reports = reports.mix(VCF_ANNOTATE_ALL.out.reports)

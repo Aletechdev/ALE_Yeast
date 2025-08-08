@@ -40,16 +40,16 @@ process BCFTOOLS_FILTER_SOMATIC {
     echo "Tumor index: \$TUMOR_IDX" > ${prefix}.sample_order.txt
     echo "Normal index: \$NORMAL_IDX" >> ${prefix}.sample_order.txt
     
-    # Filter for somatic variants
+    # Apply quality filters first, then somatic genotype filters
     bcftools view \\
-        -i "GT[\$TUMOR_IDX] != '.' && GT[\$TUMOR_IDX] != '0/0' && GT[\$NORMAL_IDX] = '0/0' && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
         $args \\
         $vcf \\
         -O z \\
+    | bcftools view \\
+        -i "GT[\$TUMOR_IDX] != '.' && GT[\$TUMOR_IDX] != '0/0' && GT[\$NORMAL_IDX] = '0/0' && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
+        -O z \\
         -o ${prefix}.somatic.vcf.gz
-
     bcftools index -t ${prefix}.somatic.vcf.gz
-
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         bcftools: \$(bcftools --version 2>&1 | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
