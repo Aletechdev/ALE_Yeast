@@ -86,6 +86,9 @@ include { VCF_ANNOTATE_ALL                                  } from '../../subwor
 // FreeBayes filtering
 include { VCF_FILTER_FREEBAYES                              } from '../../subworkflows/local/vcf_filter_freebayes/main'
 
+// Mutect2 filtering
+include { VCF_FILTER_MUTECT2                                 } from '../../subworkflows/local/vcf_filter_mutect2/main'
+
 // MULTIQC
 include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main' // change this to custom multiqc module if needed
 // include { MULTIQC                                           } from '../../../../custom/sarek-extensions/modules/local/multiqc/main' // change this to custom multiqc module if needed, for Apple Silicon
@@ -805,21 +808,36 @@ workflow SAREK {
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all)
 
         //debug view mutect2 somatic vcf:
-        vcf_to_annotate.view()
-        vcf_to_annotate.view { meta, vcf ->
-            "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}"
-        }
+        // vcf_to_annotate.view { meta, vcf ->
+        //     "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}"
+        // }
         // Index VCFs for filtering (BCFTOOLS_FILTER requires indexed VCFs)
         TABIX_TABIX(vcf_to_annotate)
         // Combine VCF and TBI for filtering input
         vcf_with_tbi = vcf_to_annotate.join(TABIX_TABIX.out.tbi, failOnDuplicate: true, failOnMismatch: true)
+
         // // move filter FreeBayses here:
         VCF_FILTER_FREEBAYES(vcf_with_tbi)
+        versions = versions.mix(VCF_FILTER_FREEBAYES.out.versions)
+
 
         // update vcf_to_annotate
         vcf_to_annotate = vcf_to_annotate.mix(VCF_FILTER_FREEBAYES.out.vcf_filtered.map{ meta, vcf, tbi ->
             [ meta, vcf ]
         })
+
+        // filter Mutect2 VCFs:
+        if (params.tools && params.tools.split(',').contains('mutect2')) {
+            // Filter Mutect2 VCFs
+            VCF_FILTER_MUTECT2(
+                vcf_with_tbi)
+        
+
+            // update vcf_to_annotate
+            vcf_to_annotate = vcf_to_annotate.mix(VCF_FILTER_MUTECT2.out.vcf_filtered.map{ meta, vcf, tbi ->
+                [ meta, vcf ]
+            })
+        }
 
 
         // QC on both original and filtered VCFs for comparison in reports
@@ -866,17 +884,10 @@ workflow SAREK {
                 bcftools_header_lines)
             // view VCF_ANNOTATE_ALL
             // VCF_ANNOTATE_ALL.out.vcf_ann.view()
-            VCF_ANNOTATE_ALL.out.vcf_ann.view { meta, vcf, tbi -> 
-                "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}, tbi: ${tbi.getName()}"
-            }
+            // VCF_ANNOTATE_ALL.out.vcf_ann.view { meta, vcf, tbi -> 
+            //     "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}, tbi: ${tbi.getName()}"
+            // }
             
-            // Apply FreeBayes-specific filtering
-            // ch_vcf_annotated = VCF_ANNOTATE_ALL.out.vcf_ann
-            // ch_vcf_annotated.view()
-            // VCF_FILTER_FREEBAYES()
-            // VCF_FILTER_FREEBAYES(VCF_ANNOTATE_ALL.out.vcf_ann)
-            // versions = versions.mix(VCF_FILTER_FREEBAYES.out.versions)
-            // VCF_FILTER_FREEBAYES(VCF_ANNOTATE_ALL.out.vcf_ann)
             
 
             // processs mutect2 output:

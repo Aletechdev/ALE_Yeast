@@ -204,7 +204,8 @@ workflow BAM_VARIANT_CALLING_SOMATIC_MUTECT2 {
     vcf_filtered = FILTERMUTECTCALLS.out.vcf
         // add variantcaller to meta map
         .map{ meta, vcf -> [ meta + [ variantcaller:'mutect2' ], vcf ] }
-
+    // also add variantcaller to vcf, so that Yeast Sarek can handle it correctly:
+    vcf = vcf.map{ meta, vcf -> [ meta + [ variantcaller:'mutect2' ], vcf ] }
     versions = versions.mix(MERGE_MUTECT2.out.versions)
     versions = versions.mix(CALCULATECONTAMINATION.out.versions)
     versions = versions.mix(FILTERMUTECTCALLS.out.versions)

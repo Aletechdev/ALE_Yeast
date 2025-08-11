@@ -221,7 +221,7 @@ workflow BAM_VARIANT_CALLING_SOMATIC_ALL {
             joint_mutect2
         )
 
-        vcf_mutect2 = BAM_VARIANT_CALLING_SOMATIC_MUTECT2.out.vcf_filtered
+        vcf_mutect2 = BAM_VARIANT_CALLING_SOMATIC_MUTECT2.out.vcf // changed from filtered_vcf
         versions = versions.mix(BAM_VARIANT_CALLING_SOMATIC_MUTECT2.out.versions)
     }
 
