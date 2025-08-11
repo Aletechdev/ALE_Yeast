@@ -29,18 +29,17 @@
 
 ### Input sample table:
 
-Adapted from nf-sarek input table, it was developed for human cancer research thus there terminologies such as patient (considered as Experiment ID for this project), sex, status (0 for normal, 1 for tumor )
+Adapted from nf-sarek input table, it was developed for human cancer research, experiment is used as patient within the nf-Sarek pipeline (considered as Experiment ID for this project), status 0 for starting strain (normal tissue for Sarek), 1 for mutent (tumor tissue for Sarek)
 
-For each experiment (patient) there **has to be one normal sample** (status: 0), as I am planning to use tumor-normal mode of sarek, example below, but should accodimate for the edge cases where **only tumor samples are provided**, it will be under a different channel: `BAM_VARIANT_CALLING_TUMOR_ONLY_ALL`
+For each experiment (patient) there **has to be one normal sample** (status: 0), as I am planning to use tumor-normal pairing mode of sarek, example below, but should accodimate for the edge cases where **only tumor samples are provided**, the files will be processed under a different nf-Sarek channel: `BAM_VARIANT_CALLING_TUMOR_ONLY_ALL`
 
 ```tex
-patient,sex,status,sample,lane,fastq_1,fastq_2
-patient1,XX,0,normal_sample,lane_1,test_L001_1.fastq.gz,test_L001_2.fastq.gz
-patient1,XX,0,normal_sample,lane_2,test_L002_1.fastq.gz,test_L002_2.fastq.gz
-patient1,XX,0,normal_sample,lane_3,test_L003_1.fastq.gz,test_L003_2.fastq.gz
-patient1,XX,1,tumor_sample,lane_1,test2_L001_1.fastq.gz,test2_L001_2.fastq.gz
-patient1,XX,1,tumor_sample,lane_2,test2_L002_1.fastq.gz,test2_L002_2.fastq.gz
-patient1,XX,1,relapse_sample,lane_1,test3_L001_1.fastq.gz,test3_L001_2.fastq.gz
+experiment,sample,status,clonal_or_population,ploidy,lane,fastq_1,fastq_2
+ALE_Exp1,A4-F5-I1-R1,1,clonal,2,L001,SubSampleA4-5_S11_L001_R1_001.fastq.gz,SubSampleA4-5_S11_L001_R2_001.fastq.gz
+ALE_Exp1,A4-F5-I1-R1,1,clonal,2,L003,SubSampleA4-5_S11_L003_R1_001.fastq.gz,SubSampleA4-5_S11_L003_R2_001.fastq.gz
+ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L001,SubSampleCENPK113-7D-N_S53_L001_R1_001.fastq.gz,SubSampleCENPK113-7D-N_S53_L001_R2_001.fastq.gz
+ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L002,SubSampleCENPK113-7D-N_S53_L002_R1_001.fastq.gz,SubSampleCENPK113-7D-N_S53_L002_R2_001.fastq.gz
+
 ```
 
 ### Production Strategies for Deliverable 1
@@ -55,9 +54,35 @@ TODO: add filter for FreeBayes from Somatic Call
 
 ### **⚠️ Note: BaseRecalibrator Not Applied**
 
-The pipeline **no longer uses GATK’s BaseRecalibrator** for base quality score recalibration (BQSR). Since our in-house reference genome lacks any curated --known-sites variant VCFs, BaseRecalibrator cannot run—it mandates at least one known-sites database to distinguish true variation from sequencing errors . https://janis.readthedocs.io/en/latest/tools/bioinformatics/gatk4/gatk4baserecalibrator.html?utm_source=chatgpt.com
+The pipeline **no longer uses GATK’s BaseRecalibrator** for base quality score recalibration (BQSR). Since our in-house reference genome lacks any curated --known-sites variant VCFs, BaseRecalibrator cannot run. it mandates at least one known-sites database to distinguish true variation from sequencing errors. https://janis.readthedocs.io/en/latest/tools/bioinformatics/gatk4/gatk4baserecalibrator.html?utm_source=chatgpt.com
 
-In future, if we generate a reliable set of high-confidence variants (e.g., through bootstrapped calls), we may revisit and enable BQSR. Until then, BaseRecalibrator is retained in documentation for reference only and is **not used in current analyses**.
+In future, if we generate a reliable set of high-confidence variants (e.g., through bootstrapped calls), we may revisit and enable BQSR. Until then, BaseRecalibrator is retained in code base for reference only and is **not used in current analyses**.
+
+### ⚠️ Mutect2 with custom genome, omitting panel-of-normal (vcf) and germline resource (vcf)
+
+```
+WARN: No Panel-of-normal was specified for Mutect2.
+It is highly recommended to use one: https://gatk.broadinstitute.org/hc/en-us/articles/5358911630107-Mutect2
+For more information on how to create one: https://gatk.broadinstitute.org/hc/en-us/articles/5358921041947-CreateSomaticPanelOfNormals-BETA-
+WARN: If Mutect2 is specified without a germline resource, no filtering will be done.
+It is recommended to use one: https://gatk.broadinstitute.org/hc/en-us/articles/5358911630107-Mutect2
+```
+
+#### 1.**--germline-resource**
+
+* **Purpose** : Filters out common population variants (SNPs) that are unlikely to be somatic mutations
+* **For yeast ALE** : You're looking for ANY mutations that arise during evolution, including what would be "germline" variants in cancer terms
+* **Reality** : No comprehensive yeast population databases exist like gnomAD for humans
+* **Recommendation** : **Omit this parameter entirely**
+* As --germline-resource is omitted, the parameter `--af-of-alleles-not-in-resource / -default-af` **is also omitted**.
+
+#### 2.**--panel-of-normals (PoN)**
+
+* **Purpose** : Identifies systematic artifacts from sequencing/sample prep that appear across multiple "normal" samples
+* **For yeast ALE** : Could theoretically be useful if you have multiple ancestral strain replicates
+* **Reality** : The effort to create a PoN may not be justified for yeast experiments
+* **Recommendation** :** ****Omit unless you have systematic artifacts to filter**
+
 
 ### **⚠️ Note: VCFTOOLS Not Run If Ploidy > 2**
 
@@ -111,12 +136,3 @@ vcf_filtered = BCFTOOLS_FILTER.out.vcf
 # Basic quality filters (no annotation dependency)
 --include "QUAL>=20 && INFO/DP>=10"
 ```
-
-#### Benefits of Basic Pre-Annotation Filtering
-
-- **Independent of annotation setup** - Works regardless of SnpEff/VEP configuration
-- **Quality-based filtering** - Focus on high-confidence variants
-- a bigger vcf channel `vcf_to_annotate.mix(vcf_to_annotate_filtered)` is created for annotation, due to the pipeline is under development, and the unfiltered but annotatied vcf files will be valuable for troubleshooting.
-- **TODO**: decide when to filter the VCF files, before or after the VCF annotation
-
-###
