@@ -9,6 +9,8 @@
 - **Status**: Needs investigation
 - **Notes**: check the impact of not using GATK filterMutect2, and if it's possible to generate in house empty db?
 
+### [Pending] channel the output to vcf_qc_bcftools_vcftools, and multiQC to a quick report...
+
 ## Completed Tasks
 - ✅ Fixed FreeBayes filtering configuration and output publishing
 - ✅ Simplified FreeBayes somatic filtering subworkflow structure

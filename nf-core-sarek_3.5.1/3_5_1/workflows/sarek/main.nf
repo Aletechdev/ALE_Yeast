@@ -805,6 +805,7 @@ workflow SAREK {
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all)
 
         //debug view mutect2 somatic vcf:
+        vcf_to_annotate.view()
         vcf_to_annotate.view { meta, vcf ->
             "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}"
         }
