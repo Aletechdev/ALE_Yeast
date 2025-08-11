@@ -93,7 +93,7 @@ include { MULTIQC                                           } from '../../module
 
 // // Basic VCF filtering
 // include {BCFTOOLS_FILTER                                    } from '../../modules/nf-core/bcftools/filter/main'
-// include {TABIX_TABIX as TABIX_VCF_FILTER                    } from '../../modules/nf-core/tabix/tabix/main'
+include {TABIX_TABIX                    } from '../../modules/nf-core/tabix/tabix/main'
 // include { VCF_FILTER_BASIC                                  } from '../../subworkflows/local/vcf_filter_basic/main
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -809,6 +809,19 @@ workflow SAREK {
         vcf_to_annotate.view { meta, vcf ->
             "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}"
         }
+        // Index VCFs for filtering (BCFTOOLS_FILTER requires indexed VCFs)
+        TABIX_TABIX(vcf_to_annotate)
+        // Combine VCF and TBI for filtering input
+        vcf_with_tbi = vcf_to_annotate.join(TABIX_TABIX.out.tbi, failOnDuplicate: true, failOnMismatch: true)
+        // // move filter FreeBayses here:
+        VCF_FILTER_FREEBAYES(vcf_with_tbi)
+
+        // update vcf_to_annotate
+        vcf_to_annotate = vcf_to_annotate.mix(VCF_FILTER_FREEBAYES.out.vcf_filtered.map{ meta, vcf, tbi ->
+            [ meta, vcf ]
+        })
+
+
         // QC on both original and filtered VCFs for comparison in reports
         VCF_QC_BCFTOOLS_VCFTOOLS(vcf_to_annotate, intervals_bed_combined)
 
@@ -863,7 +876,7 @@ workflow SAREK {
             // VCF_FILTER_FREEBAYES()
             // VCF_FILTER_FREEBAYES(VCF_ANNOTATE_ALL.out.vcf_ann)
             // versions = versions.mix(VCF_FILTER_FREEBAYES.out.versions)
-            VCF_FILTER_FREEBAYES(VCF_ANNOTATE_ALL.out.vcf_ann)
+            // VCF_FILTER_FREEBAYES(VCF_ANNOTATE_ALL.out.vcf_ann)
             
 
             // processs mutect2 output:
