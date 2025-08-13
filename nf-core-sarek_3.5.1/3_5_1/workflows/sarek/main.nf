@@ -814,7 +814,11 @@ workflow SAREK {
         // Index VCFs for filtering (BCFTOOLS_FILTER requires indexed VCFs)
         TABIX_TABIX(vcf_to_annotate)
         // Combine VCF and TBI for filtering input
-        vcf_with_tbi = vcf_to_annotate.join(TABIX_TABIX.out.tbi, failOnDuplicate: true, failOnMismatch: true)
+        // Use a more specific key including variantcaller to avoid duplicates
+        vcf_with_tbi = vcf_to_annotate
+            .map { meta, vcf -> [[meta.id, meta.variantcaller], meta, vcf] }
+            .join(TABIX_TABIX.out.tbi.map { meta, tbi -> [[meta.id, meta.variantcaller], meta, tbi] })
+            .map { key, meta1, vcf, meta2, tbi -> [meta1, vcf, tbi] }
 
         // // move filter FreeBayses here:
         VCF_FILTER_FREEBAYES(vcf_with_tbi)
