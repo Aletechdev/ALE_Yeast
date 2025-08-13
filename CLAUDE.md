@@ -88,7 +88,7 @@ It is recommended to use one: https://gatk.broadinstitute.org/hc/en-us/articles/
 
 ```yaml
 # Docs/NF_ALE/nf-core-sarek_3.5.1/3_5_1/conf/modules/modules.config
-# Got error tesing with ploidy = 3 and 4: Error: Polyploidy found, and not supported by vcftools
+# Got error tesing with ploidy = 3 and 4 with FreeBayes: Error: Polyploidy found, and not supported by vcftools
 # Tested working fine with ploidy = 1 and 2
 withName: 'VCFTOOLS_.*' {
         ext.prefix = { variant_file.baseName - ".vcf" }
@@ -101,6 +101,35 @@ withName: 'VCFTOOLS_.*' {
         ]
     }
 ```
+### ⚠️ Control-FREEC Warnings and Limitations
+
+#### Case 1: No SNP Database Provided
+**Warning: No SNP information provided for Control-FREEC analysis**
+- BAF (B-Allele Frequency) files will **not be generated**
+- Copy number analysis will proceed using **read depth only**
+- This occurs when running without a SNP database (e.g., dbSNP)
+- **Expected behavior** for custom reference genomes without curated variant databases
+
+#### Case 2: Haploid Strains (Ploidy=1)
+**Empty CNVs file causing ASSESS_SIGNIFICANCE failure**
+- Haploid strains typically produce **empty `*.gz_CNVs` files**
+- ASSESS_SIGNIFICANCE process fails with "no lines available in input" error
+- **Solution**: ASSESS_SIGNIFICANCE is **automatically skipped** when `ploidy=1`
+- Copy number analysis still proceeds using read depth ratios
+
+### ⚠️ Control-FREEC ASSESS_SIGNIFICANCE Skipped for Haploid Strains (ploidy =1)
+
+Control-FREEC's `ASSESS_SIGNIFICANCE` step is **automatically skipped when ploidy=1** because haploid strains typically produce empty `*.gz_CNVs` files, causing the R script to fail with "no lines available in input" error.
+
+**Configuration**: `conf/modules/controlfreec.config` includes:
+```yaml
+withName: 'ASSESS_SIGNIFICANCE' {
+    ext.when = { !(meta.ploidy == null || meta.ploidy.toString().toInteger() == 1) }
+    # ... rest of config
+}
+```
+
+This prevents the process from running on samples with ploidy=1, allowing the pipeline to complete successfully for haploid yeast strains. 
 
 ### Basic VCF Filtering Implementation, ***deprecated***, for idea of folders involved for making nf-sarek changes
 
