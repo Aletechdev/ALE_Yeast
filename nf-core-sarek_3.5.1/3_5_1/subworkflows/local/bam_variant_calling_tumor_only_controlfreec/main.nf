@@ -30,13 +30,17 @@ workflow BAM_VARIANT_CALLING_TUMOR_ONLY_CONTROLFREEC {
     ASSESS_SIGNIFICANCE(FREEC_TUMORONLY.out.CNV.join(FREEC_TUMORONLY.out.ratio, failOnDuplicate: true, failOnMismatch: true))
     FREEC2BED(FREEC_TUMORONLY.out.ratio)
     FREEC2CIRCOS(FREEC_TUMORONLY.out.ratio)
-    MAKEGRAPH2(FREEC_TUMORONLY.out.ratio.join(FREEC_TUMORONLY.out.BAF, failOnDuplicate: true, failOnMismatch: true))
+    // Only run MAKEGRAPH2 for samples that have BAF files
+    // This is cleaner than trying to handle empty BAF files
+    ch_ratio_with_baf = FREEC_TUMORONLY.out.ratio.join(FREEC_TUMORONLY.out.BAF)
+    
+    MAKEGRAPH2(ch_ratio_with_baf)
 
     ch_versions = ch_versions.mix(FREEC_TUMORONLY.out.versions)
     ch_versions = ch_versions.mix(ASSESS_SIGNIFICANCE.out.versions)
     ch_versions = ch_versions.mix(FREEC2BED.out.versions)
     ch_versions = ch_versions.mix(FREEC2CIRCOS.out.versions)
-    ch_versions = ch_versions.mix(MAKEGRAPH2.out.versions)
+    ch_versions = ch_versions.mix(MAKEGRAPH2.out.versions.ifEmpty([]))
 
     emit:
     versions = ch_versions
