@@ -33,6 +33,7 @@ Adapted from nf-sarek input table, it was developed for human cancer research, e
 
 For each experiment (patient) there **has to be one normal sample** (status: 0), as I am planning to use tumor-normal pairing mode of sarek, example below, but should accodimate for the edge cases where **only tumor samples are provided**, the files will be processed under a different nf-Sarek channel: `BAM_VARIANT_CALLING_TUMOR_ONLY_ALL`
 
+TODO: also need a column of sex chromosome (XX) for some CNV tools, auto-fill this info??
 ```tex
 experiment,sample,status,clonal_or_population,ploidy,lane,fastq_1,fastq_2
 ALE_Exp1,A4-F5-I1-R1,1,clonal,2,L001,SubSampleA4-5_S11_L001_R1_001.fastq.gz,SubSampleA4-5_S11_L001_R2_001.fastq.gz
@@ -50,7 +51,9 @@ Annotation tool: SnpEff, the snpeff_df is generated externally by `bin/prepare_i
 
 Issue: for channel `BAM_VARIANT_CALLING_SOMATIC_ALL` the meta data structure cheanged.
 
-TODO: add filter for FreeBayes from Somatic Call
+The filter of FreeBayes and Mutect2 somatic variants, not super elegent but need to index the normal and treated samples:
+FreeBayes: `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_freebayes_filter.config` and `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/vcf_filter_freebayes/bcftools/filter_somatic/main.nf`
+Mutect2: `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_mutect2_filter.config` and `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/vcf_filter_mutect2/bcftools/filter_somatic/main.nf`
 
 ### **⚠️ Note: BaseRecalibrator Not Applied**
 
