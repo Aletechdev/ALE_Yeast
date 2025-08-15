@@ -53,13 +53,17 @@ workflow BAM_VARIANT_CALLING_SOMATIC_CONTROLFREEC {
     ASSESS_SIGNIFICANCE(assess_significance_input)
     FREEC2BED(FREEC_SOMATIC.out.ratio)
     FREEC2CIRCOS(FREEC_SOMATIC.out.ratio)
-    MAKEGRAPH2(FREEC_SOMATIC.out.ratio.join(FREEC_SOMATIC.out.BAF, failOnDuplicate: true, failOnMismatch: true))
+    // Only run MAKEGRAPH2 for samples that have BAF files
+    // This is cleaner than trying to handle empty BAF files
+    ch_ratio_with_baf = FREEC_SOMATIC.out.ratio.join(FREEC_SOMATIC.out.BAF)
+    
+    MAKEGRAPH2(ch_ratio_with_baf)
 
     ch_versions = ch_versions.mix(FREEC_SOMATIC.out.versions)
     ch_versions = ch_versions.mix(ASSESS_SIGNIFICANCE.out.versions)
     ch_versions = ch_versions.mix(FREEC2BED.out.versions)
     ch_versions = ch_versions.mix(FREEC2CIRCOS.out.versions)
-    ch_versions = ch_versions.mix(MAKEGRAPH2.out.versions)
+    ch_versions = ch_versions.mix(MAKEGRAPH2.out.versions.ifEmpty([]))
 
     emit:
     versions = ch_versions
