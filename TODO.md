@@ -2,19 +2,36 @@
 
 ## Current Tasks
 
-### fix version error: nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf
-it could have some things to do with the filter functions do not have version report??
-ERROR ~ Could not find which method load() to invoke from this list:
-  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.io.InputStream)
-  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.io.Reader)
-  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.lang.String)
-  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.io.File)
-  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.nio.file.Path)
+### ✅ RESOLVED: YAML load() method ambiguity error - Groovy method resolution issue
 
- -- Check script '/home/azureuser/Docs/NF_ALE/nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf' at line: 97 or see '.nextflow.log' file for more details
-ERROR ~ Pipeline failed. Please refer to troubleshooting docs: https://nf-co.re/docs/usage/troubleshooting
+**Root Cause**: Groovy method resolution ambiguity (not Java version issue - Nextflow officially supports Java up to 24)
+- Environment: Nextflow 25.04.6 + Java 23.0.2 (within supported range)
+- Issue: `yaml_file` parameter has ambiguous type (could be Path, File, String, etc.), causing Groovy to fail method resolution
+- Trigger: Custom VCF filtering processes producing version files with different input types than expected
+- Location: `/nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf:113`
 
- -- Check '.nextflow.log' file for details
+**Solution Implemented**: Used explicit FileInputStream approach with proper error handling:
+```groovy
+def processVersionsFromYAML(yaml_file) {
+    // Handle null or empty files
+    if (!yaml_file || yaml_file.toString().isEmpty() || yaml_file.toString() == "[]") {
+        return ""
+    }
+    
+    def yaml = new org.yaml.snakeyaml.Yaml()
+    def path = yaml_file instanceof java.nio.file.Path ? yaml_file : java.nio.file.Paths.get(yaml_file.toString())
+    
+    // Check if file exists before trying to read it
+    if (!java.nio.file.Files.exists(path)) {
+        return ""
+    }
+    
+    def versions = yaml.load(new java.io.FileInputStream(path.toFile())).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
+    // ... rest of function
+}
+```
+
+**Status**: ✅ Fixed - Forces specific `yaml.load(InputStream)` method, eliminates ambiguity
 
 ### change mutect2 calling parameters for yeast genomes:
 Key parameters to focus on instead:
@@ -23,7 +40,6 @@ Key parameters to focus on instead:
 --max-population-af: Set to 1.0 to allow any allele frequency (important for evolution experiments)
 --downsampling-stride: Consider disabling downsampling (set to 1) for smaller yeast genomes
 
-### update freebayes and mutect2 filter parameters
 
 ### update controlfreec parameters, e.g., window for yeast
 ### move this repo to org's github repo
