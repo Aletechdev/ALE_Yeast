@@ -57,9 +57,31 @@ Mutect2: `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_mutect2_filter.config` a
 
 ### **⚠️ Note: BaseRecalibrator Not Applied**
 
-The pipeline **no longer uses GATK’s BaseRecalibrator** for base quality score recalibration (BQSR). Since our in-house reference genome lacks any curated --known-sites variant VCFs, BaseRecalibrator cannot run. it mandates at least one known-sites database to distinguish true variation from sequencing errors. https://janis.readthedocs.io/en/latest/tools/bioinformatics/gatk4/gatk4baserecalibrator.html?utm_source=chatgpt.com
+The pipeline **no longer uses GATK's BaseRecalibrator** for base quality score recalibration (BQSR). Since our in-house reference genome lacks any curated --known-sites variant VCFs, BaseRecalibrator cannot run. it mandates at least one known-sites database to distinguish true variation from sequencing errors. https://janis.readthedocs.io/en/latest/tools/bioinformatics/gatk4/gatk4baserecalibrator.html?utm_source=chatgpt.com
 
 In future, if we generate a reliable set of high-confidence variants (e.g., through bootstrapped calls), we may revisit and enable BQSR. Until then, BaseRecalibrator is retained in code base for reference only and is **not used in current analyses**.
+
+### **✅ Fixed: YAML Processing Error with Custom VCF Filters**
+
+**Issue**: Pipeline crashed with Groovy method resolution ambiguity error when processing version files from custom VCF filtering processes:
+```
+ERROR ~ Could not find which method load() to invoke from this list:
+  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.io.InputStream)
+  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.io.Reader)
+  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.lang.String)
+  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.io.File)
+  public java.lang.Object org.yaml.snakeyaml.Yaml#load(java.nio.file.Path)
+```
+
+**Root Cause**: The `processVersionsFromYAML()` function in `nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf` received version files with ambiguous input types (Path, File, String, etc.), causing Groovy to fail method resolution for `yaml.load()`.
+
+**Solution**: Modified the function to use explicit FileInputStream with proper error handling:
+- Added null/empty file validation
+- Added file existence checks  
+- Used explicit `java.io.FileInputStream(path.toFile())` to force specific method overload
+- Maintained backward compatibility with existing nf-core modules
+
+**Impact**: Custom VCF filtering processes (VCF_FILTER_FREEBAYES and VCF_FILTER_MUTECT2) now work correctly without causing pipeline crashes.
 
 ### ⚠️ Mutect2 with custom genome, omitting panel-of-normal (vcf) and germline resource (vcf)
 
