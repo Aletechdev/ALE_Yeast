@@ -835,7 +835,7 @@ workflow SAREK {
             // Filter Mutect2 VCFs
             VCF_FILTER_MUTECT2(
                 vcf_with_tbi)
-        
+            versions = versions.mix(VCF_FILTER_MUTECT2.out.versions)
 
             // update vcf_to_annotate
             vcf_to_annotate = vcf_to_annotate.mix(VCF_FILTER_MUTECT2.out.vcf_filtered.map{ meta, vcf, tbi ->
