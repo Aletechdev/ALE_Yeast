@@ -33,6 +33,33 @@ def processVersionsFromYAML(yaml_file) {
 
 **Status**: ✅ Fixed - Forces specific `yaml.load(InputStream)` method, eliminates ambiguity
 
+### ⭐ Integrate Variant Analysis Dashboard as NextFlow Process
+
+**Status**: Research dashboard system developed and tested successfully
+**Current implementation**: Standalone Python scripts in `bin/` folder
+**Goal**: Convert to NextFlow process for automated dashboard generation
+
+**Key Components Developed**:
+- ✅ `bin/create_research_dashboard.py` - Main research tool (tested with 2,968 variants)
+- ✅ `bin/summarize_variants.py` - Quick variant overview
+- ✅ `bin/organize_results.sh` - Manual review structure
+- ✅ Analysis-ready CSV outputs (sample_summary, gene_analysis, priority_variants)
+
+**Integration Tasks**:
+1. **Fix Mutect2 parsing**: Handle different VCF format (TLOD vs QUAL scores)
+2. **Create NextFlow process**: `VARIANT_DASHBOARD` with proper input/output channels
+3. **Add to main workflow**: Integration point after annotation, before reporting
+4. **CNV integration**: Include Control-FREEC results in dashboard
+5. **Documentation**: Update parameter documentation for dashboard options
+
+**Expected Output**: 
+- `research_dashboard/` directory with analysis tables
+- Cross-sample variant comparison matrices
+- Gene-level mutation burden analysis  
+- Publication-ready CSV exports
+
+**Priority**: High - Transforms raw VCFs into research-ready data following community best practices
+
 ### change mutect2 calling parameters for yeast genomes:
 Key parameters to focus on instead:
 --af-of-alleles-not-in-resource: Set this based on your expected mutation rate (default 5e-8 is reasonable for most microbes)
