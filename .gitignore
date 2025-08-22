@@ -67,7 +67,9 @@ secrets.env
 credentials.json
 
 
-data/
+data/*
+!data/data_a_paper/
+data/data_a_paper/*
 !data/data_a_paper/sub_sample/
 */output/*
 output/*
