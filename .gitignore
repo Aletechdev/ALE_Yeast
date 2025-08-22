@@ -68,6 +68,7 @@ credentials.json
 
 
 data/
+!data/data_a_paper/sub_sample/
 */output/*
 output/*
 */out/
