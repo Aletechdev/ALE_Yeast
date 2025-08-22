@@ -2,7 +2,7 @@ import os, re, csv
 from collections import defaultdict
 
 
-data_dir = "/home/azureuser/Docs/NF_ALE/data/data_a_paper/sub_sample"  # adjust to your folder
+data_dir = "/home/azureuser/Docs/ALE_nextflow/data/data_a_paper/sub_sample"  # adjust to your folder
 out_dir = data_dir # adjust to your folder
 out_file = "samplesheet.csv"
 patient_field = "ALE_Exp1" # Patient field required by Sarek, for ALE it can be the experiment name "ALE_Exp1"
@@ -24,6 +24,7 @@ status_map = {
     "A0-F0-I1-R1": 0,  # one 'normal' sample per patient/experiment
     # "SubSampleCENPK113-7D-O": 0,  # Example status mapping, adjust as needed
 }
+sex = "XX" # Yeast has not sex chromosomes, but Sarek requires this field for controlfreec
 
 # Regex pattern to match the filenames
 pattern = re.compile(r'(?P<sample>SubSample[A-Z0-9\-]+)_S\d+_L(?P<lane>\d{3})_R(?P<read>[12])_001\.fastq\.gz')
@@ -36,11 +37,11 @@ for f in os.listdir(data_dir):
     if not m: continue
     s, lane, r = m.group("sample"), m.group("lane"), m.group("read")
     key = (s, lane)
-    samples[key][f"R{r}"] = os.path.join(data_dir, f)
+    samples[key][f"R{r}"] = os.path.join("../data/data_a_paper/sub_sample", f)
 
 with open(f"{out_dir}/{out_file}", "w", newline="") as fh:
     w = csv.writer(fh)
-    w.writerow(["experiment","sample","status", "clonal_or_population","ploidy","lane","fastq_1","fastq_2"])
+    w.writerow(["experiment","sample","status","clonal_or_population","ploidy", "sex", "lane","fastq_1","fastq_2"])
     for (sample, lane), info in sorted(samples.items()):
         if not (info["R1"] and info["R2"]): continue
         # patient = sample.split('-')[0]  # e.g., 'A1' or 'B1'
@@ -50,4 +51,4 @@ with open(f"{out_dir}/{out_file}", "w", newline="") as fh:
             print(f"Sample {sample} not found in status_map, defaulting to 1 (cancer/treated)")
         patient = "ALE_Exp1"
         status = status_map.get(sample, 1)  # Default to 1 if not found # Sarek treats 1 as cancer, 0 as normal
-        w.writerow([patient, sample, status, clonal_or_population, ploidty, f"L{lane}", info["R1"], info["R2"], ])
+        w.writerow([patient, sample, status, clonal_or_population, ploidty, sex, f"L{lane}", info["R1"], info["R2"], ])
