@@ -2,7 +2,8 @@ import os, re, csv
 from collections import defaultdict
 
 
-data_dir = "/home/azureuser/Docs/ALE_nextflow/data/data_a_paper/sub_sample"  # adjust to your folder
+# data_dir = "/home/azureuser/Docs/ALE_nextflow/data/data_a_paper/sub_sample"  # adjust to your folder
+data_dir = "/home/azureuser/Docs/ALE_nextflow/data/data_a_paper"  # adjust to your folder
 out_dir = data_dir # adjust to your folder
 out_file = "samplesheet.csv"
 patient_field = "ALE_Exp1" # Patient field required by Sarek, for ALE it can be the experiment name "ALE_Exp1"
@@ -10,14 +11,24 @@ ploidty = 2  # Example ploidy, adjust as needed
 clonal_or_population = "clonal"  # Example clonal or population, adjust as needed
 
 
+# sample_name_map = {
+#     "SubSampleCENPK113-7D-N": "A0-F0-I1-R1",
+#     "SubSampleCENPK113-7D-O": "A0-F0-I2-R1",
+#     "SubSampleA1-6" : "A1-F6-I1-R1",
+#     "SubSampleA3-3" : "A3-F3-I1-R1",
+#     "SubSampleA4-5" : "A4-F5-I1-R1",
+#     "SubSampleA5-4" : "A5-F4-I1-R1",
+#     "SubSampleA6-6" : "A6-F6-I1-R1",
+#     # Add more mappings as needed
+# }
 sample_name_map = {
-    "SubSampleCENPK113-7D-N": "A0-F0-I1-R1",
-    "SubSampleCENPK113-7D-O": "A0-F0-I2-R1",
-    "SubSampleA1-6" : "A1-F6-I1-R1",
-    "SubSampleA3-3" : "A3-F3-I1-R1",
-    "SubSampleA4-5" : "A4-F5-I1-R1",
-    "SubSampleA5-4" : "A5-F4-I1-R1",
-    "SubSampleA6-6" : "A6-F6-I1-R1",
+    "CENPK113-7D-N": "A0-F0-I1-R1",
+    "CENPK113-7D-O": "A0-F0-I2-R1",
+    "A1-6" : "A1-F6-I1-R1",
+    "A3-3" : "A3-F3-I1-R1",
+    "A4-5" : "A4-F5-I1-R1",
+    "A5-4" : "A5-F4-I1-R1",
+    "A6-6" : "A6-F6-I1-R1",
     # Add more mappings as needed
 }
 status_map = {
@@ -27,7 +38,8 @@ status_map = {
 sex = "XX" # Yeast has not sex chromosomes, but Sarek requires this field for controlfreec
 
 # Regex pattern to match the filenames
-pattern = re.compile(r'(?P<sample>SubSample[A-Z0-9\-]+)_S\d+_L(?P<lane>\d{3})_R(?P<read>[12])_001\.fastq\.gz')
+# pattern = re.compile(r'(?P<sample>SubSample[A-Z0-9\-]+)_S\d+_L(?P<lane>\d{3})_R(?P<read>[12])_001\.fastq\.gz')
+pattern = re.compile(r'(?P<sample>[A-Z0-9\-]+)_S\d+_L(?P<lane>\d{3})_R(?P<read>[12])_001\.fastq\.gz')
 samples = defaultdict(lambda: {"R1": None, "R2": None})
 
 
@@ -37,7 +49,8 @@ for f in os.listdir(data_dir):
     if not m: continue
     s, lane, r = m.group("sample"), m.group("lane"), m.group("read")
     key = (s, lane)
-    samples[key][f"R{r}"] = os.path.join("../data/data_a_paper/sub_sample", f)
+    # samples[key][f"R{r}"] = os.path.join("../data/data_a_paper/sub_sample", f)
+    samples[key][f"R{r}"] = os.path.join("../data/data_a_paper", f)
 
 with open(f"{out_dir}/{out_file}", "w", newline="") as fh:
     w = csv.writer(fh)

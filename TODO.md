@@ -61,6 +61,7 @@ def processVersionsFromYAML(yaml_file) {
 **Priority**: High - Transforms raw VCFs into research-ready data following community best practices
 
 ### change mutect2 calling parameters for yeast genomes:
+with yeast genome, there is no mutation resources, As --germline-resource is omitted, the parameter `--af-of-alleles-not-in-resource / -default-af` **is also omitted**.
 Key parameters to focus on instead:
 --af-of-alleles-not-in-resource: Set this based on your expected mutation rate (default 5e-8 is reasonable for most microbes)
 --initial-tumor-lod: Lower this (e.g., to 0.5-1.0) if you want to detect very low-frequency variants early in evolution
