@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+
+import pandas as pd
+import sys
+import os
+import re
+
+def expand_read_files(df):
+    """
+    Expand rows with multiple read files (lanes) into individual rows.
+    
+    Args:
+        df (pd.DataFrame): Original dataframe
+        
+    Returns:
+        pd.DataFrame: Expanded dataframe with individual lanes
+    """
+    expanded_rows = []
+    
+    for idx, row in df.iterrows():
+        # Get the base read files
+        filename = row['filename'] if pd.notna(row['filename']) else ''
+        filename2 = row['filename2'] if pd.notna(row['filename2']) else ''
+        additional_files = row['additional read files'] if pd.notna(row['additional read files']) else ''
+        
+        # Extract lane information and create individual rows
+        if additional_files:
+            # Split additional files by comma
+            additional_list = [f.strip() for f in additional_files.split(',')]
+            
+            # Extract lane information from filenames
+            all_files = [filename, filename2] + additional_list
+            lanes = set()
+            
+            for file in all_files:
+                if file:
+                    lane_match = re.search(r'_L(\d{3})_R', file)
+                    if lane_match:
+                        lanes.add(lane_match.group(1))
+            
+            # If no lanes found, create a single entry
+            if not lanes:
+                new_row = row.copy()
+                new_row['lane'] = 'L001'
+                new_row['fastq_1'] = filename
+                new_row['fastq_2'] = filename2
+                expanded_rows.append(new_row)
+            else:
+                # Create a row for each lane
+                for lane in sorted(lanes):
+                    new_row = row.copy()
+                    new_row['lane'] = f'L{lane}'
+                    
+                    # Find R1 and R2 files for this lane
+                    r1_file = ''
+                    r2_file = ''
+                    
+                    for file in all_files:
+                        if file and f'_L{lane}_' in file:
+                            if '_R1_' in file:
+                                r1_file = file
+                            elif '_R2_' in file:
+                                r2_file = file
+                    
+                    new_row['fastq_1'] = r1_file
+                    new_row['fastq_2'] = r2_file
+                    expanded_rows.append(new_row)
+        else:
+            # Single lane case
+            new_row = row.copy()
+            lane_match = re.search(r'_L(\d{3})_R', filename) if filename else None
+            new_row['lane'] = f"L{lane_match.group(1)}" if lane_match else 'L001'
+            new_row['fastq_1'] = filename
+            new_row['fastq_2'] = filename2
+            expanded_rows.append(new_row)
+    
+    expanded_df = pd.DataFrame(expanded_rows)
+    return expanded_df
+
+def read_xpmd_csv(csv_path):
+    """
+    Read and process the XPMD CSV file from yeast methanol experiment.
+    
+    Args:
+        csv_path (str): Path to the CSV file
+        
+    Returns:
+        pd.DataFrame: Processed dataframe
+    """
+    try:
+        # Read the CSV file
+        # Read CSV, using first row as header and skipping the second row (comment/help text)
+        df = pd.read_csv(csv_path, header=0, skiprows=[1])
+        
+        # Data validation: Check for required columns with no empty values
+        required_columns = [
+            'project', 'experiment/subproject', 'project description', 'A', 'F', 'I', 'R',
+            'sample type', 'filename', 'reference file name(s)'
+        ]
+        
+        print(f"\nValidating required columns...")
+        validation_passed = True
+        
+        for col in required_columns:
+            if col not in df.columns:
+                print(f"❌ Missing column: '{col}'")
+                validation_passed = False
+            else:
+                empty_count = df[col].isna().sum() + (df[col] == '').sum()
+                if empty_count > 0:
+                    print(f"⚠️  Column '{col}' has {empty_count} empty values")
+                    empty_rows = df[df[col].isna() | (df[col] == '')].index.tolist()
+                    print(f"    Empty in rows: {empty_rows}")
+                    validation_passed = False
+                else:
+                    print(f"✓ Column '{col}' - all values populated")
+        
+        if not validation_passed:
+            print(f"\n❌ Data validation FAILED - please fix empty values before proceeding")
+            return None
+        else:
+            print(f"\n✅ Data validation PASSED - all required columns populated")
+        
+        # Display basic info about the dataset
+        print(f"Dataset shape: {df.shape}")
+        print(f"Columns: {list(df.columns)}")
+        print(f"\nFirst few rows:")
+        print(df.head())
+        
+        # Group by experiment/subproject
+        print(f"\nGrouping by 'experiment/subproject':")
+        grouped = df.groupby('experiment/subproject')
+        
+        for name, group in grouped:
+            print(f"\n--- {name} ---")
+            print(f"Number of samples: {len(group)}")
+            print(group[['A', 'F', 'I', 'R', 'sample type', 'filename', 'filename2']].head())
+            
+            # Data checkpoint: Check reference file consistency within each group
+            ref_files = group['reference file name(s)'].dropna().unique()
+            if len(ref_files) > 1:
+                print(f"⚠️  WARNING: Multiple reference files found in group '{name}':")
+                for ref in ref_files:
+                    print(f"    - {ref}")
+            elif len(ref_files) == 1:
+                print(f"✓ Reference file: {ref_files[0]}")
+            else:
+                print(f"⚠️  WARNING: No reference file specified for group '{name}'")
+        
+        # Split pairs into individual rows with lane information
+        print(f"\nExpanding read files by lanes...")
+        expanded_df = expand_read_files(df)
+        print(f"Expanded to {len(expanded_df)} rows with individual lanes")
+        print(f"\nExpanded dataframe columns: {list(expanded_df.columns)}")
+        print(f"\nSample of expanded data:")
+        print(expanded_df[['experiment/subproject', 'A', 'F', 'I', 'R', 'lane', 'fastq_1', 'fastq_2']].head(10))
+        
+        return df, grouped, expanded_df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {csv_path}")
+        return None
+    except Exception as e:
+        print(f"Error reading CSV: {e}")
+        return None
+
+def main():
+    # Path to the test CSV file
+    csv_path = "test/CopyofYeastMethanol-XPMD.csv"
+    
+    print("Reading XPMD CSV file...")
+    result = read_xpmd_csv(csv_path)
+    
+    if result is not None:
+        df, grouped, expanded_df = result
+        print("\nCSV file read, grouped, and expanded successfully!")
+    else:
+        print("Failed to read CSV file.")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
