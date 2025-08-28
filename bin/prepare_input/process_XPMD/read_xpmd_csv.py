@@ -94,7 +94,7 @@ def read_xpmd_csv(csv_path):
         
         # Data validation: Check for required columns with no empty values
         required_columns = [
-            'project', 'experiment/subproject', 'project description', 'A', 'F', 'I', 'R',
+            'project', 'experiment/subproject', 'ploidy', 'A', 'F', 'I', 'R',
             'sample type', 'filename', 'reference file name(s)'
         ]
         
@@ -164,10 +164,65 @@ def read_xpmd_csv(csv_path):
         print(f"Error reading CSV: {e}")
         return None
 
+
+def format_for_sarek(selected_sample_df, fastq_path, sex="XX"):
+    """
+    Format the selected sample dataframe to match Sarek samplesheet format.
+    
+    Args:
+        selected_sample_df (pd.DataFrame): Selected samples from XPMD data
+        fastq_path (str): Base path for fastq files
+        sex (str): Sex chromosome designation (default: "XX")
+        
+    Returns:
+        pd.DataFrame: Formatted dataframe matching samplesheet.csv structure
+    """
+    # Expand selected samples to include lanes
+    selected_expanded_df = expand_read_files(selected_sample_df)
+    
+    # Create formatted dataframe matching samplesheet.csv structure
+    formatted_df = pd.DataFrame()
+    
+    # 1. Change column "experiment/subproject" to "experiment"
+    formatted_df['experiment'] = selected_expanded_df['experiment/subproject']
+    
+    # 2. Concatenate A-F-I-R columns by "-" to format the sample name
+    formatted_df['sample'] = (
+        'A' + selected_expanded_df['A'].astype(str) + '-' +
+        'F' + selected_expanded_df['F'].astype(str) + '-' +
+        'I' + selected_expanded_df['I'].astype(str) + '-' +
+        'R' + selected_expanded_df['R'].astype(str)
+    )
+    
+    # 3. Set status: A0-F0-I1-R1 = 0 (control), others = 1 (treated)
+    formatted_df['status'] = selected_expanded_df.apply(
+        lambda row: 0 if (row['A'] == 0 and row['F'] == 0 and row['I'] == 1 and row['R'] == 1) else 1,
+        axis=1
+    )
+    
+    # Add other required columns
+    formatted_df['clonal_or_population'] = 'clonal'  # From sample type or default
+    formatted_df['ploidy'] = selected_expanded_df['ploidy']
+    formatted_df['sex'] = sex
+    formatted_df['lane'] = selected_expanded_df['lane']
+    
+    # 4. Add fastq_path to fastq_1 and fastq_2 columns
+    formatted_df['fastq_1'] = selected_expanded_df['fastq_1'].apply(
+        lambda x: os.path.join(fastq_path, x) if pd.notna(x) and x != '' else x
+    )
+    formatted_df['fastq_2'] = selected_expanded_df['fastq_2'].apply(
+        lambda x: os.path.join(fastq_path, x) if pd.notna(x) and x != '' else x
+    )
+    
+    return formatted_df
+
+
 def main():
     # Path to the test CSV file
-    csv_path = "test/CopyofYeastMethanol-XPMD.csv"
-    
+    csv_path = "test/Yeast_Methanol_XPMD.csv"
+    #TODO: change the path to the relative path of the nextflow run, or change it to a Azure path??
+    fastq_path = "/home/azureuser/Docs/ALE_nextflow/data/Yeast_methanol_RWTH/sequencing_data/Yeast_methanol_RWTH"
+    sex = "XX"
     print("Reading XPMD CSV file...")
     result = read_xpmd_csv(csv_path)
     
@@ -177,6 +232,23 @@ def main():
     else:
         print("Failed to read CSV file.")
         sys.exit(1)
+    ####
+    # for quick test, run with two samples from project NCYC495:
+    # the control A=0 F=0 I=1 R=1
+    # one treated A=10 F=47 I=2 R=1
+    selected_sample_df = df[(df['experiment/subproject'] == 'NCYC495') & (df['A'].isin([0, 10])) & (df['F'].isin([0, 47])) & (df['I'].isin([1, 2])) & (df['R'].isin([1]))]
+    print(selected_sample_df)
+
+    # format the table to be ready for sarek input:
+    formatted_df = format_for_sarek(selected_sample_df, fastq_path, sex)
+    
+    print("\nFormatted samplesheet for Sarek:")
+    print(formatted_df)
+    
+    # Save to CSV file
+    output_path = "/home/azureuser/Docs/ALE_nextflow/data/Yeast_methanol_RWTH/Ogataea_polymorpha_NCYC495/sarek_samplesheet.csv"
+    formatted_df.to_csv(output_path, index=False)
+    print(f"\nSamplesheet saved to: {output_path}")
 
 if __name__ == "__main__":
     main()

@@ -144,8 +144,10 @@ def genbank_to_gff3(gb_file, gff_file):
         output_handle.write(\"##gff-version 3\n\")
         
         for record in SeqIO.parse(input_handle, \"genbank\"):
+            # Remove version suffix from chromosome name to match FASTA
+            chrom_name = record.id.split(\".\")[0] if \".\" in record.id else record.id
             # Write sequence region
-            output_handle.write(f\"##sequence-region {record.id} 1 {len(record.seq)}\n\")
+            output_handle.write(f\"##sequence-region {chrom_name} 1 {len(record.seq)}\n\")
             
             for feature in record.features:
                 if feature.type == \"source\":
@@ -170,7 +172,7 @@ def genbank_to_gff3(gb_file, gff_file):
                 
                 # Write GFF3 line
                 attr_string = \";\".join(attributes) if attributes else \".\"
-                output_handle.write(f\"{record.id}\tGenBank\t{feature.type}\t{start}\t{end}\t.\t{strand}\t.\t{attr_string}\n\")
+                output_handle.write(f\"{chrom_name}\tGenBank\t{feature.type}\t{start}\t{end}\t.\t{strand}\t.\t{attr_string}\n\")
 
 genbank_to_gff3(\"/data/in/$(basename "$gbk_file")\", \"/data/out/$output_filename\")
 print(\"GFF3 conversion completed\", file=sys.stderr)
