@@ -55,9 +55,52 @@ Annotation tool: SnpEff, the snpeff_df is generated externally by `bin/prepare_i
 
 Issue: for channel `BAM_VARIANT_CALLING_SOMATIC_ALL` the meta data structure cheanged.
 
-The filter of FreeBayes and Mutect2 somatic variants, not super elegent but need to index the normal and treated samples:
-FreeBayes: `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_freebayes_filter.config` and `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/vcf_filter_freebayes/bcftools/filter_somatic/main.nf`
-Mutect2: `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_mutect2_filter.config` and `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/vcf_filter_mutect2/bcftools/filter_somatic/main.nf`
+### **✅ Updated: Allele Frequency-Based Somatic Filtering**
+
+**Migration from GT-based to AF-based filtering** for both FreeBayes and Mutect2 somatic variant detection:
+
+#### **Mutect2 Filtering (`vcf_filter_mutect2/bcftools/filter_somatic/main.nf`)**
+- **Strategy**: Direct AF field usage
+- **Filter criteria**:
+  - Normal sample AF < 0.10 (10%)
+  - Tumor sample AF > 0.05 (5%)
+  - AF difference > 0.05 (5%)
+  - Depth requirements: tumor ≥10, normal ≥8
+- **Implementation**: `FORMAT/AF[sample]` directly available in Mutect2 VCFs
+
+#### **FreeBayes Filtering (`vcf_filter_freebayes/bcftools/filter_somatic/main.nf`)**
+- **Strategy**: Multi-allelic splitting + calculated AF
+- **Key innovation**: Use `bcftools norm -m-` to split multi-allelic sites before filtering
+- **Filter criteria**: Same AF thresholds as Mutect2
+- **Implementation**: 
+  ```bash
+  bcftools norm -m- -O z | bcftools view \
+    -i "(FORMAT/AO[normal:0]/(FORMAT/AO[normal:0]+FORMAT/RO[normal]) < 0.10 || FORMAT/AO[normal:0] = 0) && 
+         FORMAT/AO[tumor:0]/(FORMAT/AO[tumor:0]+FORMAT/RO[tumor]) > 0.05 && ..."
+  ```
+
+#### **Multi-allelic Site Handling Example**
+**Before splitting** (position AECK01000002:547636):
+```
+REF: AGTATAC  ALT: TGTGTAT,AGTGTAC  (multi-allelic)
+AO values: AO=12,5 and AO=0,1 (comma-separated arrays)
+```
+
+**After `bcftools norm -m-` splitting**:
+```
+Record 1: AGTATAC → TGTGTAT  (AO=12, AO=0)
+Record 2: AGTATAC → AGTGTAC  (AO=5, AO=1)
+```
+
+This approach:
+- ✅ **Eliminates AO subfield complexity**: No need for sum() or complex indexing
+- ✅ **Processes all alternate alleles**: Each gets individual evaluation  
+- ✅ **Uses consistent AF thresholds**: Same filtering logic across both tools
+- ✅ **More sensitive detection**: Captures low-frequency somatic mutations
+
+**Configuration files**:
+- FreeBayes: `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_freebayes_filter.config`
+- Mutect2: `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_mutect2_filter.config`
 
 ### **⚠️ Note: BaseRecalibrator Not Applied**
 
