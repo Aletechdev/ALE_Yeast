@@ -45,13 +45,14 @@ process BCFTOOLS_FILTER_SOMATIC {
     
     # Apply quality filters first, then somatic allele frequency filters
     # FreeBayes uses AO (alternate obs) and RO (reference obs) instead of AF
-    # Calculate AF as AO/(AO+RO) for each sample
+    # Calculate AF as AO[sample:0]/(AO[sample:0]+RO[sample]) for each sample
+    # Using :0 to specify first alternate allele since AO can have multiple values
     bcftools view \\
         $args \\
         $vcf \\
         -O z \\
     | bcftools view \\
-        -i "(FORMAT/AO[\$NORMAL_IDX]/(FORMAT/AO[\$NORMAL_IDX]+FORMAT/RO[\$NORMAL_IDX]) < 0.10 || FORMAT/AO[\$NORMAL_IDX] = 0) && FORMAT/AO[\$TUMOR_IDX]/(FORMAT/AO[\$TUMOR_IDX]+FORMAT/RO[\$TUMOR_IDX]) > 0.05 && (FORMAT/AO[\$TUMOR_IDX]/(FORMAT/AO[\$TUMOR_IDX]+FORMAT/RO[\$TUMOR_IDX]) - FORMAT/AO[\$NORMAL_IDX]/(FORMAT/AO[\$NORMAL_IDX]+FORMAT/RO[\$NORMAL_IDX])) > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
+        -i "(FORMAT/AO[\$NORMAL_IDX:0]/(FORMAT/AO[\$NORMAL_IDX:0]+FORMAT/RO[\$NORMAL_IDX]) < 0.10 || FORMAT/AO[\$NORMAL_IDX:0] = 0) && FORMAT/AO[\$TUMOR_IDX:0]/(FORMAT/AO[\$TUMOR_IDX:0]+FORMAT/RO[\$TUMOR_IDX]) > 0.05 && (FORMAT/AO[\$TUMOR_IDX:0]/(FORMAT/AO[\$TUMOR_IDX:0]+FORMAT/RO[\$TUMOR_IDX]) - FORMAT/AO[\$NORMAL_IDX:0]/(FORMAT/AO[\$NORMAL_IDX:0]+FORMAT/RO[\$NORMAL_IDX])) > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
         -O z \\
         -o ${prefix}.somatic.vcf.gz
     bcftools index -t ${prefix}.somatic.vcf.gz
