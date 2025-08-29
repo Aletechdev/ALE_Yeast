@@ -40,13 +40,13 @@ process BCFTOOLS_FILTER_SOMATIC {
     echo "Tumor index: \$TUMOR_IDX" > ${prefix}.sample_order.txt
     echo "Normal index: \$NORMAL_IDX" >> ${prefix}.sample_order.txt
     
-    # Apply quality filters first, then somatic genotype filters
+    # Apply quality filters first, then somatic allele frequency filters
     bcftools view \\
         $args \\
         $vcf \\
         -O z \\
     | bcftools view \\
-        -i "GT[\$TUMOR_IDX] != '.' && GT[\$TUMOR_IDX] != '0/0' && GT[\$NORMAL_IDX] = '0/0' && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
+        -i "FORMAT/AF[\$NORMAL_IDX] < 0.10 && FORMAT/AF[\$TUMOR_IDX] > 0.05 && (FORMAT/AF[\$TUMOR_IDX] - FORMAT/AF[\$NORMAL_IDX]) > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
         -O z \\
         -o ${prefix}.somatic.vcf.gz
     bcftools index -t ${prefix}.somatic.vcf.gz
