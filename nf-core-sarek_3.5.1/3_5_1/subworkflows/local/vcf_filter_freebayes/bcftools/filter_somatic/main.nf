@@ -55,6 +55,10 @@ process BCFTOOLS_FILTER_SOMATIC {
     # 3. bcftools norm -m- splits multi-allelic records into separate single-allelic records
     # 4. After splitting, AO[sample:0] accesses the single alternate allele observation count
     # 
+    # STEP 2 DETAILS: Split multi-allelic sites into separate records  
+    # This converts variants like "A→T,G" into two records: "A→T" and "A→G"
+    # Critical for proper AO field handling since AO becomes single-valued after splitting
+    # 
     # EXAMPLE: Position AECK01000002:547636
     # Before: REF=AGTATAC ALT=TGTGTAT,AGTGTAC AO=12,5 (multi-allelic)
     # After:  Record1: REF=AGTATAC ALT=TGTGTAT AO=12 (bi-allelic)
@@ -64,28 +68,22 @@ process BCFTOOLS_FILTER_SOMATIC {
     # ========================================
     
     # STEP 1: Apply initial quality filters (from task.ext.args)
-    # Typical filters: QUAL>=20, DP>=15, MQM>=20, etc.
+    # STEP 2: Split multi-allelic sites into separate records
+    # STEP 3: Apply somatic variant filters based on allele frequencies
     bcftools view \\
         $args \\
         $vcf \\
         -O z \\
-    # STEP 2: Split multi-allelic sites into separate records  
-    # This converts variants like "A→T,G" into two records: "A→T" and "A→G"
-    # Critical for proper AO field handling since AO becomes single-valued after splitting
     | bcftools norm -m- -O z \\
-    # STEP 3: Apply somatic variant filters based on allele frequencies
-    # AF calculation: AO/(AO+RO) where AO=alternate obs, RO=reference obs
-    # After splitting, AO[sample:0] accesses the single alternate allele count
     | bcftools view \\
-        -i "(FORMAT/AO[\$NORMAL_IDX:0]/(FORMAT/AO[\$NORMAL_IDX:0]+FORMAT/RO[\$NORMAL_IDX]) < 0.10 || FORMAT/AO[\$NORMAL_IDX:0] = 0) && FORMAT/AO[\$TUMOR_IDX:0]/(FORMAT/AO[\$TUMOR_IDX:0]+FORMAT/RO[\$TUMOR_IDX]) > 0.05 && (FORMAT/AO[\$TUMOR_IDX:0]/(FORMAT/AO[\$TUMOR_IDX:0]+FORMAT/RO[\$TUMOR_IDX]) - FORMAT/AO[\$NORMAL_IDX:0]/(FORMAT/AO[\$NORMAL_IDX:0]+FORMAT/RO[\$NORMAL_IDX])) > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
+        -i "FORMAT/AO[\$TUMOR_IDX:0]/(FORMAT/AO[\$TUMOR_IDX:0]+FORMAT/RO[\$TUMOR_IDX]) > 0.05 && (FORMAT/AO[\$TUMOR_IDX:0]/(FORMAT/AO[\$TUMOR_IDX:0]+FORMAT/RO[\$TUMOR_IDX]) - FORMAT/AO[\$NORMAL_IDX:0]/(FORMAT/AO[\$NORMAL_IDX:0]+FORMAT/RO[\$NORMAL_IDX])) > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
         -O z \\
         -o ${prefix}.somatic.vcf.gz
         
     # FILTER CRITERIA EXPLANATION:
-    # 1. Normal AF < 0.10 (10%) OR AO = 0: Variant absent/rare in normal sample
-    # 2. Tumor AF > 0.05 (5%): Variant present with minimum frequency in tumor
-    # 3. AF difference > 0.05 (5%): Significant increase from normal to tumor  
-    # 4. Depth filters: Minimum coverage for reliable calling (tumor≥10, normal≥8)
+    # 1. Tumor AF > 0.05 (5%): Variant present with minimum frequency in tumor
+    # 2. AF difference > 0.05 (5%): Significant increase from normal to tumor  
+    # 3. Depth filters: Minimum coverage for reliable calling (tumor≥10, normal≥8)
     bcftools index -t ${prefix}.somatic.vcf.gz
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

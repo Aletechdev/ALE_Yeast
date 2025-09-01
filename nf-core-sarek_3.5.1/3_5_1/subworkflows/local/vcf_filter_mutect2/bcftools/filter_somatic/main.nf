@@ -40,15 +40,24 @@ process BCFTOOLS_FILTER_SOMATIC {
     echo "Tumor index: \$TUMOR_IDX" > ${prefix}.sample_order.txt
     echo "Normal index: \$NORMAL_IDX" >> ${prefix}.sample_order.txt
     
-    # Apply quality filters first, then somatic allele frequency filters
+    # Three-step filtering pipeline for Mutect2
+    # Step 1: Apply quality filters  
+    # Step 2: Split multi-allelic sites
+    # Step 3: Apply somatic AF-based filters
     bcftools view \\
         $args \\
         $vcf \\
         -O z \\
+    | bcftools norm -m- -O z \\
     | bcftools view \\
-        -i "FORMAT/AF[\$NORMAL_IDX] < 0.10 && FORMAT/AF[\$TUMOR_IDX] > 0.05 && (FORMAT/AF[\$TUMOR_IDX] - FORMAT/AF[\$NORMAL_IDX]) > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
+        -i "FORMAT/AF[\$TUMOR_IDX:0] > 0.05 && (FORMAT/AF[\$TUMOR_IDX:0] - FORMAT/AF[\$NORMAL_IDX:0]) > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
         -O z \\
         -o ${prefix}.somatic.vcf.gz
+        
+    # FILTER CRITERIA EXPLANATION:
+    # 1. Tumor AF > 0.05 (5%): Variant present with minimum frequency in tumor
+    # 2. AF difference > 0.05 (5%): Significant increase from normal to tumor  
+    # 3. Depth filters: Minimum coverage for reliable calling (tumor≥10, normal≥8)
     bcftools index -t ${prefix}.somatic.vcf.gz
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
