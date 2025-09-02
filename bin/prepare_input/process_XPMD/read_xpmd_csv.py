@@ -34,9 +34,12 @@ def expand_read_files(df):
             
             for file in all_files:
                 if file:
-                    lane_match = re.search(r'_L(\d{3})_R', file)
+                    # Extract both sample index and lane: S{X}_L{X}
+                    lane_match = re.search(r'_S(\d+)_L(\d{3})_R', file)
                     if lane_match:
-                        lanes.add(lane_match.group(1))
+                        sample_idx = lane_match.group(1)
+                        lane_num = lane_match.group(2)
+                        lanes.add(f"S{sample_idx}_L{lane_num}")
             
             # If no lanes found, create a single entry
             if not lanes:
@@ -49,14 +52,17 @@ def expand_read_files(df):
                 # Create a row for each lane
                 for lane in sorted(lanes):
                     new_row = row.copy()
-                    new_row['lane'] = f'L{lane}'
+                    new_row['lane'] = lane  # Already in format "S{X}_L{X}"
                     
                     # Find R1 and R2 files for this lane
                     r1_file = ''
                     r2_file = ''
                     
+                    # Extract just the lane part for matching (e.g., "L001" from "S27_L001")
+                    lane_part = lane.split('_L')[1]  # Get "001" from "S27_L001"
+                    
                     for file in all_files:
-                        if file and f'_L{lane}_' in file:
+                        if file and f'_L{lane_part}_' in file and f'_{lane.split("_")[0]}_' in file:
                             if '_R1_' in file:
                                 r1_file = file
                             elif '_R2_' in file:
@@ -68,8 +74,16 @@ def expand_read_files(df):
         else:
             # Single lane case
             new_row = row.copy()
-            lane_match = re.search(r'_L(\d{3})_R', filename) if filename else None
-            new_row['lane'] = f"L{lane_match.group(1)}" if lane_match else 'L001'
+            if filename:
+                lane_match = re.search(r'_S(\d+)_L(\d{3})_R', filename)
+                if lane_match:
+                    sample_idx = lane_match.group(1)
+                    lane_num = lane_match.group(2)
+                    new_row['lane'] = f"S{sample_idx}_L{lane_num}"
+                else:
+                    new_row['lane'] = 'S1_L001'  # Default
+            else:
+                new_row['lane'] = 'S1_L001'  # Default
             new_row['fastq_1'] = filename
             new_row['fastq_2'] = filename2
             expanded_rows.append(new_row)
@@ -219,7 +233,7 @@ def format_for_sarek(selected_sample_df, fastq_path, sex="XX"):
 
 def main():
     # Path to the test CSV file
-    csv_path = "test/Yeast_Methanol_XPMD.csv"
+    csv_path = "test/Yeast_Methanol_XPMD_final_fixed.csv"
     #TODO: change the path to the relative path of the nextflow run, or change it to a Azure path??
     fastq_path = "/home/azureuser/Docs/ALE_nextflow/data/Yeast_methanol_RWTH/sequencing_data/Yeast_methanol_RWTH"
     sex = "XX"
