@@ -89,12 +89,3 @@ Key parameters to focus on instead:
 
 ### update controlfreec parameters, e.g., window for yeast
 
-### ✅move this repo to org's github repo
-
-### Better tracking of versioning
-
-## Completed Tasks
-
-- ✅ Fixed FreeBayes filtering configuration and output publishing
-- ✅ Simplified FreeBayes somatic filtering subworkflow structure
-- ✅ Resolved config pattern matching for BCFTOOLS_FILTER parameters
