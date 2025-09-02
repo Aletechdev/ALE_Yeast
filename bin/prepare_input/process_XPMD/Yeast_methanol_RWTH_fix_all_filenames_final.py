@@ -46,6 +46,18 @@ def get_filename_mapping(fastq_dir):
                 
                 incorrect_dl2 = f"DL-1_S{sample}_L{lane}_R{read}_001.fastq.gz"
                 mapping[incorrect_dl2] = actual_file
+            
+            # Pattern 4: NCYC495-{A|B}_S{X}_L{X}_R{X}_001.fastq.gz
+            match4 = re.match(r'NCYC495-([AB])_S(\d+)_L(\d+)_R([12])_001\.fastq\.gz', actual_file)
+            if match4:
+                replicate, sample, lane, read = match4.groups()
+                
+                # Incorrect NCYC495 patterns
+                incorrect_ncyc1 = f"NCYC495-R_S{sample}_L{lane}_R{read}_001.fastq.gz"
+                mapping[incorrect_ncyc1] = actual_file
+                
+                incorrect_ncyc2 = f"NCYC495_S{sample}_L{lane}_R{read}_001.fastq.gz"
+                mapping[incorrect_ncyc2] = actual_file
     
     return mapping
 
