@@ -5,27 +5,29 @@
 ### ✅ RESOLVED: YAML load() method ambiguity error - Groovy method resolution issue
 
 **Root Cause**: Groovy method resolution ambiguity (not Java version issue - Nextflow officially supports Java up to 24)
+
 - Environment: Nextflow 25.04.6 + Java 23.0.2 (within supported range)
 - Issue: `yaml_file` parameter has ambiguous type (could be Path, File, String, etc.), causing Groovy to fail method resolution
 - Trigger: Custom VCF filtering processes producing version files with different input types than expected
 - Location: `/nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf:113`
 
 **Solution Implemented**: Used explicit FileInputStream approach with proper error handling:
+
 ```groovy
 def processVersionsFromYAML(yaml_file) {
     // Handle null or empty files
     if (!yaml_file || yaml_file.toString().isEmpty() || yaml_file.toString() == "[]") {
         return ""
     }
-    
+  
     def yaml = new org.yaml.snakeyaml.Yaml()
     def path = yaml_file instanceof java.nio.file.Path ? yaml_file : java.nio.file.Paths.get(yaml_file.toString())
-    
+  
     // Check if file exists before trying to read it
     if (!java.nio.file.Files.exists(path)) {
         return ""
     }
-    
+  
     def versions = yaml.load(new java.io.FileInputStream(path.toFile())).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
     // ... rest of function
 }
@@ -40,27 +42,44 @@ def processVersionsFromYAML(yaml_file) {
 **Goal**: Convert to NextFlow process for automated dashboard generation
 
 **Key Components Developed**:
+
 - ✅ `bin/create_research_dashboard.py` - Main research tool (tested with 2,968 variants)
 - ✅ `bin/summarize_variants.py` - Quick variant overview
 - ✅ `bin/organize_results.sh` - Manual review structure
 - ✅ Analysis-ready CSV outputs (sample_summary, gene_analysis, priority_variants)
 
 **Integration Tasks**:
+
 1. **Fix Mutect2 parsing**: Handle different VCF format (TLOD vs QUAL scores)
 2. **Create NextFlow process**: `VARIANT_DASHBOARD` with proper input/output channels
 3. **Add to main workflow**: Integration point after annotation, before reporting
 4. **CNV integration**: Include Control-FREEC results in dashboard
 5. **Documentation**: Update parameter documentation for dashboard options
 
-**Expected Output**: 
+**Expected Output**:
+
 - `research_dashboard/` directory with analysis tables
 - Cross-sample variant comparison matrices
-- Gene-level mutation burden analysis  
+- Gene-level mutation burden analysis
 - Publication-ready CSV exports
 
 **Priority**: High - Transforms raw VCFs into research-ready data following community best practices
 
+### ⚠️ BUG: Misleading error message in samplesheet validation
+
+**Location**: `/nf-core-sarek_3.5.1/3_5_1/subworkflows/local/samplesheet_to_channel/main.nf:166`
+**Issue**: The error message "sample-sheet only contains tumor-samples, but the following tools expect at least one normal-sample" is incorrectly triggered when there are other unrelated errors (e.g., Nextflow function reference errors, syntax issues).
+
+**Root Cause**: Exception handling logic that doesn't distinguish between actual sample sheet validation failures and upstream configuration/syntax errors.
+
+**Impact**: Misleading debugging - users waste time checking sample sheets when the real issue is elsewhere (e.g., config syntax errors, missing functions).
+
+**Example**: When `custom_freebayes_filter.config` had missing comma syntax error, this tumor/normal error was shown instead of the actual syntax error.
+
+**Solution needed**: Improve exception handling to only show sample sheet errors for actual sample sheet validation issues, not for upstream configuration problems.
+
 ### change mutect2 calling parameters for yeast genomes:
+
 with yeast genome, there is no mutation resources, As --germline-resource is omitted, the parameter `--af-of-alleles-not-in-resource / -default-af` **is also omitted**.
 Key parameters to focus on instead:
 --af-of-alleles-not-in-resource: Set this based on your expected mutation rate (default 5e-8 is reasonable for most microbes)
@@ -68,15 +87,14 @@ Key parameters to focus on instead:
 --max-population-af: Set to 1.0 to allow any allele frequency (important for evolution experiments)
 --downsampling-stride: Consider disabling downsampling (set to 1) for smaller yeast genomes
 
-
 ### update controlfreec parameters, e.g., window for yeast
-### move this repo to org's github repo
 
-
+### ✅move this repo to org's github repo
 
 ### Better tracking of versioning
 
 ## Completed Tasks
+
 - ✅ Fixed FreeBayes filtering configuration and output publishing
 - ✅ Simplified FreeBayes somatic filtering subworkflow structure
 - ✅ Resolved config pattern matching for BCFTOOLS_FILTER parameters
