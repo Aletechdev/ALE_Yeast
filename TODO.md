@@ -89,3 +89,51 @@ Key parameters to focus on instead:
 
 ### update controlfreec parameters, e.g., window for yeast
 
+### ⭐ More Stringent Mutect2 Filtering Options
+
+**Current Status**: Mutect2 produces 30% more variants than FreeBayes (11,060 vs 8,488), suggesting need for more stringent filtering.
+
+**Analysis Results**:
+- 7,220 variants have low TLOD scores (6-15)
+- 2,861 variants have small AF differences (0.05-0.1) 
+- 2,801 variants have normal depth < 15
+- 1,051 variants have tumor depth < 15
+
+**Proposed Filter Options**:
+
+#### **Option 1: Conservative (Match FreeBayes Stringency)**
+```bash
+# Quality: TLOD ≥ 15 (vs current ≥ 6)
+# Depth: Normal ≥ 15, Tumor ≥ 20 (vs current ≥ 8/10)
+# AF difference: > 0.10 (vs current > 0.05)
+
+--include "INFO/TLOD >= 15 && FORMAT/DP[normal] >= 15 && FORMAT/DP[tumor] >= 20"
+# AWK filter: min_diff = 0.10
+```
+**Expected**: ~8,500 variants (similar to FreeBayes TODO: give the correct matching sample, I gave the normal/control sample by mistake...)
+
+#### **Option 2: Moderate (Balanced) - RECOMMENDED**
+```bash
+# Quality: TLOD ≥ 12 
+# Depth: Normal ≥ 12, Tumor ≥ 15
+# AF difference: > 0.08
+
+--include "INFO/TLOD >= 12 && FORMAT/DP[normal] >= 12 && FORMAT/DP[tumor] >= 15"  
+# AWK filter: min_diff = 0.08
+```
+**Expected**: ~9,500 variants (moderate reduction)
+
+#### **Option 3: High-Confidence Only**
+```bash
+# Quality: TLOD ≥ 20
+# Depth: Normal ≥ 20, Tumor ≥ 25  
+# Normal AF: ≤ 0.05 (reduce germline contamination)
+# AF difference: > 0.15
+
+--include "INFO/TLOD >= 20 && FORMAT/DP[normal] >= 20 && FORMAT/DP[tumor] >= 25 && FORMAT/AF[normal] <= 0.05"
+# AWK filter: min_diff = 0.15
+```
+**Expected**: ~6,000 variants (high-confidence only)
+
+**Implementation Location**: `/nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_mutect2_filter.config`
+
