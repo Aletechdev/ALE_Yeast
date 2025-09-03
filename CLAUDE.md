@@ -102,6 +102,31 @@ This approach:
 - FreeBayes: `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_freebayes_filter.config`
 - Mutect2: `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_mutect2_filter.config`
 
+#### **⚠️ Important: Mutect2 AF vs AD Discrepancy**
+
+**Observation**: Mutect2's reported `FORMAT/AF` values do not match simple `AD[alt]/DP` calculations:
+
+| Position | Sample | AD (ref,alt) | Reported AF | Expected AF (alt/DP) | Difference |
+|----------|--------|--------------|-------------|-------------------|------------|
+| 27882 | Normal | 80,2 | 0.033 | 0.024 | +0.009 |
+| 27882 | Tumor | 59,4 | 0.075 | 0.063 | +0.012 |
+| 27925 | Normal | 87,0 | 0.011 | 0.000 | +0.011 |
+
+**Root Cause**: Mutect2 uses **Bayesian allele frequency estimation** rather than simple count ratios:
+- Incorporates base quality scores, mapping quality, and local assembly
+- Can report non-zero AF even with zero alternate read counts
+- More sophisticated error modeling than simple AD[alt]/DP
+
+**Impact on Filtering**: 
+- Using `FORMAT/AF` in filters is correct for Mutect2
+- Direct comparison with FreeBayes AO/(AO+RO) ratios may show discrepancies
+- Mutect2 AF-based filtering may be more sensitive due to Bayesian uncertainty
+
+**Available Strand Bias Fields in Mutect2**:
+- `FORMAT/F1R2`: Forward strand reads (equivalent to FreeBayes SAF)
+- `FORMAT/F2R1`: Reverse strand reads (equivalent to FreeBayes SAR)  
+- **Suggested addition**: `FORMAT/F1R2[1:1] > 0 && FORMAT/F2R1[1:1] > 0` for strand support requirement
+
 ### **⚠️ Note: BaseRecalibrator Not Applied**
 
 The pipeline **no longer uses GATK's BaseRecalibrator** for base quality score recalibration (BQSR). Since our in-house reference genome lacks any curated --known-sites variant VCFs, BaseRecalibrator cannot run. it mandates at least one known-sites database to distinguish true variation from sequencing errors. https://janis.readthedocs.io/en/latest/tools/bioinformatics/gatk4/gatk4baserecalibrator.html?utm_source=chatgpt.com
