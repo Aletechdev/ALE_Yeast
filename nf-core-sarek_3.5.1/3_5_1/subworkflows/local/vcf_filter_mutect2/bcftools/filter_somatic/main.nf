@@ -40,24 +40,78 @@ process BCFTOOLS_FILTER_SOMATIC {
     echo "Tumor index: \$TUMOR_IDX" > ${prefix}.sample_order.txt
     echo "Normal index: \$NORMAL_IDX" >> ${prefix}.sample_order.txt
     
-    # Three-step filtering pipeline for Mutect2
+    # Multi-step filtering pipeline for Mutect2 with custom AF difference filtering
     # Step 1: Apply quality filters  
     # Step 2: Split multi-allelic sites
-    # Step 3: Apply somatic AF-based filters
+    # Step 3-4: Combined tumor AF and depth filtering
+    # Step 5: Custom AF difference filtering (bypass bcftools parsing bugs)
+    
     bcftools view \\
         $args \\
         $vcf \\
         -O z \\
     | bcftools norm -m- -O z \\
     | bcftools view \\
-        -i "FORMAT/AF[\$TUMOR_IDX:0] > 0.05 && (FORMAT/AF[\$TUMOR_IDX:0] - FORMAT/AF[\$NORMAL_IDX:0]) > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
-        -O z \\
-        -o ${prefix}.somatic.vcf.gz
+        -i "FORMAT/AF[\$TUMOR_IDX:0] > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
+        -O v \\
+        -o temp_uncompressed.vcf
+    
+    # Apply custom AF difference filter using AWK
+    awk -v tumor_idx=\$TUMOR_IDX -v normal_idx=\$NORMAL_IDX -v min_diff=0.05 '
+    BEGIN { FS="\\t"; OFS="\\t" }
+    /^#/ { print; next }
+    {
+        format_field = \$9
+        tumor_data = \$(10 + tumor_idx)
+        normal_data = \$(10 + normal_idx)
         
-    # FILTER CRITERIA EXPLANATION:
-    # 1. Tumor AF > 0.05 (5%): Variant present with minimum frequency in tumor
-    # 2. AF difference > 0.05 (5%): Significant increase from normal to tumor  
-    # 3. Depth filters: Minimum coverage for reliable calling (tumor≥10, normal≥8)
+        # Find AF field index
+        n_format = split(format_field, format_keys, ":")
+        af_idx = -1
+        for (i = 1; i <= n_format; i++) {
+            if (format_keys[i] == "AF") {
+                af_idx = i
+                break
+            }
+        }
+        
+        # If no AF field, keep the variant
+        if (af_idx == -1) {
+            print
+            next
+        }
+        
+        # Extract AF values
+        n_tumor = split(tumor_data, tumor_values, ":")
+        n_normal = split(normal_data, normal_values, ":")
+        
+        if (af_idx > n_tumor || af_idx > n_normal) {
+            print
+            next
+        }
+        
+        # Get first allele AF (split by comma)
+        split(tumor_values[af_idx], tumor_af_array, ",")
+        split(normal_values[af_idx], normal_af_array, ",")
+        
+        tumor_af = tumor_af_array[1]
+        normal_af = normal_af_array[1]
+        
+        # Check if AF difference > threshold
+        if ((tumor_af + 0) - (normal_af + 0) > min_diff) {
+            print
+        }
+    }' temp_uncompressed.vcf > temp_filtered.vcf
+    
+    # Compress using bcftools view and clean up temp files
+    bcftools view temp_filtered.vcf -O z -o ${prefix}.somatic.vcf.gz
+    rm temp_uncompressed.vcf temp_filtered.vcf
+        
+    # FILTER CRITERIA EXPLANATION (Hybrid approach to bypass bcftools bugs):
+    # Step 3-4: bcftools filters - Tumor AF > 0.05 (5%) AND depth requirements (tumor≥10, normal≥8)
+    # Step 5: Custom AWK script - AF difference filtering (tumor_AF - normal_AF) > 0.05
+    #         Bypasses bcftools FORMAT expression parsing bugs with direct VCF parsing
+    # NOTE: Using AWK with temporary files to ensure proper compression compatibility
     bcftools index -t ${prefix}.somatic.vcf.gz
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
