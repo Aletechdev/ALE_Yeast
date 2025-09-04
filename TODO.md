@@ -137,3 +137,110 @@ Key parameters to focus on instead:
 
 **Implementation Location**: `/nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_mutect2_filter.config`
 
+### ⚠️ **DISCUSSION NEEDED: Yeast ALE Variant Filtering Strategy**
+
+**Status**: Requires bench scientist input on filtering philosophy
+
+**Context**: Unlike cancer research, yeast ALE experiments have different biological questions that affect what variants should be reported. Current filtering removes variants based on cancer-focused criteria, but ALE research may have different priorities.
+
+**Key Questions for Bench Scientists**:
+
+1. **Should variants present in original strain be reported?**
+   - Cancer approach: Remove all variants present in "normal" (ancestral strain)  
+   - ALE approach: May want to track pre-existing variation, lost mutations, population changes
+
+2. **What confidence level is appropriate?**
+   - High stringency: Only clear adaptive mutations
+   - Medium stringency: Balance between sensitivity and precision  
+   - Low stringency: Complete mutational landscape including small changes
+
+**Filtering Strategy Examples** (from raw Mutect2 data):
+
+#### **Example 1: Low Confidence Variants (TLOD < 6)**
+```
+Position: AECK01000001:2758 G>A
+TLOD=5.15 NLOD=2.71 Total_DP=37
+Normal: AF=8.8% DP=9  |  Evolved: AF=7.3% DP=28
+```
+- **Conservative filter**: REMOVE (low confidence)
+- **Permissive filter**: KEEP (might be real low-frequency change)
+
+#### **Example 2: High Confidence but Present in Normal (NLOD < 0)**
+```
+Position: AECK01000001:774017 T>C  
+TLOD=35.55 NLOD=-52.37 Total_DP=35
+Normal: AF=76.2% DP=21  |  Evolved: AF=66.6% DP=14
+```
+- **Cancer-focused**: REMOVE (present in normal = germline)
+- **ALE-focused**: KEEP? (frequency change during evolution)
+
+#### **Example 3: Medium Quality Somatic-like**
+```
+Position: AECK01000001:378 G>A
+TLOD=8.13 NLOD=2.71 Total_DP=50  
+Normal: AF=9.1% DP=11  |  Evolved: AF=10.8% DP=39
+```
+- **Moderate filter**: BORDERLINE (depends on AF difference threshold)
+- **Questions**: Is 1.7% AF increase biologically meaningful?
+
+#### **Current Filter Settings** (after recent updates):
+- TLOD ≥ 12 (increased stringency)
+- Normal depth ≥ 12, Tumor depth ≥ 15
+- AF difference > 8% (increased from 5%)
+- Strand bias required (F1R2>0 & F2R1>0)
+- **No NLOD filter yet** - awaiting this discussion
+
+#### **Proposed NLOD Options**:
+1. **No NLOD filter**: Keep all variants regardless of normal presence
+2. **NLOD ≥ 0**: Remove obvious artifacts, keep potential evolutionary variants
+3. **NLOD ≥ 2**: Standard somatic filtering (like cancer)
+
+#### **Impact Analysis** (from current dataset):
+- Total raw variants: ~50,000
+- After current filters: ~4,200
+- With NLOD ≥ 0: ~4,193 (-7 artifacts)  
+- With NLOD ≥ 2: ~4,183 (-9 low confidence)
+
+**Recommendation**: Schedule meeting to discuss biological priorities and set filtering philosophy before finalizing NLOD thresholds.
+
+#### **Additional Analysis: GT-based vs AF-based Filtering**
+
+**Key Finding**: Mutect2 NEVER reports AF=0 in any sample. Minimum observed AF is ~4%.
+
+**AF Distribution in Normal Sample**:
+- AF = 0%: 0 variants (0%)
+- AF 0-5%: 12,502 variants (27.7%) - **Potential true somatic**
+- AF 5-10%: 31,513 variants (69.8%) - **Borderline/artifacts**
+- AF >10%: 1,124 variants (2.5%) - **Likely pre-existing**
+
+#### **Example 4: GT-based "True Somatic" Variants**
+```
+Position: AECK01000001:27836 G>C
+Normal: GT=0/0 AF=4.2% DP=? → Evolved: GT=0/1 AF=20.7% DP=?
+TLOD=11.63 NLOD=6.62
+```
+- **GT-based filter**: KEEP (0/0 → 0/1 = classic somatic)
+- **AF-based filter**: BORDERLINE (depends on 4.2% threshold)
+- **Biological interpretation**: Low-level contamination vs. true acquisition?
+
+#### **Example 5: Large AF Increase (Potential True Somatic)**
+```
+Position: AECK01000001:27887 A>G  
+Normal: AF=4.6% → Evolved: AF=22.4% (Δ=17.8%)
+TLOD=14.22 NLOD=5.93
+```
+- **Question**: Is 4.6% background noise or real low-level variant?
+- **ALE relevance**: Dramatic frequency increase suggests strong selection
+
+#### **Filtering Strategy Implications**:
+
+1. **Pure AF-based**: Current approach, removes variants with Normal AF > threshold
+2. **GT-based**: Remove variants where Normal GT ≠ 0/0 (more stringent)  
+3. **Hybrid**: Combine GT (0/0 → 0/1) + minimum AF difference
+
+**GT-based filtering would be MORE stringent** than current AF-based approach, focusing only on variants with clear genotype changes rather than allele frequency shifts.
+
+**Files to review**:
+- Raw data: `/output_NCYC495/variant_calling/mutect2/.../A10-F47-I1-R1_vs_A0-F0-I1-R1.mutect2.vcf.gz`
+- Current filtered: `/output_NCYC495/variant_calling_filtered/mutect2/.../...somatic.vcf.gz`
+
