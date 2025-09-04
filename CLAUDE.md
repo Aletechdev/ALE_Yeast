@@ -226,7 +226,43 @@ withName: 'ASSESS_SIGNIFICANCE' {
 }
 ```
 
-This prevents the process from running on samples with ploidy=1, allowing the pipeline to complete successfully for haploid yeast strains. 
+This prevents the process from running on samples with ploidy=1, allowing the pipeline to complete successfully for haploid yeast strains.
+
+### ⚠️ **BUG: GATK FilterMutectCalls Not Running Without Germline Resource**
+
+**Issue**: When running Mutect2 without `--germline_resource`, the GATK FilterMutectCalls process is **completely skipped**, despite the pipeline showing the warning:
+```
+WARN: If Mutect2 is specified without a germline resource, no filtering will be done.
+It is recommended to use one: https://gatk.broadinstitute.org/hc/en-us/articles/5358911630107-Mutect2
+```
+
+**Evidence**:
+- ✅ **Present in output**: `*.mutect2.vcf.gz` (raw Mutect2 calls)
+- ✅ **Present in output**: `*.mutect2.artifactprior.tar.gz` (LearnReadOrientationModel runs)
+- ❌ **Missing from output**: `*.mutect2.filtered.vcf.gz` (FilterMutectCalls output)
+- ❌ **Missing from output**: `*.filteringStats.tsv` (FilterMutectCalls statistics)
+
+**Root Cause**: The nf-core Sarek pipeline conditionally skips FilterMutectCalls when no germline resource is provided, making the generated `artifactprior` files **unused**.
+
+**Impact on This Project**:
+- **Positive**: Forces reliance on custom filtering (`VCF_FILTER_MUTECT2`), which is more appropriate for yeast ALE experiments
+- **Negative**: `LearnReadOrientationModel` runs unnecessarily, consuming compute resources without benefit
+- **Negative**: Misleading warning suggests filtering will happen when it actually doesn't
+
+**Workaround**: The custom filtering pipeline (`subworkflows/local/vcf_filter_mutect2/`) provides more appropriate filtering for yeast somatic variant calling than GATK's FilterMutectCalls would.
+
+### **⚠️ Note: GATK Processes Not Used in Current Configuration**
+
+The following GATK processes are **included in the pipeline but not actually executed** due to the missing germline resource:
+
+1. **`GATK4_FILTERMUTECTCALLS`**: Should apply artifact filtering using LearnReadOrientationModel results, but is skipped entirely
+2. **`GATK4_LEARNREADORIENTATIONMODEL`**: Runs and generates `artifactprior.tar.gz` files, but these are **never consumed** by FilterMutectCalls
+
+**Alternative**: Custom filtering workflows are used instead:
+- **Mutect2**: `subworkflows/local/vcf_filter_mutect2/` - Applies AF-based somatic filtering with strand bias requirements
+- **FreeBayes**: `subworkflows/local/vcf_filter_freebayes/` - Multi-allelic splitting with AF-based filtering
+
+These custom workflows are **more appropriate for yeast ALE experiments** than GATK's cancer-focused filtering approach. 
 
 ### ~~Basic VCF Filtering Implementation, ***deprecated***, for idea of folders involved for making nf-sarek changes~~
 
