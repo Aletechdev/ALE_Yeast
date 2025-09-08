@@ -244,3 +244,103 @@ TLOD=14.22 NLOD=5.93
 - Raw data: `/output_NCYC495/variant_calling/mutect2/.../A10-F47-I1-R1_vs_A0-F0-I1-R1.mutect2.vcf.gz`
 - Current filtered: `/output_NCYC495/variant_calling_filtered/mutect2/.../...somatic.vcf.gz`
 
+### ⚠️ **CRITICAL BUG: FreeBayes Somatic Filter Not Working Properly**
+
+**Date**: 2025-09-08
+**Status**: **URGENT - REQUIRES IMMEDIATE FIX**
+**Impact**: High - Filtered "somatic" VCFs contain variants that don't meet filtering criteria
+
+#### **Issue Summary**
+
+The FreeBayes somatic filtering pipeline is **NOT working correctly**. Analysis of the filtered output shows that many variants fail to meet the required AF difference threshold.
+
+#### **Detailed Analysis**
+
+**File analyzed**: `/home/azureuser/Docs/ALE_nextflow/output_all/variant_calling_filtered/freebayes/A1-F6-I1-R1_vs_A0-F0-I1-R1.freebayes.quality_filtered/A1-F6-I1-R1_vs_A0-F0-I1-R1.freebayes.quality_filtered.somatic.vcf.gz`
+
+**Expected behavior**: ALL variants should have `(tumor_AF - normal_AF) > 0.05`
+**Actual behavior**: Only 366/918 variants (39.9%) meet this criterion
+
+#### **Filter Compliance Analysis**
+
+| Criterion | Expected | Actual | Status |
+|-----------|----------|--------|---------|
+| Tumor AF > 0.05 | 918/918 (100%) | 918/918 (100%) | ✅ PASS |
+| AF difference > 0.05 | 918/918 (100%) | 366/918 (39.9%) | ❌ **FAIL** |
+| Tumor DP ≥ 10 | 918/918 (100%) | 918/918 (100%) | ✅ PASS |
+| Normal DP ≥ 8 | 918/918 (100%) | 918/918 (100%) | ✅ PASS |
+
+#### **Problematic Examples** (should have been filtered out)
+
+```
+chr10:38274 C→A: tumor_AF=0.195, normal_AF=0.234, difference=-0.039 ❌
+chr10:38274 C→T: tumor_AF=0.207, normal_AF=0.170, difference=0.037  ❌  
+chr10:38394 TCAA→TAAA: tumor_AF=0.148, normal_AF=0.170, difference=-0.022 ❌
+```
+
+#### **AF Difference Statistics**
+- **Mean**: 0.038 (below 0.05 threshold)
+- **Median**: 0.032 (below 0.05 threshold)
+- **Range**: -0.358 to 0.965
+- **Negative differences**: 269/918 variants (29.3%) have normal_AF > tumor_AF
+
+#### **Root Cause Investigation**
+
+**Pipeline filter command** (from VCF header):
+```bash
+bcftools view -i 'FORMAT/AO[0:0]/(FORMAT/DP[0:0]) > 0.05 && (FORMAT/AO[0:0]/(FORMAT/DP[0:0]) - FORMAT/AO[1:0]/(FORMAT/DP[1:0])) > 0.05 && FORMAT/DP[0] >= 10 && FORMAT/DP[1] >= 8'
+```
+
+**Suspected issues**:
+1. **bcftools version bug**: Possible issue with floating point calculations in bcftools 1.22
+2. **Filter expression syntax**: Potential operator precedence or parentheses issue
+3. **Multi-allelic handling**: Problems after `bcftools norm -m-` splitting
+4. **Sample indexing error**: Possible mix-up in sample indices (though sample order verified as correct)
+
+#### **Immediate Actions Required**
+
+1. **Debug the bcftools filter**:
+   - Test filter components individually 
+   - Verify floating point arithmetic in bcftools
+   - Check for known bugs in bcftools 1.22
+
+2. **Alternative filtering approach**:
+   - Consider using awk/python post-processing instead of bcftools -i
+   - Implement manual AF calculation and filtering
+
+3. **Quality control**:
+   - Add validation step to verify all filtered variants meet criteria
+   - Implement automated compliance checking in pipeline
+
+#### **Workaround Options**
+
+**Option 1: Post-processing filter**
+```bash
+# After bcftools filter, add validation step:
+bcftools query -f '%CHROM\t%POS[\t%AO\t%DP]\n' input.vcf | \
+awk 'tumor_AO/tumor_DP > 0.05 && (tumor_AO/tumor_DP - normal_AO/normal_DP) > 0.05'
+```
+
+**Option 2: Python validation**
+```python
+# Add compliance check after filtering
+def validate_somatic_filter(vcf_path):
+    # Extract AF data and verify all variants meet criteria
+    # Raise error if any variants fail compliance
+```
+
+#### **Impact Assessment**
+
+- **Research integrity**: Filtered datasets contain non-somatic variants
+- **False positives**: 552 variants incorrectly labeled as "somatic" 
+- **Publication risk**: Results based on incorrectly filtered data
+- **Pipeline reliability**: Undermines trust in automated filtering
+
+#### **Priority**: **CRITICAL** - Must be fixed before any research publication or data release
+
+#### **Next Steps**
+1. Debug bcftools filter expression (immediate)
+2. Implement temporary workaround (within 24h)
+3. Add automated compliance testing (within 48h)
+4. Update all existing filtered datasets (coordinate with research team)
+
