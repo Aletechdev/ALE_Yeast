@@ -52,12 +52,12 @@ process BCFTOOLS_FILTER_SOMATIC {
         -O z \\
     | bcftools norm -m- -O z \\
     | bcftools view \\
-        -i "FORMAT/AF[\$TUMOR_IDX:0] > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 15 && FORMAT/DP[\$NORMAL_IDX] >= 12 && FORMAT/F1R2[\$TUMOR_IDX:1] > 0 && FORMAT/F2R1[\$TUMOR_IDX:1] > 0" \\
+        -i "FORMAT/AF[\$TUMOR_IDX:0] > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8 && FORMAT/F1R2[\$TUMOR_IDX:1] > 0 && FORMAT/F2R1[\$TUMOR_IDX:1] > 0" \\
         -O v \\
         -o temp_uncompressed.vcf
     
     # Apply custom AF difference filter using AWK (TODO.md Option 2: increased from 0.05 to 0.08 for more stringent filtering)
-    awk -v tumor_idx=\$TUMOR_IDX -v normal_idx=\$NORMAL_IDX -v min_diff=0.08 '
+    awk -v tumor_idx=\$TUMOR_IDX -v normal_idx=\$NORMAL_IDX -v min_diff=0.05 '
     BEGIN { FS="\\t"; OFS="\\t" }
     /^#/ { print; next }
     {
