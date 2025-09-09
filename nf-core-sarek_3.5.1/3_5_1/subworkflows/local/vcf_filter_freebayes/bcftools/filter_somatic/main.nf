@@ -74,7 +74,7 @@ process BCFTOOLS_FILTER_SOMATIC {
         $args \\
         $vcf \\
         -O z \\
-    | bcftools norm -m- -O z \\
+    | bcftools norm -m- -a --atom-overlaps . -O z \\
     | bcftools view \\
         -i "FORMAT/AO[\$TUMOR_IDX:0]/(FORMAT/DP[\$TUMOR_IDX:0]) > 0.05 && (FORMAT/AO[\$TUMOR_IDX:0]/(FORMAT/DP[\$TUMOR_IDX:0]) - FORMAT/AO[\$NORMAL_IDX:0]/(FORMAT/DP[\$NORMAL_IDX:0])) > 0.05 && FORMAT/DP[\$TUMOR_IDX] >= 10 && FORMAT/DP[\$NORMAL_IDX] >= 8" \\
         -O z \\
