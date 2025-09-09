@@ -60,6 +60,7 @@ Issue: for channel `BAM_VARIANT_CALLING_SOMATIC_ALL` the meta data structure che
 **Migration from GT-based to AF-based filtering** for both FreeBayes and Mutect2 somatic variant detection:
 
 #### **Mutect2 Filtering (`vcf_filter_mutect2/bcftools/filter_somatic/main.nf`)**
+- **Focus on FreeBayes First**
 - **Strategy**: Direct AF field usage
 - **Filter criteria**:
   - Normal sample AF < 0.10 (10%)
