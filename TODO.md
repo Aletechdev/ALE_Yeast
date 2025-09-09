@@ -80,9 +80,8 @@ def processVersionsFromYAML(yaml_file) {
 
 ### change mutect2 calling parameters for yeast genomes:
 
-with yeast genome, there is no mutation resources, As --germline-resource is omitted, the parameter `--af-of-alleles-not-in-resource / -default-af` **is also omitted**.
-Key parameters to focus on instead:
---af-of-alleles-not-in-resource: Set this based on your expected mutation rate (default 5e-8 is reasonable for most microbes)
+with yeast genome, there is no mutation resources, As --germline-resource is omitted, the parameter 
+--af-of-alleles-not-in-resource: Set this based on your expected mutation rate (default 5e-8 is reasonable for most microbes): For other organisms, change --af-of-alleles-not-in-resource to 1/(ploidy*samples in resource). https://gatk.broadinstitute.org/hc/en-us/articles/360037593851-Mutect2 
 --initial-tumor-lod: Lower this (e.g., to 0.5-1.0) if you want to detect very low-frequency variants early in evolution
 --max-population-af: Set to 1.0 to allow any allele frequency (important for evolution experiments)
 --downsampling-stride: Consider disabling downsampling (set to 1) for smaller yeast genomes
