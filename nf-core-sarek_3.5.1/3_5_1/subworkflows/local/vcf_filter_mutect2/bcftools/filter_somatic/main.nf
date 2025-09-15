@@ -57,7 +57,7 @@ process BCFTOOLS_FILTER_SOMATIC {
         -o temp_uncompressed.vcf
     
     # Apply custom AF difference filter using AWK (TODO.md Option 2: increased from 0.05 to 0.08 for more stringent filtering)
-    awk -v tumor_idx=\$TUMOR_IDX -v normal_idx=\$NORMAL_IDX -v min_diff=0.05 '
+    awk -v tumor_idx=\$TUMOR_IDX -v normal_idx=\$NORMAL_IDX -v min_diff=0.5 '
     BEGIN { FS="\\t"; OFS="\\t" }
     /^#/ { print; next }
     {
