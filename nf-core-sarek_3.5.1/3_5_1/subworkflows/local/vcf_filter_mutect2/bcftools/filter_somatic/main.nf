@@ -24,6 +24,7 @@ process BCFTOOLS_FILTER_SOMATIC {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def af_diff_threshold = task.ext.af_diff_threshold ?: 0.50
     
     """
     # Get sample order and find indices
@@ -57,7 +58,7 @@ process BCFTOOLS_FILTER_SOMATIC {
         -o temp_uncompressed.vcf
     
     # Apply custom AF difference filter using AWK (TODO.md Option 2: increased from 0.05 to 0.08 for more stringent filtering)
-    awk -v tumor_idx=\$TUMOR_IDX -v normal_idx=\$NORMAL_IDX -v min_diff=0.5 '
+    awk -v tumor_idx=\$TUMOR_IDX -v normal_idx=\$NORMAL_IDX -v min_diff=${af_diff_threshold} '
     BEGIN { FS="\\t"; OFS="\\t" }
     /^#/ { print; next }
     {
@@ -112,8 +113,8 @@ process BCFTOOLS_FILTER_SOMATIC {
     #           - Tumor depth ≥15 (increased from 10) for better reliability  
     #           - Normal depth ≥12 (increased from 8) to match Option 2 moderate stringency
     #           - Strand bias: F1R2>0 & F2R1>0 (equivalent to FreeBayes SAF>0 & SAR>0)
-    # Step 5: Custom AWK script - AF difference filtering (tumor_AF - normal_AF) > 0.08
-    #         - Increased from 0.05 to 0.08 (Option 2) to be more stringent and closer to FreeBayes
+    # Step 5: Custom AWK script - AF difference filtering (tumor_AF - normal_AF) > ${af_diff_threshold}
+    #         - Configurable threshold for somatic variant detection
     #         - Bypasses bcftools FORMAT expression parsing bugs with direct VCF parsing
     # NOTE: Using AWK with temporary files to ensure proper compression compatibility
     bcftools index -t ${prefix}.somatic.vcf.gz

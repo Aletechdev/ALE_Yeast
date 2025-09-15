@@ -24,6 +24,7 @@ process BCFTOOLS_FILTER_SOMATIC {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def af_diff_threshold = task.ext.af_diff_threshold ?: 0.50
     
     """
     # ========================================
@@ -100,7 +101,7 @@ process BCFTOOLS_FILTER_SOMATIC {
         -o temp_uncompressed.vcf
     
     # Apply custom AF difference filter using AWK (fixes critical bug in bcftools FORMAT expression parsing)
-    awk -v tumor_idx=\$TUMOR_IDX -v normal_idx=\$NORMAL_IDX -v min_diff=0.50 '
+    awk -v tumor_idx=\$TUMOR_IDX -v normal_idx=\$NORMAL_IDX -v min_diff=${af_diff_threshold} '
     BEGIN { FS="\\t"; OFS="\\t" }
     /^#/ { print; next }
     {
@@ -157,7 +158,7 @@ process BCFTOOLS_FILTER_SOMATIC {
     #         - Tumor AF calculated as AO/(AO+RO) > 0.05
     #         - Tumor depth ≥10, Normal depth ≥8 for reliable calling
     #         - Strand bias: SAF>0 & SAR>0 (both forward/reverse strand support required)
-    # Step 4: Custom AWK script - AF difference filtering (tumor_AF - normal_AF) > 0.5
+    # Step 4: Custom AWK script - AF difference filtering (tumor_AF - normal_AF) > ${af_diff_threshold}
     #         - Fixes critical bug where bcftools FORMAT expression parsing failed
     #         - Direct VCF parsing ensures accurate AF calculations and filtering
     # NOTE: Using AWK with temporary files bypasses bcftools floating point arithmetic bugs
