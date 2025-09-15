@@ -2,6 +2,12 @@
 
 ## Current Tasks
 
+there is a bug with how freebayes AF is calculated for the multi allelic site, since the AO are split into multiple rows, the AO+RO denominator is not right... ==> a solution could be do the AF=sum(AO)/(sum(AO)+RO) first, then split the multi-allelic variants.
+
+### how about running haplotypcaller, and set all sample to status 1 (or a dedicate channel?)
+### also interested to see, how to report all samples' freebayes output into one VCF?
+### with mutect and -joint_mutect2, a experiment VCF is generated, if can enable filtFilterMutectCallser (bug?) it would be great??
+
 ### ✅ RESOLVED: YAML load() method ambiguity error - Groovy method resolution issue
 
 **Root Cause**: Groovy method resolution ambiguity (not Java version issue - Nextflow officially supports Java up to 24)
