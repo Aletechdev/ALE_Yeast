@@ -75,9 +75,7 @@ Issue: for channel `BAM_VARIANT_CALLING_SOMATIC_ALL` the meta data structure che
 - **Filter criteria**: Same AF thresholds as Mutect2
 - **Implementation**: 
   ```bash
-  bcftools norm -m- -O z | bcftools view \
-    -i "(FORMAT/AO[normal:0]/(FORMAT/AO[normal:0]+FORMAT/RO[normal]) < 0.10 || FORMAT/AO[normal:0] = 0) && 
-         FORMAT/AO[tumor:0]/(FORMAT/AO[tumor:0]+FORMAT/RO[tumor]) > 0.05 && ..."
+  bcftools norm -m- -O z | #using AWK to calculate AF and AF_diff, there seems to be a but with vcftools to interact with AF#
   ```
 
 #### **Multi-allelic Site Handling Example**
@@ -150,7 +148,7 @@ Raw Mutect2: 45,139 variants
 Final output: ~4,200 variants (90.7% total reduction)
 ```
 
-**Biological Significance**: Most Mutect2 artifacts show strand bias, making this filter crucial for distinguishing real mutations from technical artifacts in ALE experiments.
+**Biological Significance**: Most Mutect2 artifacts show mutated strand bias, making this filter crucial for distinguishing real mutations from technical artifacts in ALE experiments.
 
 ### **⚠️ Note: BaseRecalibrator Not Applied**
 
@@ -300,7 +298,7 @@ These custom workflows are **more appropriate for yeast ALE experiments** than G
 #### Implementation Steps
 
 1. **Add BCFTOOLS_FILTER module** from nf-core: `nf-core modules install bcftools/filter`
-2. **Create filter configuration** at `conf/modules/bcftools_filter.config`
+2. **Create filter configuration** at `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_mutect2_filter.config` `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/vcf_filter_mutect2/bcftools/filter_somatic/main.nf`
 3. **New channel vcf_filtered** for downstream QC and annotation
 4. **Output structure**: `variant_calling_filtered/{tool}/{sample}/`
 
@@ -308,7 +306,7 @@ These custom workflows are **more appropriate for yeast ALE experiments** than G
 
 ```nextflow
 // Around line 801 in main.nf, after:
-vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all)
+vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all) ##TODO: fix filtermutectcall, and remove this to vcf_to_annotate channel
 
 // ADD FILTERING HERE:
 include { BCFTOOLS_FILTER } from '../modules/nf-core/bcftools/filter/main'
