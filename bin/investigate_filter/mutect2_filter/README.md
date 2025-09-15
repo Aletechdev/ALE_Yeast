@@ -1,6 +1,6 @@
 # Mutect2 Filtering Strategy Investigation
 
-**Date**: 2025-01-04  
+**Date**: 2025-09-04  
 **Purpose**: Investigate filtering strategies for yeast ALE Mutect2 variants to inform bench scientist discussion  
 
 ## Overview
