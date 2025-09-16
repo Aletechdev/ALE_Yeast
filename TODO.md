@@ -17,6 +17,7 @@ also test if the starting strin name A0F0I1R1 can be named to multiple samples b
 
 ### FreeBayes: generate population table?
 
+### for the hpcaller joint germline, filter strategy, and how to flag fixed, convergent mutations.
 ### ✅ RESOLVED: YAML load() method ambiguity error - Groovy method resolution issue
 
 **Root Cause**: Groovy method resolution ambiguity (not Java version issue - Nextflow officially supports Java up to 24)
