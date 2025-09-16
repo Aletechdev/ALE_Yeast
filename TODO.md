@@ -14,7 +14,8 @@ something like: NFCORE_SAREK:SAREK:BAM_VARIANT_CALLING_GERMLINE_ALL:VCF_VARIANT_
 
 ### add a new column to sample table, call starting strain?
 also test if the starting strin name A0F0I1R1 can be named to multiple samples but different experiment
-
+### cram_variant_calling_status_normal, from quick fix to smarter fix, 
+under /home/azureuser/Docs/ALE_nextflow/nf-core-sarek_3.5.1/3_5_1/workflows/sarek/main.nf
 ### FreeBayes: generate population table?
 
 ### for the hpcaller joint germline, filter strategy, and how to flag fixed, convergent mutations.
