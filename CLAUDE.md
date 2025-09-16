@@ -204,16 +204,32 @@ It is recommended to use one: https://gatk.broadinstitute.org/hc/en-us/articles/
 * **Recommendation** :** ****Omit unless you have systematic artifacts to filter**
 
 
-### **⚠️ Note: VCFTOOLS Not Run If Ploidy > 2**
+### **⚠️ Note: VCFTOOLS Compatibility Issues and Skipping Conditions**
+
+VCFtools is **conditionally skipped** for several variant callers due to compatibility issues:
+
+#### **1. Ploidy > 2 (FreeBayes)**
+- **Error**: "Polyploidy found, and not supported by vcftools"
+- **Tested**: Works fine with ploidy = 1 and 2, fails with ploidy ≥ 3
+
+#### **2. Mutect2 Phased Genotype Format**
+- **Issue**: Mutect2 outputs phased genotypes (0|0, 0|1) instead of unphased (0/0, 0/1)
+- **Impact**: VCFtools expects standard VCF genotype format, fails with phased notation
+
+#### **3. Joint Variant Calling (HaplotypeCaller) Segmentation Fault**
+- **Issue**: VCFtools 0.1.16 crashes with **segmentation fault (exit status 139)** on joint_variant_calling.vcf.gz
+- **Evidence**: Processes 1748 sites successfully, then crashes with "Segmentation fault (core dumped)"
+- **Root cause**: Memory corruption in VCFtools when processing GATK's joint calling output format
+- **Meta values**: `id: joint_variant_calling, variantcaller: haplotypecaller, ploidy: null`
 
 ```yaml
-# Docs/NF_ALE/nf-core-sarek_3.5.1/3_5_1/conf/modules/modules.config
-# Got error tesing with ploidy = 3 and 4 with FreeBayes: Error: Polyploidy found, and not supported by vcftools
-# Tested working fine with ploidy = 1 and 2
+# nf-core-sarek_3.5.1/3_5_1/conf/modules/modules.config
 withName: 'VCFTOOLS_.*' {
         ext.prefix = { variant_file.baseName - ".vcf" }
-        ext.when   = { !(params.skip_tools && params.skip_tools.split(',').contains('vcftools')) && 
-                      (meta.ploidy == null || meta.ploidy.toString().toInteger() <= 2) }
+        ext.when   = { !(params.skip_tools && params.skip_tools.split(',').contains('vcftools')) &&
+                      (meta.ploidy == null || meta.ploidy.toString().toInteger() <= 2) &&
+                      (meta.variantcaller != 'mutect2') &&
+                      !(meta.id ==~ /.*joint_variant_calling.*/) }
         publishDir = [
             mode: params.publish_dir_mode,
             path: { "${params.outdir}/reports/vcftools/${meta.variantcaller}/${meta.id}/" },
@@ -221,6 +237,13 @@ withName: 'VCFTOOLS_.*' {
         ]
     }
 ```
+
+**Summary**: VCFtools **only runs** for:
+- ✅ **FreeBayes** individual samples (ploidy ≤ 2)
+- ✅ **HaplotypeCaller** individual samples
+- ❌ **Mutect2** (all samples) - phased genotype incompatibility
+- ❌ **Joint variant calling** - segmentation fault
+- ❌ **Any sample with ploidy > 2** - polyploidy not supported
 ### ⚠️ Control-FREEC Warnings and Limitations
 
 #### Case 1: No SNP Database Provided
