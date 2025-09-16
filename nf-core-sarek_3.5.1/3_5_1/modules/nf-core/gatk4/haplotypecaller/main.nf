@@ -41,6 +41,7 @@ process GATK4_HAPLOTYPECALLER {
     """
     gatk --java-options "-Xmx${avail_mem}M -XX:-UsePerfData" \\
         HaplotypeCaller \\
+        --sample-ploidy ${meta.ploidy ?: 2} \\
         --input $input \\
         --output ${prefix}.vcf.gz \\
         --reference $fasta \\
