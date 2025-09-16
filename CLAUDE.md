@@ -16,7 +16,7 @@
 
 1. Remote development on an Azure VM, size: D4as
 2. A conda environment is setup for running nextflow and testing the packages: `conda activate /home/azureuser/miniforge3/envs/nf-env`
-3. Selected nf-sarek's tools: [Prefer Mutect2 over Haptypocaller](reference_scripts/compass_artifact_wf-b8f488cc-c606-4f9a-8630-103f7c12f2bf_text_markdown.md)
+3. Selected nf-sarek's tools: [Prefer Mutect2 over Haptypocaller, but top task to add Haptypocaller, (fix input matrix..)](reference_scripts/compass_artifact_wf-b8f488cc-c606-4f9a-8630-103f7c12f2bf_text_markdown.md)
 4. Additional parameters: ploidy, added to the sample table as column ploidy, ploidy has been passed to `cnvkit, controlfreec,FreeBayes, Tiddit`, note that for the tool bcftools mpileup (not top listed tools), the ploidy is still 1 under `nf-core-sarek_3.5.1/3_5_1/conf/modules/ngscheckmate.config`
 5. Additional NextFlow processes: VCF filter for SNP&InDel, customized for each variant calling tool, e.g. mutect alraedy subtracted control's variants (name changed to Treated_vs_Control), FreeBaye just show all variants from treated + control.
 6. **TODO**: Develop feature of Analysis Dashboard to summarize the results:
