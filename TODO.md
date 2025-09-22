@@ -2,35 +2,9 @@
 
 ## Current Tasks
 
-### ✅ RESOLVED: Keep hard-coded cram_variant_calling_status_normal for ALE experiments
+### ✅ RESOLVED: Variant Calling Mode Strategy for ALE Experiments
 
-**Decision**: Maintain current hard-coded implementation (`cram_variant_calling_status_normal = cram_variant_calling`) at lines 685 and 690.
-
-**Rationale**: Analysis shows this approach is optimal for ALE experiments:
-- **FreeBayes**: Eliminates 95%+ noise from inappropriate somatic mode (248K → 10K variants)
-- **HaplotypeCaller**: All samples available for germline calling as intended
-- **ALE-appropriate**: Treats evolved samples as independent populations, not tumor vs normal
-- **Proven effective**: Current implementation produces clean, biologically relevant results
-
-**Previous Goal**: ~~Implement dynamic logic so that HaplotypeCaller runs on all samples as "normal" status~~
-**New Status**: Hard-coded solution is the correct approach for this use case.
-
-**Analysis Summary**:
-FreeBayes somatic mode comparison showed dramatic noise increase:
-- Somatic mode (A1-F6-I1-R1_vs_A0-F0-I1-R1): 248,248 variants
-- Normal mode (A1-F6-I1-R1): 10,965 variants
-- Normal mode (A0-F0-I1-R1): 6,641 variants
-
-**Current Implementation** (Lines 685, 690):
-```groovy
-cram_variant_calling_status_normal = cram_variant_calling
-```
-
-This hard-coded approach correctly:
-1. **Disables FreeBayes somatic mode** - prevents 95%+ noise from inappropriate tumor/normal comparisons
-2. **Enables HaplotypeCaller germline calling** - all samples treated as normal for germline variant detection
-3. **Maintains Mutect2 functionality** - still processes tumor-normal pairs appropriately
-4. **Aligns with ALE biology** - treats evolved samples as independent populations rather than tumor vs normal
+**Summary**: Hard-coded `cram_variant_calling_status_normal = cram_variant_calling` approach confirmed as optimal. FreeBayes somatic mode disabled due to 95%+ noise (248K→10K variants). Strategy documented in CLAUDE.md.
 
 ### freebayes filter AF calculation
 there is a bug with how freebayes AF is calculated for the multi allelic site, since the AO are split into multiple rows, the AO+RO denominator is not right... ==> a solution could be do the AF=sum(AO)/(sum(AO)+RO) first, then split the multi-allelic variants.

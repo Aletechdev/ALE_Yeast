@@ -129,19 +129,21 @@ workflow BAM_VARIANT_CALLING_SOMATIC_ALL {
         versions = versions.mix(BAM_VARIANT_CALLING_CNVKIT.out.versions)
     }
 
-    // FREEBAYES
-    if (tools.split(',').contains('freebayes')) {
-        BAM_VARIANT_CALLING_FREEBAYES(
-            cram,
-            dict,
-            fasta,
-            fasta_fai,
-            intervals
-        )
+    // FREEBAYES - DISABLED FOR ALE EXPERIMENTS for ALE pipeline, all samples will be run in germline mode only
+    // FreeBayes somatic mode produces excessive noise (248K vs 10K variants)
+    // ALE experiments should use FreeBayes in germline mode only
+    // if (tools.split(',').contains('freebayes')) {
+    //     BAM_VARIANT_CALLING_FREEBAYES(
+    //         cram,
+    //         dict,
+    //         fasta,
+    //         fasta_fai,
+    //         intervals
+    //     )
 
-        vcf_freebayes = BAM_VARIANT_CALLING_FREEBAYES.out.vcf
-        versions   = versions.mix(BAM_VARIANT_CALLING_FREEBAYES.out.versions)
-    }
+    //     vcf_freebayes = BAM_VARIANT_CALLING_FREEBAYES.out.vcf
+    //     versions   = versions.mix(BAM_VARIANT_CALLING_FREEBAYES.out.versions)
+    // }
 
     // MANTA
     if (tools.split(',').contains('manta')) {
