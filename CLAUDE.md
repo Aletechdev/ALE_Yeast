@@ -150,6 +150,38 @@ Final output: ~4,200 variants (90.7% total reduction)
 
 **Biological Significance**: Most Mutect2 artifacts show mutated strand bias, making this filter crucial for distinguishing real mutations from technical artifacts in ALE experiments.
 
+### **✅ Strategic Decision: Disable FreeBayes Somatic Mode for ALE Experiments**
+
+**Issue Identified**: FreeBayes somatic mode (tumor vs normal comparison) produces excessive noise inappropriate for ALE experiments:
+- **Somatic mode**: A1-F6-I1-R1_vs_A0-F0-I1-R1.freebayes.vcf.gz → 248,248 variants
+- **Germline mode**: A1-F6-I1-R1.freebayes.vcf.gz → 10,965 variants
+- **Germline mode**: A0-F0-I1-R1.freebayes.vcf.gz → 6,641 variants
+
+**Root Cause**: FreeBayes somatic calling is designed for cancer genomics (tumor vs normal tissue), not evolutionary experiments where all samples represent independent evolved populations.
+
+**Solution Implemented**:
+- **Disabled FreeBayes in somatic workflow** (`subworkflows/local/bam_variant_calling_somatic_all/main.nf:132-146`)
+- **Maintained FreeBayes in germline workflow** for clean, biologically relevant variant detection
+- **Preserved Mutect2 somatic mode** which provides appropriate tumor-normal filtering for comparison purposes
+
+**Strategic Rationale**:
+- **ALE Biology**: Each evolved sample is an independent endpoint, not a tumor-normal pair
+- **Noise Reduction**: 95%+ reduction in FreeBayes variants (248K → 10K)
+- **Tool Appropriateness**: Use each tool in its optimal mode for the experimental design
+- **Multi-tool Strategy**: FreeBayes (germline) + Mutect2 (somatic filtered) + HaplotypeCaller (germline)
+
+**Current Channel Logic**:
+- **Germline calling**: All samples processed as "normal" status (hard-coded `cram_variant_calling_status_normal = cram_variant_calling`)
+- **Somatic calling**: FreeBayes disabled, Mutect2 enabled for comparison/filtering purposes
+- **Result**: Clean, experiment-appropriate variant detection across all tools
+
+**⚠️ Pending Review: Structural Variant Tools**
+For structural variant calling tools (Manta, Strelka, TIDDIT), **review needed** to determine whether germline or somatic mode results are preferred for ALE experiments:
+- **Manta**: Currently runs in both germline and somatic modes
+- **Strelka**: Currently runs in both germline and somatic modes
+- **TIDDIT**: Currently runs in both germline and somatic modes
+- **Recommendation**: Analyze output quality and noise levels to determine optimal mode per tool
+
 ### **⚠️ Note: BaseRecalibrator Not Applied**
 
 The pipeline **no longer uses GATK's BaseRecalibrator** for base quality score recalibration (BQSR). Since our in-house reference genome lacks any curated --known-sites variant VCFs, BaseRecalibrator cannot run. it mandates at least one known-sites database to distinguish true variation from sequencing errors. https://janis.readthedocs.io/en/latest/tools/bioinformatics/gatk4/gatk4baserecalibrator.html?utm_source=chatgpt.com
