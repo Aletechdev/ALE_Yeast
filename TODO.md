@@ -2,113 +2,35 @@
 
 ## Current Tasks
 
-### ⭐ Create logic to run all samples as normal with HaplotypeCaller instead of hard-coding cram_variant_calling_status_normal
+### ✅ RESOLVED: Keep hard-coded cram_variant_calling_status_normal for ALE experiments
 
-**Current Issue**: Lines 685 and 690 in `nf-core-sarek_3.5.1/3_5_1/workflows/sarek/main.nf` have `cram_variant_calling_status_normal = cram_variant_calling` hard-coded.
+**Decision**: Maintain current hard-coded implementation (`cram_variant_calling_status_normal = cram_variant_calling`) at lines 685 and 690.
 
-**Goal**: Implement dynamic logic so that HaplotypeCaller runs on all samples as "normal" status, generating results for every sample rather than relying on the tumor/normal distinction from cancer genomics.
+**Rationale**: Analysis shows this approach is optimal for ALE experiments:
+- **FreeBayes**: Eliminates 95%+ noise from inappropriate somatic mode (248K → 10K variants)
+- **HaplotypeCaller**: All samples available for germline calling as intended
+- **ALE-appropriate**: Treats evolved samples as independent populations, not tumor vs normal
+- **Proven effective**: Current implementation produces clean, biologically relevant results
 
-**Implementation Options**:
+**Previous Goal**: ~~Implement dynamic logic so that HaplotypeCaller runs on all samples as "normal" status~~
+**New Status**: Hard-coded solution is the correct approach for this use case.
 
-#### Option 1: Channel Mapping (Cleanest)
+**Analysis Summary**:
+FreeBayes somatic mode comparison showed dramatic noise increase:
+- Somatic mode (A1-F6-I1-R1_vs_A0-F0-I1-R1): 248,248 variants
+- Normal mode (A1-F6-I1-R1): 10,965 variants
+- Normal mode (A0-F0-I1-R1): 6,641 variants
+
+**Current Implementation** (Lines 685, 690):
 ```groovy
-// Replace hard-coded lines with dynamic mapping
-cram_variant_calling_status_normal = cram_variant_calling.map { meta, cram, crai ->
-    def new_meta = meta.clone()
-    new_meta.status = 0  // Force all samples to normal status for germline calling
-    return [new_meta, cram, crai]
-}
+cram_variant_calling_status_normal = cram_variant_calling
 ```
 
-#### Option 2: Conditional Logic Based on Tools
-```groovy
-// Only apply "all as normal" logic when HaplotypeCaller is in tools list
-if (params.tools && params.tools.split(',').contains('haplotypecaller')) {
-    cram_variant_calling_status_normal = cram_variant_calling.map { meta, cram, crai ->
-        def new_meta = meta.clone()
-        new_meta.status = 0
-        return [new_meta, cram, crai]
-    }
-} else {
-    cram_variant_calling_status_normal = cram_variant_calling_status.normal
-}
-```
-
-#### Option 3: Parameter-Controlled (RECOMMENDED)
-```groovy
-// Add to nextflow.config: params.haplotypecaller_all_as_normal = true
-if (params.haplotypecaller_all_as_normal) {
-    cram_variant_calling_status_normal = cram_variant_calling.map { meta, cram, crai ->
-        def new_meta = meta.clone()
-        new_meta.status = 0
-        new_meta.id = "${meta.id}_as_normal"  // Optional: modify ID to reflect change
-        return [new_meta, cram, crai]
-    }
-} else {
-    // Original nf-core logic
-    if (params.only_paired_variant_calling) {
-        cram_variant_calling_status_normal = cram_variant_calling_normal_filtered.map{ it -> [it[1], it[2], it[3]] }
-    } else {
-        cram_variant_calling_status_normal = cram_variant_calling_status.normal
-    }
-}
-```
-
-#### Option 5: Separate Channel for HaplotypeCaller (CLEANEST - NEW RECOMMENDATION)
-```groovy
-// Keep original logic for all other tools
-if (params.only_paired_variant_calling) {
-    cram_variant_calling_status_normal = cram_variant_calling_normal_filtered.map{ it -> [it[1], it[2], it[3]] }
-} else {
-    cram_variant_calling_status_normal = cram_variant_calling_status.normal
-}
-
-// Create separate channel specifically for HaplotypeCaller germline calling
-// This ensures only HaplotypeCaller treats all samples as normal
-cram_variant_calling_haplotypecaller_germline = cram_variant_calling.map { meta, cram, crai ->
-    def germline_meta = meta.clone()
-    germline_meta.status = 0
-    germline_meta.variantcaller = 'haplotypecaller'
-    return [germline_meta, cram, crai]
-}
-
-// Modify BAM_VARIANT_CALLING_GERMLINE_ALL call to use the new channel
-// Replace line 713: cram_variant_calling_status_normal,
-// With: cram_variant_calling_haplotypecaller_germline,
-```
-
-**Benefits of Option 5**:
-- **No parameter needed** - always works correctly
-- **Preserves original nf-core logic** for tumor/normal tools (Mutect2, FreeBayes)
-- **HaplotypeCaller-specific** - only affects germline calling
-- **Clear separation** - different channels for different purposes
-- **No conditional logic** - simpler and more maintainable
-
-#### Option 4: ALE-Specific Logic
-```groovy
-// All samples as normal for HaplotypeCaller (ALE-specific)
-cram_variant_calling_status_normal = cram_variant_calling.map { meta, cram, crai ->
-    def germline_meta = meta.clone()
-    germline_meta.status = 0
-    germline_meta.variantcaller = 'haplotypecaller_germline'  // Track the purpose
-    return [germline_meta, cram, crai]
-}
-```
-
-**NEW RECOMMENDATION**: Use Option 5 (Separate Channel) because:
-- **No side effects** on other variant callers (Mutect2, FreeBayes keep tumor/normal logic)
-- **Surgical precision** - only affects HaplotypeCaller germline calling
-- **Simpler code** - no conditional logic or parameters needed
-- **Clear intent** - separate channel makes purpose obvious
-- **Maintains nf-core compatibility** - doesn't change existing channel behavior
-
-**Implementation Steps for Option 5**:
-1. Remove hard-coded lines (685, 690) and restore original nf-core logic
-2. Add new channel: `cram_variant_calling_haplotypecaller_germline`
-3. Modify BAM_VARIANT_CALLING_GERMLINE_ALL call to use new channel (line 713)
-4. Test that Mutect2/FreeBayes still use proper tumor/normal distinction
-
-**Locations**: `/home/azureuser/Docs/ALE_nextflow/nf-core-sarek_3.5.1/3_5_1/workflows/sarek/main.nf:685,690`
+This hard-coded approach correctly:
+1. **Disables FreeBayes somatic mode** - prevents 95%+ noise from inappropriate tumor/normal comparisons
+2. **Enables HaplotypeCaller germline calling** - all samples treated as normal for germline variant detection
+3. **Maintains Mutect2 functionality** - still processes tumor-normal pairs appropriately
+4. **Aligns with ALE biology** - treats evolved samples as independent populations rather than tumor vs normal
 
 ### freebayes filter AF calculation
 there is a bug with how freebayes AF is calculated for the multi allelic site, since the AO are split into multiple rows, the AO+RO denominator is not right... ==> a solution could be do the AF=sum(AO)/(sum(AO)+RO) first, then split the multi-allelic variants.
