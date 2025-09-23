@@ -2,11 +2,8 @@
 
 ## Current Tasks
 
-### ✅ RESOLVED: Variant Calling Mode Strategy for ALE Experiments
-
-**Summary**: Hard-coded `cram_variant_calling_status_normal = cram_variant_calling` approach confirmed as optimal. FreeBayes somatic mode disabled due to 95%+ noise (248K→10K variants). Strategy documented in CLAUDE.md.
-
 ### freebayes filter AF calculation
+==> prioritize improving freebayes germline filter first, somatic mode disabled for now
 there is a bug with how freebayes AF is calculated for the multi allelic site, since the AO are split into multiple rows, the AO+RO denominator is not right... ==> a solution could be do the AF=sum(AO)/(sum(AO)+RO) first, then split the multi-allelic variants.
 
 ### haplotypecaller joint-report, sill run the cnn filter?
@@ -23,38 +20,41 @@ under /home/azureuser/Docs/ALE_nextflow/nf-core-sarek_3.5.1/3_5_1/workflows/sare
 ### FreeBayes: generate population table?
 
 ### for the hpcaller joint germline, filter strategy, and how to flag fixed, convergent mutations.
-### ✅ RESOLVED: YAML load() method ambiguity error - Groovy method resolution issue
 
-**Root Cause**: Groovy method resolution ambiguity (not Java version issue - Nextflow officially supports Java up to 24)
+### ⭐ Implement Joint FreeBayes Population Calling, 
 
-- Environment: Nextflow 25.04.6 + Java 23.0.2 (within supported range)
-- Issue: `yaml_file` parameter has ambiguous type (could be Path, File, String, etc.), causing Groovy to fail method resolution
-- Trigger: Custom VCF filtering processes producing version files with different input types than expected
-- Location: `/nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf:113`
+**Goal**: Create elegant joint FreeBayes calling following HaplotypeCaller's pattern (line 142 in `bam_variant_calling_germline_all/main.nf`)
 
-**Solution Implemented**: Used explicit FileInputStream approach with proper error handling:
+**Current Issue**: FreeBayes only produces individual sample VCFs under germline mode, requiring post-processing to merge into population VCF for ALE analysis. adjust: first filter individual germline mode output, then merge
 
+**Proposed Implementation**:
 ```groovy
-def processVersionsFromYAML(yaml_file) {
-    // Handle null or empty files
-    if (!yaml_file || yaml_file.toString().isEmpty() || yaml_file.toString() == "[]") {
-        return ""
-    }
-  
-    def yaml = new org.yaml.snakeyaml.Yaml()
-    def path = yaml_file instanceof java.nio.file.Path ? yaml_file : java.nio.file.Paths.get(yaml_file.toString())
-  
-    // Check if file exists before trying to read it
-    if (!java.nio.file.Files.exists(path)) {
-        return ""
-    }
-  
-    def versions = yaml.load(new java.io.FileInputStream(path.toFile())).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
-    // ... rest of function
+if (joint_freebayes) {
+    BAM_JOINT_CALLING_FREEBAYES(
+        BAM_VARIANT_CALLING_FREEBAYES.out.vcf_all_samples, // Collect all individual VCFs
+        fasta,
+        fasta_fai,
+        dict
+    )
+    vcf_freebayes_joint = BAM_JOINT_CALLING_FREEBAYES.out.joint_vcf
 }
 ```
 
-**Status**: ✅ Fixed - Forces specific `yaml.load(InputStream)` method, eliminates ambiguity
+**Implementation Tasks**:
+1. **Add parameter**: `params.joint_freebayes` to nextflow config
+2. **Create subworkflow**: `subworkflows/local/bam_joint_calling_freebayes/main.nf`
+3. **Use bcftools merge**: Combine individual FreeBayes VCFs into population VCF
+4. **Channel logic**: Similar to HaplotypeCaller's `gvcf_tbi_intervals` collection
+5. **Update main workflow**: Add conditional joint calling logic in `bam_variant_calling_germline_all/main.nf`
+
+**Benefits**:
+- **Consistent API**: Same pattern as HaplotypeCaller joint calling
+- **Parameter-controlled**: `--joint_freebayes` flag for user control
+- **Population genetics**: Proper allele frequency calculations across all samples
+- **ALE-appropriate**: Single population VCF showing evolutionary trajectories
+- **nf-core compliant**: Follows established pipeline patterns
+
+**Priority**: Medium - Provides elegant solution for population analysis without post-processing
 
 ### ⭐ Integrate Variant Analysis Dashboard as NextFlow Process
 
@@ -115,6 +115,47 @@ with yeast genome, there is no mutation resources, As --germline-resource is omi
 
 **Analysis Results**:
 - 7,220 variants have low TLOD scores (6-15)
-- 2,861 variants have small AF differences (0.05-0.1) 
+- 2,861 variants have small AF differences (0.05-0.1)
 - 2,801 variants have normal depth < 15
 - 1,051 variants have tumor depth < 15
+
+---
+
+## Completed Tasks
+
+### ✅ Variant Calling Mode Strategy for ALE Experiments
+
+**Summary**: Hard-coded `cram_variant_calling_status_normal = cram_variant_calling` approach confirmed as optimal. FreeBayes somatic mode disabled due to 95%+ noise (248K→10K variants). Strategy documented in CLAUDE.md.
+
+### ✅ YAML load() method ambiguity error - Groovy method resolution issue
+
+**Root Cause**: Groovy method resolution ambiguity (not Java version issue - Nextflow officially supports Java up to 24)
+
+- Environment: Nextflow 25.04.6 + Java 23.0.2 (within supported range)
+- Issue: `yaml_file` parameter has ambiguous type (could be Path, File, String, etc.), causing Groovy to fail method resolution
+- Trigger: Custom VCF filtering processes producing version files with different input types than expected
+- Location: `/nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf:113`
+
+**Solution Implemented**: Used explicit FileInputStream approach with proper error handling:
+
+```groovy
+def processVersionsFromYAML(yaml_file) {
+    // Handle null or empty files
+    if (!yaml_file || yaml_file.toString().isEmpty() || yaml_file.toString() == "[]") {
+        return ""
+    }
+
+    def yaml = new org.yaml.snakeyaml.Yaml()
+    def path = yaml_file instanceof java.nio.file.Path ? yaml_file : java.nio.file.Paths.get(yaml_file.toString())
+
+    // Check if file exists before trying to read it
+    if (!java.nio.file.Files.exists(path)) {
+        return ""
+    }
+
+    def versions = yaml.load(new java.io.FileInputStream(path.toFile())).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
+    // ... rest of function
+}
+```
+
+**Status**: ✅ Fixed - Forces specific `yaml.load(InputStream)` method, eliminates ambiguity
