@@ -680,10 +680,14 @@ workflow SAREK {
             cram_variant_calling_normal_filtered = cram_variant_calling_normal_joined.filter{ it ->  !(it.last()) }
 
             // 3. Remove patient ID field & null value for further processing [ meta1, [ cram1, crai1 ] ] [ meta2, [ cram2, crai2 ] ] (no transposing needed since only one normal per patient ID)
-            cram_variant_calling_status_normal = cram_variant_calling_normal_filtered.map{ it -> [it[1], it[2], it[3]] }
+            // cram_variant_calling_status_normal = cram_variant_calling_normal_filtered.map{ it -> [it[1], it[2], it[3]] }
+            // hard fix to get all samples run as normal mode
+            cram_variant_calling_status_normal = cram_variant_calling
 
         } else {
-            cram_variant_calling_status_normal = cram_variant_calling_status.normal
+            // cram_variant_calling_status_normal = cram_variant_calling_status.normal
+            // hard fix to get all samples run as normal mode
+            cram_variant_calling_status_normal = cram_variant_calling
         }
 
         // Tumor - normal pairs

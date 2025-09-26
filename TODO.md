@@ -1,8 +1,8 @@
 # NF_ALE Project TODO List
 
 ## Current Tasks
-
-### freebayes filter AF calculation
+### filter population VCFs from mutect2 and haplotypcaller: /home/azureuser/Docs/ALE_nextflow/bin/compare_mutect2_HpCaller/CENPK_all/paper_a_benchmark/README.md
+### freebayes filter AF calculation (maybe no more AF based filter??)
 ==> prioritize improving freebayes germline filter first, somatic mode disabled for now
 there is a bug with how freebayes AF is calculated for the multi allelic site, since the AO are split into multiple rows, the AO+RO denominator is not right... ==> a solution could be do the AF=sum(AO)/(sum(AO)+RO) first, then split the multi-allelic variants.
 
