@@ -174,19 +174,28 @@ workflow BAM_VARIANT_CALLING_SOMATIC_MUTECT2 {
 
     CALCULATECONTAMINATION(ch_calculatecontamination_in_tables)
 
-    // Initialize empty channel: Contamination calculation is run on pileup table, pileup is not run if germline resource is not provided
-    calculatecontamination_out_seg = Channel.empty()
-    calculatecontamination_out_cont = Channel.empty()
-
-    if (joint_mutect2) {
-        // Reduce the meta to only patient name
-        calculatecontamination_out_seg = CALCULATECONTAMINATION.out.segmentation.map{ meta, seg -> [ meta + [id: meta.patient], seg]}.groupTuple()
-        calculatecontamination_out_cont = CALCULATECONTAMINATION.out.contamination.map{ meta, cont -> [ meta + [id: meta.patient], cont]}.groupTuple()
-    }
-    else {
-        // Keep tumor_vs_normal ID
-        calculatecontamination_out_seg = CALCULATECONTAMINATION.out.segmentation
-        calculatecontamination_out_cont = CALCULATECONTAMINATION.out.contamination
+    // Handle contamination channels: provide placeholders when no germline resource
+    if (!(germline_resource && germline_resource_tbi)) {
+        // No germline resource provided - create placeholder channels for FilterMutectCalls
+        if (joint_mutect2) {
+            calculatecontamination_out_seg = vcf.map{ meta, vcf -> [ meta + [id: meta.patient], [] ] }
+            calculatecontamination_out_cont = vcf.map{ meta, vcf -> [ meta + [id: meta.patient], [] ] }
+        } else {
+            calculatecontamination_out_seg = vcf.map{ meta, vcf -> [ meta, [] ] }
+            calculatecontamination_out_cont = vcf.map{ meta, vcf -> [ meta, [] ] }
+        }
+    } else {
+        // Germline resource available - use actual contamination results
+        if (joint_mutect2) {
+            // Reduce the meta to only patient name
+            calculatecontamination_out_seg = CALCULATECONTAMINATION.out.segmentation.map{ meta, seg -> [ meta + [id: meta.patient], seg]}.groupTuple()
+            calculatecontamination_out_cont = CALCULATECONTAMINATION.out.contamination.map{ meta, cont -> [ meta + [id: meta.patient], cont]}.groupTuple()
+        }
+        else {
+            // Keep tumor_vs_normal ID
+            calculatecontamination_out_seg = CALCULATECONTAMINATION.out.segmentation
+            calculatecontamination_out_cont = CALCULATECONTAMINATION.out.contamination
+        }
     }
 
     // Mutect2 calls filtered by filtermutectcalls using the artifactpriors, contamination and segmentation tables
