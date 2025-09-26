@@ -564,3 +564,30 @@ VARIANT_DASHBOARD(
 ```
 
 This dashboard system transforms raw VCF complexity into **publication-ready research data**, following community standards while maintaining ALE-specific biological focus.
+
+
+## Pipeline Merger Decision - Reminder
+### Two Pipeline Architectures
+#### AMP v1 (Legacy ALE Pipeline)
+
+Input: Individual CSV files per sample
+Annotation: GenBank (.gb) files
+Tools: breseq + GATK + CNVnator
+Target: Bacterial ALE experiments (haploid)
+Deployment: Azure Batch → migrating to Nextflow
+
+#### Customer Sarek Pipeline
+
+Input: Population CSV table
+Annotation: SnpEff cache + FASTQ
+Tools: Standard Sarek workflow (GATK-based)
+Target: Eukaryotic ALE experiments
+Deployment: Nextflow
+Decision Required
+
+#### ⚠️ INVESTIGATE BEFORE PROCEEDING:
+
+Merger Feasibility: Can GenBank and SnpEff annotation systems coexist?
+Tool Integration: How to incorporate breseq into Sarek architecture?
+Input Standardization: Worth converging to population CSV format?
+Maintenance Trade-offs: One complex pipeline vs two focused pipelines?
