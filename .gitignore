@@ -43,6 +43,7 @@ dag.png
 # VSCode and JetBrains IDE settings
 .vscode/
 .idea/
+*.code-workspace
 
 # Test/coverage tools
 .coverage
@@ -80,3 +81,5 @@ output_NCYC495/
 output_quick_test_NCYC495/
 work_CENPK/
 work_NCYC495/
+work_CENPK_subset/
+bin/investigate_filter/
