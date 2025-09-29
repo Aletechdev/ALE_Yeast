@@ -13,6 +13,7 @@ include { GATK4_MERGEVCFS           as MERGE_GENOTYPEGVCFS       } from '../../.
 include { GATK4_MERGEVCFS           as MERGE_VQSR                } from '../../../modules/nf-core/gatk4/mergevcfs/main'
 include { GATK4_VARIANTRECALIBRATOR as VARIANTRECALIBRATOR_INDEL } from '../../../modules/nf-core/gatk4/variantrecalibrator/main'
 include { GATK4_VARIANTRECALIBRATOR as VARIANTRECALIBRATOR_SNP   } from '../../../modules/nf-core/gatk4/variantrecalibrator/main'
+include { GATK4_VARIANTFILTRATION   as VARIANTFILTRATION_HARD    } from '../../../modules/nf-core/gatk4/variantfiltration/main'
 
 workflow BAM_JOINT_CALLING_GERMLINE_GATK {
     take:
@@ -65,6 +66,14 @@ workflow BAM_JOINT_CALLING_GERMLINE_GATK {
     indels_resource_label = known_indels_vqsr.mix(dbsnp_vqsr).collect()
     snps_resource_label = known_snps_vqsr.mix(dbsnp_vqsr).collect()
 
+    // Hard filtering as fallback when VQSR fails
+    VARIANTFILTRATION_HARD(
+        vqsr_input,
+        fasta.map{ meta, fasta -> [ fasta ] },
+        fai.map{ meta, fai -> [ fai ] },
+        dict.map{ meta, dict -> [ dict ] },
+        [[:], []])
+
     // Recalibrate INDELs and SNPs separately
     VARIANTRECALIBRATOR_INDEL(
         vqsr_input,
@@ -116,33 +125,37 @@ workflow BAM_JOINT_CALLING_GERMLINE_GATK {
         dict.map{ meta, dict -> [ dict ] })
 
 
-    // The following is an ugly monster to achieve the following:
-    // When MERGE_GENOTYPEGVCFS and GATK4_APPLYVQSR are run, then use output from APPLYVQSR
-    // When MERGE_GENOTYPEGVCFS and NOT GATK4_APPLYVQSR , then use the output from MERGE_GENOTYPEGVCFS
+    // The following logic determines output priority:
+    // 1st priority: VQSR filtered VCF (if VQSR succeeds)
+    // 2nd priority: Hard filtered VCF (fallback when VQSR fails)
+    // 3rd priority: Unfiltered VCF (should not happen with our implementation)
 
     merge_vcf_for_join = MERGE_GENOTYPEGVCFS.out.vcf.map{meta, vcf -> [[id: 'joint_variant_calling'] , vcf]}
     merge_tbi_for_join = MERGE_GENOTYPEGVCFS.out.tbi.map{meta, tbi -> [[id: 'joint_variant_calling'] , tbi]}
 
-    // Remap for both to have the same key, if ApplyBQSR is not run, the channel is empty --> populate with empty elements
+    // Remap for both to have the same key, if ApplyVQSR is not run, the channel is empty --> populate with empty elements
     vqsr_vcf_for_join = GATK4_APPLYVQSR_INDEL.out.vcf.ifEmpty([[:], []]).map{meta, vcf -> [[id: 'joint_variant_calling'] , vcf]}
     vqsr_tbi_for_join = GATK4_APPLYVQSR_INDEL.out.tbi.ifEmpty([[:], []]).map{meta, tbi -> [[id: 'joint_variant_calling'] , tbi]}
 
-    // Join on metamap
-    // If both --> meta, vcf_merged, vcf_bqsr
-    // If not VQSR --> meta, vcf_merged, []
-    // if the second is empty, use the first
-    genotype_vcf = merge_vcf_for_join.join(vqsr_vcf_for_join, remainder: true).map{
-        meta, joint_vcf, recal_vcf ->
+    // Add hard filtered VCF as fallback option
+    hard_vcf_for_join = VARIANTFILTRATION_HARD.out.vcf.map{meta, vcf -> [[id: 'joint_variant_calling'] , vcf]}
+    hard_tbi_for_join = VARIANTFILTRATION_HARD.out.tbi.map{meta, tbi -> [[id: 'joint_variant_calling'] , tbi]}
 
-        vcf_out = recal_vcf ?: joint_vcf
+    // Join on metamap with three-tier priority: VQSR > Hard Filter > Unfiltered
+    genotype_vcf = merge_vcf_for_join.join(vqsr_vcf_for_join, remainder: true).join(hard_vcf_for_join).map{
+        meta, joint_vcf, recal_vcf, hard_vcf ->
+
+        // Priority: VQSR > Hard Filter > Unfiltered
+        vcf_out = recal_vcf ?: hard_vcf ?: joint_vcf
 
         [[id:"joint_variant_calling", patient:"all_samples", variantcaller:"haplotypecaller"], vcf_out]
     }
 
-    genotype_index = merge_tbi_for_join.join(vqsr_tbi_for_join, remainder: true).map{
-        meta, joint_tbi, recal_tbi ->
+    genotype_index = merge_tbi_for_join.join(vqsr_tbi_for_join, remainder: true).join(hard_tbi_for_join).map{
+        meta, joint_tbi, recal_tbi, hard_tbi ->
 
-        tbi_out = recal_tbi ?: joint_tbi
+        // Priority: VQSR > Hard Filter > Unfiltered
+        tbi_out = recal_tbi ?: hard_tbi ?: joint_tbi
 
         [[id:"joint_variant_calling", patient:"all_samples", variantcaller:"haplotypecaller"], tbi_out]
     }
@@ -151,6 +164,7 @@ workflow BAM_JOINT_CALLING_GERMLINE_GATK {
     versions = versions.mix(GATK4_GENOTYPEGVCFS.out.versions)
     versions = versions.mix(VARIANTRECALIBRATOR_SNP.out.versions)
     versions = versions.mix(GATK4_APPLYVQSR_SNP.out.versions)
+    versions = versions.mix(VARIANTFILTRATION_HARD.out.versions)
 
     emit:
     genotype_index  // channel: [ val(meta), [ tbi ] ]
