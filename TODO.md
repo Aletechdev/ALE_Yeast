@@ -2,6 +2,7 @@
 
 ## Current Tasks
 ### filter population VCFs from mutect2 and haplotypcaller: /home/azureuser/Docs/ALE_nextflow/bin/compare_mutect2_HpCaller/CENPK_all/paper_a_benchmark/README.md
+
 ### freebayes filter AF calculation (maybe no more AF based filter??)
 ==> prioritize improving freebayes germline filter first, somatic mode disabled for now
 there is a bug with how freebayes AF is calculated for the multi allelic site, since the AO are split into multiple rows, the AO+RO denominator is not right... ==> a solution could be do the AF=sum(AO)/(sum(AO)+RO) first, then split the multi-allelic variants.
@@ -99,6 +100,56 @@ if (joint_freebayes) {
 
 **Solution needed**: Improve exception handling to only show sample sheet errors for actual sample sheet validation issues, not for upstream configuration problems.
 
+**Proposed Solutions**:
+
+#### **Option 1: Add Specific Exception Handling**
+Wrap sample validation logic in more specific try-catch blocks that distinguish between sample sheet issues and configuration errors:
+```groovy
+try {
+    // Sample validation logic
+} catch (Exception e) {
+    if (e.message.contains('status') || e.message.contains('sample')) {
+        error('Sample sheet validation failed: ' + e.message)
+    } else {
+        throw e  // Re-throw for proper debugging
+    }
+}
+```
+
+#### **Option 2: Earlier Configuration Validation**
+Move configuration syntax validation **before** sample sheet validation to catch config errors early:
+```groovy
+if (tools && tools.contains(',')) {
+    try {
+        tools.split(',').each{ tool -> /* validate */ }
+    } catch (Exception e) {
+        error("Configuration syntax error in --tools parameter: ${e.message}")
+    }
+}
+```
+
+#### **Option 3: Better Error Context (Recommended)**
+Improve error messages to provide debugging context:
+```groovy
+try {
+    // Sample validation logic
+} catch (Exception e) {
+    def contextualError = """
+    Pipeline configuration error detected during sample sheet validation.
+    This may indicate:
+    1. Syntax error in configuration files (check .config files)
+    2. Invalid --tools parameter format
+    3. Missing function references
+    4. Actual sample sheet validation issue
+
+    Original error: ${e.message}
+    """
+    error(contextualError)
+}
+```
+
+**Recommendation**: Implement Option 3 for better user experience without major refactoring.
+
 ### change mutect2 calling parameters for yeast genomes:
 
 with yeast genome, there is no mutation resources, As --germline-resource is omitted, the parameter 
@@ -122,6 +173,28 @@ with yeast genome, there is no mutation resources, As --germline-resource is omi
 ---
 
 ## Completed Tasks
+
+### ✅ GATK FilterMutectCalls Channel Join Issue Fixed
+
+**Git Commit**: 8319ef9 - "fix GATK FilterMutectCalls without Germline Resource nor Panel of Normals"
+
+**Problem Solved**: GATK FilterMutectCalls was completely skipped when running Mutect2 without germline resources due to channel join failure with empty contamination tables.
+
+**Solution Implemented**: Provided placeholder contamination tables with proper metadata handling:
+```nextflow
+if (!(germline_resource && germline_resource_tbi)) {
+    // No germline resource provided - create placeholder channels for FilterMutectCalls
+    if (joint_mutect2) {
+        calculatecontamination_out_seg = vcf.map{ meta, vcf -> [ meta + [id: meta.patient], [] ] }
+        calculatecontamination_out_cont = vcf.map{ meta, vcf -> [ meta + [id: meta.patient], [] ] }
+    } else {
+        calculatecontamination_out_seg = vcf.map{ meta, vcf -> [ meta, [] ] }
+        calculatecontamination_out_cont = vcf.map{ meta, vcf -> [ meta, [] ] }
+    }
+}
+```
+
+**Impact**: FilterMutectCalls now runs successfully without germline resources, applying artifact filtering and quality control appropriate for custom yeast genomes.
 
 ### ✅ Variant Calling Mode Strategy for ALE Experiments
 

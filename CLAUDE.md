@@ -363,7 +363,93 @@ The following GATK processes **now work correctly** after the FilterMutectCalls 
 - **Custom Mutect2**: `subworkflows/local/vcf_filter_mutect2/` - AF-based somatic filtering optimized for yeast ALE experiments
 - **Custom FreeBayes**: `subworkflows/local/vcf_filter_freebayes/` - Multi-allelic splitting with AF-based filtering
 
-**Recommendation**: Use FilterMutectCalls output as input to custom filtering for **layered quality control** - GATK handles technical artifacts, custom filtering handles biological interpretation for ALE experiments. 
+**Recommendation**: Use FilterMutectCalls output as input to custom filtering for **layered quality control** - GATK handles technical artifacts, custom filtering handles biological interpretation for ALE experiments.
+
+### **⚠️ FilterMutectCalls Default Parameters Analysis**
+
+**Current Status**: FilterMutectCalls runs with **GATK default parameters only** - no custom `ext.args` are configured in the pipeline.
+
+**Key Findings**:
+- **No `ext.args` defined** in `conf/modules/mutect2.config` for FILTERMUTECTCALLS
+- **Uses GATK defaults**: `--normal-p-value-threshold 0.001` (very stringent), `--false-discovery-rate 0.05`, `--f-score-beta 1.0`
+- **Very low pass rate**: Only 54/8,825 variants (0.6%) pass filtering
+- **All filtered variants retained**: Failed variants remain in `*.mutect2.filtered.vcf.gz` with FILTER column annotations
+
+**Filter Distribution** (from ALE_Exp1 analysis):
+- `base_qual;normal_artifact;orientation;strand_bias`: 1,925 variants
+- `multiallelic;normal_artifact;slippage`: 749 variants
+- `normal_artifact;slippage`: 619 variants
+- `PASS`: **Only 54 variants**
+
+**Considerations for ALE Experiments**:
+1. **Too stringent**: Default `--normal-p-value-threshold 0.001` may remove legitimate evolutionary variants
+2. **PASS-only extraction**: Consider creating a separate VCF with only PASS variants for downstream analysis
+3. **Parameter relaxation**: Evaluate relaxing parameters for yeast ALE context:
+   - `--normal-p-value-threshold 0.01` (instead of 0.001)
+   - `--false-discovery-rate 0.10` (instead of 0.05)
+   - Custom AF-based filtering may be more appropriate than population-based thresholds
+
+**TODO**:
+- Review if FilterMutectCalls parameters should be customized for ALE experiments
+- Consider generating PASS-only VCF variants for cleaner downstream analysis
+- Evaluate whether current dual-filtering approach (GATK + custom) provides optimal balance
+
+### **✅ IMPLEMENTED: Hard Filtering for Joint Germline Calling**
+
+**Implementation Date**: September 2025
+
+**Problem Solved**: Joint germline calling produced unfiltered VCFs when VQSR failed due to missing known variant resources for custom yeast genome.
+
+**Solution**: Added GATK VariantFiltration with hard filtering as intelligent fallback when VQSR cannot run.
+
+#### **Changes Made:**
+
+1. **Module Installation**: Added `gatk4/variantfiltration` using `nf-core modules install`
+
+2. **Workflow Integration**: Modified `subworkflows/local/bam_joint_calling_germline_gatk/main.nf`:
+   - Added `GATK4_VARIANTFILTRATION` import
+   - Added `VARIANTFILTRATION_HARD` process after joint genotyping
+   - Modified conditional logic: `VQSR > Hard Filter > Unfiltered`
+
+3. **Configuration**: Added hard filtering parameters in `conf/modules/joint_germline.config`:
+   ```groovy
+   withName: 'VARIANTFILTRATION_HARD' {
+       ext.args = { [
+           // SNP filters
+           '--filter-name "QD_filter" --filter "QD < 2.0"',
+           '--filter-name "FS_filter" --filter "FS > 60.0"',
+           '--filter-name "SOR_filter" --filter "SOR > 3.0"',
+           '--filter-name "MQ_filter" --filter "MQ < 40.0"',
+           // INDEL filters (more lenient)
+           '--filter-name "FS_INDEL_filter" --filter "TYPE==INDEL && FS > 200.0"',
+           // ... additional filters
+       ].join(' ') }
+   }
+   ```
+
+#### **Filtering Logic Priority:**
+1. **VQSR filtered VCF** (when known sites available - humans)
+2. **Hard filtered VCF** (**NEW** - when VQSR fails - custom genomes)
+3. **Unfiltered VCF** (fallback - should rarely happen)
+
+#### **Output Files:**
+- **VQSR success**: `joint_germline_recalibrated.vcf.gz`
+- **VQSR failure**: `joint_germline_hard_filtered.vcf.gz` (**NEW**)
+- **Final output**: `joint_germline.vcf.gz` (best available filtered version)
+
+#### **Benefits for Yeast ALE:**
+- **Consistent quality control** regardless of known variant availability
+- **Appropriate for evolutionary studies** (no population bias)
+- **Quality-based filtering** suitable for detecting novel mutations
+- **Backward compatible** with human/model organism pipelines
+
+**Status**: ✅ **Ready for Testing** - Implementation complete, module input parameter issue fixed
+
+**⚠️ TODO**: **Review and optimize filter parameters** for yeast ALE experiments:
+- Current parameters are based on GATK best practices for human data
+- May need adjustment for yeast genome characteristics (smaller size, different mutation patterns)
+- Consider relaxing thresholds for evolutionary studies vs. clinical diagnostics
+- Evaluate filtering stringency against known ALE mutation types
 
 ### ~~Basic VCF Filtering Implementation, ***deprecated***, for idea of folders involved for making nf-sarek changes~~
 
