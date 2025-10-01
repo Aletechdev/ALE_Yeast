@@ -69,9 +69,9 @@ workflow BAM_JOINT_CALLING_GERMLINE_GATK {
     // Hard filtering as fallback when VQSR fails
     VARIANTFILTRATION_HARD(
         vqsr_input,
-        fasta.map{ meta, fasta -> [ fasta ] },
-        fai.map{ meta, fai -> [ fai ] },
-        dict.map{ meta, dict -> [ dict ] },
+        fasta,
+        fai,
+        dict,
         [[:], []])
 
     // Recalibrate INDELs and SNPs separately
