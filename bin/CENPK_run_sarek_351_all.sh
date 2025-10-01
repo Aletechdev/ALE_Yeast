@@ -6,5 +6,5 @@ nextflow run ../nf-core-sarek_3.5.1/3_5_1/main.nf -profile azureD4as,docker \
     --outdir ${run_folder}/output_all  --genome null --igenomes_ignore  \
     --fasta ${run_folder}/data/BakerYeast_reference/draft_ref52.fasta --skip_tools baserecalibrator \
     -c ${run_folder}/bin/nextflow.config --tools snpeff,freebayes,controlfreec,manta,mutect2,cnvkit,msisensorpro,tiddit,haplotypecaller,deepvariant --split_fastq 0  \
-    --joint_germline --joint_mutect2 \
+    --joint_germline --joint_mutect2 --save_mapped \
     --snpeff_cache ${run_folder}/data/BakerYeast_reference/snpeff_cache --snpeff_db draft_ref.52 -resume
