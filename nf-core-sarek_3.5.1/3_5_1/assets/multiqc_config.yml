@@ -44,6 +44,23 @@ mosdepth_config:
     - 250
     - 300
 
+# Merge fastQC results from different lanes into one sample,
+# based on filename patterns defined in sample table, the lane is defined as L00[1-4]
+table_sample_merge:
+  "Lane 1 R1": "-L001_1"
+  "Lane 1 R2": "-L001_2"
+  "Lane 1": "-L001"
+  "Lane 2 R1": "-L002_1"
+  "Lane 2 R2": "-L002_2"
+  "Lane 2": "-L002"
+  "Lane 3 R1": "-L003_1"
+  "Lane 3 R2": "-L003_2"
+  "Lane 3": "-L003"
+  "Lane 4 R1": "-L004_1"
+  "Lane 4 R2": "-L004_2"
+  "Lane 4": "-L004"
+  "Alignment": ".md"
+
 # Run only these modules
 run_modules:
   - custom_content
