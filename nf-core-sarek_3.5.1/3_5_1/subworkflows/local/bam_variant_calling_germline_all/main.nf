@@ -16,6 +16,7 @@ include { BAM_VARIANT_CALLING_MPILEUP                                           
 include { BAM_VARIANT_CALLING_SINGLE_STRELKA                                           } from '../bam_variant_calling_single_strelka/main'
 include { BAM_VARIANT_CALLING_SINGLE_TIDDIT                                            } from '../bam_variant_calling_single_tiddit/main'
 include { SENTIEON_DNAMODELAPPLY                                                       } from '../../../modules/nf-core/sentieon/dnamodelapply/main'
+include { SPLIT_JOINT_VCF                                                              } from '../split_joint_vcf/main'
 include { VCF_VARIANT_FILTERING_GATK                                                   } from '../vcf_variant_filtering_gatk/main'
 include { VCF_VARIANT_FILTERING_GATK as SENTIEON_HAPLOTYPER_VCF_VARIANT_FILTERING_GATK } from '../vcf_variant_filtering_gatk/main'
 
@@ -157,6 +158,21 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
 
             vcf_haplotypecaller = BAM_JOINT_CALLING_GERMLINE_GATK.out.genotype_vcf
             versions = versions.mix(BAM_JOINT_CALLING_GERMLINE_GATK.out.versions)
+
+            // Optional: Split HaplotypeCaller joint VCF into individual sample VCFs
+            if (params.split_haplotypecaller_joint_vcf) {
+                joint_vcf_tbi = BAM_JOINT_CALLING_GERMLINE_GATK.out.genotype_vcf
+                    .join(BAM_JOINT_CALLING_GERMLINE_GATK.out.genotype_index, failOnDuplicate: true)
+
+                // Pass both joint VCF and original cram channel for metadata
+                SPLIT_JOINT_VCF(joint_vcf_tbi, cram)
+
+                // Add split individual VCFs to vcf_haplotypecaller channel
+                // This will make them available for annotation alongside the joint VCF
+                vcf_haplotypecaller = vcf_haplotypecaller.mix(SPLIT_JOINT_VCF.out.vcf)
+
+                versions = versions.mix(SPLIT_JOINT_VCF.out.versions)
+            }
         } else {
 
             // If single sample track, check if filtering should be done
