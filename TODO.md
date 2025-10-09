@@ -87,18 +87,125 @@ if (joint_freebayes) {
 
 **Priority**: High - Transforms raw VCFs into research-ready data following community best practices
 
-### ⚠️ BUG: Misleading error message in samplesheet validation
+### ⚠️ BUG: Triple-Layer Misleading Error Messages in Pipeline Validation
 
-**Location**: `/nf-core-sarek_3.5.1/3_5_1/subworkflows/local/samplesheet_to_channel/main.nf:166`
-**Issue**: The error message "sample-sheet only contains tumor-samples, but the following tools expect at least one normal-sample" is incorrectly triggered when there are other unrelated errors (e.g., Nextflow function reference errors, syntax issues).
+**Severity**: CRITICAL - Can waste hours of debugging time
 
-**Root Cause**: Exception handling logic that doesn't distinguish between actual sample sheet validation failures and upstream configuration/syntax errors.
+**Locations**:
+- Console error: `/nf-core-sarek_3.5.1/3_5_1/subworkflows/local/samplesheet_to_channel/main.nf:146-167`
+- Schema validation: nf-validation plugin (`assets/schema_input.json`)
+- Actual error: Various locations depending on real issue
 
-**Impact**: Misleading debugging - users waste time checking sample sheets when the real issue is elsewhere (e.g., config syntax errors, missing functions).
+#### **The Triple-Layer Problem**
 
-**Example**: When `custom_freebayes_filter.config` had missing comma syntax error, this tumor/normal error was shown instead of the actual syntax error.
+**Layer 1 (What user sees in console)**: ❌ **COMPLETELY WRONG**
+```
+"The sample-sheet only contains normal-samples, but the following tools expect
+at least one tumor-sample: controlfreec, mutect2, msisensorpro"
+```
+- **Reality**: Samplesheet has BOTH normal and tumor samples with correct status values
+- **Why shown**: `input_sample.filter{...}.ifEmpty{}` triggers when channel is empty due to upstream errors
 
-**Solution needed**: Improve exception handling to only show sample sheet errors for actual sample sheet validation issues, not for upstream configuration problems.
+**Layer 2 (What `.nextflow.log` shows)**: ⚠️ **MISLEADING**
+```
+SchemaValidationException: the file or directory
+'../data/data_a_paper/A1-6_S2_L001_R1_001.fastq.gz' does not exist
+```
+- **Reality**: File DOES exist at that exact path (verified with `ls ../data/data_a_paper/A1-6_S2_L001_R1_001.fastq.gz`)
+- **Why shown**: nf-validation plugin checks file existence relative to **different context** than where it exists
+
+**Layer 3 (Actual root cause)**: ✅ **REAL ISSUE**
+- nf-validation plugin validates file paths relative to **samplesheet's parent directory** or **projectDir**
+- Samplesheet had paths as `../data/data_a_paper/file.fastq.gz` (relative to bin/ directory)
+- But validation checks from a different location, so "relative" means something different
+- **Solution**: Use absolute paths or paths relative to samplesheet location
+
+#### **Impact - Real Debugging Session (Oct 8, 2025)**
+
+**Time wasted**: 30+ minutes debugging wrong issues
+1. First checked if samplesheet had tumor/normal samples → ✅ It did
+2. Then checked if files existed → ✅ They did
+3. Then checked file permissions → ✅ Fine
+4. Then checked `.nextflow.log` → Found "file does not exist" error
+5. Then manually verified file exists → ✅ It does!
+6. Finally realized: **path resolution context mismatch** in nf-validation
+
+#### **Other Examples of This Bug**
+
+**Example 2**: SPLIT_JOINT_VCF Process Input Mismatch
+- **Console shows**: "sample-sheet only contains tumor-samples, but tools expect normal-sample"
+- **Log shows**: `Process BCFTOOLS_VIEW declares 4 input channels but 1 were specified`
+- **Real issue**: Process definition error in workflow code (nothing to do with samplesheet!)
+
+**Example 3**: Config Syntax Error (from earlier notes)
+- **Console shows**: "sample-sheet only contains normal-samples"
+- **Real issue**: Missing comma in `custom_freebayes_filter.config`
+
+#### **Root Cause Technical Details**
+
+The `input_sample` channel fails to populate when ANY upstream error occurs:
+1. nf-validation plugin runs first (validates samplesheet schema)
+2. If it throws exception → channel never gets data
+3. Workflow code tries to filter samples: `input_sample.filter{status==1}.ifEmpty{error(...)}`
+4. Empty channel triggers `.ifEmpty{}` block → misleading tumor/normal error
+5. Original validation error is only in `.nextflow.log`, not shown to user
+
+**Why This Happens**:
+- No proper exception handling between validation plugin and workflow logic
+- Error messages don't propagate correctly through Nextflow channels
+- Workflow assumes empty channel = wrong sample status (incorrect assumption)
+
+#### **How to Find the REAL Bug When You See This Error** 🔍
+
+**IMPORTANT**: If you see "sample-sheet only contains normal-samples" or "tumor-samples" error, **DO NOT trust it**. Follow these steps:
+
+**Step 1: Check `.nextflow.log` file** (most recent run)
+```bash
+tail -200 .nextflow.log | grep -A 5 -B 5 "Exception\|ERROR"
+```
+Look for the FIRST exception/error, not the tumor/normal error.
+
+**Step 2: Common Real Errors to Look For**
+
+| Log Error Message | Real Cause | Solution |
+|-------------------|------------|----------|
+| `SchemaValidationException: file or directory '...' does not exist` | File paths in samplesheet are relative but checked from wrong directory | Use **absolute paths** in samplesheet |
+| `Process XXX declares N input channels but M were specified` | Process invocation error in workflow code | Fix process call to match input signature |
+| `No such variable: XXX` or `Unknown method: XXX` | Config syntax error or missing import | Check recent config file changes |
+| `Missing or unknown field in csv file header` | Actual samplesheet format error | Fix samplesheet column names |
+
+**Step 3: If Log Shows "file does not exist" but File EXISTS**
+- Check if paths are absolute vs relative
+- Test file path from **samplesheet's directory**: `cd data/data_a_paper && ls file.fastq.gz`
+- **Solution**: Convert all paths to absolute in samplesheet
+
+**Step 4: Verify Samplesheet is Actually Valid**
+```bash
+# Check for both tumor and normal samples
+grep ",0," samplesheet.csv  # Should show normal samples (status=0)
+grep ",1," samplesheet.csv  # Should show tumor samples (status=1)
+```
+
+**Step 5: Test Without Recently Added Features**
+If you recently added a new workflow/feature (e.g., `--split_haplotypecaller_joint_vcf`), try disabling it to isolate the issue.
+
+#### **Quick Diagnostic Commands**
+```bash
+# 1. Check what error really happened
+tail -200 .nextflow.log | grep -E "Exception|ERROR" | head -20
+
+# 2. Verify samplesheet has tumor/normal samples
+awk -F, 'NR>1 {print $3}' samplesheet.csv | sort | uniq -c
+
+# 3. Check if files exist (run from project root)
+head -5 samplesheet.csv | tail -4 | awk -F, '{print $8}' | xargs ls -lh
+
+# 4. Find the actual error location
+grep -n "error\|Error\|ERROR" .nextflow.log | tail -10
+```
+
+#### **Solution needed**:
+Improve exception handling to only show sample sheet errors for actual sample sheet validation issues, not for upstream configuration problems.
 
 **Proposed Solutions**:
 
