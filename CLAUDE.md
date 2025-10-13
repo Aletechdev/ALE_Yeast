@@ -137,6 +137,7 @@ Raw: 45,139 → Quality filters → Strand bias (-52.8%) → AF filters → Fina
 
 #### ✅ FreeBayes Somatic Mode Disabled
 
+BAM_VARIANT_CALLING_FREEBAYES channel disabled in workflow `~/Docs/ALE_nextflow/nf-core-sarek_3.5.1/3_5_1/subworkflows/local/bam_variant_calling_somatic_all/main.nf` 
 **Rationale**: FreeBayes somatic mode designed for cancer genomics, inappropriate for ALE
 
 **Evidence**:
@@ -146,7 +147,7 @@ Raw: 45,139 → Quality filters → Strand bias (-52.8%) → AF filters → Fina
 **Current Strategy**:
 - **FreeBayes**: Germline mode only
 - **Mutect2**: Somatic mode with custom filtering
-- **HaplotypeCaller**: Joint and individual germline
+- **HaplotypeCaller**: Joint as individual germline
 
 **Channel Logic**: All samples processed as "normal" status (`cram_variant_calling_status_normal`)
 

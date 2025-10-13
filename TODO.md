@@ -1,6 +1,283 @@
 # NF_ALE Project TODO List
 
 ## Current Tasks
+
+### ⚠️ INVESTIGATE FIRST: FilterMutectCalls Behavior - Soft vs Hard Filtering
+
+**Priority**: CRITICAL - Must investigate before implementing fix
+
+**Question**: Does FilterMutectCalls remove variants (hard filter) or just annotate FILTER column (soft filter)?
+
+**Initial Investigation Results** (test dataset):
+```bash
+# Unfiltered VCF
+mit	47297	.	CT	C	.	.        # FILTER = "."
+mit	61935	.	T	TA	.	.        # FILTER = "."
+
+# FilterMutectCalls VCF
+mit	47297	.	CT	C	.	slippage # FILTER = "slippage"
+mit	61935	.	T	TA	.	PASS     # FILTER = "PASS"
+```
+
+**Finding**: FilterMutectCalls does **soft filtering** (annotates FILTER column, keeps all variants)
+- Unfiltered: 2 variants with FILTER = "."
+- Filtered: 2 variants with FILTER = "slippage" or "PASS"
+- **Same number of variants** → No removal, only annotation
+
+**Implication**: This is identical behavior to HaplotypeCaller's VariantFiltration fallback!
+- HaplotypeCaller: `joint_germline_filter_annotated.vcf.gz` annotates FILTER but keeps all variants
+- Mutect2: `*.mutect2.filtered.vcf.gz` annotates FILTER but keeps all variants
+
+**TODO**:
+1. ✅ Verify on larger dataset that FilterMutectCalls never removes variants
+2. ✅ Check if GATK FilterMutectCalls has `--filter-mode` parameter for hard filtering
+3. ✅ Determine if annotation should use:
+   - Unfiltered VCF (FILTER = ".")
+   - Soft-filtered VCF (FILTER = "PASS"/"slippage"/etc)
+   - Both versions for comparison
+4. ✅ Document expected workflow: annotate → extract PASS-only variants downstream
+
+**If soft filtering confirmed**: The current setup may actually be **acceptable** since:
+- Both unfiltered and filtered VCFs have the same variants
+- Difference is only in FILTER column annotation
+- Downstream analysis can filter by FILTER column as needed
+
+**GATK FilterMutectCalls Command** (from work directory):
+```bash
+gatk FilterMutectCalls \
+    --variant ALE_Exp1.mutect2.vcf.gz \
+    --output ALE_Exp1.mutect2.filtered.vcf.gz \
+    --reference draft_ref52.fasta \
+    --orientation-bias-artifact-priors ALE_Exp1.mutect2.artifactprior.tar.gz
+```
+- **No `--exclude-filtered` flag** → Soft filtering (default GATK behavior)
+- Confirmed: FilterMutectCalls by default does **soft filtering only**
+
+**Full Dataset Validation** (`output_all/variant_calling/mutect2/ALE_Exp1/`):
+```bash
+# Variant counts
+Unfiltered VCF:  7,203 variants (FILTER = "." for all)
+Filtered VCF:    7,203 variants (FILTER = various)
+
+# FILTER column distribution in filtered VCF
+PASS:                 54 variants (0.75% !!)
+Failed filters:    7,149 variants (99.25%)
+
+# Top failing filters:
+- base_qual;clustered_events;normal_artifact;orientation;strand_bias: 972
+- base_qual;normal_artifact;orientation;strand_bias;weak_evidence: 953
+- multiallelic;normal_artifact;slippage: 749
+- normal_artifact;slippage: 436
+```
+
+**CRITICAL Finding**: **99.25% of variants fail FilterMutectCalls filters!**
+- Only 54 out of 7,203 variants marked as PASS
+- This is VERY stringent filtering for ALE experiments
+- Most failures: normal_artifact, orientation, strand_bias, base_qual
+
+**Implication**: Using filtered VCF for annotation is now **HIGHLY RECOMMENDED** because:
+- ✅ Can identify which variants pass strict GATK quality filters
+- ✅ Can compare PASS-only (54) vs custom AF-filtered (~thousands)
+- ✅ Understand which quality metrics cause most failures
+- ✅ Adjust filtering strategy based on biological vs technical artifacts
+
+**Next Steps**:
+1. ✅ **DONE** - Verified FilterMutectCalls does soft filtering (7,203 = 7,203)
+2. ✅ **DONE** - Verified on full dataset: 99.25% fail rate, only 54 PASS
+3. ⏳ **DECISION NEEDED**: Annotation strategy given extreme filtering:
+   - **Option A**: Annotate filtered VCF (recommended - has FILTER info)
+   - **Option B**: Annotate both unfiltered and filtered for comparison
+   - **Option C**: Keep current (unfiltered only) and apply FILTER post-annotation
+4. ⏳ Investigate why 99.25% fail rate - too stringent for ALE?
+5. ⏳ Compare FilterMutectCalls PASS (54) vs Custom AF-filtered variants
+6. ⏳ Document workflow: annotate → compare filters → optimize thresholds
+
+---
+
+### ⚠️ BUG: Mutect2 Unfiltered VCF Used for Annotation Instead of Filtered VCF
+
+**Severity**: MEDIUM → **CLARIFICATION NEEDED**
+
+**Location**: `/home/azureuser/Docs/ALE_nextflow/nf-core-sarek_3.5.1/3_5_1/subworkflows/local/bam_variant_calling_somatic_all/main.nf:226`
+
+**Updated Understanding**:
+Since FilterMutectCalls does **soft filtering** (same variants, different FILTER column), the question is not "are we missing filtered variants" but rather:
+- **"Should annotation use VCF with FILTER annotations or without?"**
+
+**Current State**:
+- Unfiltered VCF (FILTER = ".") → goes to annotation
+- Filtered VCF (FILTER = "PASS"/"slippage"/etc) → published but NOT annotated
+
+**Real Question**: Is FILTER column information useful during annotation?
+- **Pro using filtered VCF**: SnpEff can propagate FILTER info to annotated output
+- **Pro using unfiltered VCF**: Cleaner, FILTER can be added post-annotation
+- **No functional difference**: Same variants annotated either way
+
+**Problem**:
+```groovy
+vcf_mutect2 = BAM_VARIANT_CALLING_SOMATIC_MUTECT2.out.vcf // changed from filtered_vcf
+```
+
+This line feeds the **unfiltered** VCF into `vcf_all` channel, which goes to `vcf_to_annotate` in `main.nf:812`:
+```groovy
+vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all)
+```
+
+**Impact**:
+- ✅ Filtered VCF (`*.mutect2.filtered.vcf.gz`) is correctly published to output directory
+- ❌ Annotation workflow receives **unfiltered** VCF with artifacts still present
+- ❌ Bypasses FilterMutectCalls quality filters (orientation bias, strand bias, slippage, etc.)
+- ❌ Annotated VCFs contain low-quality variants that should have been filtered
+
+**Available Outputs from Mutect2 Subworkflow**:
+```groovy
+emit:
+    vcf              // Unfiltered VCF (currently used ❌)
+    vcf_filtered     // Filtered VCF (should be used ✅)
+    index_filtered   // Filtered TBI
+    stats_filtered   // Filtered stats
+```
+
+**Current Behavior**:
+- Line 812: Adds **unfiltered** Mutect2 VCF to annotation (via `vcf_all`)
+- Line 845: Adds **custom AF-filtered** Mutect2 VCF to annotation
+- Result: Both unfiltered and custom-filtered are annotated, but **FilterMutectCalls filtered VCF is missing**
+
+**Proposed Solution**: Annotate three versions of Mutect2 VCFs for comparison
+
+**Option 1 - Annotate All Three Versions** (Recommended for research):
+```groovy
+// In bam_variant_calling_somatic_all/main.nf:226
+vcf_mutect2 = BAM_VARIANT_CALLING_SOMATIC_MUTECT2.out.vcf  // Keep unfiltered
+vcf_mutect2_filtered = BAM_VARIANT_CALLING_SOMATIC_MUTECT2.out.vcf_filtered  // Add GATK filtered
+
+// In bam_variant_calling_somatic_all/main.nf:244-250 (emit section)
+vcf_all = Channel.empty().mix(
+    vcf_freebayes,
+    vcf_manta,
+    vcf_mutect2,           // Unfiltered
+    vcf_mutect2_filtered,  // GATK FilterMutectCalls filtered
+    vcf_strelka,
+    vcf_tiddit
+)
+```
+
+Then annotation would receive:
+1. ✅ **Unfiltered** - `ALE_Exp1.mutect2.vcf.gz` (raw Mutect2)
+2. ✅ **GATK filtered** - `ALE_Exp1.mutect2.filtered.vcf.gz` (FilterMutectCalls)
+3. ✅ **Custom AF filtered** - `ALE_Exp1.mutect2.AF_filtered.vcf.gz` (your ALE-specific filters)
+
+**Option 2 - Replace Unfiltered with GATK Filtered** (Simpler):
+```groovy
+// In bam_variant_calling_somatic_all/main.nf:226
+vcf_mutect2 = BAM_VARIANT_CALLING_SOMATIC_MUTECT2.out.vcf_filtered // Use GATK filtered
+```
+
+Then annotation would receive:
+1. ✅ **GATK filtered** - `ALE_Exp1.mutect2.filtered.vcf.gz`
+2. ✅ **Custom AF filtered** - `ALE_Exp1.mutect2.AF_filtered.vcf.gz`
+
+**Recommendation**: **Option 1** - Provides maximum flexibility for QC and comparison
+- Can compare unfiltered vs FilterMutectCalls vs custom filters
+- Useful for optimizing filtering parameters
+- Only annotation runtime cost (negligible for SnpEff)
+
+**Implementation Notes**:
+- FilterMutectCalls filtered VCF needs metadata differentiation to avoid conflicts
+- Custom filter already adds `.quality_filtered` to meta.id (see `vcf_filter_mutect2/main.nf:22`)
+- Suggest adding `.gatk_filtered` to FilterMutectCalls output for consistency
+- Example metadata:
+  - Unfiltered: `meta.id = "ALE_Exp1", variantcaller = "mutect2"`
+  - GATK filtered: `meta.id = "ALE_Exp1.gatk_filtered", variantcaller = "mutect2"`
+  - Custom filtered: `meta.id = "ALE_Exp1.mutect2.quality_filtered", variantcaller = "mutect2"`
+
+**Testing**: Verify that:
+1. All three VCF versions published to `variant_calling/mutect2/${meta.id}/`
+2. All three versions get annotated with distinct output names (check `annotation/` directory)
+3. Custom AF-based filtering (VCF_FILTER_MUTECT2) still receives correct input
+4. No duplicate meta.id conflicts in channels or output files
+
+**Priority**: HIGH - Should be fixed before annotation runs complete to avoid re-running annotation
+
+**Decision**: User prefers Option 1 - annotate all three versions for maximum comparison flexibility
+
+---
+
+### ⭐ Rename Mutect2 Filtered VCF to Match HaplotypeCaller Naming Convention
+
+**Priority**: MEDIUM - Consistency and clarity improvement
+
+**Current Naming**:
+```bash
+# HaplotypeCaller (joint germline):
+joint_germline.vcf.gz                     # Unfiltered
+joint_germline_filter_annotated.vcf.gz    # Soft-filtered (FILTER column annotated)
+
+# Mutect2 (joint somatic):
+ALE_Exp1.mutect2.vcf.gz                   # Unfiltered
+ALE_Exp1.mutect2.filtered.vcf.gz          # Soft-filtered (FILTER column annotated)
+```
+
+**Problem**: Inconsistent naming pattern
+- HaplotypeCaller: `joint_germline_filter_annotated` (descriptive)
+- Mutect2: `ALE_Exp1.mutect2.filtered` (less clear that it's soft filtering)
+
+**Proposed Naming** (for consistency):
+```bash
+# Option A: Match HaplotypeCaller style
+ALE_Exp1.mutect2.vcf.gz                        # Unfiltered
+ALE_Exp1.mutect2.filter_annotated.vcf.gz       # Soft-filtered (FILTER annotated)
+
+# Option B: More explicit about soft filtering
+ALE_Exp1.mutect2.vcf.gz                        # Unfiltered
+ALE_Exp1.mutect2.soft_filtered.vcf.gz          # Soft-filtered (keeps all variants)
+
+# Option C: Keep joint_ prefix for consistency
+ALE_Exp1.joint_somatic.vcf.gz                  # Unfiltered
+ALE_Exp1.joint_somatic_filter_annotated.vcf.gz # Soft-filtered
+```
+
+**Recommendation**: **Option A** - `filter_annotated` suffix
+- Matches HaplotypeCaller naming
+- Clear that FILTER column is annotated (not removed)
+- Consistent across germline and somatic workflows
+
+**Implementation**:
+- **Location**: `nf-core-sarek_3.5.1/3_5_1/conf/modules/mutect2.config:48`
+- **Current**: `ext.prefix = {"${meta.id}.mutect2.filtered"}`
+- **Change to**: `ext.prefix = {"${meta.id}.mutect2.filter_annotated"}`
+
+**HaplotypeCaller Naming Logic** (verified):
+- **Location**: `conf/modules/joint_germline.config:102`
+- **Config**: `ext.prefix = { 'joint_germline_filter_annotated' }`
+- **Process**: `VARIANTFILTRATION_FALLBACK` (line 87)
+- Naming is set via config, not hardcoded
+
+**Implementation Details**:
+1. **Mutect2 config**: Change line 48 in `conf/modules/mutect2.config`
+   ```groovy
+   # Current:
+   ext.prefix = {"${meta.id}.mutect2.filtered"}
+
+   # Change to:
+   ext.prefix = {"${meta.id}.mutect2.filter_annotated"}
+   ```
+
+2. **Process name**: `FILTERMUTECTCALLS.*` (matches pattern in config)
+
+**Files to Modify**:
+1. ✅ `conf/modules/mutect2.config:48` - Change prefix
+2. ⏳ Update CLAUDE.md documentation if referencing old filename
+3. ⏳ Check if any custom scripts reference `.filtered.vcf.gz` pattern
+
+**Testing**: After rename, verify:
+1. ✅ File published with new name
+2. ✅ No downstream processes break (annotation, QC)
+3. ✅ MultiQC still recognizes the file
+4. ✅ Documentation updated
+
+---
+
 ### filter population VCFs from mutect2 and haplotypcaller: /home/azureuser/Docs/ALE_nextflow/bin/compare_mutect2_HpCaller/CENPK_all/paper_a_benchmark/README.md
 
 ### freebayes filter AF calculation (maybe no more AF based filter??)
