@@ -75,19 +75,19 @@ table_sample_merge:
   ".deepvariant": ".deepvariant_snpEff"
   ".freebayes.quality_filtered.normal": ".freebayes.quality_filtered.normal_snpEff"
   ".freebayes": ".freebayes_snpEff"
-  ".GATK_haplotypecaller.from_joint_calling" : ".haplotypecaller.from_joint_calling_snpEff"
+  ".HaplotypeCaller.from_joint_calling" : ".haplotypecaller.from_joint_calling_snpEff"
   ".manta.diploid_sv": ".manta.diploid_sv_snpEff"
   ".tiddit": ".tiddit_snpEff"
   #
   ".deepvariant": ".deepvariant"
   ".freebayes.quality_filtered.normal": ".freebayes.quality_filtered.normal"
   ".freebayes": ".freebayes"
-  ".GATK_haplotypecaller.from_joint_calling" : ".haplotypecaller.from_joint_calling"
+  ".HaplotypeCaller.from_joint_calling" : ".haplotypecaller.from_joint_calling"
   ".manta.diploid_sv": ".manta.diploid_sv"
   ".tiddit": ".tiddit"
   # below is not working, needs to be fixed
-  "joint_germline_filter_annotated": "joint_germline_filter_annotated_snpEff"
-  # "GATK_haplotypecaller.GVCF_joint_calling": "joint_germline_filter_annotated"
+  "HaplotypeCaller_joint_calling_soft_filtered": "HaplotypeCaller_joint_calling_soft_filtered_snpEff"
+  # "GATK_haplotypecaller.GVCF_joint_calling": "HaplotypeCaller_joint_calling_soft_filtered"
   
 
 # Run only these modules

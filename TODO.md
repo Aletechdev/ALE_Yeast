@@ -14,7 +14,7 @@
 ```bash
 # HaplotypeCaller (joint germline):
 joint_germline.vcf.gz                     # Unfiltered
-joint_germline_filter_annotated.vcf.gz    # Soft-filtered (FILTER column annotated)
+HaplotypeCaller_joint_calling_soft_filtered.vcf.gz    # Soft-filtered (FILTER column annotated)
 
 # Mutect2 (joint somatic):
 ALE_Exp1.mutect2.vcf.gz                   # Unfiltered
@@ -22,7 +22,7 @@ ALE_Exp1.mutect2.filtered.vcf.gz          # Soft-filtered (FILTER column annotat
 ```
 
 **Problem**: Inconsistent naming pattern
-- HaplotypeCaller: `joint_germline_filter_annotated` (descriptive)
+- HaplotypeCaller: `HaplotypeCaller_joint_calling_soft_filtered` (descriptive)
 - Mutect2: `ALE_Exp1.mutect2.filtered` (less clear that it's soft filtering)
 
 **Proposed Naming** (for consistency):
@@ -52,7 +52,7 @@ ALE_Exp1.joint_somatic_filter_annotated.vcf.gz # Soft-filtered
 
 **HaplotypeCaller Naming Logic** (verified):
 - **Location**: `conf/modules/joint_germline.config:102`
-- **Config**: `ext.prefix = { 'joint_germline_filter_annotated' }`
+- **Config**: `ext.prefix = { 'HaplotypeCaller_joint_calling_soft_filtered' }`
 - **Process**: `VARIANTFILTRATION_FALLBACK` (line 87)
 - Naming is set via config, not hardcoded
 

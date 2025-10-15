@@ -320,7 +320,7 @@ calculatecontamination_out_cont = vcf.map{ meta, vcf -> [ meta, [] ] }
 - **Results**: 737 variants marked `PASS` (42.2%), 1,011 flagged with filter names (57.8%)
 - **Extract PASS-only variants** for downstream analysis:
   ```bash
-  bcftools view -f PASS joint_germline_filter_annotated.vcf.gz -O z -o joint_germline_PASS.vcf.gz
+  bcftools view -f PASS HaplotypeCaller_joint_calling_soft_filtered.vcf.gz -O z -o joint_germline_PASS.vcf.gz
   ```
 
 #### **Changes Made:**
@@ -345,7 +345,7 @@ calculatecontamination_out_cont = vcf.map{ meta, vcf -> [ meta, [] ] }
            '--filter-name "FS_INDEL_filter" --filter "TYPE==INDEL && FS > 200.0"',
            // ... additional filters
        ].join(' ') }
-       ext.prefix = { 'joint_germline_filter_annotated' }
+       ext.prefix = { 'HaplotypeCaller_joint_calling_soft_filtered' }
    }
    ```
 
@@ -356,7 +356,7 @@ calculatecontamination_out_cont = vcf.map{ meta, vcf -> [ meta, [] ] }
 
 #### **Output Files:**
 - **VQSR success**: `joint_germline_recalibrated.vcf.gz`
-- **VQSR failure**: `joint_germline_filter_annotated.vcf.gz` (**NEW**)
+- **VQSR failure**: `HaplotypeCaller_joint_calling_soft_filtered.vcf.gz` (**NEW**)
 - **Final output**: `joint_germline.vcf.gz` (best available version)
 
 #### **Filter Performance (Test Data):**
@@ -441,11 +441,11 @@ cd output_all/variant_calling/haplotypecaller/joint_variant_calling
 
 # Extract and split in one command
 mkdir -p individual_samples
-bcftools query -l joint_germline_filter_annotated.vcf.gz | while read sample; do
+bcftools query -l HaplotypeCaller_joint_calling_soft_filtered.vcf.gz | while read sample; do
     sample_id=$(echo "$sample" | cut -d'_' -f2-)
     bcftools view -s "$sample" --force-samples -O z \
         -o "individual_samples/${sample_id}_from_joint.vcf.gz" \
-        joint_germline_filter_annotated.vcf.gz
+        HaplotypeCaller_joint_calling_soft_filtered.vcf.gz
     bcftools index -t "individual_samples/${sample_id}_from_joint.vcf.gz"
 done
 ```
