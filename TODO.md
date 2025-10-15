@@ -2,95 +2,7 @@
 
 ## Current Tasks
 
-### ⚠️ INVESTIGATE FIRST: FilterMutectCalls Behavior - Soft vs Hard Filtering
-
-**Priority**: CRITICAL - Must investigate before implementing fix
-
-**Question**: Does FilterMutectCalls remove variants (hard filter) or just annotate FILTER column (soft filter)?
-
-**Initial Investigation Results** (test dataset):
-```bash
-# Unfiltered VCF
-mit	47297	.	CT	C	.	.        # FILTER = "."
-mit	61935	.	T	TA	.	.        # FILTER = "."
-
-# FilterMutectCalls VCF
-mit	47297	.	CT	C	.	slippage # FILTER = "slippage"
-mit	61935	.	T	TA	.	PASS     # FILTER = "PASS"
-```
-
-**Finding**: FilterMutectCalls does **soft filtering** (annotates FILTER column, keeps all variants)
-- Unfiltered: 2 variants with FILTER = "."
-- Filtered: 2 variants with FILTER = "slippage" or "PASS"
-- **Same number of variants** → No removal, only annotation
-
-**Implication**: This is identical behavior to HaplotypeCaller's VariantFiltration fallback!
-- HaplotypeCaller: `joint_germline_filter_annotated.vcf.gz` annotates FILTER but keeps all variants
-- Mutect2: `*.mutect2.filtered.vcf.gz` annotates FILTER but keeps all variants
-
-**TODO**:
-1. ✅ Verify on larger dataset that FilterMutectCalls never removes variants
-2. ✅ Check if GATK FilterMutectCalls has `--filter-mode` parameter for hard filtering
-3. ✅ Determine if annotation should use:
-   - Unfiltered VCF (FILTER = ".")
-   - Soft-filtered VCF (FILTER = "PASS"/"slippage"/etc)
-   - Both versions for comparison
-4. ✅ Document expected workflow: annotate → extract PASS-only variants downstream
-
-**If soft filtering confirmed**: The current setup may actually be **acceptable** since:
-- Both unfiltered and filtered VCFs have the same variants
-- Difference is only in FILTER column annotation
-- Downstream analysis can filter by FILTER column as needed
-
-**GATK FilterMutectCalls Command** (from work directory):
-```bash
-gatk FilterMutectCalls \
-    --variant ALE_Exp1.mutect2.vcf.gz \
-    --output ALE_Exp1.mutect2.filtered.vcf.gz \
-    --reference draft_ref52.fasta \
-    --orientation-bias-artifact-priors ALE_Exp1.mutect2.artifactprior.tar.gz
-```
-- **No `--exclude-filtered` flag** → Soft filtering (default GATK behavior)
-- Confirmed: FilterMutectCalls by default does **soft filtering only**
-
-**Full Dataset Validation** (`output_all/variant_calling/mutect2/ALE_Exp1/`):
-```bash
-# Variant counts
-Unfiltered VCF:  7,203 variants (FILTER = "." for all)
-Filtered VCF:    7,203 variants (FILTER = various)
-
-# FILTER column distribution in filtered VCF
-PASS:                 54 variants (0.75% !!)
-Failed filters:    7,149 variants (99.25%)
-
-# Top failing filters:
-- base_qual;clustered_events;normal_artifact;orientation;strand_bias: 972
-- base_qual;normal_artifact;orientation;strand_bias;weak_evidence: 953
-- multiallelic;normal_artifact;slippage: 749
-- normal_artifact;slippage: 436
-```
-
-**CRITICAL Finding**: **99.25% of variants fail FilterMutectCalls filters!**
-- Only 54 out of 7,203 variants marked as PASS
-- This is VERY stringent filtering for ALE experiments
-- Most failures: normal_artifact, orientation, strand_bias, base_qual
-
-**Implication**: Using filtered VCF for annotation is now **HIGHLY RECOMMENDED** because:
-- ✅ Can identify which variants pass strict GATK quality filters
-- ✅ Can compare PASS-only (54) vs custom AF-filtered (~thousands)
-- ✅ Understand which quality metrics cause most failures
-- ✅ Adjust filtering strategy based on biological vs technical artifacts
-
-**Next Steps**:
-1. ✅ **DONE** - Verified FilterMutectCalls does soft filtering (7,203 = 7,203)
-2. ✅ **DONE** - Verified on full dataset: 99.25% fail rate, only 54 PASS
-3. ⏳ **DECISION NEEDED**: Annotation strategy given extreme filtering:
-   - **Option A**: Annotate filtered VCF (recommended - has FILTER info)
-   - **Option B**: Annotate both unfiltered and filtered for comparison
-   - **Option C**: Keep current (unfiltered only) and apply FILTER post-annotation
-4. ⏳ Investigate why 99.25% fail rate - too stringent for ALE?
-5. ⏳ Compare FilterMutectCalls PASS (54) vs Custom AF-filtered variants
-6. ⏳ Document workflow: annotate → compare filters → optimize thresholds
+### split haplotypecaller vcf, add annotation
 
 ---
 
@@ -616,3 +528,65 @@ def processVersionsFromYAML(yaml_file) {
 ```
 
 **Status**: ✅ Fixed - Forces specific `yaml.load(InputStream)` method, eliminates ambiguity
+
+### ✅ FilterMutectCalls Behavior Investigation - Soft vs Hard Filtering
+
+**Date Completed**: October 15, 2025
+
+**Question Answered**: Does FilterMutectCalls remove variants (hard filter) or just annotate FILTER column (soft filter)?
+
+**Answer**: ✅ **Confirmed SOFT FILTERING** - FilterMutectCalls annotates the FILTER column but retains ALL variants.
+
+**Dataset Analyzed**: `output_all/variant_calling/mutect2/ALE_Exp1/`
+
+**Key Findings**:
+- **Unfiltered VCF**: 5,798 variants (FILTER = "." for all)
+- **Filtered VCF**: 5,798 variants (FILTER = various values)
+- **Verdict**: NO variants removed, only FILTER column annotation changed
+
+**Filter Pass Rate**: 2.10% (122 PASS / 5,676 failed)
+
+**Top Filter Reasons** (individual flags, not combinations):
+1. `normal_artifact`: 3,747 occurrences (64.6% of failed variants)
+2. `clustered_events`: 2,618 occurrences
+3. `strand_bias`: 2,594 occurrences
+4. `slippage`: 2,245 occurrences
+5. `base_qual`: 2,022 occurrences
+
+**Most Common Filter Combinations**:
+- `multiallelic;normal_artifact;slippage`: 1,081 variants
+- `normal_artifact;slippage`: 564 variants
+- `base_qual;clustered_events;normal_artifact;orientation;strand_bias`: 454 variants
+
+**GATK FilterMutectCalls Command Used**:
+```bash
+gatk FilterMutectCalls \
+    --variant ALE_Exp1.mutect2.vcf.gz \
+    --output ALE_Exp1.mutect2.filtered.vcf.gz \
+    --reference draft_ref52.fasta \
+    --orientation-bias-artifact-priors ALE_Exp1.mutect2.artifactprior.tar.gz
+```
+- No `--exclude-filtered` flag → Soft filtering (GATK default behavior)
+- Uses artifact priors from LearnReadOrientationModel
+- No germline resource or panel of normals (expected for custom yeast genome)
+
+**Filtering Statistics** (from `filteringStats.tsv`):
+- Overall FDR threshold: 0.049 (4.9%)
+- Overall sensitivity: 0.918 (91.8%)
+- Posterior probability threshold: 0.5
+
+**Implications**:
+1. ✅ **Behavior matches HaplotypeCaller** - Both use soft filtering with FILTER column annotation
+2. ✅ **Pipeline already annotates filtered VCF** - FILTER info preserved in annotations
+3. ✅ **Can extract PASS-only variants downstream** - Use `bcftools view -f PASS` when needed
+4. ✅ **Two parallel filtering strategies available**:
+   - GATK FilterMutectCalls → Technical artifact removal (122 PASS variants)
+   - Custom AF filtering (VCF_FILTER_MUTECT2) → Biological variant discovery (likely ~thousands)
+5. ✅ **Layered QC approach recommended** - Use both GATK and custom filters for comprehensive analysis
+
+**Items Deferred** (not critical for current workflow):
+- Investigating why 2.10% PASS rate (may be appropriate stringency for yeast ALE)
+- Comparing GATK PASS variants vs Custom AF-filtered variants
+- Optimizing FilterMutectCalls parameters for ALE experiments
+
+**Documentation Updated**: CLAUDE.md FilterMutectCalls section reflects soft filtering behavior
