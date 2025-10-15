@@ -40,26 +40,55 @@ mosdepth_config:
   general_stats_coverage_hidden:
     - 1
     - 5
-    - 60
+    - 10
+    - 30
+    - 50
+    - 70
+    - 90
+    - 150
     - 250
     - 300
 
 # Merge fastQC results from different lanes into one sample,
 # based on filename patterns defined in sample table, the lane is defined as L00[1-4]
 table_sample_merge:
-  "Lane 1 R1": "-L001_1"
-  "Lane 1 R2": "-L001_2"
+  "Lane 1 Read1": "-L001_1"
+  "Lane 1 Read2": "-L001_2"
   "Lane 1": "-L001"
-  "Lane 2 R1": "-L002_1"
-  "Lane 2 R2": "-L002_2"
+  "Lane 2 Read1": "-L002_1"
+  "Lane 2 Read2": "-L002_2"
   "Lane 2": "-L002"
-  "Lane 3 R1": "-L003_1"
-  "Lane 3 R2": "-L003_2"
+  "Lane 3 Read1": "-L003_1"
+  "Lane 3 Read2": "-L003_2"
   "Lane 3": "-L003"
-  "Lane 4 R1": "-L004_1"
-  "Lane 4 R2": "-L004_2"
+  "Lane 4 Read1": "-L004_1"
+  "Lane 4 Read2": "-L004_2"
   "Lane 4": "-L004"
   "Alignment": ".md"
+  "vs_A0-F0-I1-R1.manta.diploid_sv": "_vs_A0-F0-I1-R1.manta.diploid_sv_snpEff"
+  "vs_A0-F0-I1-R1.manta.diploid_sv": "_vs_A0-F0-I1-R1.manta.diploid_sv"
+  "vs_A0-F0-I1-R1.manta.somatic_sv": "_vs_A0-F0-I1-R1.manta.somatic_sv_snpEff"
+  "vs_A0-F0-I1-R1.manta.somatic_sv": "_vs_A0-F0-I1-R1.manta.somatic_sv"
+  "vs_A0-F0-I1-R1.tiddit_sv_merge": "_vs_A0-F0-I1-R1.tiddit_sv_merge_snpEff"
+  "vs_A0-F0-I1-R1.tiddit_sv_merge": "_vs_A0-F0-I1-R1.tiddit_sv_merge"
+  #
+  ".deepvariant": ".deepvariant_snpEff"
+  ".freebayes.quality_filtered.normal": ".freebayes.quality_filtered.normal_snpEff"
+  ".freebayes": ".freebayes_snpEff"
+  ".GATK_haplotypecaller.from_joint_calling" : ".haplotypecaller.from_joint_calling_snpEff"
+  ".manta.diploid_sv": ".manta.diploid_sv_snpEff"
+  ".tiddit": ".tiddit_snpEff"
+  #
+  ".deepvariant": ".deepvariant"
+  ".freebayes.quality_filtered.normal": ".freebayes.quality_filtered.normal"
+  ".freebayes": ".freebayes"
+  ".GATK_haplotypecaller.from_joint_calling" : ".haplotypecaller.from_joint_calling"
+  ".manta.diploid_sv": ".manta.diploid_sv"
+  ".tiddit": ".tiddit"
+  # below is not working, needs to be fixed
+  "joint_germline_filter_annotated": "joint_germline_filter_annotated_snpEff"
+  # "GATK_haplotypecaller.GVCF_joint_calling": "joint_germline_filter_annotated"
+  
 
 # Run only these modules
 run_modules:
