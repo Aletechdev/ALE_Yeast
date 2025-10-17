@@ -68,7 +68,7 @@ dist/
 secrets.env
 credentials.json
 
-
+# Pipeline outputs (large files)
 data/*
 !data/data_a_paper/
 data/data_a_paper/*
@@ -83,3 +83,23 @@ work_CENPK/
 work_NCYC495/
 work_CENPK_subset/
 bin/investigate_filter/
+
+# Quality control - ignore large data files, keep scripts and docs
+quality_control/*/data/*.vcf.gz
+quality_control/*/data/*.vcf.gz.tbi
+quality_control/*/data/*.bam
+quality_control/*/data/*.bam.bai
+quality_control/*/data/*.cram
+quality_control/*/data/*.cram.crai
+quality_control/*/output/*.vcf.gz
+quality_control/*/output/*.bam
+
+# Keep QC scripts, READMEs, and result summaries
+!quality_control/**/*.py
+!quality_control/**/*.R
+!quality_control/**/*.sh
+!quality_control/**/README.md
+!quality_control/**/*.txt
+!quality_control/**/*.csv
+!quality_control/**/*.png
+!quality_control/**/*.pdf
