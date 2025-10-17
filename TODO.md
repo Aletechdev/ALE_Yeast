@@ -1,5 +1,26 @@
 # NF_ALE Project TODO List
 
+## 🚀 v0.1.0-alpha Release Preparation
+
+### Pre-Release Cleanup Tasks
+- [ ] Review and clean up uncommitted files (Doc/, tunnel)
+- [ ] Remove or gitignore temporary files and outputs
+- [ ] Verify bin/ scripts are properly organized
+- [ ] Check for sensitive data or credentials in repo
+- [ ] Review and update .gitignore if needed
+
+### Documentation Tasks
+- [ ] Create minimal README.md for alpha release
+- [ ] Create CHANGELOG.md for v0.1.0-alpha
+- [ ] Add LICENSE file
+
+### Release Tasks
+- [ ] Commit cleanup and documentation changes
+- [ ] Create git tag v0.1.0-alpha
+- [ ] Push tag and create GitHub release
+
+---
+
 ## Current Tasks
 
 ### split haplotypecaller vcf, add annotation
