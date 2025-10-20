@@ -3,11 +3,11 @@
 ## 🚀 v0.1.0-alpha Release Preparation
 
 ### Pre-Release Cleanup Tasks
-- [ ] Review and clean up uncommitted files (Doc/, tunnel)
-- [ ] Remove or gitignore temporary files and outputs
+- [x] Review and clean up uncommitted files (Doc/, tunnel) - Renamed Doc/ → quality_control/
+- [x] Remove or gitignore temporary files and outputs - Updated .gitignore for QC files
 - [ ] Verify bin/ scripts are properly organized
 - [ ] Check for sensitive data or credentials in repo
-- [ ] Review and update .gitignore if needed
+- [x] Review and update .gitignore if needed - Added quality_control/ patterns
 
 ### Documentation Tasks
 - [ ] Create minimal README.md for alpha release
@@ -15,7 +15,7 @@
 - [ ] Add LICENSE file
 
 ### Release Tasks
-- [ ] Commit cleanup and documentation changes
+- [x] Commit cleanup and documentation changes - quality_control/ committed
 - [ ] Create git tag v0.1.0-alpha
 - [ ] Push tag and create GitHub release
 
