@@ -32,6 +32,8 @@ env.bak/
 # Nextflow work and cache directories
 work/
 work_CENPK/
+work_test_run/
+work_test_001/
 .nxf*
 .nextflow*
 trace.txt
@@ -79,6 +81,8 @@ output/*
 output_all/*
 output_NCYC495/
 output_quick_test_NCYC495/
+test_output/
+output_test_001/
 work_CENPK/
 work_NCYC495/
 work_CENPK_subset/
