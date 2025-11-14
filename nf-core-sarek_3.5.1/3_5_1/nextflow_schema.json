@@ -356,6 +356,12 @@
                     "description": "Split HaplotypeCaller joint germline VCF into individual sample VCFs with renamed samples (removes patient prefix)",
                     "help_text": "When enabled with `--joint_germline`, extracts individual sample VCFs from the HaplotypeCaller joint calling output. Sample names in the output VCFs are renamed to remove the patient/experiment prefix (e.g., ALE_Exp1_Sample1 becomes Sample1). Useful for sample-specific annotation, comparison, or downstream analysis."
                 },
+                "hard_filter_haplotypecaller_joint": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-filter",
+                    "description": "Apply hard filtering to individual VCFs from HaplotypeCaller joint calling (requires --split_haplotypecaller_joint_vcf)",
+                    "help_text": "When enabled, applies sample-specific quality filters (FORMAT/GQ>=20, FORMAT/DP>=8, FILTER=PASS) to individual VCFs extracted from joint calling. Removes failing variants entirely (no missing genotypes) for clean MultiQC reporting and variant count tracking. Output suffix: `.haplotypecaller.from_joint_calling_hard_filtered.vcf.gz`. Designed for ALE experiments to ensure per-sample quality."
+                },
                 "joint_mutect2": {
                     "type": "boolean",
                     "fa_icon": "fas fa-angle-double-right",

@@ -17,6 +17,7 @@ include { BAM_VARIANT_CALLING_SINGLE_STRELKA                                    
 include { BAM_VARIANT_CALLING_SINGLE_TIDDIT                                            } from '../bam_variant_calling_single_tiddit/main'
 include { SENTIEON_DNAMODELAPPLY                                                       } from '../../../modules/nf-core/sentieon/dnamodelapply/main'
 include { SPLIT_JOINT_VCF                                                              } from '../split_joint_vcf/main'
+include { VCF_FILTER_HAPLOTYPECALLER_JOINT                                             } from '../vcf_filter_haplotypecaller_joint/main'
 include { VCF_VARIANT_FILTERING_GATK                                                   } from '../vcf_variant_filtering_gatk/main'
 include { VCF_VARIANT_FILTERING_GATK as SENTIEON_HAPLOTYPER_VCF_VARIANT_FILTERING_GATK } from '../vcf_variant_filtering_gatk/main'
 
@@ -172,6 +173,27 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
                 vcf_haplotypecaller = vcf_haplotypecaller.mix(SPLIT_JOINT_VCF.out.vcf)
 
                 versions = versions.mix(SPLIT_JOINT_VCF.out.versions)
+
+                // Optional: Apply hard filtering to individual VCFs from joint calling
+                // Filters based on sample-specific quality (FORMAT/GQ, FORMAT/DP)
+                // Removes failing variants for clean MultiQC reporting
+                if (params.hard_filter_haplotypecaller_joint) {
+                    // Need to add TBI index to the VCF channel
+                    // SPLIT_JOINT_VCF outputs compressed VCFs with .tbi files
+                    split_vcf_for_filter = SPLIT_JOINT_VCF.out.vcf.map { meta, vcf ->
+                        def tbi = file("${vcf}.tbi")
+                        [meta, vcf, tbi]
+                    }
+
+                    VCF_FILTER_HAPLOTYPECALLER_JOINT(split_vcf_for_filter)
+
+                    // Add filtered VCFs to vcf_haplotypecaller channel for annotation
+                    vcf_haplotypecaller = vcf_haplotypecaller.mix(
+                        VCF_FILTER_HAPLOTYPECALLER_JOINT.out.vcf_filtered.map{ meta, vcf, tbi -> [meta, vcf] }
+                    )
+
+                    versions = versions.mix(VCF_FILTER_HAPLOTYPECALLER_JOINT.out.versions)
+                }
             }
         } else {
 
