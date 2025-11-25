@@ -26,18 +26,27 @@ process BCFTOOLS_HARD_FILTER_JOINT {
     # ========================================
     # HARD FILTERING FOR INDIVIDUAL VCFs FROM JOINT CALLING
     # ========================================
-    # Apply sample-specific quality filters (FORMAT/GQ, FORMAT/DP)
+    # Step 1: Split multi-allelic variants into bi-allelic records
+    # Step 2: Apply sample-specific quality filters (FORMAT/GQ, FORMAT/DP)
     # Filters configured in: conf/modules/custom_haplotypecaller_joint_filter.config
     #
     # NOTE: Removes variants entirely (no --set-GTs), for clean MultiQC reporting
     # This ensures accurate variant counts across pipeline stages
     # ========================================
 
+    # Split multi-allelic sites into bi-allelic records
+    bcftools norm \\
+        -m - \\
+        -O z \\
+        -o ${prefix}.normalized.vcf.gz \\
+        $vcf
+
+    # Apply hard filters on normalized VCF
     bcftools filter \\
         $args \\
         -O z \\
         -o ${prefix}.hard_filtered.vcf.gz \\
-        $vcf
+        ${prefix}.normalized.vcf.gz
 
     bcftools index -t ${prefix}.hard_filtered.vcf.gz
 

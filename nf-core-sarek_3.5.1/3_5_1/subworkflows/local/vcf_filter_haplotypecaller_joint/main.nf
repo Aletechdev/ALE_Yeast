@@ -19,9 +19,9 @@ workflow VCF_FILTER_HAPLOTYPECALLER_JOINT {
         vcf.name.contains('from_joint_calling')
     }
 
-    // Update metadata with hard_filtered suffix
+    // Keep original metadata (suffix will be added by process)
     ch_joint_individual_vcfs.map{ meta, vcf, tbi ->
-        def new_id = "${meta.id}.haplotypecaller.from_joint_calling_hard_filtered"
+        def new_id = "${meta.id}.haplotypecaller.from_joint_calling"
         [meta + [id: new_id], vcf, tbi]
     }.set{ ch_for_hard_filter }
 
