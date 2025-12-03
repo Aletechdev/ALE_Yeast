@@ -92,6 +92,7 @@ table_sample_merge:
   ".manta.somatic_sv": ".manta.somatic_sv_snpEff"
   ".manta.diploid_sv": ".manta.diploid_sv_snpEff"
   ".tiddit": ".tiddit_snpEff"
+  ".cnvkit": ".cnvcall_snpEff"
   #
   ".deepvariant": ".deepvariant"
   ".freebayes.quality_filtered.normal": ".freebayes.quality_filtered.normal"
@@ -101,6 +102,7 @@ table_sample_merge:
   ".manta.somatic_sv": ".manta.somatic_sv"
   ".manta.diploid_sv": ".manta.diploid_sv"
   ".tiddit": ".tiddit"
+  ".cnvkit": ".cnvcall"
   # below is not working, needs to be fixed
   "HaplotypeCaller_joint_calling_soft_filtered": "HaplotypeCaller_joint_calling_soft_filtered_snpEff"
   # "GATK_haplotypecaller.GVCF_joint_calling": "HaplotypeCaller_joint_calling_soft_filtered"

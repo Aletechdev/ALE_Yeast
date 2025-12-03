@@ -60,6 +60,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     gvcf_sentieon_haplotyper = Channel.empty()
 
     out_indexcov             = Channel.empty()
+    vcf_cnvkit               = Channel.empty()
     vcf_deepvariant          = Channel.empty()
     vcf_freebayes            = Channel.empty()
     vcf_haplotypecaller      = Channel.empty()
@@ -92,6 +93,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
             intervals_bed_combined.map{ it -> [[id:it[0].baseName], it] },
             params.cnvkit_reference ? cnvkit_reference.map{ it -> [[id:it[0].baseName], it] } : [[:],[]]
         )
+        vcf_cnvkit = BAM_VARIANT_CALLING_CNVKIT.out.vcf
         versions = versions.mix(BAM_VARIANT_CALLING_CNVKIT.out.versions)
     }
 
@@ -392,6 +394,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     }
 
     vcf_all = Channel.empty().mix(
+        vcf_cnvkit,
         vcf_deepvariant,
         vcf_freebayes,
         vcf_sentieon_dnascope,
@@ -408,6 +411,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     gvcf_sentieon_haplotyper
     out_indexcov
     vcf_all
+    vcf_cnvkit
     vcf_deepvariant
     vcf_freebayes
     vcf_haplotypecaller
