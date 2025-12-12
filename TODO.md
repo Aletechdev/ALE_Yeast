@@ -23,7 +23,141 @@
 
 ## Current Tasks
 
-### split haplotypecaller vcf, add annotation
+### SV calling, add CNVKit results to MultiQC
+TODO: format multiqc.yaml and collpase CNVKit results under multiqc row
+### SV calling: add ploidy support
+**Priority**: High
+
+### SV calling: format population table
+
+### ⭐ SPLIT_JOINT_VCF Workflow Improvements
+
+**Priority**: MEDIUM - Code quality and maintainability
+
+**Issues to Address**:
+
+1. **Clean up verbose logging from SPLIT_JOINT_VCF workflow**
+   - **Location**: `subworkflows/local/split_joint_vcf/main.nf:25-27, 38-48`
+   - **Current**: `.view{}` debug statements polluting logs during production runs
+   - **Example log spam**:
+     ```
+     SPLIT_JOINT_VCF combine: joint=joint_germline, sample=A0-F0-I1-R1, joint_patient=all_samples, sample_patient=ALE_Exp1
+     SPLIT_JOINT_VCF DEBUG: sample=A0-F0-I1-R1, meta_sample.patient=ALE_Exp1, bcftools_sample=ALE_Exp1_A0-F0-I1-R1
+     SPLIT_JOINT_VCF: Matched A0-F0-I1-R1 to joint VCF joint_germline
+     ```
+   - **Solution**: Remove or comment out `.view{}` and `log.info` statements, or gate with debug parameter
+   - **Impact**: Cleaner pipeline logs, easier to spot real errors
+
+2. **Rename SPLIT_JOINT_VCF to be more specific**
+   - **Current naming**: `SPLIT_JOINT_VCF` (generic, unclear what caller)
+   - **Problem**: Naming implies it works for any joint caller (FreeBayes, Mutect2, etc.), but it's HaplotypeCaller-specific
+   - **Current scope**: Only splits HaplotypeCaller joint germline calling results
+   - **Proposed naming**:
+     ```
+     Option A: SPLIT_HAPLOTYPECALLER_JOINT_VCF (explicit about caller)
+     Option B: SPLIT_JOINT_GERMLINE_VCF (matches --joint_germline parameter)
+     Option C: HAPLOTYPECALLER_SPLIT_JOINT (consistent with other HC processes)
+     ```
+   - **Recommendation**: **Option A** - Most explicit and self-documenting
+   - **Files to rename**:
+     - `subworkflows/local/split_joint_vcf/` → `split_haplotypecaller_joint_vcf/`
+     - Workflow name: `SPLIT_JOINT_VCF` → `SPLIT_HAPLOTYPECALLER_JOINT_VCF`
+     - Update all imports in `bam_variant_calling_germline_all/main.nf`
+     - Update parameter documentation in `nextflow_schema.json`
+
+3. **Fix SPLIT_JOINT_VCF not emitting TBI index**
+   - **Location**: `subworkflows/local/split_joint_vcf/main.nf:82`
+   - **Current behavior**: Workflow only emits VCF files, not TBI indices
+   - **Current emit block**:
+     ```groovy
+     emit:
+         vcf      = BCFTOOLS_FILTER.out.vcf  // channel: [ meta, vcf ] - missing TBI!
+         versions = versions
+     ```
+   - **Problem**: Downstream `VCF_FILTER_HAPLOTYPECALLER_JOINT` needs TBI files
+   - **Current workaround** (line 183-186 in `bam_variant_calling_germline_all/main.nf`):
+     ```groovy
+     split_vcf_for_filter = SPLIT_JOINT_VCF.out.vcf.map { meta, vcf ->
+         def tbi = file("${vcf}.tbi")  // ⚠️ Hard-coded assumption TBI exists
+         [meta, vcf, tbi]
+     }
+     ```
+   - **Issue with workaround**: Fragile - assumes TBI file exists at expected path, no validation
+   - **Proper solution**: Emit TBI alongside VCF
+     ```groovy
+     emit:
+         vcf      = BCFTOOLS_FILTER.out.vcf     // channel: [ meta, vcf ]
+         tbi      = BCFTOOLS_FILTER.out.tbi     // channel: [ meta, tbi ] - NEW
+         versions = versions
+     ```
+   - **Update workflow invocation**:
+     ```groovy
+     // Old:
+     vcf_haplotypecaller = vcf_haplotypecaller.mix(SPLIT_JOINT_VCF.out.vcf)
+
+     // New (after fix):
+     vcf_haplotypecaller = vcf_haplotypecaller.mix(SPLIT_JOINT_VCF.out.vcf)
+
+     // For hard filtering:
+     split_vcf_tbi = SPLIT_JOINT_VCF.out.vcf
+         .join(SPLIT_JOINT_VCF.out.tbi, failOnDuplicate: true)
+     VCF_FILTER_HAPLOTYPECALLER_JOINT(split_vcf_tbi)
+     ```
+   - **Benefits**:
+     - ✅ Removes hard-coded file path assumptions
+     - ✅ Proper channel-based data flow (NextFlow best practice)
+     - ✅ Validation that TBI was created successfully
+     - ✅ Cleaner integration with downstream processes
+
+**Implementation Priority**: Fix #3 first (TBI emit), then #1 (logging), then #2 (naming) if needed
+
+---
+
+### ⚠️ Parameter Initialization Warning: `hard_filter_haplotypecaller_joint` and `split_haplotypecaller_joint_vcf`
+
+**Priority**: LOW - Warning only, functionality works
+
+**Warning Message**:
+```
+WARN: Access to undefined parameter `hard_filter_haplotypecaller_joint` --
+Initialise it to a default value eg. `params.hard_filter_haplotypecaller_joint = some_value`
+```
+
+**Problem**: Parameters `hard_filter_haplotypecaller_joint` and `split_haplotypecaller_joint_vcf` are defined in `nextflow_schema.json` but were not initialized with default values in `nextflow.config`.
+
+**Root Cause**: These parameters are accessed directly via `params.*` inside the workflow (not passed through `take:` block), so they need default values in the config file.
+
+**Current State**:
+- ✅ Parameters defined in schema: `nextflow_schema.json:359-364, 347-352`
+- ✅ Used in workflow: `bam_variant_calling_germline_all/main.nf:164, 180`
+- ✅ **FIXED**: Now initialized in config with default values
+
+**Solution Implemented**: Added default parameter initialization to `nextflow.config:77-78`
+
+```groovy
+split_haplotypecaller_joint_vcf   = false // if true, splits HaplotypeCaller joint VCF into individual sample VCFs
+hard_filter_haplotypecaller_joint = false // if true, applies hard filtering to individual VCFs from HaplotypeCaller joint calling
+```
+
+**Location**: Lines 77-78, right after `only_paired_variant_calling` parameter (logical grouping with other joint calling parameters)
+
+**Benefits of Fix**:
+- ✅ Eliminates warning messages
+- ✅ Makes parameter behavior explicit (default = disabled)
+- ✅ Improves code documentation
+- ✅ Follows Nextflow best practices
+- ✅ Consistent with other boolean parameters in the pipeline
+
+**Status**: ✅ **FIXED** - Parameters now properly initialized
+
+**Note**: To enable hard filtering in a pipeline run, add `--hard_filter_haplotypecaller_joint` to the nextflow command:
+```bash
+nextflow run ... --split_haplotypecaller_joint_vcf --hard_filter_haplotypecaller_joint
+```
+
+**Current Run Scripts**:
+- ✅ `bin/CENPK_run_sarek_351.sh` - Has `--hard_filter_haplotypecaller_joint` (line 9)
+- ❌ `bin/CENPK_run_sarek_351_all.sh` - Missing `--hard_filter_haplotypecaller_joint` parameter
 
 ---
 
