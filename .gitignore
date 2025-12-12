@@ -34,8 +34,8 @@ work/
 work_CENPK/
 work_test_run/
 work_test_001/
-.nxf*
-.nextflow*
+.nextflow/
+.nextflow.*
 trace.txt
 timeline.html
 report.html
@@ -87,6 +87,10 @@ work_CENPK/
 work_NCYC495/
 work_CENPK_subset/
 bin/investigate_filter/
+
+# Output and work directories at any level
+**/output_*/
+**/work_*/
 
 # Quality control - ignore large data files, keep scripts and docs
 quality_control/*/data/*.vcf.gz
