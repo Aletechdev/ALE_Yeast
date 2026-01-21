@@ -7,17 +7,15 @@
 - GFF3 conversion: 8,374 features extracted
 - Organism info extraction: Fixed name parsing (removed leading underscores)
 - Docker-based processing pipeline working
+- **Chromosome name mismatch: FIXED** - GFF3 now strips `.1` version suffix to match FASTA
+- **SnpEff database build: FIXED** - Successfully generates `snpEffectPredictor.bin`
 
-### ❌ Critical Issue: SnpEff Database Build Failed
-**Problem:** Chromosome name mismatch between files
-- **GFF3 uses:** `AECK01000001.1` (with .1 version suffix)  
-- **FASTA uses:** `AECK01000001` (without version suffix)
-- **Error:** "Most Exons do not have sequences! Please check that chromosome names in both files match"
+### ✅ All Issues Resolved (2026-01-21)
 
-### 🔧 Required Fix:
-1. **Standardize chromosome names** - Remove `.1` suffixes from GFF3 to match FASTA format
-2. **Update GFF3 processing** in `process_genbank_auto.sh` to strip version numbers
-3. **Re-run SnpEff cache generation** after fix
+Verified output in `assets/genebank/processed/`:
+- FASTA chromosome names: `AECK01000001` (no version suffix)
+- GFF3 chromosome names: `AECK01000001` (matching FASTA)
+- SnpEff cache: Successfully built with all 7 chromosome sequence files
 
 ### ⚠️ Minor Warnings (Non-blocking):
 - BioPython "malformed locus line" warnings - cosmetic only
@@ -25,13 +23,20 @@
 
 ### 📁 Generated Files Location:
 ```
-/home/azureuser/Docs/ALE_nextflow/data/Yeast_methanol_RWTH/Ogataea_polymorpha_NCYC495/processed/
-├── ogataea_polymorpha.fasta ✅
-├── ogataea_polymorpha.gff3 ✅ (needs chromosome name fix)
-└── snpeff_cache/ ❌ (failed due to name mismatch)
+assets/genebank/processed/
+├── ogataea_polymorpha.fasta      ✅
+├── ogataea_polymorpha.gff3       ✅
+├── organism_info.sh              ✅
+├── PROCESSING_SUMMARY.md         ✅
+└── snpeff_cache/                 ✅
+    ├── ogataea_polymorpha/       ✅ (snpEffectPredictor.bin present)
+    └── data/ogataea_polymorpha/  ✅
 ```
 
-### 🎯 Next Actions:
-1. Fix chromosome naming consistency in GFF3 generation
-2. Re-run SnpEff cache generation 
-3. Test with Sarek pipeline integration
+### 🎯 Ready for Pipeline Integration
+Use these parameters in nextflow:
+```
+--fasta        assets/genebank/processed/ogataea_polymorpha.fasta
+--snpeff_cache assets/genebank/processed/snpeff_cache
+--snpeff_db    ogataea_polymorpha
+```
