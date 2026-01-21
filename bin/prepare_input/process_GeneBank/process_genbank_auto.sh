@@ -330,6 +330,16 @@ main() {
     log_info "Automated GenBank processing completed successfully!"
     log_info "Results saved to: $OUTPUT_DIR"
     log_info "Review: $OUTPUT_DIR/PROCESSING_SUMMARY.md"
+
+    # Print usage summary for pipeline parameters
+    echo ""
+    echo "=============================================="
+    echo "Pipeline parameters to use:"
+    echo "=============================================="
+    echo "--fasta        $OUTPUT_DIR/${GENOME_NAME}.fasta"
+    echo "--snpeff_cache $OUTPUT_DIR/snpeff_cache"
+    echo "--snpeff_db    $GENOME_NAME"
+    echo "=============================================="
 }
 
 # Execute main function if script is run directly
