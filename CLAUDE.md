@@ -40,15 +40,15 @@
 
 Adapted from nf-sarek (originally for human cancer research):
 - **experiment**: Experiment ID (maps to "patient" in Sarek)
-- **status**: 0 = ancestral strain (normal), 1 = evolved strain (tumor)
+- **status**: 0 = ancestral strain (normal), 1 = evolved strain (tumor), update: treat all samples as normal, to run haplotypecaller `--joint_germline`
 - **ploidy**: Custom column for ploidy support
 - **Requirement**: Each experiment **must have one normal sample** (status: 0)
 
 **Example:**
 ```csv
 experiment,sample,status,clonal_or_population,ploidy,lane,fastq_1,fastq_2
-ALE_Exp1,A4-F5-I1-R1,1,clonal,2,L001,SubSampleA4-5_S11_L001_R1_001.fastq.gz,SubSampleA4-5_S11_L001_R2_001.fastq.gz
-ALE_Exp1,A4-F5-I1-R1,1,clonal,2,L003,SubSampleA4-5_S11_L003_R1_001.fastq.gz,SubSampleA4-5_S11_L003_R2_001.fastq.gz
+ALE_Exp1,A4-F5-I1-R1,0,clonal,2,L001,SubSampleA4-5_S11_L001_R1_001.fastq.gz,SubSampleA4-5_S11_L001_R2_001.fastq.gz
+ALE_Exp1,A4-F5-I1-R1,0,clonal,2,L003,SubSampleA4-5_S11_L003_R1_001.fastq.gz,SubSampleA4-5_S11_L003_R2_001.fastq.gz
 ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L001,SubSampleCENPK113-7D-N_S53_L001_R1_001.fastq.gz,SubSampleCENPK113-7D-N_S53_L001_R2_001.fastq.gz
 ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L002,SubSampleCENPK113-7D-N_S53_L002_R1_001.fastq.gz,SubSampleCENPK113-7D-N_S53_L002_R2_001.fastq.gz
 ```
