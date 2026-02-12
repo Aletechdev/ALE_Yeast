@@ -15,7 +15,12 @@ Quality control analyses here are **separate from standard pipeline outputs** an
 ```
 quality_control/
 ├── README.md              # This file
-└── qc_control_sample/     # Validation against ALEDB experiment
+├── qc_control_sample/     # v1: Validation against ALEDB (Oct 2025, output_all)
+│   ├── data/              # Reference data and pipeline outputs for comparison
+│   ├── bin/               # QC analysis scripts
+│   ├── comparison/        # Comparison results and plots
+│   └── output/            # Processed QC results
+└── qc_control_sample_v2/  # v2: Validation with all-normal config (Feb 2026, output_all_normal)
     ├── data/              # Reference data and pipeline outputs for comparison
     ├── bin/               # QC analysis scripts
     ├── comparison/        # Comparison results and plots
@@ -53,6 +58,28 @@ quality_control/
 **Results**: See `comparison/mutation_comparison_summary.txt`
 
 **Status**: ✅ Completed - Results documented
+
+### qc_control_sample_v2 - ALEDB Validation (All-Normal Configuration)
+
+**Purpose**: Validate HaplotypeCaller output with all samples treated as normal (status=0)
+
+**Dataset**: Same as v1 (ALEDB Experiment 2533)
+
+**Pipeline Configuration**:
+- Run script: `bin/CENPK_run_sarek_351_all_normal.sh`
+- Pipeline output: `output_all_normal/`
+- Key change: All samples status=0 for joint germline calling
+
+**Results Summary**:
+| Metric | v1 (output_all) | v2 (output_all_normal) |
+|--------|-----------------|------------------------|
+| VCF mutations | 108 | 106 |
+| Total matches | 47 (90.4%) | 47 (90.4%) |
+| VCF-only | 61 | 59 |
+
+**Key Finding**: Results highly consistent - all-normal config maintains 90.4% concordance
+
+**Status**: ✅ Completed - February 2026
 
 ---
 
@@ -111,4 +138,4 @@ When testing new datasets or validating pipeline changes:
 
 ---
 
-**Last Updated**: October 2025 (v0.1.0-alpha)
+**Last Updated**: February 2026 (v0.1.0-alpha)
