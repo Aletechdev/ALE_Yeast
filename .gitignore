@@ -92,22 +92,14 @@ bin/investigate_filter/
 **/output_*/
 **/work_*/
 
-# Quality control - ignore large data files, keep scripts and docs
-quality_control/*/data/*.vcf.gz
-quality_control/*/data/*.vcf.gz.tbi
-quality_control/*/data/*.bam
-quality_control/*/data/*.bam.bai
-quality_control/*/data/*.cram
-quality_control/*/data/*.cram.crai
-quality_control/*/output/*.vcf.gz
-quality_control/*/output/*.bam
+# Quality control - ignore data, output, and comparison folders
+quality_control/*/data/
+quality_control/*/output/
+quality_control/*/comparison/
 
 # Keep QC scripts, READMEs, and result summaries
 !quality_control/**/*.py
 !quality_control/**/*.R
 !quality_control/**/*.sh
 !quality_control/**/README.md
-!quality_control/**/*.txt
-!quality_control/**/*.csv
-!quality_control/**/*.png
-!quality_control/**/*.pdf
+bin/multiqc/

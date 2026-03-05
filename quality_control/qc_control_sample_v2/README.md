@@ -14,9 +14,14 @@ This QC study validates the ALE_nextflow pipeline HaplotypeCaller joint calling 
 
 **ALEDB Experiment**: 2533 - Yeast Adipic Acid ALE
 - **URL**: https://aledb.org/mutations/?ale_experiment_id=2533
-- **Reference file**: `data/Mutations_Dev_Yeast_Adipic_Acid.csv`
 - **Organism**: Yeast (Saccharomyces cerevisiae)
 - **Experimental condition**: Adipic acid adaptation
+
+## Input Data Sources
+
+- **AMP mutations CSV** (`data/Mutations_Dev_Yeast_Adipic_Acid.csv`): Exported from https://aledb.org/mutations/?ale_experiment_id=2533#. This is the input for `bin/parse_amp_csv.py`, which generates per-sample TSV files in `output/`.
+- **Breseq annotated GD** (`data/A1-F6-I2-R1_annotated.gd`): Downloaded from Azure blob `aledata/Dev_YEAST_Adipic_acid_control_run5/Dev_YEAST_Dicar_Acid/Adipic_Acid/breseq/1-6-2-1/output/` as `annotated.gd`, renamed to `A1-F6-I2-R1_annotated.gd`.
+- **Breseq raw output GD** (`data/A1-F6-I2-R1-bareseq-output.gd`): Downloaded from the same Azure blob path as `output.gd`, renamed to `A1-F6-I2-R1-bareseq-output.gd`.
 
 ## Pipeline Configuration
 
