@@ -17,6 +17,78 @@ cd ALE_Yeast
 bash bin/test_nf.sh
 ```
 
+## Test Dataset (`bin/test_nf.sh`)
+
+The test script runs the full pipeline on a small bundled dataset for development and validation.
+
+### Test data
+
+All test data is included in the repo under `assets/`:
+
+| Component | Path | Size | Description |
+|-----------|------|------|-------------|
+| Reads | `assets/reads/` | ~4 MB | 5 subsampled yeast samples (4 lanes each) |
+| Reference | `assets/references/draft_ref52.fasta` | ~114 MB | CEN.PK yeast reference genome |
+| SnpEff cache | `assets/references/snpeff_cache/` | (included) | Pre-built annotation cache (`draft_ref.52`) |
+| Samplesheet | `assets/reads/samplesheet.csv` | — | 5-sample input table |
+
+**Samples in test set:**
+
+| Sample | Type | Ploidy | Description |
+|--------|------|--------|-------------|
+| A0-F0-I1-R1 | Clonal | 1 | Ancestral strain (haploid) |
+| A1-F6-I1-R1 | Clonal | 1 | Evolved clone (haploid) |
+| A6-F6-I1-R1 | Clonal | 1 | Evolved clone (haploid) |
+| A1-F6-I2-R1 | Population | 2 | Spore seq POS (diploid) |
+| A1-F6-I3-R1 | Population | 2 | Spore seq NEG (diploid) |
+
+**Generating the samplesheet:**
+
+```bash
+python bin/prepare_input/generate_sarek_csv_subsample.py
+```
+
+This script scans `assets/reads/` for `SubSample*.fastq.gz` files and generates the samplesheet. Sample metadata (name mapping, status, ploidy, clonal/population) is configured via maps at the top of the script.
+
+### Tools enabled in test
+
+The test script enables: `snpeff`, `haplotypecaller`, `freebayes`, `cnvkit`, `tiddit`, `manta`
+
+With flags: `--joint_germline`, `--split_haplotypecaller_joint_vcf`, `--hard_filter_haplotypecaller_joint`
+
+Note: `mutect2` and `joint_mutect2` are **not** included in the test profile (used in production only via `bin/CENPK_run_sarek_351.sh`).
+
+### Output
+
+Results go to `output_test_001/`, work directory to `work_test_001/`. The script uses `-resume` so re-runs skip completed steps.
+
+### Test vs Production
+
+| | Test (`bin/test_nf.sh`) | Production (`bin/CENPK_run_sarek_351.sh`) |
+|---|---|---|
+| Data | `assets/reads/` (~4 MB subsampled) | Full-size FASTQs (not in repo) |
+| Samples | 5 | 17+ (7 bulk + 10 spore seq) |
+| Tools | No mutect2 | mutect2 + joint_mutect2 |
+| Reference | `assets/references/` | `data/BakerYeast_reference/` |
+| Output | `output_test_001/` | `output/` |
+
+### Development workflow
+
+```bash
+# First run (full pipeline)
+bash bin/test_nf.sh
+
+# After modifying pipeline code, re-run (resumes from cache)
+bash bin/test_nf.sh
+
+# Clean work directory to force re-run from scratch
+rm -rf work_test_001
+bash bin/test_nf.sh
+
+# Check what ran
+cat output_test_001/pipeline_info/execution_report_*.html
+```
+
 ## Background
 
 This pipeline is built on nf-core-sarek 3.5.1. Modifications are documented in [SAREK_MODIFICATIONS.md](SAREK_MODIFICATIONS.md).
@@ -41,19 +113,22 @@ Adapted from nf-sarek (originally for human cancer research):
 | Field | Description |
 |-------|-------------|
 | **experiment** | Experiment ID (maps to "patient" in Sarek) |
-| **status** | `0` = ancestral strain (normal), `1` = evolved strain. Update: treat all samples as normal (0) to run haplotypecaller with `--joint_germline` |
-| **ploidy** | Custom column for ploidy support |
+| **sample** | Sample ID in standardized ALE format (e.g., `A1-F6-I1-R1`) |
+| **status** | `0` = normal. Treat all samples as normal (0) to run haplotypecaller with `--joint_germline` |
+| **clonal_or_population** | `clonal` for bulk sequencing, `population` for spore seq |
+| **ploidy** | Sample ploidy (1 = haploid, 2 = diploid) |
+| **sex** | `XX` for yeast (required by Sarek for Control-FREEC) |
+| **lane** | Sequencing lane (e.g., `L001`) |
 | **fastq_1**, **fastq_2** | Path to FASTQ files (relative to where `nextflow` is run, or absolute path) |
 
 **Requirement:** Each experiment **must have one normal sample** (status: 0)
 
 **Example:**
 ```csv
-experiment,sample,status,clonal_or_population,ploidy,lane,fastq_1,fastq_2
-ALE_Exp1,A4-F5-I1-R1,0,clonal,2,L001,assets/reads/SubSampleA4-5_S11_L001_R1_001.fastq.gz,assets/reads/SubSampleA4-5_S11_L001_R2_001.fastq.gz
-ALE_Exp1,A4-F5-I1-R1,0,clonal,2,L003,assets/reads/SubSampleA4-5_S11_L003_R1_001.fastq.gz,assets/reads/SubSampleA4-5_S11_L003_R2_001.fastq.gz
-ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L001,assets/reads/SubSampleCENPK113-7D-N_S53_L001_R1_001.fastq.gz,assets/reads/SubSampleCENPK113-7D-N_S53_L001_R2_001.fastq.gz
-ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L002,assets/reads/SubSampleCENPK113-7D-N_S53_L002_R1_001.fastq.gz,assets/reads/SubSampleCENPK113-7D-N_S53_L002_R2_001.fastq.gz
+experiment,sample,status,clonal_or_population,ploidy,sex,lane,fastq_1,fastq_2
+ALE_Exp1,A0-F0-I1-R1,0,clonal,1,XX,L001,assets/reads/SubSampleCENPK113-7D-N_S53_L001_R1_001.fastq.gz,assets/reads/SubSampleCENPK113-7D-N_S53_L001_R2_001.fastq.gz
+ALE_Exp1,A1-F6-I1-R1,0,clonal,1,XX,L001,assets/reads/SubSampleA1-6_S2_L001_R1_001.fastq.gz,assets/reads/SubSampleA1-6_S2_L001_R2_001.fastq.gz
+ALE_Exp1,A1-F6-I2-R1,0,population,2,XX,L001,assets/reads/SubSampleSp-A1-6-POS_S61_L001_R1_001.fastq.gz,assets/reads/SubSampleSp-A1-6-POS_S61_L001_R2_001.fastq.gz
 ```
 
 ---

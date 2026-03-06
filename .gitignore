@@ -72,9 +72,6 @@ credentials.json
 
 # Pipeline outputs (large files)
 data/*
-!data/data_a_paper/
-data/data_a_paper/*
-!data/data_a_paper/sub_sample/
 */output/*
 output/*
 */out/
