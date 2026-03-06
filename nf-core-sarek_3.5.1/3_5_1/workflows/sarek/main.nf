@@ -89,6 +89,9 @@ include { VCF_FILTER_FREEBAYES                              } from '../../subwor
 // Mutect2 filtering
 include { VCF_FILTER_MUTECT2                                 } from '../../subworkflows/local/vcf_filter_mutect2/main'
 
+// breseq variant calling directly from FASTQs
+include { FASTQ_VARIANT_CALLING_BRESEQ                       } from '../../subworkflows/local/fastq_variant_calling_breseq/main'
+
 // MULTIQC
 include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main' // change this to custom multiqc module if needed
 // include { MULTIQC                                           } from '../../../../custom/sarek-extensions/modules/local/multiqc/main' // change this to custom multiqc module if needed, for Apple Silicon
@@ -159,6 +162,13 @@ workflow SAREK {
     multiqc_report   = Channel.empty()
     reports          = Channel.empty()
     versions         = Channel.empty()
+
+    // breseq GenBank/GFF3 reference channel
+    genbank = params.genbank ? Channel.fromPath(params.genbank, checkIfExists: true).collect() : Channel.empty()
+
+    if (params.tools && params.tools.split(',').contains('breseq') && !params.genbank) {
+        log.warn "breseq enabled in --tools but --genbank not provided. breseq will be skipped."
+    }
 
     // PREPROCESSING
 
@@ -280,6 +290,17 @@ workflow SAREK {
 
         } else {
             reads_for_alignment = reads_for_fastp
+        }
+
+        // BRESEQ: Parallel variant calling from trimmed FASTQs
+        // breseq uses its own internal aligner, so it branches before BWA alignment
+        if (params.tools && params.tools.split(',').contains('breseq') && params.genbank) {
+            // Use pre-split FASTP output (breseq needs unsplit FASTQs per lane)
+            def reads_for_breseq = (params.trim_fastq || params.split_fastq > 0)
+                ? FASTP.out.reads : reads_for_fastp
+
+            FASTQ_VARIANT_CALLING_BRESEQ(reads_for_breseq, genbank)
+            versions = versions.mix(FASTQ_VARIANT_CALLING_BRESEQ.out.versions)
         }
 
         // STEP 1: MAPPING READS TO REFERENCE GENOME
