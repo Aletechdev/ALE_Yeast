@@ -72,6 +72,10 @@ credentials.json
 
 # Pipeline outputs (large files)
 data/*
+# Track dicarboxylic acids mutation analysis (scripts + raw literature files)
+!data/dicarboxylic_acids/
+!data/dicarboxylic_acids/**
+data/dicarboxylic_acids/downstream_format_mutations/
 */output/*
 output/*
 */out/
