@@ -16,6 +16,7 @@ process BRESEQ {
     tuple val(meta), path("${prefix}/data/annotated.gd"),   emit: annotated_gd
     tuple val(meta), path("${prefix}/output/index.html"),   emit: html_report
     tuple val(meta), path("${prefix}/output/summary.json"), emit: summary
+    tuple val(meta), path("${prefix}/output/**"),            emit: output_dir
     path "versions.yml",                                    emit: versions
 
     when:

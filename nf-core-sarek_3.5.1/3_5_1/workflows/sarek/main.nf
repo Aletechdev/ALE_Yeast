@@ -301,6 +301,7 @@ workflow SAREK {
 
             FASTQ_VARIANT_CALLING_BRESEQ(reads_for_breseq, genbank)
             versions = versions.mix(FASTQ_VARIANT_CALLING_BRESEQ.out.versions)
+            reports = reports.mix(FASTQ_VARIANT_CALLING_BRESEQ.out.mqc_summary.collect{ meta, tsv -> [ tsv ] })
         }
 
         // STEP 1: MAPPING READS TO REFERENCE GENOME

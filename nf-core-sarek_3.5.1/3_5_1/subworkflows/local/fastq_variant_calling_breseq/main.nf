@@ -6,6 +6,7 @@
 //
 
 include { BRESEQ                              } from '../../../modules/local/breseq/main'
+include { BRESEQ_SUMMARY_MQC                  } from '../../../modules/local/breseq/summary_mqc/main'
 include { GDTOOLS_CONVERT                     } from '../../../modules/local/gdtools/convert/main'
 include { TABIX_BGZIPTABIX as TABIX_BGZIPTABIX_BRESEQ } from '../../../modules/nf-core/tabix/bgziptabix/main'
 
@@ -75,11 +76,22 @@ workflow FASTQ_VARIANT_CALLING_BRESEQ {
     TABIX_BGZIPTABIX_BRESEQ(GDTOOLS_CONVERT.out.vcf)
     versions = versions.mix(TABIX_BGZIPTABIX_BRESEQ.out.versions.first())
 
+    // =========================================================================
+    // STEP 5: Generate MultiQC custom content from breseq summary + mutations
+    // =========================================================================
+    mqc_input = BRESEQ.out.summary
+        .join(BRESEQ.out.gd, by: [0])
+        .map { meta, summary_json, gd -> [ meta, summary_json, gd ] }
+
+    BRESEQ_SUMMARY_MQC(mqc_input)
+    versions = versions.mix(BRESEQ_SUMMARY_MQC.out.versions.first())
+
     emit:
     gd           = BRESEQ.out.gd                     // channel: [ meta, output.gd ]
     annotated_gd = BRESEQ.out.annotated_gd           // channel: [ meta, annotated.gd ]
     html_report  = BRESEQ.out.html_report            // channel: [ meta, index.html ]
     summary      = BRESEQ.out.summary                // channel: [ meta, summary.json ]
     vcf          = TABIX_BGZIPTABIX_BRESEQ.out.gz_tbi // channel: [ meta, vcf.gz, tbi ]
+    mqc_summary  = BRESEQ_SUMMARY_MQC.out.mqc        // channel: [ meta, breseq_mqc.tsv ]
     versions                                         // channel: [ versions.yml ]
 }
