@@ -36,6 +36,7 @@ process BCFTOOLS_HARD_FILTER_JOINT {
 
     # Split multi-allelic sites into bi-allelic records
     bcftools norm \\
+        --force \\
         -m - \\
         -O z \\
         -o ${prefix}.normalized.vcf.gz \\
