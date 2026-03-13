@@ -8,9 +8,9 @@ from pathlib import Path
 data_dir = "/home/azureuser/Docs/ALE_nextflow/data/data_a_paper"  # adjust to your folder
 spore_seq_dir = "/home/azureuser/Docs/ALE_nextflow/data/data_a_paper/spore_seq"  # spore seq data
 out_dir = data_dir # adjust to your folder
-out_file = "samplesheet_gen2.csv"
+out_file = "samplesheet_gen2_allNormal_changePloidy.csv"
 patient_field = "ALE_Exp1" # Patient field required by Sarek, for ALE it can be the experiment name "ALE_Exp1"
-ploidty = 1  # Example ploidy, adjust as needed
+ploidy_default = 1  # Default ploidy for clonal (haploid) samples
 clonal_or_population = "clonal"  # Example clonal or population, adjust as needed
 
 
@@ -47,8 +47,22 @@ sample_name_map = {
 }
 status_map = {
     "A0-F0-I1-R1": 0,  # Ancestral strain (normal)
-    "A0-F0-I2-R1": 1,  # Ancestral strain replicate (normal), nf-sarek only takes on normal sample for each experiment(patient)
+    "A0-F0-I2-R1": 0,  # Ancestral strain replicate (normal), nf-sarek only takes on normal sample for each experiment(patient)
     # All evolved strains and spore seq samples default to status=1 (evolved)
+}
+# Ploidy: default is 1 (haploid) unless specified here
+# Spore-seq population samples are diploid (ploidy=2)
+ploidy_map = {
+    "A1-F6-I2-R1": 10,
+    "A1-F6-I3-R1": 10,
+    "A3-F3-I2-R1": 10,
+    "A3-F3-I3-R1": 10,
+    "A4-F5-I2-R1": 10,
+    "A4-F5-I3-R1": 10,
+    "A5-F4-I2-R1": 10,
+    "A5-F4-I3-R1": 10,
+    "A6-F6-I2-R1": 10,
+    "A6-F6-I3-R1": 10,
 }
 sex = "XX" # Yeast has no sex chromosomes, but Sarek requires this field for controlfreec
 
@@ -108,7 +122,7 @@ with open(f"{out_dir}/{out_file}", "w", newline="") as fh:
         sample_mapped = sample_name_map.get(sample_raw, sample_raw)
 
         # Determine status (0=normal/ancestral, 1=evolved/treated)
-        status = status_map.get(sample_mapped, 1)
+        status = status_map.get(sample_mapped, 0)
 
         # Determine clonal_or_population: spore seq samples are "population", bulk samples are "clonal"
         if sample_raw.startswith("Sp-"):
@@ -120,9 +134,10 @@ with open(f"{out_dir}/{out_file}", "w", newline="") as fh:
         if sample_raw not in sample_name_map:
             print(f"  Warning: Sample '{sample_raw}' not found in sample_name_map, using as-is")
         if sample_mapped not in status_map and sample_mapped not in ["A0-F0-I1-R1", "A0-F0-I2-R1"]:
-            print(f"  Info: Sample '{sample_mapped}' not in status_map, defaulting to status=1 (evolved)")
+            print(f"  Info: Sample '{sample_mapped}' not in status_map, defaulting to status=0 (normal)")
 
-        w.writerow([patient_field, sample_mapped, status, sample_type, ploidty, sex, f"L{lane}", info["R1"], info["R2"]])
+        sample_ploidy = ploidy_map.get(sample_mapped, ploidy_default)
+        w.writerow([patient_field, sample_mapped, status, sample_type, sample_ploidy, sex, f"L{lane}", info["R1"], info["R2"]])
         sample_count += 1
 
 print(f"\n{'='*60}")
