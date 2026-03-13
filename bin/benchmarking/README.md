@@ -1,0 +1,67 @@
+# Benchmarking Scripts
+
+Compares breseq and GATK HaplotypeCaller variant calls against a curated truth set (Table S8, adipic acid ALE experiments) and against each other.
+
+## Execution Order
+
+```bash
+source ~/miniforge3/etc/profile.d/conda.sh && conda activate nf-env
+
+# Step 1: Precision/recall against truth set
+python bin/benchmarking/01_precision_recall.py
+
+# Step 2: Tool comparison (variant counts, concordance, proximity, resources)
+python bin/benchmarking/02_tool_comparison.py
+
+# Step 3: Generate manager-facing summary report (reads CSVs from steps 1-2)
+python bin/benchmarking/03_summary_report.py
+```
+
+## Scripts
+
+### 01_precision_recall.py
+**Previously**: `bin/compare_precision_recall.py`
+
+Compares breseq and HaplotypeCaller calls against 24 curated SNVs from Table S8. Checks each variant×sample entry for presence/absence in both tools' VCFs.
+
+**Inputs**:
+- `data/dicarboxylic_acids/process_adipic_muts/03_table_s8_genomic_locations.csv` (truth set)
+- breseq VCFs: `output_all/variant_calling/breseq/{sample}/{sample}.vcf.gz`
+- HC VCFs: `output_all/variant_calling/haplotypecaller/individual_from_joint/{sample}/*.vcf.gz`
+
+**Outputs**:
+- `output_all/precision_recall_by_freq_bin.csv` — recall by frequency bin (Fixed/High/Medium/Low)
+- `output_all/variant_match_details.csv` — per-variant×sample match details with observed AFs
+
+### 02_tool_comparison.py
+**Previously**: `bin/compare_breseq_haplotypecaller.py`
+
+Genome-wide comparison of breseq and HaplotypeCaller across all 17 samples. Computes variant counts, position-level concordance (exact and ±50bp proximity), and resource usage.
+
+**Inputs**:
+- breseq VCFs and HC VCFs (same as above)
+- Nextflow execution traces for resource usage
+
+**Outputs**:
+- `output_all/tool_comparison/COMPARISON_REPORT.md` — detailed per-sample report
+- `output_all/tool_comparison/variant_counts_per_sample.csv`
+- `output_all/tool_comparison/concordance_summary.csv` — exact-match concordance (per-sample AF threshold: clonal=AF>=90%, population=AF>=5%)
+- `output_all/tool_comparison/proximity_concordance_50bp.csv` — ±50bp proximity concordance
+- `output_all/tool_comparison/resource_comparison.csv`
+
+### 03_summary_report.py
+**Previously**: `bin/summarize_benchmarking.py`
+
+Reads CSV outputs from steps 1 and 2 to generate a manager-friendly benchmarking summary. Also extracts a discordance example (chr12:431553) via bcftools/samtools to illustrate alignment-driven differences.
+
+**Inputs**: All CSVs from steps 1-2, plus truth set CSV and reference genome/CRAM for the example locus.
+
+**Outputs**:
+- `output_all/BENCHMARKING_SUMMARY.md`
+
+## Key Conventions
+
+- **Clonal samples** (I1): HC concordance uses PASS AF>=90%
+- **Population samples** (I2/I3): HC concordance uses PASS AF>=5%
+- **A0-F0-I2-R1** is an exception: classified as clonal (ancestral control), not population
+- breseq clonal mode rounds AF to 1 in VCF; actual AD/DP is typically 79-91%
