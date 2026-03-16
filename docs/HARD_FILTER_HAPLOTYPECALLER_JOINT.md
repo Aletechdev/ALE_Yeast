@@ -10,8 +10,14 @@ The `--hard_filter_haplotypecaller_joint` flag enables a post-processing step th
 
 Filter criteria (from `conf/modules/custom_haplotypecaller_joint_filter.config`):
 ```
-FILTER="PASS" & FORMAT/GQ>=20 & FORMAT/DP>=8 & FORMAT/AD[0:1]/(FORMAT/AD[0:0]+FORMAT/AD[0:1])>=0.8
+FILTER="PASS" & FORMAT/GQ>=20 & FORMAT/DP>=8 & FORMAT/AD[0:1]/(FORMAT/AD[0:0]+FORMAT/AD[0:1])>=${af_threshold}
 ```
+
+**Dynamic AF threshold** based on `meta.clonal_or_population` from the samplesheet:
+| Sample type | AF threshold | Rationale |
+|-------------|-------------|-----------|
+| Clonal      | >= 90%      | Expects near-fixed mutations in clonal isolates |
+| Population  | >= 5%       | Captures low-frequency variants in mixed populations (ploidy=10) |
 
 ## Why It Was Disabled
 
