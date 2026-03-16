@@ -104,3 +104,7 @@ quality_control/*/comparison/
 !quality_control/**/*.sh
 !quality_control/**/README.md
 bin/multiqc/
+
+# BUSCO output and downloaded lineage databases
+assets/references/busco_output/
+assets/references/busco_downloads/
