@@ -28,18 +28,29 @@ The final truth set (`03_table_s8_genomic_locations.csv`) contains 24 SNVs with:
 
 **Status**: Private — not included in this repository.
 
-Raw FASTQ files are stored on Azure Blob Storage:
-```
-https://aledata.blob.core.windows.net/aledata/Yeast/dicarboxylic_acids_all_clones/
-```
-
 **17 samples**: 7 clonal isolates (I1) + 10 population samples (I2/I3)
 - Clonal: Single-colony isolates from evolved lineages
 - Population: Spore-seq pools (~100 spores per pool, sequenced as bulk)
 
+A canonical copy of all inputs (FASTQs, reference genome, annotation, SnpEff cache, and samplesheet) is on Azure Blob Storage:
+```
+https://aledata.blob.core.windows.net/aledata/Yeast/adipic_acid_ale_benchmark/
+├── data_a_paper/
+│   ├── samplesheet_gen2_allNormal_changePloidy.csv
+│   ├── *.fastq.gz                        # 56 clonal FASTQs (7 samples × 4 lanes × R1/R2)
+│   └── spore_seq/Adipic_acid/batch*/     # 80 spore-seq FASTQs (10 samples × 4 lanes × R1/R2)
+└── BakerYeast_reference/
+    ├── draft_ref52.fasta                  # Reference genome
+    ├── draft_ref52.gff3                   # Gene annotation (used by breseq via --genbank)
+    └── snpeff_cache/                      # SnpEff annotation database
+```
+
+Upload/download scripts: `bin/prepare_input/upload_adipic_acid_ale_benchmark.sh` / `download_adipic_acid_ale_benchmark.sh`
+
 ## Reference Genome
 
-- **File**: `assets/references/draft_ref52.fasta`
+- **File**: `data/BakerYeast_reference/draft_ref52.fasta`
+- **Annotation**: `data/BakerYeast_reference/draft_ref52.gff3`
 - **Origin**: Modified CEN.PK113-7D assembly (17 scaffolds, 12.4 Mb)
 - **BUSCO**: 99.3% complete (saccharomycetes_odb10)
 - **Note**: Not the S288C reference — specific to this strain background
@@ -54,7 +65,6 @@ https://aledata.blob.core.windows.net/aledata/Yeast/dicarboxylic_acids_all_clone
 
 ### Pipeline Command
 ```bash
-# bin/CENPK_run_sarek_351_all.sh
 nextflow run ../nf-core-sarek_3.5.1/3_5_1/main.nf -profile azureD4as,docker \
     -w ${run_folder}/work_CENPK \
     --input ${run_folder}/data/data_a_paper/samplesheet_gen2_allNormal_changePloidy.csv \
@@ -63,7 +73,7 @@ nextflow run ../nf-core-sarek_3.5.1/3_5_1/main.nf -profile azureD4as,docker \
     --skip_tools baserecalibrator \
     -c ${run_folder}/bin/nextflow.config \
     --tools snpeff,freebayes,manta,cnvkit,tiddit,haplotypecaller,deepvariant,breseq \
-    --genbank ${run_folder}/assets/references/draft_ref52.gff3 \
+    --genbank ${run_folder}/data/BakerYeast_reference/draft_ref52.gff3 \
     --split_fastq 0 \
     --joint_germline --save_mapped \
     --split_haplotypecaller_joint_vcf --hard_filter_haplotypecaller_joint \
