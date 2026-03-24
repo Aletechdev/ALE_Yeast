@@ -19,6 +19,9 @@ python bin/benchmarking/adipic_acid_ale/02_tool_comparison.py
 
 # Step 3: Generate manager-facing summary report (reads CSVs from steps 1-2)
 python bin/benchmarking/adipic_acid_ale/03_summary_report.py
+
+# Step 4: Copy outputs to results/ for git tracking
+bash bin/benchmarking/adipic_acid_ale/04_update_results.sh
 ```
 
 ## Scripts
