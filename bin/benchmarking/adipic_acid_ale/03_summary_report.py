@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 
-BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # Input CSVs
 RECALL_CSV = os.path.join(BASE, "output_all/precision_recall_by_freq_bin.csv")

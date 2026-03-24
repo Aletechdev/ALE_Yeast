@@ -12,7 +12,7 @@ import subprocess
 import sys
 from collections import defaultdict
 
-BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 BRESEQ_DIR = os.path.join(BASE, "output_all/variant_calling/breseq")
 HC_SOFT_VCF = os.path.join(BASE, "output_all/variant_calling/haplotypecaller/joint_variant_calling/HaplotypeCaller_joint_calling_soft_filtered.vcf.gz")
 HC_FILTERED_DIR = os.path.join(BASE, "output_all/variant_calling_filtered/haplotypecaller/individual_from_joint")

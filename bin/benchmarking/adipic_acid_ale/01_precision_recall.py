@@ -12,7 +12,7 @@ import sys
 from collections import defaultdict
 
 # --- Paths ---
-BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 TRUTH_CSV = os.path.join(BASE, "data/dicarboxylic_acids/process_adipic_muts/03_table_s8_genomic_locations.csv")
 BRESEQ_DIR = os.path.join(BASE, "output_all/variant_calling/breseq")
 HC_JOINT_VCF = os.path.join(BASE, "output_all/variant_calling/haplotypecaller/joint_variant_calling/joint_germline.vcf.gz")
