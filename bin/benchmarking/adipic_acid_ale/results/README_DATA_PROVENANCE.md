@@ -49,6 +49,7 @@ Upload/download scripts: `bin/prepare_input/upload_adipic_acid_ale_benchmark.sh`
 
 ## Reference Genome
 
+Reference info: From Yun Chen (yunc@chalmers.se) https://doi.org/10.1016/j.ymben.2019.09.008: Genome of CEN.PK113-7D ([Jenjaroenpun et al., 2018](https://www.sciencedirect.com/science/article/pii/S1096717619302824?via%3Dihub#bib26)) modified as follows: the GFP/KANMX cassette was added to chromosome XI, the high quality annotations from the genome of *S. cerevisiae* S288c (R64-2-1) were transferred to the CEN.PK113-7D genome using RATT.
 - **File**: `data/BakerYeast_reference/draft_ref52.fasta`
 - **Annotation**: `data/BakerYeast_reference/draft_ref52.gff3`
 - **Origin**: Modified CEN.PK113-7D assembly (17 scaffolds, 12.4 Mb)

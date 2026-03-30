@@ -4,6 +4,10 @@ Variant calling benchmarking studies comparing tools in the ALE Nextflow pipelin
 
 Each subfolder is a self-contained benchmark study with its own scripts, results, and data provenance documentation.
 
+**Reference**:
+- [Yeast unprocessed data compilation](https://docs.google.com/spreadsheets/d/1yq8qE6uAwycnBQzo0yWZeTc4_160iSE19nJVsveZnGk/edit?gid=0#gid=0)
+- [Jira ALE-Yeast NextFlow test/reference data (ALE-2801)](https://sbrgsoftware.atlassian.net/browse/ALE-2801)
+
 ## Studies
 
 | Study | Organism | Data | Tools Compared | Status |
