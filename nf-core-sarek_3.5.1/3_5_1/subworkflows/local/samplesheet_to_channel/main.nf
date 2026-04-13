@@ -145,7 +145,7 @@ workflow  SAMPLESHEET_TO_CHANNEL{
     // 2. the sample-sheet only contains tumor-samples, but some of the requested tools require normal-samples.
     input_sample.filter{ it[0].status == 1 || it[0].status == '1' }.ifEmpty{ // In this case, the sample-sheet contains no tumor-samples
         if (!build_only_index) {
-            def tools_tumor = ['ascat', 'controlfreec', 'mutect2', 'msisensorpro']
+            def tools_tumor = ['ascat', 'mutect2', 'msisensorpro'] // controlfreec removed: now supports germline mode
             def tools_tumor_asked = []
             tools_tumor.each{ tool ->
                 if (tools.split(',').contains(tool)) tools_tumor_asked.add(tool)

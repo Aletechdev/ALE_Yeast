@@ -15,6 +15,7 @@ include { BAM_VARIANT_CALLING_SENTIEON_HAPLOTYPER                               
 include { BAM_VARIANT_CALLING_MPILEUP                                                  } from '../bam_variant_calling_mpileup/main'
 include { BAM_VARIANT_CALLING_SINGLE_STRELKA                                           } from '../bam_variant_calling_single_strelka/main'
 include { BAM_VARIANT_CALLING_SINGLE_TIDDIT                                            } from '../bam_variant_calling_single_tiddit/main'
+include { BAM_VARIANT_CALLING_GERMLINE_CONTROLFREEC                                    } from '../bam_variant_calling_germline_controlfreec/main'
 include { SENTIEON_DNAMODELAPPLY                                                       } from '../../../modules/nf-core/sentieon/dnamodelapply/main'
 include { SPLIT_JOINT_VCF                                                              } from '../split_joint_vcf/main'
 include { VCF_FILTER_HAPLOTYPECALLER_JOINT                                             } from '../vcf_filter_haplotypecaller_joint/main'
@@ -51,6 +52,9 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     sentieon_dnascope_emit_mode       // channel: [mandatory] value channel with string
     sentieon_dnascope_pcr_indel_model // channel: [mandatory] value channel with string
     sentieon_dnascope_model           // channel: [mandatory] value channel with string
+    chr_files                         // channel: [optional]  controlfreec chromosome files
+    mappability                       // channel: [optional]  controlfreec mappability file
+    wes                               // boolean: [mandatory] [default: false] whether targeted data is processed
 
     main:
     versions = Channel.empty()
@@ -71,8 +75,8 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     vcf_strelka              = Channel.empty()
     vcf_tiddit               = Channel.empty()
 
-    // BCFTOOLS MPILEUP
-    if (tools.split(',').contains('mpileup')) {
+    // BCFTOOLS MPILEUP (also needed for controlfreec)
+    if (tools.split(',').contains('mpileup') || tools.split(',').contains('controlfreec')) {
         BAM_VARIANT_CALLING_MPILEUP(
             cram,
             dict,
@@ -81,6 +85,25 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
         )
         vcf_mpileup = BAM_VARIANT_CALLING_MPILEUP.out.vcf
         versions = versions.mix(BAM_VARIANT_CALLING_MPILEUP.out.versions)
+    }
+
+    // CONTROLFREEC (depends on MPILEUP)
+    if (tools.split(',').contains('controlfreec')) {
+        intervals_controlfreec = wes ? intervals_bed_combined : []
+
+        BAM_VARIANT_CALLING_GERMLINE_CONTROLFREEC(
+            // Remap channel to match module/subworkflow: [meta, [], pileup, [], [], [], []]
+            BAM_VARIANT_CALLING_MPILEUP.out.mpileup.map{ meta, pileup -> [ meta, [], pileup, [], [], [], [] ] },
+            fasta.map{ meta, fasta -> [ fasta ] },
+            fasta_fai.map{ meta, fasta_fai -> [ fasta_fai ] },
+            dbsnp,
+            dbsnp_tbi,
+            chr_files,
+            mappability,
+            intervals_controlfreec
+        )
+
+        versions = versions.mix(BAM_VARIANT_CALLING_GERMLINE_CONTROLFREEC.out.versions)
     }
 
     // CNVKIT

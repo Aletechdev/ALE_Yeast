@@ -502,6 +502,25 @@ with yeast genome, there is no mutation resources, As --germline-resource is omi
 
 ### update controlfreec parameters, e.g., window for yeast
 
+### Investigate ASSESS_SIGNIFICANCE skip for ploidy=1
+
+**Priority**: LOW - Understanding exercise, may unlock better CNV analysis for haploid strains
+
+**Current Behavior**: ASSESS_SIGNIFICANCE is skipped when `meta.ploidy == 1` because Control-FREEC produces empty `*.gz_CNVs` files for haploid samples, which causes the R significance script to fail.
+
+**Config**: `conf/modules/controlfreec.config` line 19:
+```groovy
+ext.when = { !(meta.ploidy == null || meta.ploidy.toString().toInteger() == 1) }
+```
+
+**Questions to Investigate**:
+1. **What does ASSESS_SIGNIFICANCE do?** — R script that runs Wilcoxon rank-sum and Kolmogorov-Smirnov tests on CNV segments to assign p-values
+2. **Why are `*.gz_CNVs` files empty for ploidy=1?** — Is this because haploid genomes have no heterozygous regions for BAF-based segmentation? Or is it a window size / config issue for small yeast chromosomes?
+3. **Is this fixable?** — Could tuning `window`, `breakpointthreshold`, or `readcountthreshold` for yeast produce non-empty CNV calls at ploidy=1?
+4. **Should the skip remain?** — If empty CNVs are inherent to haploid calling (no gain/loss relative to baseline ploidy=1), the skip is correct. If it's a config issue, fixing parameters would be preferable.
+
+**Related**: "update controlfreec parameters" TODO above — tuning window size for yeast may resolve this.
+
 ### ⭐ Enable Control-FREEC for Germline Variant Calling
 
 **Priority**: MEDIUM - Extends CNV analysis to germline workflow

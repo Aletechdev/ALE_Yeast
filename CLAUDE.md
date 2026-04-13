@@ -257,6 +257,10 @@ withName: 'ASSESS_SIGNIFICANCE' {
 
 **Impact**: Pipeline completes successfully for haploid strains, CNV analysis continues with read depth ratios
 
+#### ✅ IMPLEMENTED: Control-FREEC Germline Mode (April 2026)
+
+Single-sample Control-FREEC added to the germline workflow. See `docs/controlfreec_germline_changes.md` for full implementation details.
+
 #### ✅ FilterMutectCalls Channel Join Fix (Dec 2024)
 
 **Issue**: FilterMutectCalls skipped when no `--germline_resource` provided
