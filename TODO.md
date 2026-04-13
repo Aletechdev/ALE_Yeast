@@ -502,6 +502,55 @@ with yeast genome, there is no mutation resources, As --germline-resource is omi
 
 ### update controlfreec parameters, e.g., window for yeast
 
+### ⭐ Enable Control-FREEC for Germline Variant Calling
+
+**Priority**: MEDIUM - Extends CNV analysis to germline workflow
+
+**Current Status**: Control-FREEC only runs in the somatic variant calling subworkflow (tumor vs. normal mode). It is not invoked for germline calling, so ancestral/evolved samples processed purely as germline do not get CNV analysis from Control-FREEC.
+
+**Goal**: Enable Control-FREEC to run in germline mode for ALE samples, producing copy number ratios and CNV calls without requiring a paired normal.
+
+**Relevant Locations**:
+- Somatic subworkflow (current usage): `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/bam_variant_calling_somatic_all/main.nf` (Control-FREEC invocation)
+- Germline subworkflow (target): `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/bam_variant_calling_germline_all/main.nf`
+- Module: `modules/nf-core/controlfreec/freec/main.nf`
+- Config: `conf/modules/controlfreec.config`
+- Parameter schema: `nextflow_schema.json` (tools list, controlfreec-related params)
+
+**Implementation Tasks**:
+1. **Investigate Control-FREEC germline/single-sample mode**
+   - Verify Control-FREEC config supports running without a control (set `[control] mateFile` empty)
+   - Check existing nf-core/sarek single-sample (tumor-only) invocation pattern for reference
+2. **Add germline invocation**
+   - Create a `BAM_VARIANT_CALLING_GERMLINE_CONTROLFREEC` subworkflow (or reuse the somatic one with conditional control)
+   - Wire it into `bam_variant_calling_germline_all/main.nf` when `tools.contains('controlfreec')` and no matched normal is required
+3. **Channel logic**
+   - Feed the germline `cram_variant_calling` channel (treating each sample as standalone)
+   - Propagate `meta.ploidy`, `meta.sex` for correct CNV computation
+4. **Config adjustments** (`conf/modules/controlfreec.config`)
+   - Ensure `ext.when` allows germline context (currently scoped to somatic)
+   - Keep existing ploidy=1 ASSESS_SIGNIFICANCE skip logic
+   - Add yeast-appropriate window size (links to existing "update controlfreec parameters" TODO)
+5. **Output structure**
+   - Publish under `variant_calling/controlfreec/<sample>/` parallel to somatic output
+6. **Testing**
+   - Run on CENPK test data with ploidy=1 and ploidy=2 samples
+   - Verify CNV ratio plots and `*_CNVs` files generated
+   - Confirm no regressions in somatic Control-FREEC path
+
+**Open Questions**:
+- Should germline Control-FREEC use pooled ancestral strain as pseudo-control, or pure single-sample mode?
+- How to handle ploidy column when mixed ploidy samples in one experiment?
+- Integration with existing CNV dashboard/MultiQC reporting?
+
+**Benefits**:
+- ✅ CNV analysis available for all germline-only workflows
+- ✅ Consistent tool coverage (SNV + CNV) across sample types
+- ✅ Better fit for ALE experiments where all samples treated as germline
+- ✅ Complements HaplotypeCaller joint germline calling with structural variants
+
+**Dependencies**: Related to "update controlfreec parameters" TODO above - should be implemented together to land with yeast-tuned defaults.
+
 ### ⭐ More Stringent Mutect2 Filtering Options (not high priority, since we decide to keep more muts, rank for top, and look for fixed & convergent mutations)
 
 **Current Status**: Mutect2 produces 30% more variants than FreeBayes (11,060 vs 8,488), suggesting need for more stringent filtering.
