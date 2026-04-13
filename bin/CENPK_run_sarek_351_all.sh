@@ -1,6 +1,6 @@
 # run_folder="/Users/zhlia/Documents/GitRepo/NF_ALE"
 run_folder="/home/azureuser/Docs/ALE_nextflow"  #--joint_germline \     --concatenate_vcfs \
-nextflow run ../nf-core-sarek_3.5.1/3_5_1/main.nf -profile azureD4as,docker \
+nextflow run ${run_folder}/nf-core-sarek_3.5.1/3_5_1/main.nf -profile azureD4as,docker \
     -w ${run_folder}/work_CENPK \
     --input ${run_folder}/data/data_a_paper/samplesheet_gen2_allNormal_changePloidy.csv \
     --outdir ${run_folder}/output_all  --genome null --igenomes_ignore  \
