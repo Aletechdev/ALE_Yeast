@@ -72,8 +72,9 @@ ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L002,SubSampleCENPK113-7D-N_S53_L002_R1_001.fast
 - **SnpEff**: Custom cache generated via `bin/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`
 
 **Ploidy Support:**
-- Passed to: `cnvkit, controlfreec, FreeBayes, Tiddit`
+- Passed to: `cnvkit (call + export), controlfreec, FreeBayes, Tiddit`
 - **Note**: `bcftools mpileup` still uses ploidy=1 in `conf/modules/ngscheckmate.config`
+- **CNVKit**: Ploidy passed to both `cnvkit.py call` and `cnvkit.py export vcf`. See `docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`
 
 ---
 
@@ -203,6 +204,18 @@ BAM_VARIANT_CALLING_FREEBAYES channel disabled in workflow `~/Docs/ALE_nextflow/
 - https://gatk.broadinstitute.org/hc/en-us/articles/5358921041947-CreateSomaticPanelOfNormals-BETA-
 
 
+### CNVKit
+
+#### ✅ Ploidy Fix for VCF Export (April 2026)
+
+**Problem**: `cnvkit.py export vcf` defaulted to `--ploidy 2`, producing incorrect GT for haploid samples.
+
+**Fix**: Added `--ploidy ${meta.ploidy}` to `CNVKIT_EXPORT` in `conf/modules/cnvkit.config`.
+
+**Key behavior**: CNVKit always uses diploid-style GT notation (`0/1`, `1/1`) in VCF regardless of ploidy setting. Use the `CN` FORMAT field for actual copy number. `0/1` for `<DUP>` events is standard SV-VCF convention for copy number gain, not diploid heterozygosity.
+
+**Details**: See `docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`
+
 ### VCFtools Compatibility
 
 #### ⚠️ Conditional Skipping
@@ -259,7 +272,7 @@ withName: 'ASSESS_SIGNIFICANCE' {
 
 #### ✅ IMPLEMENTED: Control-FREEC Germline Mode (April 2026)
 
-Single-sample Control-FREEC added to the germline workflow. See `docs/controlfreec_germline_changes.md` for full implementation details.
+Single-sample Control-FREEC added to the germline workflow. See `docs/variant-calling/controlfreec/controlfreec_germline_changes.md` for full implementation details.
 
 #### ✅ FilterMutectCalls Channel Join Fix (Dec 2024)
 
