@@ -115,6 +115,29 @@ Note: 3 of these CNV clones (BMS983970-2R1e, Doxorubicin-24R3a, CBR110-15R3a) al
 
 ### 5.4 Data Retrieval
 
+#### Supplementary Truth Set Files
+
+The benchmark truth sets are derived from supplementary data files published with the paper. These are pre-downloaded in `data/ottilie/supplementary/` for reproducibility, but can be re-fetched with:
+
+```bash
+mkdir -p data/ottilie/supplementary
+cd data/ottilie/supplementary
+
+# Supplementary Data 4: Full mutation list (1,405 SNVs + INDELs)
+curl -L -o sup_4_42003_2022_3076_MOESM6_ESM.xlsx \
+  "https://static-content.springer.com/esm/art%3A10.1038%2Fs42003-022-03076-7/MediaObjects/42003_2022_3076_MOESM6_ESM.xlsx"
+
+# Supplementary Data 5: Copy number variants (24 CNV events)
+curl -L -o sup_5_42003_2022_3076_MOESM7_ESM.xlsx \
+  "https://static-content.springer.com/esm/art%3A10.1038%2Fs42003-022-03076-7/MediaObjects/42003_2022_3076_MOESM7_ESM.xlsx"
+
+# Supplementary Data 7: CRISPR/Cas9 validation (nice-to-have)
+curl -L -o sup_7_42003_2022_3076_MOESM9_ESM.xlsx \
+  "https://static-content.springer.com/esm/art%3A10.1038%2Fs42003-022-03076-7/MediaObjects/42003_2022_3076_MOESM9_ESM.xlsx"
+```
+
+#### SRA Sequencing Data
+
 Raw sequencing data for all 363 clones is deposited under NCBI BioProject **[PRJNA590203](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA590203)**. Each clone has an internal "EAW clone #" identifier (visible in sub_4, column 3) that can be matched to SRA run accessions.
 
 **EAW IDs for Phase 1 SNV-track clones:**
@@ -139,39 +162,59 @@ Raw sequencing data for all 363 clones is deposited under NCBI BioProject **[PRJ
 
 **EAW IDs for CNV-track clones with sub_4 overlap:** BMS983970-2R1e → EAW722, Doxorubicin-24R3a → EAW702, CBR110-15R3a → EAW744. The 3 CNV-only clones (Wortmannin-13R3a, MMV665794-8R9c, GNF-Pf-1618-7R2b) must be matched by clone name in the SRA metadata.
 
-**Step 1: Download the full SRA RunInfo table and match to clone names:**
+#### Sample Name Dictionary
+
+Clone names differ between sup_4, sup_5, and SRA (e.g. double-dash `MMV665794--10R9c` in sup_4/SRA vs single-dash `MMV665794-10R9c` in sup_5; underscores vs dashes `GNFpf3891--3_R3a` vs `GNFpf3891--3-R3a`; abbreviations `Tavabarole-9Res2c` in sup_5 vs `Tav--9Res2c` in SRA). A cross-source mapping is pre-generated at `data/ottilie/sample_name_dictionary.csv` and can be regenerated with:
 
 ```bash
-# Install NCBI Entrez Direct (one-time setup)
-sh -c "$(curl -fsSL https://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/install-edirect.sh)"
-export PATH="${HOME}/edirect:${PATH}"
-
-# Download full RunInfo CSV for the BioProject
-esearch -db sra -query PRJNA590203 | efetch -format runinfo > PRJNA590203_runinfo.csv
-
-# Preview key columns (Run accession, SampleName, LibraryName)
-cut -d',' -f1,12,30 PRJNA590203_runinfo.csv | head -20
-
-# Extract just the SRR accessions
-cut -d',' -f1 PRJNA590203_runinfo.csv | grep SRR > SRR_accessions.txt
+conda activate ottilie-benchmark
+# Download RunInfo (if not present)
+esearch -db sra -query PRJNA590203 | efetch -format runinfo > data/ottilie/PRJNA590203_runinfo.csv
+# Build dictionary
+python bin/benchmarking/ottilie_xenobiotic_ale/resolve_sra_accessions.py
 ```
 
-**Step 2: Download FASTQ files for selected samples using SRA Toolkit:**
+Match rates: 352/355 sup_4 clones, 23/23 sup_5 clones, 1 parent clone. Three SRA-only samples (`DDD1035522--1R2a`, `CBR--14-R5a`, `MMV665794--R6-2`) have no sup_4 entries and are excluded from benchmarking.
+
+**Parent clone (resolved):** The un-evolved ABC16-Green Monster parent is `NODRUG--GM2` → **SRR10985539** (3.2M read pairs, ~55x coverage).
+
+#### Stage A Pilot SRR Accessions
+
+| Sample | SRR Accession | EAW ID | Role | Read Pairs | Coverage | FASTQ Size |
+|--------|---------------|--------|------|-----------|----------|------------|
+| NODRUG--GM2 | SRR10985539 | — | Parent (baseline) | 3,216,392 | 53x | 549M |
+| Doxorubicin-16--R2b | SRR10985527 | EAW304 | SNV track (23 mutations) | 6,997,828 | 116x | 1.1G |
+| Carmaphycin--R9-2 | SRR10985678 | EAW131 | SNV track (15 mutations) | 12,911,855 | 213x | 1.6G |
+| CBR110-15-R3a | SRR10985585 | EAW744 | CNV track (ChrI aneuploidy) | 6,280,120 | 104x | 787M |
+
+All samples: paired-end 100bp reads. Coverage estimated against *S. cerevisiae* S288C (~12.1 Mb). Total compressed FASTQ: ~4 GB.
+
+#### Downloading FASTQ Files
+
+All tools are in the `ottilie-benchmark` conda environment (see `bin/benchmarking/ottilie_xenobiotic_ale/environment_data_retrieval.yml`):
 
 ```bash
-# Install SRA Toolkit (if not already available)
-# See: https://github.com/ncbi/sra-tools/wiki/02.-Installing-SRA-Toolkit
-
-# Download a single sample (paired-end FASTQ)
-fasterq-dump SRR_ACCESSION --split-files --outdir fastq/
-
-# Bulk download from an accession list
-while read SRR; do
-    fasterq-dump "$SRR" --split-files --outdir fastq/
-done < selected_accessions.txt
+conda env create -f bin/benchmarking/ottilie_xenobiotic_ale/environment_data_retrieval.yml
+conda activate ottilie-benchmark
 ```
 
-**Note:** The parent clone (ABC16-Green Monster, un-evolved) should also be present in this BioProject — identify it from the RunInfo metadata (it will lack a compound/drug association). Clone naming conventions differ slightly between the two supplementary tables (e.g. double-dash `MMV665794--10R9c` in sub_4 vs single-dash `MMV665794-10R9c` in sup_5); account for this when matching.
+**Pilot download script** (downloads, converts to paired-end FASTQ, compresses):
+
+```bash
+cd <repo_root>
+bash bin/benchmarking/ottilie_xenobiotic_ale/download_pilot_fastq.sh
+```
+
+The script uses `fasterq-dump` (streaming, no prefetch needed), skips already-downloaded samples, and cleans up partial files on retry. Requires `sra-tools=3.2.1` (3.4.1 has segfault bugs).
+
+**Manual download for any single sample:**
+
+```bash
+mkdir -p data/ottilie/fastq
+fasterq-dump SRR10985539 --split-files --outdir data/ottilie/fastq --threads 4
+gzip data/ottilie/fastq/SRR10985539_1.fastq
+gzip data/ottilie/fastq/SRR10985539_2.fastq
+```
 
 ### 5.5 Pipeline Execution
 

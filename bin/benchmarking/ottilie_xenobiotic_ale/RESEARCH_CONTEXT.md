@@ -29,8 +29,9 @@ Ottilie et al., "Adaptive laboratory evolution in S. cerevisiae highlights role 
 - **Total mutations**: 1,405 (1,286 SNVs + 119 INDELs)
 
 ## Truth Set / Validation Data
-- **Supplementary Data 4**: Comprehensive mutation list (1,405 variants)
-- **Supplementary Data 7**: CRISPR/Cas9 validation results (61 alleles tested, 45 confirmed causal)
+- **Supplementary Data 4**: Comprehensive mutation list (1,405 variants: 1,286 SNVs + 119 INDELs)
+- **Supplementary Data 5**: Copy number variants (24 CNVs: 11 aneuploidies across 10 clones + 13 intrachromosomal amplifications); filtered for ≥2-3x fold coverage change vs parent and spanning ≥4 genes
+- **Supplementary Data 7** *(nice-to-have)*: CRISPR/Cas9 validation results (61 alleles tested, 45 confirmed causal) — biological relevance, not prioritized for technical benchmarking
 - Key finding: ~25% of compounds had resistance mediated by gain-of-function SNVs in YRR1/YRM1 transcription factors (170 aa domain, 100 independent SNVs)
 
 ## Differences from Current Pipeline (CEN.PK / Pereira Benchmark)

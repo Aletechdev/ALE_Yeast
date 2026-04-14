@@ -1,0 +1,9 @@
+name: ottilie-benchmark
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - entrez-direct
+  - sra-tools=3.2.1  # 3.4.1 has segfault bugs
+  - pandas
+  - openpyxl
