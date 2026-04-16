@@ -1,0 +1,32 @@
+# Seqera Platform launch parameters - ALE yeast test dataset
+#
+# Upload this file in the Seqera launch form "Pipeline parameters" field
+# or paste as YAML in the parameters editor.
+#
+# Blob container: aletest (created by bin/upload_test_data_azure.sh)
+
+# Input / Output
+input: "az://aletest/assets/reads/samplesheet_azure.csv"
+outdir: "az://aletest/output_seqera_test"
+
+# Reference genome
+genome: null
+igenomes_ignore: true
+fasta: "az://aletest/assets/references/draft_ref52.fasta"
+genbank: "az://aletest/assets/references/draft_ref52.gff3"
+
+# Variant calling tools
+tools: "snpeff,haplotypecaller,freebayes,cnvkit,tiddit,manta,breseq"
+skip_tools: "baserecalibrator"
+
+# HaplotypeCaller joint germline calling
+joint_germline: true
+split_haplotypecaller_joint_vcf: true
+hard_filter_haplotypecaller_joint: true
+
+# FASTQ splitting (0 = no splitting)
+split_fastq: 0
+
+# Annotation (SnpEff with custom yeast cache)
+snpeff_cache: "az://aletest/assets/references/snpeff_cache"
+snpeff_db: "draft_ref.52"
