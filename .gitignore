@@ -111,3 +111,4 @@ assets/references/busco_downloads/
 
 # macOS .DS_Store in tracked subdirectories (overrides !data/dicarboxylic_acids/**)
 data/dicarboxylic_acids/.DS_Store
+.env

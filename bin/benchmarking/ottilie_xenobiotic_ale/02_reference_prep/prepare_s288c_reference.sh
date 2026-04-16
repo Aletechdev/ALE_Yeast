@@ -92,7 +92,7 @@ EOF
     # -noCheckCds -noCheckProtein: skip validation (no CDS/protein FASTA available)
     docker run --rm \
         -v "$(pwd)/snpeff_cache:/data/cache" \
-        quay.io/biocontainers/snpeff:5.2--hdfd78af_1 \
+        quay.io/biocontainers/snpeff:5.1--hdfd78af_2 \
         snpEff build -gff3 -noCheckCds -noCheckProtein \
             -dataDir /data/cache \
             -c /data/cache/snpEff.config \
