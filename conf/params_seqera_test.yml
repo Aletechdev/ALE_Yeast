@@ -14,6 +14,7 @@ genome: null
 igenomes_ignore: true
 fasta: "az://aletest/assets/references/draft_ref52.fasta"
 genbank: "az://aletest/assets/references/draft_ref52.gff3"
+chr_dir: "az://aletest/assets/references/chromosomes"
 
 # Variant calling tools
 tools: "snpeff,haplotypecaller,freebayes,cnvkit,tiddit,manta,breseq"

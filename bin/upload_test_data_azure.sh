@@ -56,6 +56,13 @@ azcopy copy \
     "${BLOB_BASE}/assets/references/draft_ref52.gff3"
 
 echo ""
+echo "Uploading chromosomes (required for Control-FREEC --chr_dir)..."
+azcopy copy \
+    "${REPO_ROOT}/assets/references/chromosomes/" \
+    "${BLOB_BASE}/assets/references/chromosomes/" \
+    --recursive
+
+echo ""
 echo "Uploading snpeff_cache..."
 azcopy copy \
     "${REPO_ROOT}/assets/references/snpeff_cache/" \
@@ -78,8 +85,9 @@ echo ""
 echo "=== Done ==="
 echo ""
 echo "Blob paths for Seqera launch:"
-echo "  input:       az://${CONTAINER}/assets/reads/samplesheet_azure.csv"
-echo "  fasta:       az://${CONTAINER}/assets/references/draft_ref52.fasta"
-echo "  genbank:     az://${CONTAINER}/assets/references/draft_ref52.gff3"
+echo "  input:        az://${CONTAINER}/assets/reads/samplesheet_azure.csv"
+echo "  fasta:        az://${CONTAINER}/assets/references/draft_ref52.fasta"
+echo "  genbank:      az://${CONTAINER}/assets/references/draft_ref52.gff3"
+echo "  chr_dir:      az://${CONTAINER}/assets/references/chromosomes"
 echo "  snpeff_cache: az://${CONTAINER}/assets/references/snpeff_cache"
-echo "  outdir:      az://${CONTAINER}/output_seqera_test"
+echo "  outdir:       az://${CONTAINER}/output_seqera_test"
