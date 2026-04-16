@@ -40,7 +40,7 @@ az storage container create \
 echo ""
 echo "Uploading reads..."
 azcopy copy \
-    "${REPO_ROOT}/assets/reads/" \
+    "${REPO_ROOT}/assets/reads/*" \
     "${BLOB_BASE}/assets/reads/" \
     --recursive
 
@@ -58,14 +58,14 @@ azcopy copy \
 echo ""
 echo "Uploading chromosomes (required for Control-FREEC --chr_dir)..."
 azcopy copy \
-    "${REPO_ROOT}/assets/references/chromosomes/" \
+    "${REPO_ROOT}/assets/references/chromosomes/*" \
     "${BLOB_BASE}/assets/references/chromosomes/" \
     --recursive
 
 echo ""
 echo "Uploading snpeff_cache..."
 azcopy copy \
-    "${REPO_ROOT}/assets/references/snpeff_cache/" \
+    "${REPO_ROOT}/assets/references/snpeff_cache/*" \
     "${BLOB_BASE}/assets/references/snpeff_cache/" \
     --recursive
 
