@@ -170,13 +170,42 @@ nextflow run https://github.com/Aletechdev/ALE_Yeast \
 ---
 
 ### Step 5b: Restructure repo for Seqera (Option B)
-- **Status**: ☐ Pending
-- **Blocker**: Yes — required for pipeline to launch correctly
+- **Status**: ✅ Done (2026-04-17) — pipeline contents moved to repo root
+- **Blocker**: Resolved
 
-Move `nf-core-sarek_3.5.1/3_5_1/` contents to repo root on `worktree-seqera-cloud`:
+Moved `nf-core-sarek_3.5.1/3_5_1/` contents to repo root:
 - `main.nf`, `nextflow.config`, `nextflow_schema.json` at root
 - `workflows/`, `subworkflows/`, `modules/`, `conf/`, `assets/` at root
-- Remove stub files added during Option A
+- Removed stub files added during Option A
+- Removed `nf-core-sarek_3.5.1/configs/` (nf-core institutional configs, not needed for ALE)
+
+#### ⚠️ Known Issue: `custom_config_base` local path artifact from `nf-core download`
+
+**Root cause**: 3.5.1 was downloaded via `nf-core download`, which:
+1. Places pipeline in a versioned subfolder (`3_5_1/`)
+2. Bundles `nf-core/configs` repo alongside it (`configs/`)
+3. **Patches `nextflow.config`** to point `custom_config_base` to the local bundled path:
+   ```groovy
+   custom_config_base = "${projectDir}/../configs/"  // ← patched by nf-core download
+   ```
+
+After Option B restructure, `configs/` no longer exists at `../` relative to the pipeline root, causing:
+```
+ERROR ~ Config file does not exist: .../configs/nfcore_custom.config
+```
+
+**Current workaround**: `params.custom_config_base = null` in `conf/seqera_azure.config` (and `NXF_OFFLINE=true` in `bin/test_nf.sh`). Safe because nf-core institutional HPC configs are irrelevant for Azure Batch / ALE experiments.
+
+**Ideal fix** (not yet applied): Update `nextflow.config` lines 140 and 321-324 to match 3.8.1 behaviour — use remote URL default and smarter offline check:
+```groovy
+// Line 140 — change from local path to remote URL:
+custom_config_base = "https://raw.githubusercontent.com/nf-core/configs/${params.custom_config_version}"
+
+// Lines 321-324 — smarter condition that skips remote URLs when offline:
+includeConfig params.custom_config_base && (!System.getenv('NXF_OFFLINE') || !params.custom_config_base.startsWith('http')) ? "${params.custom_config_base}/nfcore_custom.config" : "/dev/null"
+includeConfig params.custom_config_base && (!System.getenv('NXF_OFFLINE') || !params.custom_config_base.startsWith('http')) ? "${params.custom_config_base}/pipeline/sarek.config" : "/dev/null"
+```
+This would make the pipeline behave correctly with or without `NXF_OFFLINE`, matching standard nf-core 3.8.1+ behaviour.
 
 ---
 

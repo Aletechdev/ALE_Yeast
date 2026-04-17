@@ -11,6 +11,27 @@ This document describes all modifications made to nf-core-sarek 3.5.1 compared t
 5. **Joint calling improvements** - Split joint VCF into individual samples
 6. **Additional bcftools modules** - filter, query, view modules added
 
+## ⚠️ Known Divergence from Upstream: `custom_config_base` (nextflow.config line 140)
+
+**Status**: Workaround in place, ideal fix pending
+
+**Issue**: Pipeline was originally obtained via `nf-core download`, which patched `nextflow.config` to use a local path:
+```groovy
+// Current (nf-core download artifact) — line 140:
+custom_config_base = "${projectDir}/../configs/"
+
+// Upstream 3.8.1 (correct) — uses remote URL:
+custom_config_base = "https://raw.githubusercontent.com/nf-core/configs/${params.custom_config_version}"
+```
+
+The `includeConfig` logic at lines 321-324 is also weaker than 3.8.1 — it doesn't distinguish between local and remote paths when `NXF_OFFLINE` is set.
+
+**Impact**: Fails on any deployment where `configs/` is not present alongside the pipeline (Seqera Cloud, fresh git clone).
+
+**Current workaround**: `params.custom_config_base = null` in `conf/seqera_azure.config` + `NXF_OFFLINE=true` in `bin/test_nf.sh`.
+
+**Ideal fix**: Apply the two-line change from 3.8.1 to `nextflow.config` (lines 140, 321, 324). See `docs/seqera_cloud_deployment_checklist.md` Step 5b for exact diff.
+
 ---
 
 ## 1. Input Schema Changes
