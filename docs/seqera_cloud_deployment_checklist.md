@@ -25,8 +25,8 @@
 ## Deployment Steps
 
 ### Step 1: Upload Test Data to Azure Blob Storage
-- **Status**: ☐ Pending
-- **Blocker**: Yes — no data, no run
+- **Status**: ✅ Done (2026-04-16) — 80 files uploaded to `aledata/aletest`
+- **Blocker**: Resolved
 
 ```bash
 # Prerequisites: az login, azcopy installed
@@ -51,8 +51,8 @@ Uploaded paths:
 ---
 
 ### Step 2: Commit & Push Branch to GitHub
-- **Status**: ☐ Pending
-- **Blocker**: **Yes — biggest blocker** (Seqera pulls pipeline from Git)
+- **Status**: ✅ Done (2026-04-16) — pushed to `Aletechdev/ALE_Yeast` branch `worktree-seqera-cloud`
+- **Blocker**: Resolved
 
 ```bash
 cd /home/azureuser/Docs/ALE_nextflow/.claude/worktrees/seqera-cloud
@@ -110,20 +110,20 @@ withName: 'MUTECT2*' {
 
 ---
 
-### Step 4: Add GitHub Credentials (if repo is private)
-- **Status**: ☐ Pending (skip if repo is public)
-- **Blocker**: Only if `Aletechdev/ALE_nextflow` is private
+### Step 4: Add GitHub Credentials (repo is private)
+- **Status**: ✅ Done (2026-04-17) — GitHub token added to Seqera Credentials
+- **Blocker**: Resolved
 
-If needed, add a GitHub Personal Access Token (PAT) to Seqera:
-1. Generate PAT at https://github.com/settings/tokens (scope: `repo`)
-2. Add credential in Seqera Platform → Credentials → Add → GitHub
-3. Or use Seqera API to create credential
+Options (in order of speed):
+1. **SSH deploy key** (no org approval needed): `ssh-keygen -t ed25519 -f seqera_deploy_key` → add public key to repo Deploy Keys → add private key to Seqera Credentials → SSH
+2. **Fine-grained PAT** (waiting for org approval): once approved, add at Seqera → Credentials → Add → GitHub
+3. **Classic PAT** at https://github.com/settings/tokens (scope: `repo`) — no org approval, personal account only
 
 ---
 
 ### Step 5: Add Forked Pipeline to Seqera Launchpad
-- **Status**: ☐ Pending
-- **Blocker**: Yes — need pipeline entry to launch
+- **Status**: ✅ Done (2026-04-17) — pipeline registered, parameters visible
+- **Blocker**: Resolved (see Step 5 notes below)
 
 Pipeline configuration:
 | Setting | Value |
@@ -131,13 +131,52 @@ Pipeline configuration:
 | Name | `ALE-Sarek-3.5.1` |
 | Repository | `https://github.com/Aletechdev/ALE_Yeast` |
 | Revision | `worktree-seqera-cloud` |
-| Main script | `nf-core-sarek_3.5.1/3_5_1/main.nf` |
+| Main script | ~~`nf-core-sarek_3.5.1/3_5_1/main.nf`~~ — not settable in this Seqera version (see notes) |
 | Compute environment | `aledev4test` |
 | Config profiles | `docker` |
 | Nextflow config | Content of `conf/seqera_azure.config` |
 | Parameters | Content of `conf/params_seqera_test.yml` |
 
 > **Note**: The existing `nf-core-sarek` pipeline in zhlia-wsp points to upstream `nf-core/sarek`. Create a separate entry for the forked version.
+
+#### ❌ Step 5 Notes: Option A (nested folder) does not work
+
+**Problem**: Seqera Cloud hardcodes `-main-script main.nf` in the launch command and does not expose a UI field to change it. `manifest.mainScript` in root `nextflow.config` is ignored because the explicit CLI flag takes precedence.
+
+**What was tried (Option A)**:
+1. Added stub `main.nf` at repo root → satisfied Seqera's repo validation check
+2. Added `nextflow_schema.json` at repo root → fixed missing parameter UI
+3. Added root `nextflow.config` with `manifest { mainScript = 'nf-core-sarek_3.5.1/3_5_1/main.nf' }` → ignored by Seqera
+
+**Actual Seqera launch command generated**:
+```bash
+nextflow run https://github.com/Aletechdev/ALE_Yeast \
+  -name happy_babbage \
+  -params-file https://api.cloud.seqera.io/ephemeral/... \
+  -with-tower \
+  -r worktree-seqera-cloud \
+  -profile nextflow.config \   # ← BUG: should be 'docker', not a filename
+  -main-script main.nf         # ← hardcoded to root stub, not nested path
+```
+
+**Two errors**:
+- `Unknown configuration profile: 'nextflow.config'` — Config profiles field must be a profile name (e.g. `docker`), not a filename
+- `-main-script main.nf` runs the root stub (just comments) — pipeline never starts
+
+**Root cause**: Seqera Cloud (this version) always passes `-main-script main.nf` explicitly and provides no UI field to override it. `manifest.mainScript` cannot override an explicit CLI flag.
+
+**Resolution**: Proceed to Option B — move pipeline contents to repo root on `worktree-seqera-cloud` branch.
+
+---
+
+### Step 5b: Restructure repo for Seqera (Option B)
+- **Status**: ☐ Pending
+- **Blocker**: Yes — required for pipeline to launch correctly
+
+Move `nf-core-sarek_3.5.1/3_5_1/` contents to repo root on `worktree-seqera-cloud`:
+- `main.nf`, `nextflow.config`, `nextflow_schema.json` at root
+- `workflows/`, `subworkflows/`, `modules/`, `conf/`, `assets/` at root
+- Remove stub files added during Option A
 
 ---
 
