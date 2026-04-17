@@ -28,6 +28,9 @@ joint_germline: true
 split_haplotypecaller_joint_vcf: true
 hard_filter_haplotypecaller_joint: true
 
+# Alignment
+aligner: "bwa-mem"
+
 # FASTQ splitting (0 = no splitting)
 split_fastq: 0
 nucleotides_per_second: 200000
