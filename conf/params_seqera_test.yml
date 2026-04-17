@@ -5,6 +5,9 @@
 #
 # Blob container: aletest (created by bin/upload_test_data_azure.sh)
 
+# Pipeline step (mapping → markduplicates → prepare_recalibration → recalibrate → variant_calling → annotate)
+step: "mapping"
+
 # Input / Output
 input: "az://aletest/assets/reads/samplesheet_azure.csv"
 outdir: "az://aletest/output_seqera_test"
@@ -27,6 +30,35 @@ hard_filter_haplotypecaller_joint: true
 
 # FASTQ splitting (0 = no splitting)
 split_fastq: 0
+nucleotides_per_second: 200000
+
+# Read trimming (FastP) - defaults matching test_nf.sh (no explicit trimming)
+clip_r1: 0
+clip_r2: 0
+three_prime_clip_r1: 0
+three_prime_clip_r2: 0
+trim_nextseq: 0
+length_required: 15
+
+# ASCAT CNV (not used for yeast — no hg19/hg38 loci files available)
+ascat_min_base_qual: 20
+ascat_min_counts: 10
+ascat_min_map_qual: 35
+ascat_ploidy: 2          # not used (ASCAT not in tools); diploid placeholder to satisfy schema
+ascat_purity: 1.0        # not used (ASCAT not in tools); pure culture placeholder
+
+# Control-FREEC
+cf_coeff: 0.05
+cf_contamination: 0
+cf_minqual: 0
+cf_mincov: 0
+cf_window: 0             # 0 = Control-FREEC auto-computes window from genome size
+# cf_contamination_adjustment: omitted (false by default)
+
+# FreeBayes filtering thresholds
+freebayes_qual_threshold: 20
+freebayes_dp_threshold: 10
+freebayes_af_threshold: 0.05
 
 # Annotation (SnpEff with custom yeast cache)
 snpeff_cache: "az://aletest/assets/references/snpeff_cache"

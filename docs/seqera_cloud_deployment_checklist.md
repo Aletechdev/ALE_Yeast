@@ -194,18 +194,14 @@ After Option B restructure, `configs/` no longer exists at `../` relative to the
 ERROR ~ Config file does not exist: .../configs/nfcore_custom.config
 ```
 
-**Current workaround**: `params.custom_config_base = null` in `conf/seqera_azure.config` (and `NXF_OFFLINE=true` in `bin/test_nf.sh`). Safe because nf-core institutional HPC configs are irrelevant for Azure Batch / ALE experiments.
+**Fix applied (2026-04-17)**: Changed `nextflow.config` line 140 to `custom_config_base = null`. This is the correct fix — the `includeConfig` condition on lines 321-324 checks `params.custom_config_base` at parse time, so the override in `seqera_azure.config` was too late to prevent the error.
 
-**Ideal fix** (not yet applied): Update `nextflow.config` lines 140 and 321-324 to match 3.8.1 behaviour — use remote URL default and smarter offline check:
 ```groovy
-// Line 140 — change from local path to remote URL:
-custom_config_base = "https://raw.githubusercontent.com/nf-core/configs/${params.custom_config_version}"
-
-// Lines 321-324 — smarter condition that skips remote URLs when offline:
-includeConfig params.custom_config_base && (!System.getenv('NXF_OFFLINE') || !params.custom_config_base.startsWith('http')) ? "${params.custom_config_base}/nfcore_custom.config" : "/dev/null"
-includeConfig params.custom_config_base && (!System.getenv('NXF_OFFLINE') || !params.custom_config_base.startsWith('http')) ? "${params.custom_config_base}/pipeline/sarek.config" : "/dev/null"
+// nextflow.config line 140 — changed from nf-core download artifact:
+custom_config_base = null  // was: "${projectDir}/../configs/"
 ```
-This would make the pipeline behave correctly with or without `NXF_OFFLINE`, matching standard nf-core 3.8.1+ behaviour.
+
+The `params.custom_config_base = null` in `conf/seqera_azure.config` and `NXF_OFFLINE=true` in `bin/test_nf.sh` have been removed as they are no longer needed.
 
 ---
 
