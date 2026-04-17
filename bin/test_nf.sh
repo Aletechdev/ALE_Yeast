@@ -2,6 +2,7 @@
 # Note: controlfreec excluded - sub-sampled test data has insufficient read depth for GC normalization.
 # Use CENPK_run_sarek_351_all.sh with full data to test controlfreec.
 run_folder="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export NXF_OFFLINE=true  # skip nf-core institutional config fetch (no configs/ dir in this branch)
 nextflow run ${run_folder}/main.nf -profile azureD4as,docker \
     -w ${run_folder}/work_test_001 \
     --input ${run_folder}/assets/reads/samplesheet.csv \
