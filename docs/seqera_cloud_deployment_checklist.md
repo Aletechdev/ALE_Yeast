@@ -205,6 +205,53 @@ The `params.custom_config_base = null` in `conf/seqera_azure.config` and `NXF_OF
 
 ---
 
+### Step 5c: Fix Cloud-Path Blockers During Launch Attempts (2026-04-17)
+- **Status**: ✅ Done — three successive errors resolved during Seqera test launches
+
+#### Fix 1: `custom_config_base` (described in Step 5b above)
+
+#### Fix 2: Missing `aligner` parameter → null `.contains()` crash
+
+**Error**: `Cannot invoke method contains() on null object`
+**Location**: `subworkflows/local/samplesheet_to_channel/main.nf:177`
+```groovy
+if (step == 'mapping' && aligner.contains("dragmap") && ...)
+```
+**Root cause**: `aligner` has no default in `nextflow_schema.json`. When not set in the params file, it is `null` at runtime.
+**Fix**: Added `aligner: "bwa-mem"` to `conf/params_seqera_test.yml`.
+
+#### Fix 3: SnpEff cache validation fails for `az://` paths
+
+**Error**: `Path provided with SnpEff cache is invalid. Make sure there is a directory named draft_ref.52 in az://aletest/assets/references/snpeff_cache`
+**Location**: `subworkflows/local/annotation_cache_initialisation/main.nf:29`
+```groovy
+if ( !snpeff_cache_path_full.exists() || !snpeff_cache_path_full.isDirectory() )
+```
+**Root cause**: Azure Blob Storage has no real directory objects — only blobs with slash-delimited names. nf-azure's `AzPath.isDirectory()` returns `false` for virtual blob prefixes even when blobs exist beneath them (e.g. `snpeff_cache/draft_ref.52/snpEffectPredictor.bin` exists but `snpeff_cache/draft_ref.52` is not a real blob).
+**Fix**: Added a cloud-path bypass in `annotation_cache_initialisation/main.nf` — skip the `exists()`/`isDirectory()` check when `snpeff_cache` starts with `az://`, `s3://`, or `gs://`. The check is a local-path sanity check; cloud paths are validated at runtime by Nextflow when the process actually reads them.
+
+```groovy
+def is_cloud_path = snpeff_cache ==~ /^(az|s3|gs):\/\/.*/
+if ( !is_cloud_path && (!snpeff_cache_path_full.exists() || !snpeff_cache_path_full.isDirectory()) ) {
+    // ... error
+}
+```
+
+**Comparison with nf-core/sarek 3.8.1**: The upstream 3.8.1 added an `isCloudUrl()` helper but used it only to adjust the cache path prefix, not to bypass the `isDirectory()` check — the same bug exists there. The correct fix (using `isCloudUrl()` to guard the check) was not applied upstream:
+
+```groovy
+// 3.8.1 — isCloudUrl() exists but does NOT guard the check on line 29:
+def snpeff_annotation_cache_key = isCloudUrl(snpeff_cache) ? "${snpeff_db}/" : ""
+if (!snpeff_cache_path_full.exists() || !snpeff_cache_path_full.isDirectory()) { // ← still unguarded
+```
+
+If applying this fix to 3.8.1, replace the check with:
+```groovy
+if (!isCloudUrl(snpeff_cache) && (!snpeff_cache_path_full.exists() || !snpeff_cache_path_full.isDirectory())) {
+```
+
+---
+
 ### Step 6: Launch Test Run
 - **Status**: ☐ Pending
 

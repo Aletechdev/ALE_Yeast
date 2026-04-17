@@ -26,7 +26,13 @@ workflow ANNOTATION_CACHE_INITIALISATION {
         def snpeff_annotation_cache_key = (snpeff_cache == "s3://annotation-cache/snpeff_cache/") ? "${snpeff_db}/" : ""
         def snpeff_cache_dir =  "${snpeff_annotation_cache_key}${snpeff_db}"
         def snpeff_cache_path_full = file("$snpeff_cache/$snpeff_cache_dir", type: 'dir')
-        if ( !snpeff_cache_path_full.exists() || !snpeff_cache_path_full.isDirectory() ) {
+        // Cloud paths (az://, s3://, gs://) cannot be validated with file().isDirectory()
+        // because Azure/S3/GCS blob storage has no real directory objects — only blobs
+        // with slash-delimited names. nf-azure's AzPath.isDirectory() returns false for
+        // virtual blob prefixes even when blobs exist beneath them.
+        // Skip the check for cloud paths; Nextflow will fail at runtime if the path is wrong.
+        def is_cloud_path = snpeff_cache ==~ /^(az|s3|gs):\/\/.*/
+        if ( !is_cloud_path && (!snpeff_cache_path_full.exists() || !snpeff_cache_path_full.isDirectory()) ) {
             if (snpeff_cache == "s3://annotation-cache/snpeff_cache/") {
                 error("This path is not available within annotation-cache.\nPlease check https://annotation-cache.github.io/ to create a request for it.")
             } else {
