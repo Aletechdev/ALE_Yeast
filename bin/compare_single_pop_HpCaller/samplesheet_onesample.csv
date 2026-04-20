@@ -1,5 +1,0 @@
-experiment,sample,status,clonal_or_population,ploidy,sex,lane,fastq_1,fastq_2
-ALE_Exp1,A1-F6-I1-R1,0,clonal,1,XX,L001,../../data/data_a_paper/A1-6_S2_L001_R1_001.fastq.gz,../../data/data_a_paper/A1-6_S2_L001_R2_001.fastq.gz
-ALE_Exp1,A1-F6-I1-R1,0,clonal,1,XX,L002,../../data/data_a_paper/A1-6_S2_L002_R1_001.fastq.gz,../../data/data_a_paper/A1-6_S2_L002_R2_001.fastq.gz
-ALE_Exp1,A1-F6-I1-R1,0,clonal,1,XX,L003,../../data/data_a_paper/A1-6_S2_L003_R1_001.fastq.gz,../../data/data_a_paper/A1-6_S2_L003_R2_001.fastq.gz
-ALE_Exp1,A1-F6-I1-R1,0,clonal,1,XX,L004,../../data/data_a_paper/A1-6_S2_L004_R1_001.fastq.gz,../../data/data_a_paper/A1-6_S2_L004_R2_001.fastq.gz
