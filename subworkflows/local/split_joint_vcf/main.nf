@@ -80,5 +80,6 @@ workflow SPLIT_JOINT_VCF {
 
     emit:
     vcf      = BCFTOOLS_FILTER.out.vcf  // channel: [ meta, vcf ] - filtered, ready for annotation
+    tbi      = BCFTOOLS_FILTER.out.tbi  // channel: [ meta, tbi ] - tabix index
     versions = versions                  // channel: [ versions.yml ]
 }

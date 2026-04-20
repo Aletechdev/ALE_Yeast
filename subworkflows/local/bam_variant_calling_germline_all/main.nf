@@ -203,12 +203,9 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
                 // Filters based on sample-specific quality (FORMAT/GQ, FORMAT/DP)
                 // Removes failing variants for clean MultiQC reporting
                 if (params.hard_filter_haplotypecaller_joint) {
-                    // Need to add TBI index to the VCF channel
-                    // SPLIT_JOINT_VCF outputs compressed VCFs with .tbi files
-                    split_vcf_for_filter = SPLIT_JOINT_VCF.out.vcf.map { meta, vcf ->
-                        def tbi = file("${vcf}.tbi")
-                        [meta, vcf, tbi]
-                    }
+                    // Join VCF and TBI channels by meta to create [meta, vcf, tbi]
+                    split_vcf_for_filter = SPLIT_JOINT_VCF.out.vcf
+                        .join(SPLIT_JOINT_VCF.out.tbi, failOnDuplicate: true)
 
                     VCF_FILTER_HAPLOTYPECALLER_JOINT(split_vcf_for_filter)
 
