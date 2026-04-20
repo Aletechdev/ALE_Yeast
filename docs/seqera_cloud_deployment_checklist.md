@@ -1,8 +1,9 @@
 # Seqera Platform Deployment Checklist — ALE Sarek Pipeline on Azure
 
 **Created**: 2026-04-16
-**Workspace**: zhlia-wsp (zhlia-org-ALE-beta)
-**Platform**: https://cloud.seqera.io/orgs/zhlia-org-ALE-beta/workspaces/zhlia-wsp
+**Workspace**: RECON-ALE (DTU-Biosustain) — workspace ID: 79597273081110
+**Platform**: https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE
+**Previous workspace**: zhlia-wsp (zhlia-org-ALE-beta) — used for initial setup
 
 ---
 
@@ -12,7 +13,7 @@
 
 | Item | File | Details |
 |------|------|---------|
-| Azure Nextflow config | `conf/seqera_azure.config` | Resource limits (4 vCPU / 14 GB for D4s_v3), retry strategy, Docker enabled |
+| Azure Nextflow config | `conf/seqera_azure.config` | Minimal: docker + custom_config_base null (resources now in base.config for E4ds_v5) |
 | Launch parameters | `conf/params_seqera_test.yml` | All `az://aletest/` paths, tool selection, SnpEff config |
 | Azure samplesheet | `assets/reads/samplesheet_azure.csv` | 5 samples × 4 lanes with `az://aletest/` blob paths |
 | Upload script | `bin/upload_test_data_azure.sh` | azcopy-based upload to `aletest` container |
@@ -205,8 +206,8 @@ The `params.custom_config_base = null` in `conf/seqera_azure.config` and `NXF_OF
 
 ---
 
-### Step 5c: Fix Cloud-Path Blockers During Launch Attempts (2026-04-17)
-- **Status**: ✅ Done — three successive errors resolved during Seqera test launches
+### Step 5c: Fix Cloud-Path and Resource Blockers During Launch Attempts (2026-04-17 → 2026-04-20)
+- **Status**: ⚠️ In progress — five errors diagnosed, fixes 1-4 applied, fix 5 pending next launch verification
 
 #### Fix 1: `custom_config_base` (described in Step 5b above)
 
@@ -250,13 +251,132 @@ If applying this fix to 3.8.1, replace the check with:
 if (!isCloudUrl(snpeff_cache) && (!snpeff_cache_path_full.exists() || !snpeff_cache_path_full.isDirectory())) {
 ```
 
+#### Fix 4: `processVersionsFromYAML` calls `toFile()` on cloud paths (2026-04-20)
+
+**Error**: `Operation 'toFile' is not supported by AzPath`
+**Location**: `subworkflows/nf-core/utils_nfcore_pipeline/main.nf:113`
+```groovy
+def versions = yaml.load(new java.io.FileInputStream(path.toFile())).collectEntries { ... }
+```
+**Stack trace** (from `nf-4DGxqjkDgX4Zd6_20APril.log`):
+```
+[Actor Thread 38] ERROR nextflow.extension.OperatorImpl - @unknown
+java.lang.UnsupportedOperationException: Operation 'toFile' is not supported by AzPath
+    at ...AzPath.toFile(AzPath.groovy:279)
+    at ...processVersionsFromYAML(Script_...:113)              ← toFile() call
+    at ...softwareVersionsToYAML_closure3(Script_...:145)      ← .map operator
+    at nextflow.extension.MapOp$_apply_closure1(MapOp.groovy:56)
+```
+
+**Root cause**: `processVersionsFromYAML()` is called within a `.map` operator (line 145) that processes `versions.yml` files emitted by completed tasks. On Azure, these paths are `AzPath` objects (e.g. `az://debugging/scratch/.../versions.yml`). `java.io.FileInputStream` requires a local `File` object via `path.toFile()`, but `AzPath.toFile()` throws `UnsupportedOperationException` because cloud paths have no local filesystem representation.
+
+**Fix**: Replace `FileInputStream(path.toFile())` with `Files.newInputStream(path)`, which routes through the NIO FileSystem provider and supports all cloud path implementations (Azure, S3, GCS):
+```groovy
+// Before (breaks on cloud paths):
+def versions = yaml.load(new java.io.FileInputStream(path.toFile())).collectEntries { k, v -> ... }
+
+// After (works everywhere):
+def versions = yaml.load(java.nio.file.Files.newInputStream(path)).collectEntries { k, v -> ... }
+```
+
+**Impact**: This error caused `Session aborted` — the entire pipeline run was terminated when the first `versions.yml` file was processed. All running Azure Batch tasks were cancelled.
+
+**Upstream status**: This function exists in all nf-core pipelines via the `utils_nfcore_pipeline` subworkflow. The same `toFile()` bug affects any nf-core pipeline running on cloud storage. Upstream nf-core/sarek 3.8.1 uses a different versions collection mechanism (nf-validation plugin) that avoids this specific code path.
+
+#### Fix 5: BWAMEM1_MEM `samtools sort` OOM + null read group metadata (2026-04-20)
+
+**Error**: `samtools sort: couldn't allocate memory for bam_mem`
+**Process**: `NFCORE_SAREK:SAREK:FASTQ_ALIGN_BWAMEM_MEM2_DRAGMAP_SENTIEON:BWAMEM1_MEM`
+**Exit status**: 1
+
+**Diagnosis** (via Seqera Platform REST API and `tw` CLI):
+- Run `155jcXnP7lx7UX` ("admiring_panini") — 20 BWAMEM1_MEM tasks submitted
+- All tasks requested **24 CPUs, 30 GB memory** (from `process_high` label defaults)
+- `samtools sort --threads 24` allocates 24 sorting buffers (~768 MB each = ~18 GB)
+- Combined with BWA's memory usage, exceeded the 30 GB allocation
+- This indicates **the Seqera run did NOT use `conf/seqera_azure.config`** (which caps at 4 CPUs / 14 GB)
+
+**Secondary issue — null read group metadata**:
+```
+-R "@RG\tID:null.A1-F6-I1-R1.L003\tPU:L003\tSM:ALE_Exp1_A1-F6-I1-R1\tLB:A1-F6-I1-R1\tDS:az://...\tPL:null"
+```
+- `ID: null.sample.lane` — flowcell not parsed from FASTQ headers
+- `PL: null` — `seq_platform` param was not set in the Seqera launch params
+
+**Root cause**: The Seqera UI launch used **different params** than our `params_seqera_381.yml`:
+- `seq_platform` was `None` (our file has `ILLUMINA`)
+- `tools` included `breseq` (our file excludes it)
+- `resourceLimits` were not applied (config not loaded)
+
+**Fixes needed for next launch**:
+1. **Verify Seqera "Nextflow config" field** contains `conf/seqera_azure.config` content (not just filename)
+2. **Verify Seqera "Parameters" field** uses `conf/params_seqera_381.yml` content
+3. `seq_platform: "ILLUMINA"` is already in `params_seqera_381.yml` — ensure it's loaded
+4. `resourceLimits { cpus = 4; memory = 14.GB }` in `seqera_azure.config` will reduce to 4 threads, fixing the OOM
+
+**For yeast genome (~12 MB)**: BWA index is 130 MB, BWA-MEM peak RSS < 200 MB. With 4 CPUs and `samtools sort --threads 4`, memory usage will be < 4 GB. The 14 GB cap is more than sufficient.
+
 ---
 
 ### Step 6: Launch Test Run
 - **Status**: ☐ Pending
+- **Target VM**: E4ds_v5 (4 vCPU, 32 GB, ~$0.29/hr) — upgrade from D4s_v3 for breseq headroom
+- **Config strategy**: Resources baked into `base.config` — no need to paste config in Seqera UI
+
+**What changed (Fix 5 resolution)**:
+- `conf/base.config` now contains `resourceLimits { cpus = 4; memory = 28.GB }` and all process overrides
+- `conf/seqera_azure.config` stripped to just `params.custom_config_base = null` + docker safety net
+- **Seqera "Nextflow config" field**: Optional — paste `seqera_azure.config` content only if docker profile isn't loaded
+- **Seqera "Parameters" field**: Use `conf/params_seqera_test.yml` (or `params_seqera_381.yml`)
+
+**Compute environment change needed**:
+- Update `aledev4test` pool VM from `Standard_D4s_v3` to `Standard_E4ds_v5`
+- Or create new compute environment with E4ds_v5
+
+**Seqera Batch Forge behavior** (important constraints):
+- Single VM type per pool — all tasks run on E4ds_v5 regardless of resource requests
+- One task per node — no task packing (FastQC gets a whole 32 GB VM)
+- This is acceptable: light tasks finish fast, cost per task is pennies
+- If breseq OOMs at 28 GB in future: upgrade pool to E8ds_v5 or create second compute env
 
 Launch via Seqera Platform UI or API. Monitor at:
 https://cloud.seqera.io/orgs/zhlia-org-ALE-beta/workspaces/zhlia-wsp/watch
+
+---
+
+## Cloud-Path Compatibility Patterns
+
+### Why these errors happen
+
+nf-core/sarek 3.5.1 was designed for local and HPC execution, where all paths are POSIX filesystem paths. When running on cloud storage (Azure Blob, S3, GCS), Nextflow replaces `java.nio.file.Path` with cloud-specific implementations (`AzPath`, `S3Path`) that support NIO operations but **not** `java.io.File` operations.
+
+Three categories of incompatibility appear:
+
+### Pattern 1: `path.toFile()` — Local filesystem assumption
+**Affected**: Fix 4 (`processVersionsFromYAML`)
+**Root cause**: `java.io.FileInputStream(path.toFile())` assumes a local file. `AzPath.toFile()` throws `UnsupportedOperationException`.
+**Fix pattern**: Use `java.nio.file.Files.newInputStream(path)` — NIO-based, works with all Path implementations.
+**How to find**: Search for `toFile()` in `.nf` and `.groovy` files.
+
+### Pattern 2: `path.exists()` / `path.isDirectory()` — Virtual directories
+**Affected**: Fix 3 (SnpEff cache validation)
+**Root cause**: Cloud object stores have no real directories — only blob keys with `/` delimiters. `AzPath.isDirectory()` returns `false` for virtual prefixes even when blobs exist beneath them.
+**Fix pattern**: Guard `exists()`/`isDirectory()` checks with a cloud-path detector (`path ==~ /^(az|s3|gs):\/\/.*/`). Skip the check for cloud paths and let Nextflow validate at runtime.
+**How to find**: Search for `.exists()` and `.isDirectory()` on Path objects in validation code.
+
+### Pattern 3: Config path resolution at parse time
+**Affected**: Fix 1 (`custom_config_base`)
+**Root cause**: `includeConfig` is evaluated at Nextflow config parse time, before process execution. Cloud paths or relative paths that don't exist at parse time cause immediate failure. Runtime overrides (e.g., in `seqera_azure.config`) are too late.
+**Fix pattern**: Set the parameter to `null` directly in `nextflow.config` to prevent the `includeConfig` from firing.
+**How to find**: Search for `includeConfig` with path expressions that depend on `${projectDir}` or `params.*`.
+
+### Checklist for cloud-proofing nf-core pipelines
+
+- [ ] Search all `.nf` files for `toFile()` — replace with `Files.newInputStream()` or `Files.newBufferedReader()`
+- [ ] Search for `.exists()` and `.isDirectory()` on user-provided paths — guard with cloud-path check
+- [ ] Verify all `includeConfig` paths resolve at parse time, not just at runtime
+- [ ] Test with `--outdir az://...` and `--input az://...` to catch staging issues
+- [ ] Ensure `params.custom_config_base` doesn't point to a nonexistent local path
 
 ---
 
@@ -277,7 +397,7 @@ https://cloud.seqera.io/orgs/zhlia-org-ALE-beta/workspaces/zhlia-wsp/watch
 ### Existing Compute Environments (zhlia-wsp)
 | Name | Platform | VM Type | Work Dir | Status |
 |------|----------|---------|----------|--------|
-| `aledev4test` | Azure Batch | Standard_D4s_v3 | `az://debugging` | AVAILABLE |
+| `aledev4test` | Azure Batch | Standard_D4s_v3 → **upgrade to E4ds_v5** | `az://debugging` | AVAILABLE |
 | `AzBatchForge` | Azure Batch | — | `az://seqeracomputestorage-container` | AVAILABLE |
 | `AzBatchForge_copy` | Azure Batch | — | `az://seqeracomputestorage-container` | AVAILABLE |
 | `zhlia-compute-env` | Seqera Compute | — | `s3://zhlia-compute-env-*` | AVAILABLE |

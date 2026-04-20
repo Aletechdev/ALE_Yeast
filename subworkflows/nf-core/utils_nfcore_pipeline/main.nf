@@ -93,37 +93,11 @@ def getWorkflowVersion() {
 // Get software versions for pipeline
 //
 def processVersionsFromYAML(yaml_file) {
-    // // Handle null or empty files
-    if (!yaml_file || yaml_file.toString().isEmpty() || yaml_file.toString() == "[]") {
-        return ""
-    }
-    
+    // 3.8.1 approach: yaml_file is already file content (string) when used in
+    // .map { version -> processVersionsFromYAML(version) } — Nextflow auto-reads
+    // Path content in closure context. No FileInputStream, no toFile(), no cloud path issues.
     def yaml = new org.yaml.snakeyaml.Yaml()
-    
-    // Handle different input types to avoid Groovy method resolution ambiguity
-    // Use explicit FileInputStream approach to force specific method overload
-    
-    def path = yaml_file instanceof java.nio.file.Path ? yaml_file : java.nio.file.Paths.get(yaml_file.toString())
-    
-    // Check if file exists before trying to read it
-    if (!java.nio.file.Files.exists(path)) {
-        return ""
-    }
-    // def versions = yaml.load(yaml_file).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
-    def versions = yaml.load(new java.io.FileInputStream(path.toFile())).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
-    ///
-    // // Handle null or empty files
-    // if (!yaml_file || yaml_file.toString().isEmpty() || yaml_file.toString() == "[]") {
-    //     return ""
-    // }
-    
-    // // Convert to proper Path object and check if file exists
-    // def path = yaml_file instanceof java.nio.file.Path ? yaml_file : java.nio.file.Paths.get(yaml_file.toString())
-    // if (!java.nio.file.Files.exists(path)) {
-    //     return ""
-    // }
-    
-    // def versions = yaml.load(new java.io.FileInputStream(path.toFile())).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
+    def versions = yaml.load(yaml_file).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
     return yaml.dumpAsMap(versions).trim()
 }
 
