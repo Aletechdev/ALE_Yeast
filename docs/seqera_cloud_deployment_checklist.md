@@ -344,6 +344,53 @@ https://cloud.seqera.io/orgs/zhlia-org-ALE-beta/workspaces/zhlia-wsp/watch
 
 ---
 
+### Step 7: Merge `worktree-seqera-cloud` into `main`
+- **Status**: ☐ Pending — Seqera deployment working, branch ready to contribute back
+
+**Why merge**: The `worktree-seqera-cloud` branch contains all fixes needed to run the ALE Sarek pipeline on Seqera Cloud Platform with Azure Batch. These changes benefit the main branch regardless of deployment target (cloud-path fixes, resource tuning, repo restructure).
+
+**Strategy**: Use `git merge` (not rebase) to preserve the branch's commit history. Both branches will continue to diverge — `main` for local/production work and new features (e.g., Ottilie benchmark), `worktree-seqera-cloud` for continued Seqera testing and cloud fixes.
+
+**Pre-merge checklist**:
+```bash
+# 1. Check divergence
+cd /home/azureuser/Docs/ALE_nextflow
+git fetch origin
+git log --oneline main..worktree-seqera-cloud   # commits to bring in
+git log --oneline worktree-seqera-cloud..main    # commits on main since branch point
+
+# 2. Preview conflicts
+git merge-tree $(git merge-base main worktree-seqera-cloud) main worktree-seqera-cloud
+# Or dry-run:
+git merge --no-commit --no-ff worktree-seqera-cloud && git merge --abort
+```
+
+**Known conflict area**: `bin/` → `docs/` directory moves (Fix 6).
+- This branch moved `bin/benchmarking/`, `bin/compare_mutect2_HpCaller/`, etc. to `docs/`
+- Main branch may still have content in `bin/` or may have added new files there
+- **Resolution rule**: Non-pipeline-script content stays in `docs/` — `bin/` staging causes tar path length errors and unnecessary overhead on Azure Batch (see `docs/fix6_multiqc_tar_path_length.md`)
+
+**Merge steps**:
+```bash
+cd /home/azureuser/Docs/ALE_nextflow  # main repo (not worktree)
+git checkout main
+git merge worktree-seqera-cloud
+
+# If conflicts:
+#   - bin/ vs docs/ moves → keep in docs/ (Fix 6 reasoning)
+#   - Review each conflict against docs/fix6_multiqc_tar_path_length.md
+#   - git add <resolved files> && git commit
+
+git push origin main
+```
+
+**Post-merge**:
+- Keep `worktree-seqera-cloud` branch alive for continued Seqera testing
+- Future Seqera-specific fixes go on this branch, then merge back periodically
+- Main branch can pull from this branch at any time with `git merge worktree-seqera-cloud`
+
+---
+
 ## Cloud-Path Compatibility Patterns
 
 ### Why these errors happen
