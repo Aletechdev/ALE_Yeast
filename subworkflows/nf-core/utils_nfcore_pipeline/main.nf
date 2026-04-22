@@ -93,11 +93,11 @@ def getWorkflowVersion() {
 // Get software versions for pipeline
 //
 def processVersionsFromYAML(yaml_file) {
-    // 3.8.1 approach: yaml_file is already file content (string) when used in
-    // .map { version -> processVersionsFromYAML(version) } — Nextflow auto-reads
-    // Path content in closure context. No FileInputStream, no toFile(), no cloud path issues.
+    // yaml_file may be a Path (local or cloud) or a String depending on Nextflow version.
+    // Read content explicitly to avoid SnakeYAML method resolution ambiguity and cloud-path issues.
     def yaml = new org.yaml.snakeyaml.Yaml()
-    def versions = yaml.load(yaml_file).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
+    def content = yaml_file instanceof java.nio.file.Path ? yaml_file.text : yaml_file
+    def versions = yaml.load((String) content).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
     return yaml.dumpAsMap(versions).trim()
 }
 
@@ -116,7 +116,7 @@ def workflowVersionToYAML() {
 // Get channel of software versions used in pipeline in YAML format
 //
 def softwareVersionsToYAML(ch_versions) {
-    return ch_versions.unique().map { version -> processVersionsFromYAML(version) }.unique().mix(Channel.of(workflowVersionToYAML()))
+    return ch_versions.unique().map { version -> processVersionsFromYAML(version) }.filter { it && it != '{}' }.unique().mix(Channel.of(workflowVersionToYAML()))
 }
 
 //

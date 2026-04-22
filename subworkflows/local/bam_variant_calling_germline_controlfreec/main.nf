@@ -40,7 +40,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_CONTROLFREEC {
     ch_versions = ch_versions.mix(ASSESS_SIGNIFICANCE.out.versions)
     ch_versions = ch_versions.mix(FREEC2BED.out.versions)
     ch_versions = ch_versions.mix(FREEC2CIRCOS.out.versions)
-    ch_versions = ch_versions.mix(MAKEGRAPH2.out.versions.ifEmpty([]))
+    ch_versions = ch_versions.mix(MAKEGRAPH2.out.versions)
 
     emit:
     versions = ch_versions
