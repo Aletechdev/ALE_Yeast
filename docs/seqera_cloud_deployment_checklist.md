@@ -207,7 +207,7 @@ The `params.custom_config_base = null` in `conf/seqera_azure.config` and `NXF_OF
 ---
 
 ### Step 5c: Fix Cloud-Path and Resource Blockers During Launch Attempts (2026-04-17 → 2026-04-20)
-- **Status**: ⚠️ In progress — five errors diagnosed, fixes 1-4 applied, fix 5 pending next launch verification
+- **Status**: ✅ Done — five errors diagnosed and fixed (2026-04-17 → 2026-04-20)
 
 #### Fix 1: `custom_config_base` (described in Step 5b above)
 
@@ -296,12 +296,13 @@ def versions = yaml.load(java.nio.file.Files.newInputStream(path)).collectEntrie
 - Combined with BWA's memory usage, exceeded the 30 GB allocation
 - This indicates **the Seqera run did NOT use `conf/seqera_azure.config`** (which caps at 4 CPUs / 14 GB)
 
-**Secondary issue — null read group metadata**:
+**Secondary issue — null read group metadata** (resolved):
 ```
 -R "@RG\tID:null.A1-F6-I1-R1.L003\tPU:L003\tSM:ALE_Exp1_A1-F6-I1-R1\tLB:A1-F6-I1-R1\tDS:az://...\tPL:null"
 ```
 - `ID: null.sample.lane` — flowcell not parsed from FASTQ headers
 - `PL: null` — `seq_platform` param was not set in the Seqera launch params
+- **Fix**: `seq_platform: "ILLUMINA"` in `conf/params_seqera_test.yml` resolves the `PL:null` issue
 
 **Root cause**: The Seqera UI launch used **different params** than our `params_seqera_381.yml`:
 - `seq_platform` was `None` (our file has `ILLUMINA`)
@@ -316,6 +317,19 @@ def versions = yaml.load(java.nio.file.Files.newInputStream(path)).collectEntrie
 
 **For yeast genome (~12 MB)**: BWA index is 130 MB, BWA-MEM peak RSS < 200 MB. With 4 CPUs and `samtools sort --threads 4`, memory usage will be < 4 GB. The 14 GB cap is more than sufficient.
 
+#### Fix 6: Non-pipeline folders in `bin/` cause tar path length errors on Azure Batch
+
+**Error**: MultiQC and other processes failed with tar path length errors during Azure Batch file staging.
+**Root cause**: Nextflow stages the entire `bin/` directory into every task's working directory. Nested folders not used by the pipeline (benchmarking scripts, analysis comparisons, documentation) created excessively long paths that exceeded tar limits on Azure Batch.
+**Fix**: Moved non-pipeline folders out of `bin/` into `docs/`:
+- `bin/benchmarking/` → `docs/benchmarking/`
+- `bin/compare_mutect2_HpCaller/` → `docs/compare_mutect2_HpCaller/`
+- Other nested analysis/documentation folders similarly relocated
+
+**Rule**: `bin/` should contain only scripts directly called by Nextflow processes. Everything else belongs in `docs/` or project-level directories.
+
+**Details**: See `docs/fix6_multiqc_tar_path_length.md`
+
 ---
 
 ### Step 6: Launch Test Run
@@ -327,7 +341,7 @@ def versions = yaml.load(java.nio.file.Files.newInputStream(path)).collectEntrie
 - `conf/base.config` now contains `resourceLimits { cpus = 4; memory = 28.GB }` and all process overrides
 - `conf/seqera_azure.config` stripped to just `params.custom_config_base = null` + docker safety net
 - **Seqera "Nextflow config" field**: Optional — paste `seqera_azure.config` content only if docker profile isn't loaded
-- **Seqera "Parameters" field**: Use `conf/params_seqera_test.yml` (or `params_seqera_381.yml`)
+- **Seqera "Parameters" field**: Use `conf/params_seqera_test.yml`
 
 **Compute environment change needed**:
 - Update `aledev4test` pool VM from `Standard_D4s_v3` to `Standard_E4ds_v5`
@@ -340,7 +354,7 @@ def versions = yaml.load(java.nio.file.Files.newInputStream(path)).collectEntrie
 - If breseq OOMs at 28 GB in future: upgrade pool to E8ds_v5 or create second compute env
 
 Launch via Seqera Platform UI or API. Monitor at:
-https://cloud.seqera.io/orgs/zhlia-org-ALE-beta/workspaces/zhlia-wsp/watch
+https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE/watch
 
 ---
 
@@ -360,15 +374,15 @@ git log --oneline main..worktree-seqera-cloud   # commits to bring in
 git log --oneline worktree-seqera-cloud..main    # commits on main since branch point
 
 # 2. Preview conflicts
-git merge-tree $(git merge-base main worktree-seqera-cloud) main worktree-seqera-cloud
+git merge-tree --write-tree main worktree-seqera-cloud
 # Or dry-run:
 git merge --no-commit --no-ff worktree-seqera-cloud && git merge --abort
 ```
 
 **Known conflict area**: `bin/` → `docs/` directory moves (Fix 6).
-- This branch moved `bin/benchmarking/`, `bin/compare_mutect2_HpCaller/`, etc. to `docs/`
+- This branch moved nested folders not used by the pipeline (e.g., `bin/benchmarking/`, `bin/compare_mutect2_HpCaller/`) to `docs/`
 - Main branch may still have content in `bin/` or may have added new files there
-- **Resolution rule**: Non-pipeline-script content stays in `docs/` — `bin/` staging causes tar path length errors and unnecessary overhead on Azure Batch (see `docs/fix6_multiqc_tar_path_length.md`)
+- **Resolution rule**: Non-pipeline-script content stays in `docs/` — `bin/` staging causes tar path length errors and unnecessary overhead on Azure Batch (see Fix 6 below and `docs/fix6_multiqc_tar_path_length.md`)
 
 **Merge steps**:
 ```bash
@@ -430,10 +444,10 @@ Three categories of incompatibility appear:
 ## Quick Reference
 
 ### Seqera Platform Links
-- Workspace: https://cloud.seqera.io/orgs/zhlia-org-ALE-beta/workspaces/zhlia-wsp
-- Compute Envs: https://cloud.seqera.io/orgs/zhlia-org-ALE-beta/workspaces/zhlia-wsp/compute-envs
-- Launchpad: https://cloud.seqera.io/orgs/zhlia-org-ALE-beta/workspaces/zhlia-wsp/launchpad
-- Runs: https://cloud.seqera.io/orgs/zhlia-org-ALE-beta/workspaces/zhlia-wsp/watch
+- Workspace: https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE
+- Compute Envs: https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE/compute-envs
+- Launchpad: https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE/launchpad
+- Runs: https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE/watch
 
 ### Existing Credentials (zhlia-wsp)
 | Name | Provider | Batch Account | Storage Account |
