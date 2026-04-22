@@ -1,0 +1,61 @@
+# =============================================================================
+# Seqera Platform launch parameters — nf-core/sarek 3.8.1 on Azure
+# Yeast ALE (CEN.PK) — custom reference, no breseq, no joint germline
+# =============================================================================
+# Differences vs 3.5.1 ALE fork:
+#   - Upstream nf-core/sarek 3.8.1 (no breseq, no controlfreec, no deepvariant)
+#   - No joint_germline (not supported in upstream without custom patches)
+#   - Uses samplesheet_azure_381.csv (381-sample format)
+# =============================================================================
+
+# --- Input / Output ---
+input: "az://aletest/assets/reads/samplesheet_azure_381.csv"
+outdir: "az://aletest/output_381"
+step: "mapping"                     # Start from raw FASTQs
+publish_dir_mode: "copy"
+
+# --- Reference Genome (custom yeast, override GATK.GRCh38 defaults) ---
+genome: null                        # Do not use iGenomes
+igenomes_ignore: true               # Suppress iGenomes download
+fasta: "az://aletest/assets/references/draft_ref52.fasta"
+save_reference: false               # Do not re-publish reference files
+
+# --- Main Options ---
+split_fastq: 0                      # No splitting — keeps lane integrity (default: 50M reads)
+no_intervals: true                  # Yeast genome is small; interval splitting adds overhead
+wes: false                          # Whole genome, not exome
+
+# --- Tools ---
+# Removed vs 3.5.1: breseq (no genbank), controlfreec (no chr_dir), deepvariant
+tools: "snpeff,haplotypecaller,freebayes,cnvkit,manta,tiddit"
+skip_tools: "baserecalibrator"      # No known-sites VCF for custom yeast genome
+
+# --- FASTQ Preprocessing ---
+trim_fastq: false                   # No trimming (good quality Illumina reads assumed)
+save_trimmed: false
+save_split_fastqs: false
+
+# --- Alignment ---
+aligner: "bwa-mem"                  # Same as 3.5.1
+save_mapped: false                  # Do not save intermediate BAMs to save storage
+save_output_as_bam: false           # Use CRAM (default, smaller)
+
+# --- Variant Calling ---
+joint_germline: false               # No joint calling (upstream 3.8.1 lacks ALE patches)
+joint_mutect2: false
+only_paired_variant_calling: false  # All samples treated as germline/normal
+# cf_ploidy intentionally omitted — set per-sample via samplesheet ploidy column
+
+# --- Post-Variant Calling ---
+filter_vcfs: false                  # Use default bcftools filter (or disable and filter manually)
+normalize_vcfs: false
+concatenate_vcfs: false
+snv_consensus_calling: false
+
+# --- Annotation (SnpEff with custom yeast cache, no VEP) ---
+snpeff_cache: "az://aletest/assets/references/snpeff_cache"
+snpeff_db: "draft_ref.52"
+# vep_cache intentionally omitted — snpeff only for custom genome
+
+# --- Sequencing Platform ---
+seq_platform: "ILLUMINA"

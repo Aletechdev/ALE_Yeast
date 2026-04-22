@@ -21,6 +21,20 @@
 
 ---
 
+## Seqera Cloud Deployment Tasks
+
+### ☐ Remove `cf_ploidy` from params_seqera_test.yml
+- Schema already has `"default": 2`, so Seqera won't flag it as missing
+- Pipeline uses `meta.ploidy` from sample table anyway — `cf_ploidy` is ignored at runtime
+
+### ☐ Review and clean up Seqera launchpad schema view
+- Add `"hidden": true` in `nextflow_schema.json` for parameters with no schema default that are never set by ALE users:
+  - `ascat_ploidy` — ASCAT not in tools list for yeast
+  - `ascat_purity` — ASCAT not in tools list for yeast
+  - `cf_window` — auto-computed by Control-FREEC from genome size
+
+---
+
 ## Current Tasks
 
 ### SV calling, add CNVKit results to MultiQC

@@ -267,3 +267,60 @@ This approach keeps your data separate from the pipeline code, making it easy to
 - Update the pipeline independently
 - Run multiple projects with different datasets
 - Track pipeline version per project
+
+---
+
+## Seqera Platform Deployment (Azure)
+
+This section documents running the pipeline on Seqera Platform with Azure Batch compute.
+
+### Files Prepared
+
+| File | Purpose |
+|------|---------|
+| `conf/seqera_azure.config` | Nextflow config (resource limits, retry strategy, Docker) |
+| `conf/params_seqera_test.yml` | Launch parameters for Seqera Platform |
+| `assets/reads/samplesheet_azure.csv` | Samplesheet with `az://` blob paths |
+| `bin/upload_test_data_azure.sh` | Upload script for test data to Azure Blob |
+
+### Upload Test Data
+
+```bash
+export STORAGE_ACCOUNT="your-storage-account-name"
+bash bin/upload_test_data_azure.sh
+```
+
+This uploads to container `aletest`:
+- `az://aletest/assets/reads/` - FASTQ files + samplesheet
+- `az://aletest/assets/references/` - FASTA, GFF3, SnpEff cache
+
+### Seqera Launch Configuration
+
+1. **Compute Environment**: Azure Batch (configured in Seqera Platform)
+2. **Config profiles**: `docker`
+3. **Nextflow config**: Paste content of `conf/seqera_azure.config`
+4. **Pipeline parameters**: Upload `conf/params_seqera_test.yml`
+
+### breseq Reference Format Limitation
+
+⚠️ **Current limitation**: breseq is configured with GFF3 reference (`draft_ref52.gff3`) instead of GenBank format.
+
+**Impact**:
+- breseq runs successfully with GFF3
+- Reduced annotation quality in breseq HTML reports
+- GenomeDiff → VCF conversion works normally
+
+**Recommendation**: For production use, provide a GenBank (.gb/.gbk) file for full breseq annotation support.
+
+### TODO: Public Test Dataset
+
+The current test dataset uses proprietary yeast data. For public demos and CI/CD, we need:
+
+- [ ] **Public reference genome** with GenBank file (e.g., S. cerevisiae S288C from NCBI)
+- [ ] **Public FASTQ data** from SRA/ENA (e.g., yeast ALE experiment reads)
+- [ ] **Minimal samplesheet** (2-3 samples for fast testing)
+
+**Candidate public datasets**:
+- *S. cerevisiae* S288C: [GCF_000146045.2](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000146045.2/) (GenBank available)
+- *E. coli* K-12 MG1655: [GCF_000005845.2](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000005845.2/) (well-annotated, common ALE organism)
+- SRA ALE datasets: Search "adaptive laboratory evolution" on SRA for paired-end Illumina reads
