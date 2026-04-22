@@ -328,7 +328,7 @@ def versions = yaml.load(java.nio.file.Files.newInputStream(path)).collectEntrie
 
 **Rule**: `bin/` should contain only scripts directly called by Nextflow processes. Everything else belongs in `docs/` or project-level directories.
 
-**Details**: See `docs/fix6_multiqc_tar_path_length.md`
+**Details**: See `docs/fixes/bin-staging-tar-paths.md`
 
 ---
 
@@ -382,7 +382,7 @@ git merge --no-commit --no-ff worktree-seqera-cloud && git merge --abort
 **Known conflict area**: `bin/` → `docs/` directory moves (Fix 6).
 - This branch moved nested folders not used by the pipeline (e.g., `bin/benchmarking/`, `bin/compare_mutect2_HpCaller/`) to `docs/`
 - Main branch may still have content in `bin/` or may have added new files there
-- **Resolution rule**: Non-pipeline-script content stays in `docs/` — `bin/` staging causes tar path length errors and unnecessary overhead on Azure Batch (see Fix 6 below and `docs/fix6_multiqc_tar_path_length.md`)
+- **Resolution rule**: Non-pipeline-script content stays in `docs/` — `bin/` staging causes tar path length errors and unnecessary overhead on Azure Batch (see Fix 6 below and `docs/fixes/bin-staging-tar-paths.md`)
 
 **Merge steps**:
 ```bash
@@ -392,7 +392,7 @@ git merge worktree-seqera-cloud
 
 # If conflicts:
 #   - bin/ vs docs/ moves → keep in docs/ (Fix 6 reasoning)
-#   - Review each conflict against docs/fix6_multiqc_tar_path_length.md
+#   - Review each conflict against docs/fixes/bin-staging-tar-paths.md
 #   - git add <resolved files> && git commit
 
 git push origin main
