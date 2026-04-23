@@ -41,9 +41,84 @@ poorly with many samples. Consider:
 - Using `--subsample 0.5` to reduce alignment data
 - Using `--flanking 200` (default) instead of 500
 
+## TODO — Follow-Up Work
+
+### 1. Upgrade to igv-reports >= 1.15.0 for Tabulator Template
+
+The nf-core module ships v1.12.0 which lacks the `--tabulator` flag.
+v1.15.0+ adds a **Tabulator template** with filterable/sortable column headers
+(closest UX to BreSeq's mutation summary table).
+
+- **Flag**: `--tabulator` + `--filter-config filter_config.yaml`
+- **Example**: https://igvteam.github.io/igv-reports/examples/example_vcf_tabulator.html
+- **Releases**: https://github.com/igvteam/igv-reports/releases (v1.15.0+)
+
+The filter config YAML defines per-column filter types:
+```yaml
+# Example filter_config.yaml for ALE data
+- field: GENE
+  type: string
+  filter: contains
+- field: FILTER
+  type: string
+  filter: list
+- field: "sample:DP"
+  type: number
+  filter: range
+  min: 0
+  max: 500
+- field: "sample:GQ"
+  type: number
+  filter: threshold
+  value: 30
+```
+
+**Action**: Either update the nf-core module container to >= 1.15.0 or use a custom
+container. Then add `--tabulator --filter-config` to `ext.args`.
+
+### 2. Add Per-Sample Allele Frequency
+
+HaplotypeCaller FORMAT fields include AD (allelic depths) but not AF.
+Need to compute AF = AD[alt] / (AD[ref] + AD[alt]) per sample.
+
+Options:
+- **Pre-process VCF**: Use `bcftools +fill-tags -- -t FORMAT/AF` to add per-sample AF
+  before passing to igvreports (easiest, adds FORMAT/AF field)
+- **Post-process**: Calculate in the dashboard scripts instead
+- **SnpSift**: `SnpSift extractFields` can compute on the fly
+
+Example pre-processing:
+```bash
+bcftools +fill-tags input.vcf.gz -Oz -o with_af.vcf.gz -- -t FORMAT/AF
+# Then pass with_af.vcf.gz to igvreports with --sample-columns GT AD DP GQ AF
+```
+
+### 3. Review INFO Columns for ALE Relevance
+
+Current columns: `FILTER AC AF AN DP FS MQ QD SOR`
+
+Consider adding/removing:
+- **Add**: `ExcessHet`, `BaseQRankSum`, `MQRankSum`, `ReadPosRankSum` (useful QC)
+- **Remove**: `AN` (always same for joint calling), `AC` (redundant with per-sample GT)
+- **Review**: Whether INFO-level `AF` vs per-sample `AF` is more useful
+
+### 4. CRAM Track Feasibility
+
+To make with-CRAMs runs viable on D4as (16 GB):
+- Pre-filter to PASS-only: `bcftools view -f PASS` (~737 variants vs 1,748)
+- Limit to 2-3 key samples (ancestral + 1-2 evolved)
+- Use `--subsample 0.5` and `--flanking 200`
+
 ## Files
 
 - `run_igvreports.nf` — Workflow with CRAM tracks
 - `run_igvreports_no_tracks.nf` — Workflow without tracks (fast)
 - `run_igvreports.sh` / `run_igvreports_no_tracks.sh` — Launch scripts
 - `nextflow.config` — Shared config (Docker, publishDir, ext.args)
+
+## References
+
+- [nf-core igvreports module](https://nf-co.re/modules/igvreports)
+- [igv-reports GitHub](https://github.com/igvteam/igv-reports)
+- [Tabulator template example](https://igvteam.github.io/igv-reports/examples/example_vcf_tabulator.html)
+- [igv-reports paper (bioRxiv 2025)](https://www.biorxiv.org/content/10.1101/2025.10.29.685397v1.full)
