@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ALE Variant Review - IGVReports</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; }
+        h1 { border-bottom: 2px solid #0366d6; padding-bottom: 8px; }
+        h2 { margin-top: 32px; color: #24292e; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .report-link { display: block; padding: 8px 12px; margin: 4px 0; border-radius: 4px; background: #f6f8fa; }
+        .report-link:hover { background: #e1e4e8; }
+        .meta { color: #586069; font-size: 0.9em; margin-left: 8px; }
+        .section { margin-bottom: 24px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+        th, td { text-align: left; padding: 6px 12px; border: 1px solid #e1e4e8; }
+        th { background: #f6f8fa; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
+        .badge-ready { background: #dcffe4; color: #22863a; }
+        .badge-pending { background: #fff5b1; color: #735c0f; }
+    </style>
+</head>
+<body>
+    <h1>ALE Variant Review - IGVReports</h1>
+    <p>Interactive variant reports for Yeast ALE experiment (HaplotypeCaller joint germline calling).</p>
+
+    <div class="section">
+        <h2>Cohort Overview</h2>
+        <a class="report-link" href="cohort_all.html">
+            Cohort variant table (all 1,748 variants, 17 samples)
+            <span class="meta">8.9 MB - no read pileups, sortable table with per-sample GT/AD/DP/GQ</span>
+        </a>
+    </div>
+
+    <div class="section">
+        <h2>Per-Sample Reports (with IGV read pileups)</h2>
+        <table>
+            <thead>
+                <tr><th>Sample</th><th>Type</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><a href="samples/A0-F0-I1-R1.html">A0-F0-I1-R1</a></td><td>Ancestral</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A0-F0-I2-R1.html">A0-F0-I2-R1</a></td><td>Ancestral</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A1-F6-I1-R1.html">A1-F6-I1-R1</a></td><td>Evolved</td><td><span class="badge badge-ready">ready</span></td></tr>
+                <tr><td><a href="samples/A1-F6-I2-R1.html">A1-F6-I2-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A1-F6-I3-R1.html">A1-F6-I3-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A3-F3-I1-R1.html">A3-F3-I1-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A3-F3-I2-R1.html">A3-F3-I2-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A3-F3-I3-R1.html">A3-F3-I3-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A4-F5-I1-R1.html">A4-F5-I1-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A4-F5-I2-R1.html">A4-F5-I2-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A4-F5-I3-R1.html">A4-F5-I3-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A5-F4-I1-R1.html">A5-F4-I1-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A5-F4-I2-R1.html">A5-F4-I2-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A5-F4-I3-R1.html">A5-F4-I3-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A6-F6-I1-R1.html">A6-F6-I1-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A6-F6-I2-R1.html">A6-F6-I2-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+                <tr><td><a href="samples/A6-F6-I3-R1.html">A6-F6-I3-R1</a></td><td>Evolved</td><td><span class="badge badge-pending">pending</span></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section" style="color: #586069; font-size: 0.85em; margin-top: 40px; border-top: 1px solid #e1e4e8; padding-top: 12px;">
+        Generated from HaplotypeCaller joint germline calling (soft-filtered VCF).<br>
+        Per-sample reports include FORMAT/VAF (variant allele frequency) and CRAM read pileups.<br>
+        Reference: draft_ref52.fasta (52 contigs)
+    </div>
+</body>
+</html>
