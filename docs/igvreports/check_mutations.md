@@ -141,6 +141,88 @@ bcftools index -t with_vaf.vcf.gz
 
 ---
 
+## SnpEff ANN Column Display
+
+igv-reports has **built-in ANN parsing** (`varianttable.py:107-115`). When `--info-columns ANN` is passed, it automatically extracts into 7 readable columns: GENE, EFFECTS, IMPACT, TRANSCRIPT, GENE_ID, PROTEIN ALTERATION, DNA ALTERATION. No `bcftools +split-vep` or manual parsing needed.
+
+---
+
+## FILTER Column in igvreports
+
+### Problem
+`--info-columns FILTER` produces an empty column. igvreports only reads `variant.info[h]` (INFO dict), not the fixed FILTER column (VCF column 7).
+
+### Solution
+Pre-process VCF with AWK to copy FILTER → `INFO/VCF_FILTER`, then use `--info-columns VCF_FILTER`:
+
+```bash
+bcftools view input.vcf.gz \
+    | awk 'BEGIN{OFS="\t"}
+        /^##/{print; next}
+        /^#CHROM/{
+            print "##INFO=<ID=VCF_FILTER,Number=1,Type=String,Description=\"Original VCF FILTER value\">"
+            print; next
+        }
+        {
+            filt=$7
+            gsub(/;/, ",", filt)   # semicolons conflict with INFO delimiter
+            $8="VCF_FILTER=" filt ";" $8
+            print
+        }' \
+    | bgzip > prepared.vcf.gz
+```
+
+**Note**: FILTER values like `MQ_filter;SOR_filter` contain semicolons that are INFO field delimiters. The AWK replaces them with commas.
+
+---
+
+## GFF3 Gene Track
+
+The GFF3 from snpeff_cache (`draft_ref52.gff3`, 14 MB) works as an IGV track via `--tracks genes.sorted.gff3.gz`. It must be sorted, bgzipped, and tabix-indexed first.
+
+The GFF3 contains overlapping feature types (gene + mRNA + CDS) for the same loci, which renders as duplicate tracks in the IGV view. For yeast (minimal splicing), this is cosmetic — both tracks show the same gene boundaries.
+
+---
+
+## Known Limitation: 3-Frame Amino Acid Translation
+
+### Problem
+The igvteam example ([example_vcf_tabulator.html](https://igvteam.github.io/igv-reports/examples/example_vcf_tabulator.html)) shows 3-frame amino acid translation below the reference sequence. This uses `--genome hg38`, which triggers igv.js's built-in genome configuration with `showTranslation: true`.
+
+### Status: NOT supported for custom genomes
+
+When using `--fasta` (custom reference), igv-reports creates a minimal reference config with only `fastaURL` — no `showTranslation` flag. The igv.js viewer does not render amino acid translation.
+
+**Attempted fix**: Monkey-patched `report.create_session_dict()` to inject `"showTranslation": true` into the reference config within session data URIs. The injection succeeded technically but the translation **did not render** in the browser.
+
+**Root cause**: igv.js likely requires additional genome metadata (cytobands, chromosome aliases) or a different reference config structure to enable translation for custom genomes.
+
+**Workaround**: The SnpEff ANN field already provides PROTEIN ALTERATION and DNA ALTERATION columns in the variant table, which covers the primary use case of identifying amino acid changes at variant positions.
+
+---
+
+## Full Workflow Results (April 2026)
+
+### Nextflow workflow: `generate_all_reports.nf`
+- **Runtime**: 18m 48s (37 tasks)
+- **Architecture**: PREPARE_GFF3 → PREPARE_VCF (×18) → IGVREPORTS_COHORT + IGVREPORTS_SAMPLE (×17) → GENERATE_INDEX
+- **Input**: SnpEff-annotated VCFs (non-hard-filtered, ~113 variants/sample)
+
+### Output sizes
+| Report | Variants | Size |
+|--------|----------|------|
+| Cohort (all samples, no tracks) | 7,433 | 17 MB |
+| Per-sample I1 replicates | ~113 | 6–16 MB |
+| Per-sample I2/I3 replicates | ~113 | 135–196 MB |
+
+Large I2/I3 report sizes are due to deeper sequencing → more CRAM data embedded.
+
+### Columns displayed
+- **INFO columns**: ANN (auto-parsed → 7 sub-columns), VCF_FILTER, AC, AF, DP, QD, MQ
+- **FORMAT columns**: GT, AD, DP, GQ, VAF
+
+---
+
 ## References
 
 - [igv-reports GitHub](https://github.com/igvteam/igv-reports)
