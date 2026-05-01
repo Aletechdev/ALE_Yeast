@@ -55,18 +55,44 @@ The no-tracks cohort report (8.9 MB, 1,748 variants × 17 samples) can be slow t
 ### Solutions (ordered by impact)
 
 #### 1. Upgrade to igv-reports >= 1.15.0 for Tabulator template (HIGH IMPACT)
-The `--tabulator` template uses [Tabulator.js](http://tabulator.info/) with **virtual scrolling** — only visible rows are rendered in the DOM. This is the single biggest improvement for browser load time with many variants.
+The `--tabulator` template uses [Tabulator.js](http://tabulator.info/) with **virtual scrolling** — only visible rows are rendered in the DOM. This is the single biggest improvement for browser load time with many variants. It also adds **per-column filtering** in the table header (dropdown, substring search, numeric range).
 
+**Generation command** (from [igv-reports run_examples.sh](https://github.com/igvteam/igv-reports/blob/master/run_examples.sh)):
 ```bash
 create_report input.vcf.gz --fasta ref.fa \
     --tabulator \
     --filter-config filter_config.yaml \
-    --info-columns FILTER AF DP QD MQ \
-    --sample-columns GT AD DP GQ VAF
+    --info-columns ANN VCF_FILTER AC AF DP QD MQ \
+    --sample-columns GT AD DP GQ VAF \
+    --flanking 500 \
+    --output cohort_report.html
 ```
 
+**`--filter-config` YAML format** — defines per-column filter behavior:
+```yaml
+columns:
+  GENE:
+    type: string
+    filter: contains        # substring search box
+  IMPACT:
+    type: string
+    filter: list            # dropdown with all unique values
+  VCF_FILTER:
+    type: string
+    filter: list            # dropdown: PASS, QD_filter, MQ_filter, etc.
+  AF:
+    type: number
+    filter: range           # min/max numeric slider
+  DP:
+    type: number
+    filter: threshold       # numeric cutoff (e.g., DP >= 10)
+    threshold: 10
+```
+
+Supported filter types: `contains` (substring), `list` (dropdown), `exact` (precise match), `range` (min/max), `threshold` (numeric cutoff).
+
 **Status**: nf-core module ships v1.12.0; need to override container to >= 1.15.0
-**Reference**: https://igvteam.github.io/igv-reports/examples/example_vcf_tabulator.html
+**Reference**: [Tabulator example](https://igvteam.github.io/igv-reports/examples/example_vcf_tabulator.html) | [filter_config.yaml](https://github.com/igvteam/igv-reports/blob/master/test/data/variants/filter_config.yaml)
 
 #### 2. Pre-filter to PASS-only variants (HIGH IMPACT)
 Reduces 1,748 → ~737 variants (58% reduction), roughly halving HTML size and DOM nodes.
@@ -98,7 +124,16 @@ Requires serving from a web server (not a standalone file).
 create_report input.vcf.gz --fasta ref.fa --no-embed --tracks aligned.cram
 ```
 
-#### 6. Split by chromosome (LOW IMPACT for yeast)
+#### 6. Increase variant table height (QUICK FIX)
+The default template limits the variant table to 350px (`max-height: 350px` in the collapsible CSS). Post-process the generated HTML to increase it:
+
+```bash
+sed -i 's/max-height: 350px;/max-height: 800px;/' cohort_report.html
+```
+
+No `create_report` CLI option exists for this. The `--tabulator` template (v1.15.0+) may handle this better with virtual scrolling.
+
+#### 7. Split by chromosome (LOW IMPACT for yeast)
 Generate one report per chromosome. More useful for large genomes.
 For yeast with 52 contigs and ~1,748 variants total, not worth the complexity.
 
@@ -138,6 +173,46 @@ bcftools index -t with_vaf.vcf.gz
 |-------|-------|--------|---------|---------|
 | INFO/AF | Cohort | Joint calling | 0.047 | Alt allele frequency across all 17 samples |
 | FORMAT/VAF | Sample | bcftools fill-tags | 0.667 | This sample's alt read fraction: AD[alt]/sum(AD) |
+
+---
+
+## Multi-Allelic Variants and Splitting
+
+### Problem
+Joint calling with HaplotypeCaller produces 1,135 multi-allelic sites out of 7,433 total (15%). These are overwhelmingly **+1/-1 bp indels** (93% multi-indel) — classic homopolymer stutter from PCR/sequencing in repeat regions. Only 12% pass quality filters vs 9.3% for biallelic (similar quality profile).
+
+Multi-allelic FORMAT fields like VAF are comma-separated strings (e.g., `0.64,0.083`), which breaks numeric filtering in Tabulator.js.
+
+### Solution: `bcftools norm -m-` with `--old-rec-tag`
+
+```bash
+bcftools norm -m- --old-rec-tag ORIG_ALT --force input.vcf.gz -Oz -o split.vcf.gz
+```
+
+- Splits each multi-allelic site into separate biallelic rows
+- `--old-rec-tag ORIG_ALT` preserves the original record as `INFO/ORIG_ALT=chr10|4920|G|GA,GAA|1` (format: `CHR|POS|REF|ALT|USED_ALT_IDX`)
+- `--force` required because HaplotypeCaller PL fields have wrong cardinality for high-ploidy multi-allelic sites (known GATK issue)
+- After splitting, all FORMAT fields (VAF, AD, DP, GQ) become scalar → numeric Tabulator filters work
+
+### Caveats
+
+1. **SnpEff ANN not split**: `bcftools norm -m-` does NOT split the ANN field — both split rows carry all annotations for all original ALTs. Options:
+   - Re-annotate with SnpEff after splitting (cleanest)
+   - Use `SnpSift extractFields` to filter ANN by allele
+   - Accept duplicate annotations (acceptable for review — igvreports shows all anyway)
+
+2. **Row count increases**: 7,433 → ~8,568 rows (+15%)
+
+3. **ORIG_ALT as INFO column**: Add `--info-columns ORIG_ALT` to igvreports to show the original multi-allelic context in the table. Useful for identifying split records during review.
+
+### Recommended pipeline order
+
+```
+bcftools norm -m- --old-rec-tag ORIG_ALT --force  # split multi-allelics
+→ AWK (copy FILTER → VCF_FILTER)                  # fix FILTER column
+→ bcftools +fill-tags -- -t FORMAT/VAF             # add per-sample VAF
+→ create_report --tabulator                        # generate report
+```
 
 ---
 
@@ -215,7 +290,7 @@ When using `--fasta` (custom reference), igv-reports creates a minimal reference
 | Per-sample I1 replicates | ~113 | 6–16 MB |
 | Per-sample I2/I3 replicates | ~113 | 135–196 MB |
 
-Large I2/I3 report sizes are due to deeper sequencing → more CRAM data embedded.
+Large I2/I3 report sizes are due to higher ploidy configuration that reports lower frequency mutations.
 
 ### Columns displayed
 - **INFO columns**: ANN (auto-parsed → 7 sub-columns), VCF_FILTER, AC, AF, DP, QD, MQ
