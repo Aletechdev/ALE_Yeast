@@ -122,9 +122,10 @@ All paired-end 100bp reads (Illumina HiSeq 2500), haploid BY4741-derived strain.
 
 This benchmark uses a **customized fork of nf-core/sarek 3.5.1** with ALE-specific modifications (ploidy support, breseq integration, AF-based somatic filtering, joint germline filter annotation fallback, etc.).
 
-- **Tools**: HaplotypeCaller, breseq, CNVKit, Control-FREEC, SnpEff
+- **Tools (this release)**: HaplotypeCaller, CNVKit, Control-FREEC, SnpEff
 - **Mode**: Joint germline (all status=0, ploidy=1)
 - **Disabled**: baserecalibrator (no known-sites for S288C), FreeBayes (speed)
+- **Not in scope**: breseq (still in development; will be validated in a future release after dev/test/deploy best practices are established)
 - **Profile**: Adjust to your environment (e.g., `singularity,slurm` for HPC, `docker` for local)
 
 ## Resource Estimates
