@@ -2,13 +2,13 @@ D1.1 Evaluate And Modify The nf-core/Sarek Pipeline
 Description: The open source nf-core/Sarek pipeline was originally developed for cancer research for mutations calling using different variant calling tools. The evaluation of different mutation calling tools and settings is essential for selecting the tools for ALE mutation calling. For reference genome without extensive knowledge (e.g., genomes not registered on iGenome, without pre-calculated db for GATK’s BQSR and its downstream VQSR), custom Nextflow (sub)processes are required to generate the output VCF files.
 
 Acceptance Criteria:
-[ ] Review and select at least 1 SNP / InDel calling tool
-[ ] Review and select at least 1 structural variant calling tool
-[ ] Document the changes
-[ ] Modify the nf-core/Sarek Pipeline
+[x] Review and select at least 1 SNP / InDel calling tool
+[x] Review and select at least 1 structural variant calling tool
+[x] Document the changes
+[x] Modify the nf-core/Sarek Pipeline
 
 Exit Criteria:
-[ ] Test data from D1.1 used to review and confirm full concordance
+[ ] Test data from D1.1 used to review and confirm full concordance — see D1.1.1 below
 [ ] Documentation accessible on the GitHub repo and reviewed by stakeholders
 
 ---
