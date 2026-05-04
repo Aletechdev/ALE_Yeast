@@ -2,62 +2,97 @@
 
 Benchmarking the NF_ALE Sarek pipeline against published variant calls from [Ottilie et al. (2022)](https://doi.org/10.1038/s42003-022-03076-7), a large-scale yeast ALE study with 363 drug-resistant clones.
 
+For scientific background, tier rationale, and truth set details, see [RESEARCH_CONTEXT.md](docs/RESEARCH_CONTEXT.md).
+For formal deliverables and acceptance criteria, see [statement_of_work.md](docs/statement_of_work.md).
+
+## Tiered Benchmarking Strategy
+
+| Tier | Samples | Purpose | Size | Status |
+|------|---------|---------|------|--------|
+| **1 — Pilot** | 4 (1 parent + 3 evolved) | Pipeline smoke test | ~4 GB | Complete |
+| **2 — CRISPR + CNV** | 85 clones + parent | High-confidence SNV + CNV benchmark | ~40 GB | Planned |
+| **3 — Full cohort** | 355 clones + parents | Comprehensive benchmark | ~170 GB | Future |
+
 ## Quick Start
 
 ```bash
 # Prerequisites: conda activate nf-env, Docker running
 
-# 1. Download pilot FASTQ data (4 samples, ~4 GB)
-bash 01_data_retrieval/download_pilot_fastq.sh
+# 1. Download truth set (supplementary xlsx files)
+bash 01_data_retrieval/download_truth_set.sh
 
 # 2. Prepare S288C reference genome + SnpEff cache
 bash 02_reference_prep/prepare_s288c_reference.sh
 
-# 3. Run Sarek pipeline
+# --- Tier 1: Pilot (4 samples) ---
+bash 01_data_retrieval/download_pilot_fastq.sh
 bash 03_pipeline/run_ottilie_pilot.sh
+
+# --- Tier 2: CRISPR-validated (85 samples) ---
+python 01_data_retrieval/select_tier2_crispr_validated.py  # generates clone list
+bash 01_data_retrieval/download_tier2_fastq.sh             # download from SRA
+# bash 03_pipeline/run_ottilie_tier2.sh                     # TODO
 ```
 
 ## Directory Structure
 
 ```
 ottilie_xenobiotic_ale/
-├── 01_data_retrieval/          # SRA data download and sample resolution
-│   ├── environment_data_retrieval.yml  # Conda env (sra-tools pinned to 3.2.1)
-│   ├── inspect_supplementary.py        # Parse Ottilie supplementary xlsx files
-│   ├── resolve_sra_accessions.py       # Map sample names across sources
-│   ├── validate_dictionary.py          # Validate resolved sample mappings
-│   └── download_pilot_fastq.sh         # Download 4 pilot FASTQs from SRA
+├── 01_data_retrieval/                    # SRA data download and sample resolution
+│   ├── environment_data_retrieval.yml    # Conda env (sra-tools pinned to 3.2.1)
+│   │
+│   │  ── Step 1: Truth set ──
+│   ├── download_truth_set.sh            # Download Sup 4/5/7 xlsx from PMC
+│   │
+│   │  ── Step 2: Sample resolution ──
+│   ├── resolve_sra_accessions.py         # Build sample_name_dictionary.csv
+│   ├── validate_dictionary.py            # QC: check dictionary completeness
+│   ├── inspect_supplementary.py          # QC: explore supplementary data structure
+│   │
+│   │  ── Step 3: Tier selection ──
+│   ├── select_tier2_crispr_validated.py  # Select 85 Tier 2 clones (CRISPR + CNV)
+│   │
+│   │  ── Step 4: FASTQ download ──
+│   ├── download_pilot_fastq.sh          # Tier 1: 4 pilot samples
+│   ├── download_tier2_fastq.sh          # Tier 2: 85 benchmark samples
+│   ├── download_all_fastq.sh            # Tier 3: all 363 samples
+│   └── subsample_fastq.sh              # Optional: subsample for quick testing
 │
-├── 02_reference_prep/          # S288C R64-1-1 reference setup
-│   ├── prepare_s288c_reference.sh      # Master script (all 5 steps, idempotent)
-│   └── rename_genbank_chromosomes.sh   # NC_* -> Roman numeral chr names
+├── 02_reference_prep/                    # S288C R64-1-1 reference setup
+│   ├── prepare_s288c_reference.sh        # Master script (all 5 steps, idempotent)
+│   └── rename_genbank_chromosomes.sh     # NC_* -> Roman numeral chr names
 │
-├── 03_pipeline/                # Sarek execution
-│   └── run_ottilie_pilot.sh            # Launch pilot benchmark (4 samples)
+├── 03_pipeline/                          # Sarek execution (customized nf-core/sarek 3.5.1)
+│   ├── run_ottilie_pilot.sh              # Launch Tier 1 pilot benchmark
+│   └── run_ottilie_pilot_subsampled.sh   # Launch Tier 1 with subsampled FASTQs
 │
-├── docs/                       # Background documentation
-│   ├── Nextflow_Pipeline_Benchmark_Project_Plan.md
-│   └── RESEARCH_CONTEXT.md
+├── docs/                                 # Background documentation
+│   ├── RESEARCH_CONTEXT.md               # Science context and tier rationale
+│   └── statement_of_work.md             # Deliverables and acceptance criteria
 │
-└── README.md                   # This file
+└── README.md                             # This file
 ```
 
 ### Data Files (generated, not in this directory)
 
 ```
 data/ottilie/
-├── fastq/                      # Downloaded FASTQ files
-├── samplesheet_pilot.csv       # Sarek input (4 pilot samples)
-├── sample_name_dictionary.csv  # Cross-source sample name mapping (356 samples)
-├── PRJNA590203_runinfo.csv     # Full SRA metadata
-├── supplementary/              # Ottilie paper supplementary xlsx files
-└── S288C_reference/            # Reference genome and annotations
-    ├── S288C_R64.fa{,.fai}                 # Ensembl FASTA (chr: I-XVI, Mito)
-    ├── S288C_R64.gff3                      # Ensembl GFF3 annotations
-    ├── S288C_R64.gbff                      # NCBI GenBank (original NC_* names)
-    ├── S288C_R64_ensembl_chrnames.gb       # GenBank with Ensembl chr names (for breseq)
-    ├── chromosomes/                        # Per-chr FASTAs (for Control-FREEC)
-    └── snpeff_cache/R64-1-1.105/           # Locally-built SnpEff cache
+├── fastq/                                # Downloaded FASTQ files
+├── samplesheet_pilot.csv                 # Sarek input — Tier 1 (4 pilot samples)
+├── tier2_crispr_validated_clones.csv     # Tier 2 clone list (64 samples + metadata)
+├── sample_name_dictionary.csv            # Cross-source sample name mapping (356 samples)
+├── PRJNA590203_runinfo.csv               # Full SRA metadata
+├── supplementary/                        # Ottilie paper supplementary xlsx files
+│   ├── sup_4_*.xlsx                      # 1,405 mutations (SNV/INDEL truth set)
+│   ├── sup_5_*.xlsx                      # 24 CNVs (CNV truth set)
+│   └── sup_7_*.xlsx                      # CRISPR/Cas9 validation (45 confirmed)
+└── S288C_reference/                      # Reference genome and annotations
+    ├── S288C_R64.fa{,.fai}               # Ensembl FASTA (chr: I-XVI, Mito)
+    ├── S288C_R64.gff3                    # Ensembl GFF3 annotations
+    ├── S288C_R64.gbff                    # NCBI GenBank (original NC_* names)
+    ├── S288C_R64_ensembl_chrnames.gb     # GenBank with Ensembl chr names (for breseq)
+    ├── chromosomes/                      # Per-chr FASTAs (for Control-FREEC)
+    └── snpeff_cache/R64-1-1.105/         # Locally-built SnpEff cache
 ```
 
 ## Reference Genome
@@ -68,11 +103,11 @@ data/ottilie/
 
 **GenBank for breseq**: Downloaded from NCBI (has embedded sequences + rich annotations), then chromosome names sed-replaced to Ensembl convention via `rename_genbank_chromosomes.sh`.
 
-**SnpEff cache**: Built locally because `snpeff.blob.core.windows.net` is unreachable from the Azure VM. Uses `snpEff build -gff3 -noCheckCds -noCheckProtein` inside the `quay.io/biocontainers/snpeff:5.2--hdfd78af_1` container.
+**SnpEff cache**: Built locally using `snpEff build -gff3 -noCheckCds -noCheckProtein` inside the `quay.io/biocontainers/snpeff:5.2--hdfd78af_1` container.
 
 All reference prep is captured in `prepare_s288c_reference.sh` (idempotent, skips existing files).
 
-## Pilot Samples
+## Tier 1 — Pilot Samples
 
 | Sample | SRR | Role | Coverage |
 |--------|-----|------|----------|
@@ -85,19 +120,78 @@ All paired-end 100bp reads (Illumina HiSeq 2500), haploid BY4741-derived strain.
 
 ## Pipeline Configuration
 
-- **Tools**: HaplotypeCaller, breseq, CNVKit, Control-FREEC, SnpEff
+This benchmark uses a **customized fork of nf-core/sarek 3.5.1** with ALE-specific modifications (ploidy support, breseq integration, AF-based somatic filtering, joint germline filter annotation fallback, etc.).
+
+- **Tools (this release)**: HaplotypeCaller, CNVKit, Control-FREEC, SnpEff
 - **Mode**: Joint germline (all status=0, ploidy=1)
 - **Disabled**: baserecalibrator (no known-sites for S288C), FreeBayes (speed)
-- **Profile**: `azureD4as,docker`
+- **Not in scope**: breseq (still in development; will be validated in a future release after dev/test/deploy best practices are established)
+- **Profile**: Adjust to your environment (e.g., `singularity,slurm` for HPC, `docker` for local)
 
-## Truth Set
+## Resource Estimates
 
-From Ottilie et al. supplementary data:
-- **Sup. Data 4**: 1,405 mutations (1,286 SNVs + 119 INDELs) across 363 clones
-- **Sup. Data 5**: 24 CNVs (11 aneuploidies + 13 intrachromosomal amplifications)
-- **Sup. Data 7**: 45 CRISPR/Cas9-validated causal alleles (biological validation)
+Based on Tier 1 actual measurements (4 samples on a 4 vCPU / 16 GB RAM node).
+
+### Per-Tier Storage
+
+| Tier | FASTQs | Work Dir | Output | Total | Temp (fasterq-dump) |
+|------|--------|----------|--------|-------|---------------------|
+| **1 — Pilot** (4 samples) | 4 GB | 36 GB | 3 GB | **43 GB** | ~12 GB peak |
+| **2 — CRISPR+CNV** (86 samples) | ~40 GB | ~770 GB | ~66 GB | **~876 GB** | ~120 GB peak |
+| **3 — Full cohort** (363 samples) | ~170 GB | ~3.3 TB | ~280 GB | **~3.7 TB** | ~500 GB peak |
+
+Work dir estimate: ~9 GB/sample (Tier 1 actual: 36 GB / 4 samples).
+fasterq-dump temp: ~3x compressed FASTQ size (uncompressed intermediate before gzip).
+
+### Peak RAM by Process (Tier 1 Actual)
+
+| Process | Peak RSS | Notes |
+|---------|----------|-------|
+| GATK4_MarkDuplicates | 8.9 GB | Per sample (constant) |
+| breseq | 5.7 GB | Per sample (constant) |
+| BWA-MEM | 4.8 GB | Per sample (constant) |
+| GATK4_HaplotypeCaller | 2.5 GB | Per sample (constant) |
+| SnpEff | 2.4 GB | Per sample (constant) |
+| GATK4_GenotypegVCFs | 975 MB | JVM heap capped |
+| MultiQC | 995 MB | Scales with samples |
+| CNVKit_BATCH | 719 MB | Per sample (constant) |
+| Control-FREEC | 18 MB | Per sample (constant) |
+
+**RAM is not a limiting factor** for yeast (12 Mb genome). Standard HPC nodes (16+ GB) are sufficient for all tiers.
+
+### Runtime Estimates (single node, 4 CPU, serial)
+
+| Process | Per Sample | 86 Samples (serial) | Notes |
+|---------|-----------|---------------------|-------|
+| BWA-MEM | ~5 min | ~7 hrs | Parallelizable |
+| MarkDuplicates | ~3 min | ~4 hrs | Parallelizable |
+| HaplotypeCaller | ~8 min | ~11 hrs | Parallelizable |
+| **breseq** | **~2 hrs** | **~172 hrs (7 days)** | **Bottleneck** |
+| CNVKit | ~2 min | ~3 hrs | Parallelizable |
+| Control-FREEC | ~1 min | ~1.5 hrs | Parallelizable |
+| Joint calling | ~30 sec | ~5 min | Single job |
+
+**Total (single node, serial)**: ~2-3 days without breseq, ~8-10 days with breseq.
+
+### Feasibility by Tier
+
+| | Tier 1 (4 samples) | Tier 2 (86 samples) | Tier 3 (363 samples) |
+|--|---------------------|---------------------|----------------------|
+| **Disk** | ~43 GB | **~876 GB** | **~3.7 TB** |
+| **RAM** | 9 GB peak | 16 GB sufficient | 16 GB sufficient |
+| **Runtime (4 CPU, serial)** | ~8 hrs | ~8-10 days | ~5-6 weeks |
+| **Runtime (HPC, parallel)** | <1 hr | ~6-12 hrs | ~1-2 days |
+
+**Tier 1** runs comfortably on a single workstation (4+ cores, 16 GB RAM, 50 GB disk).
+
+**Tier 2+** should be run on HPC or cloud compute:
+- breseq is the runtime bottleneck (~2 hrs/sample) — parallelization essential
+- Nextflow natively supports SLURM, PBS, LSF, and cloud executors
+- Recommended: `nextflow run ... -profile singularity,slurm`
 
 ## Known Issues
 
 - `sra-tools 3.4.1` segfaults — pinned to 3.2.1 in `environment_data_retrieval.yml`
-- Sample naming inconsistencies across supplementary tables and SRA (double-dash vs single-dash, abbreviations) — handled by `resolve_sra_accessions.py` with 3 manual overrides
+- Sample naming inconsistencies across supplementary tables and SRA — handled by `resolve_sra_accessions.py` with 3 manual overrides
+- 1 Tier 2 CRISPR clone (EAW901 / DDD01035522--1R2a) has no SRR accession in the dictionary
+- **breseq is the runtime bottleneck** — ~2 hrs/sample. Consider disabling for Tier 2 initial run, or use HPC parallelism
