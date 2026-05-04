@@ -34,7 +34,7 @@ See [RESEARCH_CONTEXT.md](RESEARCH_CONTEXT.md) for full study details and tier r
   - [ ] Per-sample concordance: identify samples with high/low agreement
 - **Tier 1 scope**: 4 pilot samples (38 expected mutations)
 - **Tier 2 scope**: 85 samples with CRISPR-validated mutations — highest-confidence subset
-- **Notes**: Ottilie used breseq (+ manual curation) as their primary caller. Differences may reflect tool sensitivity, not pipeline errors.
+- **Notes**: Ottilie also used GATK HaplotypeCaller with hard filters. High concordance expected; differences may reflect filtering thresholds or parent-subtraction logic.
 
 #### Task 2: CRISPR-Validated Mutation Recovery
 
