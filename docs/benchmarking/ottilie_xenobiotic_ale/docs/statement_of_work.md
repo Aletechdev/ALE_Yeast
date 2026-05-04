@@ -36,17 +36,7 @@ See [RESEARCH_CONTEXT.md](RESEARCH_CONTEXT.md) for full study details and tier r
 - **Tier 2 scope**: 85 samples with CRISPR-validated mutations — highest-confidence subset
 - **Notes**: Ottilie used breseq (+ manual curation) as their primary caller. Differences may reflect tool sensitivity, not pipeline errors.
 
-#### Task 2: SNV/INDEL Concordance (breseq)
-
-- **Truth set**: Sup. Data 4 (same as Task 1)
-- **Pipeline tool**: breseq (integrated into Sarek fork)
-- **Metrics**:
-  - [ ] Sensitivity and precision vs Sup 4 (same as Task 1)
-  - [ ] Head-to-head: breseq vs HaplotypeCaller agreement and unique calls
-- **Expected**: Higher concordance since Ottilie’s truth set was generated with breseq
-- **Notes**: breseq outputs GD format — need gdtools-based comparison or VCF conversion
-
-#### Task 3: CRISPR-Validated Mutation Recovery
+#### Task 2: CRISPR-Validated Mutation Recovery
 
 - **Truth set**: Sup. Data 7 — 45 CRISPR/Cas9-confirmed causal alleles in 37 genes
 - **Scope**: 64 Tier 2 clones carrying these mutations (matched via gene + AA change)
@@ -55,7 +45,7 @@ See [RESEARCH_CONTEXT.md](RESEARCH_CONTEXT.md) for full study details and tier r
   - [ ] Per-gene breakdown: which genes/mutations are missed and why
 - **Significance**: These are the highest-confidence variants — any missed call warrants investigation
 
-#### Task 4: CNV Concordance (CNVKit + Control-FREEC)
+#### Task 3: CNV Concordance (CNVKit + Control-FREEC)
 
 - **Truth set**: Sup. Data 5 — 24 CNV events (11 aneuploidies + 13 amplifications) across 23 clones
 - **Pipeline tools**: CNVKit and Control-FREEC
@@ -66,7 +56,7 @@ See [RESEARCH_CONTEXT.md](RESEARCH_CONTEXT.md) for full study details and tier r
 - **Tier 2 scope**: 23 CNV clones (21 CNV-only + 2 overlapping with CRISPR set)
 - **Notes**: Ottilie used read depth ratio analysis; our tools use different algorithms (CBS segmentation, read count windows). Exact breakpoint concordance is not expected — focus on event-level agreement.
 
-#### Task 5: Filter Parameter Evaluation
+#### Task 4: Filter Parameter Evaluation
 
 - **Scope**: Joint germline VariantFiltration fallback (since VQSR unavailable for custom genome)
 - **Metrics**:
@@ -80,10 +70,21 @@ See [RESEARCH_CONTEXT.md](RESEARCH_CONTEXT.md) for full study details and tier r
 | Deliverable | Description | Format |
 |-------------|-------------|--------|
 | Concordance report | Per-tool, per-sample variant agreement with truth set | CSV + summary |
-| Tool comparison matrix | HaplotypeCaller vs breseq overlap and unique calls | CSV |
 | CNV benchmark report | CNVKit and Control-FREEC vs Sup 5 events | CSV + plots |
 | CRISPR recovery table | Per-mutation detection status across tools | CSV |
 | Parameter recommendations | Optimized filter thresholds for yeast ALE | Documentation |
+
+### Optional: breseq Concordance (Future — Post Dev/Test/Deploy)
+
+- **Truth set**: Sup. Data 4 (same as Task 1)
+- **Pipeline tool**: breseq (integrated into Sarek fork)
+- **Metrics**:
+  - [ ] Sensitivity and precision vs Sup 4
+  - [ ] Head-to-head: breseq vs HaplotypeCaller agreement and unique calls
+- **Expected**: Higher concordance since Ottilie's truth set was generated with breseq
+- **Notes**: breseq outputs GD format — need gdtools-based comparison or VCF conversion
+- **Prerequisite**: breseq integration follows best-practice dev, test, and deploy workflow before inclusion in release
+- **Rationale**: Current release scope focuses on GATK-based callers; breseq integration requires additional testing infrastructure
 
 ### Optional: Tier 3 — Full Cohort Replication (Nice to Have)
 
@@ -94,13 +95,13 @@ See [RESEARCH_CONTEXT.md](RESEARCH_CONTEXT.md) for full study details and tier r
   - [ ] Cohort-wide sensitivity/precision vs Sup 4 (1,405 mutations across 355 clones)
   - [ ] Mutation frequency spectrum comparison (pipeline vs published)
   - [ ] Seqera Cloud execution metrics (cost, runtime, scaling efficiency)
-- **Prerequisite**: D1.1.1 Tasks 1–5 completed with Tier 2
+- **Prerequisite**: D1.1.1 Tasks 1–4 completed with Tier 2
 - **Resources**: ~3.7 TB disk, ~1–2 days on cloud (see README resource estimates)
 
 ### Acceptance Criteria (Benchmark-Specific)
 
-- [ ] ≥90% sensitivity for CRISPR-validated mutations (Task 3)
-- [ ] ≥80% sensitivity for Sup 4 SNVs in Tier 2 samples (Task 1/2)
-- [ ] ≥75% aneuploidy detection rate (Task 4)
+- [ ] ≥90% sensitivity for CRISPR-validated mutations (Task 2)
+- [ ] ≥80% sensitivity for Sup 4 SNVs in Tier 2 samples (Task 1)
+- [ ] ≥75% aneuploidy detection rate (Task 3)
 - [ ] Documented explanation for any missed high-confidence variants
 - [ ] Reproducible: all comparison scripts committed to `04_comparison/`
