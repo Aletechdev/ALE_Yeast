@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-run_folder="/home/azureuser/Docs/ALE_nextflow/.claude/worktrees/ottilie-benchmark"
+run_folder="/home/azureuser/Docs/ALE_nextflow"
 
 source ~/miniforge3/etc/profile.d/conda.sh
 conda activate /home/azureuser/miniforge3/envs/nf-env
