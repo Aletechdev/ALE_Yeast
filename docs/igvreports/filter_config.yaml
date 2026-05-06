@@ -6,12 +6,31 @@ columns:
   GENE:
     type: string
     filter: contains         # substring search box
+    formatter: "html"        # render <br> between multi-transcript annotations
   EFFECTS:
     type: string
     filter: list             # dropdown with all unique values
+    formatter: "html"        # render <br> between multi-transcript annotations
   IMPACT:
     type: string
     filter: list             # dropdown: HIGH, MODERATE, LOW, MODIFIER
+    formatter: "html"        # render <br> between multi-transcript annotations
+  TRANSCRIPT:
+    type: string
+    filter: contains
+    formatter: "html"        # render <br> between multi-transcript annotations
+  GENE_ID:
+    type: string
+    filter: contains
+    formatter: "html"        # render <br> between multi-transcript annotations
+  PROTEIN ALTERATION:
+    type: string
+    filter: contains
+    formatter: "html"        # render <br> between multi-transcript annotations
+  DNA ALTERATION:
+    type: string
+    filter: contains
+    formatter: "html"        # render <br> between multi-transcript annotations
   VCF_FILTER:
     type: string
     filter: list             # dropdown: PASS, QD_filter, MQ_filter, etc.

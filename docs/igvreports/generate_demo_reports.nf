@@ -1,15 +1,16 @@
 #!/usr/bin/env nextflow
 /*
  * Generate IGVReports DEMO for ALE experiment (I1 samples only):
- *   - Cohort-level report with Tabulator.js template (virtual scrolling + column filters)
+ *   - Cohort-level report with custom Tabulator.js template (sticky pagination,
+ *     resizable table/IGV split, CSV export, VCF download, ANN column formatters)
  *   - Per-sample reports with CRAM pileups + GFF3 gene track
  *   - Multi-allelic splitting with bcftools norm -m- (preserves ORIG_ALT)
  *   - Auto-generated index.html with styled navigation
  *
  * Key differences from generate_all_reports.nf:
- *   - igv-reports v1.16.0 (Tabulator template support)
+ *   - igv-reports v1.16.0 (custom template support)
  *   - bcftools norm -m- for multi-allelic splitting
- *   - --tabulator + --filter-config for cohort report
+ *   - Custom HTML template with embedded Tabulator column settings
  *   - ORIG_ALT INFO column to track split records
  *   - Styled index.html matching demo/index.html
  *
@@ -27,6 +28,8 @@ params.gff3                = null
 params.fasta               = null
 params.fai                 = null
 params.filter_config       = null   // Tabulator filter config YAML
+params.custom_template     = null   // Custom HTML template for cohort report
+params.sample_template     = null   // Custom HTML template for per-sample reports (1:1 split)
 params.outdir              = 'docs/igvreports/demo'
 params.samples             = null   // comma-separated sample IDs
 
@@ -111,6 +114,7 @@ process IGVREPORTS_COHORT {
     tuple val(meta), path(vcf), path(tbi)
     tuple path(fasta), path(fai)
     path filter_config
+    path template
 
     output:
     path "cohort_report.html"
@@ -119,13 +123,28 @@ process IGVREPORTS_COHORT {
     """
     create_report ${vcf} \\
         --fasta ${fasta} \\
-        --tabulator \\
+        --template ${template} \\
         --filter-config ${filter_config} \\
         --info-columns ANN VCF_FILTER ORIG_ALT AC AF DP QD MQ \\
         --sample-columns GT AD DP GQ VAF \\
         --flanking 500 \\
         --title "Cohort - Joint HaplotypeCaller (Yeast ALE)" \\
         --output cohort_report.html
+
+    # Embed base64-encoded VCF for download button
+    python3 -c "
+import base64, sys
+vcf_path, html_path, vcf_name = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(vcf_path, 'rb') as f:
+    b64 = base64.b64encode(f.read()).decode()
+with open(html_path, 'r') as f:
+    html = f.read()
+html = html.replace('@VCF_BASE64@', b64)
+html = html.replace('@VCF_FILENAME@', vcf_name)
+with open(html_path, 'w') as f:
+    f.write(html)
+print(f'Embedded {len(b64)//1024} KB base64 as {vcf_name}')
+" ${vcf} cohort_report.html ${vcf.name}
     """
 }
 
@@ -141,6 +160,8 @@ process IGVREPORTS_SAMPLE {
     tuple val(meta), path(vcf), path(tbi), path(cram), path(crai)
     tuple path(gff3_gz), path(gff3_tbi)
     tuple path(fasta), path(fai)
+    path filter_config
+    path template
 
     output:
     path "${meta.id}_report.html"
@@ -150,11 +171,28 @@ process IGVREPORTS_SAMPLE {
     create_report ${vcf} \\
         --fasta ${fasta} \\
         --tracks ${gff3_gz} ${cram} \\
+        --template ${template} \\
+        --filter-config ${filter_config} \\
         --info-columns ANN VCF_FILTER ORIG_ALT AC AF DP QD MQ \\
         --sample-columns GT AD DP GQ VAF \\
         --flanking 500 \\
         --title "${meta.id} - HaplotypeCaller (Yeast ALE)" \\
         --output ${meta.id}_report.html
+
+    # Embed base64-encoded VCF for download button
+    python3 -c "
+import base64, sys
+vcf_path, html_path, vcf_name = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(vcf_path, 'rb') as f:
+    b64 = base64.b64encode(f.read()).decode()
+with open(html_path, 'r') as f:
+    html = f.read()
+html = html.replace('@VCF_BASE64@', b64)
+html = html.replace('@VCF_FILENAME@', vcf_name)
+with open(html_path, 'w') as f:
+    f.write(html)
+print(f'Embedded {len(b64)//1024} KB base64 as {vcf_name}')
+" ${vcf} ${meta.id}_report.html ${vcf.name}
     """
 }
 
@@ -278,6 +316,10 @@ workflow {
     // Filter config for Tabulator
     ch_filter_config = Channel.value(file(params.filter_config))
 
+    // Custom HTML templates
+    ch_template = Channel.value(file(params.custom_template))
+    ch_sample_template = Channel.value(file(params.sample_template))
+
     // --- GFF3 gene annotation track ---
     ch_gff3_indexed = PREPARE_GFF3(file(params.gff3))
 
@@ -306,8 +348,8 @@ workflow {
         sample: true
     }.set { ch_branched }
 
-    // --- Cohort report (Tabulator template) ---
-    IGVREPORTS_COHORT(ch_branched.cohort, ch_fasta, ch_filter_config)
+    // --- Cohort report (custom template) ---
+    IGVREPORTS_COHORT(ch_branched.cohort, ch_fasta, ch_filter_config, ch_template)
 
     // --- Per-sample reports ---
     ch_samples_prepared = ch_branched.sample
@@ -320,7 +362,7 @@ workflow {
             [ meta, vcf, tbi, cram, crai ]
         }
 
-    IGVREPORTS_SAMPLE(ch_samples_with_cram, ch_gff3_indexed, ch_fasta)
+    IGVREPORTS_SAMPLE(ch_samples_with_cram, ch_gff3_indexed, ch_fasta, ch_filter_config, ch_sample_template)
 
     // --- Count variants per sample for index ---
     COUNT_VARIANTS(ch_samples_prepared)

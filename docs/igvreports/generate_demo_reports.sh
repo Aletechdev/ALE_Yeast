@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Generate IGVReports DEMO: I1 samples only with Tabulator template + multi-allelic splitting
+# Generate IGVReports DEMO: I1 samples only with custom template + multi-allelic splitting
 # Requires: conda activate nf-env (nextflow + docker)
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -21,6 +21,8 @@ nextflow run "${REPO_ROOT}/docs/igvreports/generate_demo_reports.nf" \
     --fasta "${REPO_ROOT}/data/BakerYeast_reference/draft_ref52.fasta" \
     --fai "${REPO_ROOT}/data/BakerYeast_reference/draft_ref52.fasta.fai" \
     --filter_config "${REPO_ROOT}/docs/igvreports/filter_config.yaml" \
+    --custom_template "${REPO_ROOT}/docs/igvreports/custom_template.html" \
+    --sample_template "${REPO_ROOT}/docs/igvreports/custom_template_sample.html" \
     --outdir "${REPO_ROOT}/docs/igvreports/demo" \
     --samples "${SAMPLES}" \
     -resume
