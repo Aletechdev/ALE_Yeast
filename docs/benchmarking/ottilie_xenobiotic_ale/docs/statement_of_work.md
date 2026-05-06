@@ -91,6 +91,18 @@ See [RESEARCH_CONTEXT.md](RESEARCH_CONTEXT.md) for full study details and tier r
 - **Prerequisite**: breseq integration follows best-practice dev, test, and deploy workflow before inclusion in release
 - **Rationale**: Current release scope focuses on GATK-based callers; breseq integration requires additional testing infrastructure
 
+### Optional: Large Structural Variant Detection (breseq vs HaplotypeCaller)
+
+- **Motivation**: HaplotypeCaller may miss larger structural variants (deletions ~700 bp–6,500 bp) that breseq detects reliably. From Marko Looke: *"I uploaded the reference genome and a pair of reads to test the larger structural variants. This is E. coli genome and breseq identifies several larger deleted regions that GATK misses (ranging from 700 bp to 6,500 bp)."*
+- **Test data**: [Google Drive — E. coli reference + reads](https://drive.google.com/drive/folders/1T6jKp9O0lhG8zpn8t7B0icsy_YBkIZps?usp=share_link)
+- **Scope**: Run breseq and HaplotypeCaller on the provided E. coli dataset; compare detection of large deletions
+- **Metrics**:
+  - [ ] Number and size range of large deletions detected by each tool
+  - [ ] False negative analysis: which structural variants does HaplotypeCaller miss and why?
+  - [ ] Assess whether Sarek's SV callers (Manta, TIDDIT) recover events that HaplotypeCaller misses
+- **Deliverable**: Comparison table of large SV detection across tools, with recommendations for ALE SV calling strategy
+- **Notes**: This informs whether breseq or dedicated SV callers should be the primary tool for large deletions in the ALE pipeline
+
 ### Optional: Tier 3 — Full Cohort Replication (Nice to Have)
 
 - **Scope**: All 363 sequenced clones from PRJNA590203

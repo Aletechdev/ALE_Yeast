@@ -1,0 +1,33 @@
+# D1.3 yAMP Best-Practice for Development, Documentation, Testing, and Delivery
+
+## Description
+
+Establish best-practice infrastructure for the yAMP (yeast ALE Mutation-calling Pipeline) covering CI/CD automation, system and usage documentation, testing strategy, and deployment on virtual machines. This deliverable ensures the pipeline is reproducible, well-documented, and runnable by users on VM environments without developer assistance.
+
+Seqera Cloud hosting and deployment is a separate deliverable.
+
+## Components
+
+- **CI/CD pipeline** (GitHub Actions): linting, automated testing of yAMP
+- **Testing strategy**: Tiered testing (unit, integration, system) with nf-test and regression truth sets — see [testing_best_practices.md](testing_best_practices.md) for full details
+- **System design documentation**: architecture, data flow, tool selection rationale
+- **Usage documentation**: step-by-step guides, configuration examples, output format specification
+- **VM deployment**: validated setup and execution on Azure Linux VMs (or equivalent)
+
+## Acceptance Criteria
+
+- [ ] GitHub Actions workflows for lint, test, build, and release
+- [ ] Minimal test profile with downsampled yeast data for CI
+- [ ] nf-test coverage for custom subworkflows (filter modules, split joint VCF, channel joins)
+- [ ] Documentation for yAMP system design (architecture, data flow, tool decisions)
+- [ ] Documentation for yAMP features and usage examples
+- [ ] Output format specification
+- [ ] VM deployment guide with validated instructions (Azure D4as or equivalent)
+
+## Exit Criteria
+
+- [ ] CI/CD pipeline passing for all PRs and releases
+- [ ] Monitoring logs flowing and test alert triggered
+- [ ] Documentation reviewed and approved by stakeholders
+- [ ] Users successfully run short-read yeast ALE analysis following documentation on VMs
+- [ ] End-to-end pipeline execution demonstrated on a VM by a non-developer user
