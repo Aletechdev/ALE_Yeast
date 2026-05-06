@@ -1,0 +1,49 @@
+# D2 Deploy yAMP on Seqera Cloud Platform with Azure Batch
+
+## Description
+
+Deploy the yAMP pipeline on Seqera Platform so the Informatics team can launch, monitor, and manage ALE analysis runs through a managed interface. This includes resolving cloud-path compatibility issues in the nf-core/Sarek 3.5.1 codebase, restructuring the repository for Seqera Platform requirements, and optimizing Azure Batch compute environment sizing for cost and performance.
+
+VM optimization in this deliverable refers to the Azure Batch compute nodes provisioned by Seqera (e.g., E4ds_v5), not the developer VM covered in D1.3.
+
+## Components
+
+- **Cloud-path compatibility**: Fixes for running nf-core/Sarek on Azure Blob Storage (toFile() → NIO, virtual directory checks, config parse-time resolution)
+- **Repository restructuring**: Pipeline contents at repo root (`main.nf`, `nextflow.config`, etc.) as required by Seqera Platform
+- **Azure Batch compute environment**: VM type selection, resource limits, task scheduling strategy, cost analysis
+- **Seqera Platform configuration**: Pipeline registration, launch parameters, credentials, compute environment setup
+- **Deployment documentation**: Checklist, cloud-path patterns, troubleshooting guide
+
+## Acceptance Criteria
+
+- [ ] Cloud-path compatibility fixes applied and tested (toFile, isDirectory, config resolution, YAML processing, tar path staging)
+- [ ] Repository structured with `main.nf` at root for Seqera Platform compatibility
+- [ ] Azure Batch compute environment configured with optimized VM type
+  - VM sized for pipeline workload (BWA-MEM, GATK, SnpEff, CNVKit)
+  - Resource limits in `base.config` match VM capabilities
+  - Cost-performance trade-off documented
+- [ ] Pipeline registered on Seqera Platform Launchpad with correct parameters
+- [ ] Azure Blob Storage accessible for input/output data (`az://` paths)
+- [ ] Test dataset processed successfully via Seqera Platform
+- [ ] Informatics team can launch runs independently
+
+## Exit Criteria
+
+- [ ] At least 1 successful end-to-end run on Seqera Platform with verified outputs
+- [ ] At least 2 ALE team members can launch and monitor runs
+- [ ] Run instructions documented for the Informatics team
+- [ ] Cloud-path compatibility patterns documented for future nf-core pipeline upgrades
+
+## Note: Azure Batch VM Sizing Strategy (requires investigation)
+
+Seqera Batch Forge assigns a single VM type per compute environment pool, with one task per node. The upstream nf-core Azure Batch profile uses four separate pool tiers (D8d–D64d_v4) sized for human genomes, with tasks routed by process label. Replicating this multi-pool setup in Seqera adds significant operational complexity.
+
+For yeast ALE (~12 MB genome), a single VM type may be sufficient since the gap between lightest and heaviest tasks is small. However, single-node configurations carry OOM risk — previous test runs have failed when a task exceeded the VM's available memory, with no automatic fallback to a larger node. Nextflow's retry mechanism can increase resource requests on failure, but only within the limits of the VM type assigned to the pool.
+
+The optimal strategy — single pool vs. multi-pool, VM family and size, memory headroom, spot vs. on-demand — needs to be confirmed through test runs and cost analysis before committing to a production configuration. Key questions to answer:
+
+- What is the peak memory usage across all pipeline tasks with real ALE data?
+- Is the selected VM type large enough to handle retries with increased memory allocation?
+- At what sample count does the cost of over-provisioning light tasks justify a multi-pool setup?
+
+This is an area where we should validate assumptions with real workload data rather than prescribe a solution upfront.
