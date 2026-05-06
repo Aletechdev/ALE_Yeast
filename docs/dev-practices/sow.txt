@@ -20,6 +20,10 @@ Seqera Cloud hosting and deployment is a separate deliverable.
 - [ ] Minimal test profile with downsampled yeast data for CI
 - [ ] nf-test coverage for custom subworkflows (filter modules, split joint VCF, channel joins)
 - [ ] Documentation for yAMP system design (architecture, data flow, tool decisions)
+  - Samplesheet extensions: ALE metadata columns (ploidy, clonal/population, status) and rationale
+  - Variant calling configuration: ploidy handling, BQSR skip, hard filtering thresholds and rationale
+  - Custom modules: VARIANTFILTRATION_FALLBACK, ALE-specific post-calling logic
+  - Reference genome handling: how to use custom genomes without dbSNP/known_indels
 - [ ] Documentation for yAMP features and usage examples
 - [ ] Output format specification
 - [ ] VM deployment guide with validated instructions (Azure D4as or equivalent)
@@ -31,3 +35,9 @@ Seqera Cloud hosting and deployment is a separate deliverable.
 - [ ] Documentation reviewed and approved by stakeholders
 - [ ] Users successfully run short-read yeast ALE analysis following documentation on VMs
 - [ ] End-to-end pipeline execution demonstrated on a VM by a non-developer user
+
+## Future Practices (to be populated)
+
+- **Upstream Sarek upgrade procedure**: A patch-based upgrade strategy has been designed to track ALE customizations across future nf-core/Sarek releases. Minimal diffs (patches) capture upstream modifications, while additive ALE modules remain conflict-free. A rebuild script automates the upgrade process, with semantic spec documents as the source of truth for regenerating patches when needed.
+- **Release versioning and tagging policy**: TBD
+- **Deprecation and migration guidelines**: TBD
