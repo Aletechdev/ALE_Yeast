@@ -12,7 +12,7 @@ run_folder="/home/azureuser/Docs/ALE_nextflow"
 source ~/miniforge3/etc/profile.d/conda.sh
 conda activate /home/azureuser/miniforge3/envs/nf-env
 
-nextflow run ${run_folder}/nf-core-sarek_3.5.1/3_5_1/main.nf \
+nextflow run ${run_folder}/main.nf \
     -profile azureD4as,docker \
     -w ${run_folder}/work_ottilie_sub \
     --input ${run_folder}/data/ottilie/samplesheet_pilot_subsampled.csv \
@@ -22,7 +22,7 @@ nextflow run ${run_folder}/nf-core-sarek_3.5.1/3_5_1/main.nf \
     --fasta ${run_folder}/data/ottilie/S288C_reference/S288C_R64.fa \
     --skip_tools baserecalibrator \
     -c ${run_folder}/bin/nextflow.config \
-    --tools snpeff,cnvkit,controlfreec,haplotypecaller \
+    --tools snpeff,cnvkit,tiddit,controlfreec,haplotypecaller \
     --chr_dir ${run_folder}/data/ottilie/S288C_reference/chromosomes \
     --genbank ${run_folder}/data/ottilie/S288C_reference/S288C_R64_ensembl_chrnames.gb \
     --split_fastq 0 \

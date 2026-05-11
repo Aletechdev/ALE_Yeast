@@ -131,31 +131,33 @@ This benchmark uses a **customized fork of nf-core/sarek 3.5.1** with ALE-specif
 ## Resource Estimates
 
 Based on Tier 1 actual measurements (4 samples on a 4 vCPU / 16 GB RAM node).
+Tools: snpeff, cnvkit, tiddit, controlfreec, haplotypecaller (no breseq).
 
 ### Per-Tier Storage
 
 | Tier | FASTQs | Work Dir | Output | Total | Temp (fasterq-dump) |
 |------|--------|----------|--------|-------|---------------------|
-| **1 — Pilot** (4 samples) | 4 GB | 36 GB | 3 GB | **43 GB** | ~12 GB peak |
-| **2 — CRISPR+CNV** (86 samples) | ~40 GB | ~770 GB | ~66 GB | **~876 GB** | ~120 GB peak |
-| **3 — Full cohort** (363 samples) | ~170 GB | ~3.3 TB | ~280 GB | **~3.7 TB** | ~500 GB peak |
+| **1 — Pilot** (4 samples) | 4 GB | 13 GB | 2.8 GB | **~20 GB** | ~12 GB peak |
+| **2 — CRISPR+CNV** (86 samples) | ~40 GB | ~280 GB | ~60 GB | **~380 GB** | ~120 GB peak |
+| **3 — Full cohort** (363 samples) | ~170 GB | ~1.2 TB | ~255 GB | **~1.6 TB** | ~500 GB peak |
 
-Work dir estimate: ~9 GB/sample (Tier 1 actual: 36 GB / 4 samples).
+Work dir estimate: ~3.25 GB/sample (Tier 1 actual: 13 GB / 4 samples).
 fasterq-dump temp: ~3x compressed FASTQ size (uncompressed intermediate before gzip).
 
 ### Peak RAM by Process (Tier 1 Actual)
 
 | Process | Peak RSS | Notes |
 |---------|----------|-------|
-| GATK4_MarkDuplicates | 8.9 GB | Per sample (constant) |
-| breseq | 5.7 GB | Per sample (constant) |
+| GATK4_MarkDuplicates | 9.3 GB | Per sample (constant) |
 | BWA-MEM | 4.8 GB | Per sample (constant) |
-| GATK4_HaplotypeCaller | 2.5 GB | Per sample (constant) |
-| SnpEff | 2.4 GB | Per sample (constant) |
-| GATK4_GenotypegVCFs | 975 MB | JVM heap capped |
-| MultiQC | 995 MB | Scales with samples |
-| CNVKit_BATCH | 719 MB | Per sample (constant) |
-| Control-FREEC | 18 MB | Per sample (constant) |
+| GATK4_HaplotypeCaller | 1.7 GB | Per sample (constant) |
+| FastQC | 1.2 GB | Per sample (constant) |
+| SnpEff | 1.2 GB | Per sample (constant) |
+| TIDDIT_SV | 918 MB | Per sample (constant) |
+| MultiQC | 808 MB | Scales with samples |
+| CNVKit_BATCH | 671 MB | Per sample (constant) |
+| GATK4_GenotypegVCFs | 769 MB | JVM heap capped |
+| Control-FREEC | 10 MB | Per sample (constant) |
 
 **RAM is not a limiting factor** for yeast (12 Mb genome). Standard HPC nodes (16+ GB) are sufficient for all tiers.
 
@@ -166,26 +168,27 @@ fasterq-dump temp: ~3x compressed FASTQ size (uncompressed intermediate before g
 | BWA-MEM | ~5 min | ~7 hrs | Parallelizable |
 | MarkDuplicates | ~3 min | ~4 hrs | Parallelizable |
 | HaplotypeCaller | ~8 min | ~11 hrs | Parallelizable |
-| **breseq** | **~2 hrs** | **~172 hrs (7 days)** | **Bottleneck** |
-| CNVKit | ~2 min | ~3 hrs | Parallelizable |
+| CNVKit | ~3 min | ~4 hrs | Parallelizable |
+| TIDDIT_SV | ~2 min | ~3 hrs | Parallelizable |
 | Control-FREEC | ~1 min | ~1.5 hrs | Parallelizable |
 | Joint calling | ~30 sec | ~5 min | Single job |
 
-**Total (single node, serial)**: ~2-3 days without breseq, ~8-10 days with breseq.
+**Total (single node, serial)**: ~2-3 days.
 
 ### Feasibility by Tier
 
 | | Tier 1 (4 samples) | Tier 2 (86 samples) | Tier 3 (363 samples) |
 |--|---------------------|---------------------|----------------------|
-| **Disk** | ~43 GB | **~876 GB** | **~3.7 TB** |
-| **RAM** | 9 GB peak | 16 GB sufficient | 16 GB sufficient |
-| **Runtime (4 CPU, serial)** | ~8 hrs | ~8-10 days | ~5-6 weeks |
-| **Runtime (HPC, parallel)** | <1 hr | ~6-12 hrs | ~1-2 days |
+| **Disk** | ~20 GB | **~380 GB** | **~1.6 TB** |
+| **RAM** | 9.3 GB peak | 16 GB sufficient | 16 GB sufficient |
+| **Runtime (4 CPU, serial)** | ~2 hrs | ~2-3 days | ~1-2 weeks |
+| **Runtime (HPC, parallel)** | <1 hr | ~3-6 hrs | ~12-24 hrs |
 
-**Tier 1** runs comfortably on a single workstation (4+ cores, 16 GB RAM, 50 GB disk).
+**Tier 1** runs comfortably on a single workstation (4+ cores, 16 GB RAM, 25 GB disk).
 
-**Tier 2+** should be run on HPC or cloud compute:
-- breseq is the runtime bottleneck (~2 hrs/sample) — parallelization essential
+**Tier 2** is feasible on a single node with sufficient disk (~400 GB), but HPC/cloud parallelism recommended for speed.
+
+**Tier 3** should be run on HPC or cloud compute:
 - Nextflow natively supports SLURM, PBS, LSF, and cloud executors
 - Recommended: `nextflow run ... -profile singularity,slurm`
 
@@ -194,4 +197,3 @@ fasterq-dump temp: ~3x compressed FASTQ size (uncompressed intermediate before g
 - `sra-tools 3.4.1` segfaults — pinned to 3.2.1 in `environment_data_retrieval.yml`
 - Sample naming inconsistencies across supplementary tables and SRA — handled by `resolve_sra_accessions.py` with 3 manual overrides
 - 1 Tier 2 CRISPR clone (EAW901 / DDD01035522--1R2a) has no SRR accession in the dictionary
-- **breseq is the runtime bottleneck** — ~2 hrs/sample. Consider disabling for Tier 2 initial run, or use HPC parallelism
