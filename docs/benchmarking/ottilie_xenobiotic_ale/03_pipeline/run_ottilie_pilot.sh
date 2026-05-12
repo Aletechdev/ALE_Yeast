@@ -3,7 +3,7 @@
 # Status: COMPLETED SUCCESSFULLY
 # Reference: S288C R64-1-1 (Ensembl) with built-in SnpEff R64-1-1.105
 # Samples: 1 parent (NODRUG-GM2) + 3 evolved (Doxorubicin, Carmaphycin, CBR110)
-# Tools: snpeff, tiddit, cnvkit, controlfreec, haplotypecaller
+# Tools: snpeff, tiddit, manta, cnvkit, controlfreec, haplotypecaller
 # Output: output_ottilie/
 
 set -euo pipefail
@@ -23,7 +23,7 @@ nextflow run ${run_folder}/main.nf \
     --fasta ${run_folder}/data/ottilie/S288C_reference/S288C_R64.fa \
     --skip_tools baserecalibrator \
     -c ${run_folder}/bin/nextflow.config \
-    --tools snpeff,cnvkit,tiddit,controlfreec,haplotypecaller \
+    --tools snpeff,cnvkit,tiddit,manta,controlfreec,haplotypecaller \
     --chr_dir ${run_folder}/data/ottilie/S288C_reference/chromosomes \
     --genbank ${run_folder}/data/ottilie/S288C_reference/S288C_R64_ensembl_chrnames.gb \
     --split_fastq 0 \

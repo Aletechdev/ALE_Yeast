@@ -66,6 +66,10 @@ ottilie_xenobiotic_ale/
 │   ├── run_ottilie_pilot.sh              # Launch Tier 1 pilot benchmark
 │   └── run_ottilie_pilot_subsampled.sh   # Launch Tier 1 with subsampled FASTQs
 │
+├── 04_validate/                          # Concordance analysis scripts
+│   ├── snv_indel_concordance.py          # Task 1: HaplotypeCaller vs Sup Data 4
+│   └── cnv_concordance.py               # Task 2: CNVKit/Control-FREEC vs Sup Data 5
+│
 ├── docs/                                 # Background documentation
 │   ├── RESEARCH_CONTEXT.md               # Science context and tier rationale
 │   └── statement_of_work.md             # Deliverables and acceptance criteria
