@@ -61,6 +61,33 @@ Current: 242 GB free, need ~380 GB for Tier 2 (FASTQs + work dir + output).
 
 - [ ] **Monitor progress** — check `work_ottilie_tier2/` growth, Nextflow logs
 
+### Fallback: Joint Calling OOM on D4as (16 GB)
+
+If HaplotypeCaller joint genotyping fails due to memory (86 GVCFs loaded simultaneously),
+move the run to a larger VM using Nextflow `-resume`:
+
+1. **Compress work dir + inputs** and upload to blob:
+   ```bash
+   tar cf - work_ottilie_tier2/ | pigz > work_ottilie_tier2.tar.gz
+   azcopy copy work_ottilie_tier2.tar.gz "https://aledata.blob.core.windows.net/aledata/tmp/"
+   # Also upload data/ottilie/ if not already on blob
+   ```
+2. **Provision a D16as_v5** (16 vCPU / 64 GB RAM) — only needed temporarily for joint calling.
+3. **Restore to the same absolute path** (`/home/azureuser/Docs/ALE_nextflow/`) so `-resume` cache matches.
+4. **Add a larger VM profile** to `nextflow.config`:
+   ```groovy
+   azureD16as {
+       params.max_cpus = 16
+       params.max_memory = '60.GB'
+       params.max_time = '72.h'
+   }
+   ```
+5. **Re-run with** `-profile azureD16as,docker -resume` — all completed per-sample tasks are skipped,
+   only the joint calling step re-runs.
+
+Per-sample steps (alignment, individual variant calling, CNV) all fit within 16 GB.
+Only joint calling loads all GVCFs at once. A D8as_v5 (32 GB) may suffice; D16as_v5 (64 GB) is safe.
+
 ## 5. Validate Results
 
 - [ ] **Run SNV/INDEL concordance** against Sup Data 4
