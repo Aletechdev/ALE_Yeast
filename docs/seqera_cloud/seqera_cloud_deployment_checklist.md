@@ -358,6 +358,69 @@ https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE/watch
 
 ---
 
+### ⚠️ Pitfall: Nextflow Config Priority — `withLabel` Overrides Custom Defaults
+
+**Discovered**: Tier 2 local run, May 2026. This pitfall applies equally to Azure Batch deployments.
+
+**Problem**: Setting `process.memory = '4 GB'` in a custom config (via `-c` or Seqera UI "Nextflow config" field) does **not** override `withLabel` memory in `conf/base.config`. Nextflow's config priority is:
+
+```
+withName  >  withLabel  >  process default (memory, cpus, time)
+```
+
+So if `base.config` has:
+```groovy
+withLabel:process_low    { memory = 12.GB }
+withLabel:process_medium { memory = 16.GB }
+withLabel:process_high   { memory = 28.GB }
+```
+
+And your custom config has:
+```groovy
+process { memory = '4 GB' }  // This is just the default — labels override it
+```
+
+Then any process with a label (most nf-core processes) **ignores your 4 GB default** and uses the label memory instead.
+
+**Impact on local executor**: Only 1 task fits in memory at a time (14 GB executor / 12 GB per task = 1), causing severe under-utilization or deadlock. The Tier 2 run (86 samples) ran at 1 task concurrently despite having headroom for 3.
+
+**Impact on Azure Batch**: Each task requests 12–28 GB, so Batch Forge selects larger VMs than necessary. A CNVKit task (actual peak: 644 MB) requests 12 GB, paying for a 32 GB VM. At 86 samples × ~15 tasks each, this adds up.
+
+**Fix**: Override labels explicitly in any custom config that needs different memory:
+```groovy
+// In bin/nextflow.config (azureD4as profile) or Seqera UI config
+process {
+    withLabel: 'process_single' { memory = '4 GB' }
+    withLabel: 'process_low'    { memory = '4 GB' }
+    withLabel: 'process_medium' { memory = '4 GB' }
+    withLabel: 'process_high'   { memory = '6 GB' }
+
+    // Then use withName for truly heavy processes (highest priority)
+    withName: 'GATK4_MARKDUPLICATES' { memory = '8 GB' }
+    withName: 'BWAMEM1_MEM'          { memory = '6 GB' }
+}
+```
+
+**For Azure Batch specifically**: Consider whether `base.config` label memory values should be tuned down for yeast-sized genomes (12 MB reference) vs. the human-genome defaults they were designed for. The actual peak RSS from the Tier 2 trace (86 yeast samples):
+
+| Process | Label | base.config memory | Actual peak RSS |
+|---------|-------|--------------------|-----------------|
+| FREEC_GERMLINE | process_low | 12 GB | 29 MB |
+| CNVKIT_BATCH | process_low | 12 GB | 644 MB |
+| HaplotypeCaller | process_medium | 16 GB | 1.4 GB |
+| TIDDIT_SV | process_low | 12 GB | 1.5 GB |
+| BWA-MEM | process_high | 28 GB | 5.0 GB |
+| MarkDuplicates | process_low | 12 GB | 7.1 GB |
+
+**Recommendation**: For the Seqera Cloud deployment, either:
+1. Tune `base.config` label memory for yeast workloads (risk: breaks human-genome runs)
+2. Use a separate `conf/seqera_azure.config` with `withLabel` overrides (preferred — keeps `base.config` generic)
+3. Accept over-provisioning cost for simplicity (single VM type per pool means resource requests don't affect VM selection anyway)
+
+**Reference**: `bin/nextflow.config` azureD4as profile — working example of label overrides.
+
+---
+
 ### Step 7: Merge `worktree-seqera-cloud` into `main`
 - **Status**: ☐ Pending — Seqera deployment working, branch ready to contribute back
 

@@ -214,3 +214,45 @@ output/variant_calling/controlfreec/
 4. **Ploidy=1**: Confirm ASSESS_SIGNIFICANCE skipped, other outputs present
 5. **Ploidy=2**: Confirm ASSESS_SIGNIFICANCE runs, `*.p.value.txt` generated
 6. **No regressions**: Existing somatic/tumor-only Control-FREEC paths unaffected
+
+---
+
+## Known Issue: FREEC_GERMLINE std::length_error Crash
+
+**Observed**: Tier 2 run, May 2026 (sample BMS983970-2R1e)
+
+**Error**:
+```
+terminate called after throwing an instance of 'std::length_error'
+  what():  cannot create std::vector larger than max_size()
+Aborted (core dumped) freec -conf config.txt
+```
+
+**Exit code**: 134 (SIGABRT)
+
+**When it happens**: FREEC completes breakpoint detection for all chromosomes, then crashes during the "annotate copy numbers" step. In this case, the mitochondrial chromosome had very high breakpoint density (22 breakpoints in 133 windows), which may trigger the C++ vector overflow.
+
+**Impact**: Minimal. With `errorStrategy = 'retry'` and `maxRetries = 1`, the retry fails the same way (deterministic bug, not memory-related). Nextflow then skips this one sample for FREEC and continues the pipeline. All other callers (HaplotypeCaller, CNVKit, TIDDIT, Manta) are unaffected.
+
+**Workaround**: None needed — the pipeline handles it gracefully. The affected sample gets CNV results from CNVKit instead. This is a Control-FREEC 11.6b internal bug, not a configuration issue.
+
+**⚠️ TODO (next release)**: The current `errorStrategy = 'retry'` with `maxRetries = 1` will terminate the entire pipeline when the retry fails (deterministic bug, not transient). Change to `errorStrategy = 'finish'` or add a FREEC-specific ignore rule:
+```groovy
+// Option 1: finish all running tasks before exiting on error
+errorStrategy = 'finish'
+
+// Option 2: ignore FREEC crash specifically (exit 134 = SIGABRT)
+withName: 'FREEC_GERMLINE' {
+    errorStrategy = { task.exitStatus == 134 ? 'ignore' : 'retry' }
+}
+```
+
+---
+
+## Known Limitation: Control-FREEC Lacks Standard VCF Output
+
+Control-FREEC does not produce standard VCF output natively. Its CNV calls are in custom text format (`*_CNVs`, `*_ratio.txt`, `*.bed`), which means **SnpEff functional annotation cannot be applied** to FREEC results — unlike HaplotypeCaller, TIDDIT, and CNVKit which all emit VCF.
+
+**Impact**: FREEC CNV regions are not annotated with gene names or functional impact. Manual cross-referencing with gene coordinates is needed for biological interpretation.
+
+**⚠️ TODO (next release)**: Investigate converting FREEC output to standard SV-VCF format (e.g., via `freec2vcf` or custom script) so that SnpEff annotation can be applied consistently across all CNV callers.

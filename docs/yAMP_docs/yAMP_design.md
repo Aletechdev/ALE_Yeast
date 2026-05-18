@@ -39,7 +39,7 @@ Enabling population mode for BreSeq (Not released): for population samples run `
 
 Next release variant calling candidates (Not fully customized/validated):
 FreeBayes (SNP + InDel): lacks HaplotypeCaller’s joint calling mode, custom cohort joint VCF too noisy (multi-allelic sites normalization issues)
-Control-FREEC (CNV): lacks standard VCF output, thus no functional annotation by SnpEff
+Control-FREEC (CNV): lacks standard VCF output, thus no functional annotation by SnpEff. Also crashes on some samples (std::length_error in v11.6b). See `docs/variant-calling/controlfreec/controlfreec_germline_changes.md`
 Always diploid: DeepVariant (SNP + InDel), Manta (SV), Mutect2 (SNP + InDel, too sensitive compared to HaplotypeCaller)
 Always haploid: BreSeq (SNP, InDel, SV; docker build for only internal usage, not sub-processes optimized nor released)
 
