@@ -1,0 +1,62 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##source=TIDDIT-3.6.1
+##ALT=<ID=DEL,Description="Deletion">
+##ALT=<ID=DUP,Description="Duplication">
+##ALT=<ID=DUP:TANDEM,Description="Tandem duplication">
+##ALT=<ID=DUP:INV,Description="Inverted tandem duplication">
+##ALT=<ID=INV,Description="Inversion">
+##ALT=<ID=INS,Description="Insertion">
+##ALT=<ID=BND,Description="Break end">
+##contig=<ID=U00096,length=4641652>
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End of an intra-chromosomal variant">
+##INFO=<ID=SVLEN,Number=.,Type=Integer,Description="Difference in length between REF and ALT alleles">
+##INFO=<ID=LFA,Number=2,Type=Integer,Description="Read-pairs and split reads in region A">
+##INFO=<ID=LFB,Number=2,Type=Integer,Description="Read-pairs and split reads in region B">
+##INFO=<ID=LTE,Number=2,Type=Integer,Description="Read-pairs and split reads supporting the event">
+##INFO=<ID=CTG,Number=1,Type=String,Description="Sequence of contig">
+##INFO=<ID=REGIONA,Number=2,Type=Integer,Description="Start and end of regionB">
+##INFO=<ID=REGIONB,Number=2,Type=Integer,Description="Start and end of regionB">
+##FILTER=<ID=BelowExpectedLinks,Description="The number of links or reads between A and B is too small">
+##FILTER=<ID=FewLinks,Description="Unexpectedly low fraction of discordant reads betwen A and B">
+##FILTER=<ID=UnexpectedCoverage,Description="The coverage of the window on chromosome B or A is higher than 4*average coverage">
+##FILTER=<ID=Smear,Description="Window A and Window B overlap">
+##FILTER=<ID=RegionalQ,Description="The mapping quality of the region is lower than the user set limit">
+##FILTER=<ID=MinSize,Description="The variant is smaller than the user set limit">
+##FILTER=<ID=Ploidy,Description="Intrachromosomal variant on a chromosome having 0 ploidy">
+##FILTER=<ID=SplitsVSDiscs,Description="large variant supported mainly by split reads (and not discorant pairs)">
+##FILTER=<ID=Density,Description="The discordant reads cluster too tightly">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=CN,Number=1,Type=Integer,Description="Copy number genotype for imprecise events">
+##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of paired-ends that support the event">
+##FORMAT=<ID=RV,Number=1,Type=Integer,Description="Number of split reads that support the event">
+##FORMAT=<ID=DR,Number=2,Type=Integer,Description="Number of paired-ends that supporting the reference allele (breakpoint A, and B)">
+##FORMAT=<ID=RR,Number=2,Type=Integer,Description="Number of reads supporting the reference allele (breakpoint A, and B)">
+##FORMAT=<ID=COV,Number=3,Type=Float,Description="Coverage (at A,B, and between)">
+##FORMAT=<ID=LQ,Number=2,Type=Float,Description="Fraction of low quality reads">
+##LibraryStats=TIDDIT-3.6.1 Coverage=26.319999950006604  ReadLength=150.0 MeanInsertSize=398.8606046897972 STDInsertSize=406.75507144339787 Reverse_Forward=False
+##TIDDITcmd="/usr/local/bin/tiddit --sv --skip_assembly -n 1 --threads 4 --bam SRR6281661.md.cram --ref escherichia_coli_str_k_12_substr_mg1655.fasta -o SRR6281661.tiddit"
+##bcftools_viewVersion=1.22+htslib-1.22.1
+##bcftools_viewCommand=view /home/azureuser/Docs/ALE_nextflow/output_marko_sv/variant_calling/tiddit/SRR6281661/SRR6281661.tiddit.vcf.gz; Date=Tue May 19 14:23:14 2026
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Marko_SV_SRR6281661
+U00096	1	SV_1_1	N	]U00096:4641652]N	80	PASS	SVTYPE=BND;REGIONA=1,425;REGIONB=4641057,4641653;LFA=30,18;LFB=30,18;LTE=21,17;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:1:27.6847,26.6217,35.2295:21:17:0,0:0,0:0,0
+U00096	373	SV_2_1	N	]U00096:4641653]N	80	PASS	SVTYPE=BND;REGIONA=373,781;REGIONB=4641373,4641653;LFA=14,0;LFB=14,0;LTE=11,0;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:1:22.8949,26.6216,33.3345:11:0:0,0:14,0:29,0
+U00096	805	SV_3_1	N	]U00096:4641653]N	80	BelowExpectedLinks	SVTYPE=BND;REGIONA=805,1039;REGIONB=4641401,4641653;LFA=3,0;LFB=3,0;LTE=3,0;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:1:34.9447,26.622,32.7273:3:0:0,0:18,0:44,0
+U00096	257908	SV_4_1	N	<DEL>	80	PASS	SVTYPE=DEL;SVLEN=768;END=258676;REGIONA=257410,257908;REGIONB=258676,259424;LFA=21,13;LFB=22,13;LTE=20,11;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:0:20.7555,0.0546164,26.036:20:11:0,0:0,0:6,3
+U00096	566708	SV_5_1	N	]U00096:568119]N	30	PASS	SVTYPE=BND;REGIONA=566376,566770;REGIONB=568034,568212;LFA=11,5;LFB=11,5;LTE=11,5;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	0/1:1:45.3671,15.4779,40.3352:11:5:0,0.121212:35,26:40,40
+U00096	568119	SV_5_2	N	N[U00096:566708[	30	PASS	SVTYPE=BND;REGIONA=566376,566770;REGIONB=568034,568212;LFA=11,5;LFB=11,5;LTE=11,5;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	0/1:1:45.3671,15.4779,40.3352:11:5:0,0.121212:35,26:40,40
+U00096	581278	SV_6_1	N	<INV>	15	BelowExpectedLinks	SVTYPE=INV;SVLEN=1055165;END=1636443;REGIONA=581278,581584;REGIONB=1636443,1636699;LFA=5,0;LFB=6,0;LTE=4,0;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	0/1:1:52.5342,23.5847,35.2451:4:0:0.0320513,0.0537634:21,19:56,54
+U00096	1207698	SV_7_1	N	<INV>	25	PASS	SVTYPE=INV;SVLEN=1863;END=1209561;REGIONA=1207569,1208058;REGIONB=1209181,1209734;LFA=11,16;LFB=9,16;LTE=3,16;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	0/1:1:28.3673,24.8354,22.7256:3:16:0.0140845,0:24,11:30,20
+U00096	1299499	SV_8_1	N	<DEL>	80	PASS	SVTYPE=DEL;SVLEN=1195;END=1300694;REGIONA=1298768,1299499;REGIONB=1300694,1301122;LFA=40,13;LFB=65,22;LTE=27,11;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:0:23.2295,0.5976,22.5361:27:11:0.0143885,0.180952:0,0:0,0
+U00096	1430512	SV_9_1	N	N[U00096:1431960[	30	BelowExpectedLinks	SVTYPE=BND;REGIONA=1430285,1430512;REGIONB=1431960,1432039;LFA=14,0;LFB=14,0;LTE=5,0;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	0/1:1:30.3772,24.9607,51.4875:5:0:0,0.0123457:10,46:15,39
+U00096	1430512	SV_10_1	N	N[U00096:1431776[	40	PASS	SVTYPE=BND;REGIONA=1430443,1430512;REGIONB=1431776,1431862;LFA=13,0;LFB=13,0;LTE=7,0;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	0/1:1:48.0571,22.2815,41.6207:7:0:0,0.03125:10,20:15,39
+U00096	1431776	SV_10_2	N	]U00096:1430512]N	40	PASS	SVTYPE=BND;REGIONA=1430443,1430512;REGIONB=1431776,1431862;LFA=13,0;LFB=13,0;LTE=7,0;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	0/1:1:48.0571,22.2815,41.6207:7:0:0,0.03125:10,20:15,39
+U00096	1431960	SV_9_2	N	]U00096:1430512]N	30	BelowExpectedLinks	SVTYPE=BND;REGIONA=1430285,1430512;REGIONB=1431960,1432039;LFA=14,0;LFB=14,0;LTE=5,0;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	0/1:1:30.3772,24.9607,51.4875:5:0:0,0.0123457:10,46:15,39
+U00096	1978503	SV_11_1	N	<DEL>	80	PASS	SVTYPE=DEL;SVLEN=768;END=1979271;REGIONA=1977893,1978503;REGIONB=1979271,1980009;LFA=23,15;LFB=23,15;LTE=19,14;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:0:19.4599,0.0390117,19.4899:19:14:0,0:0,0:4,4
+U00096	2067358	SV_14_1	N	<INV>	80	FewLinks	SVTYPE=INV;SVLEN=919825;END=2987183;REGIONA=2067310,2067358;REGIONB=2987071,2987183;LFA=6,6;LFB=35,23;LTE=0,4;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:1:32.9796,25.16,36.469:0:4:0.122449,0.170213:21,0:37,0
+U00096	2169298	SV_12_1	N	<DEL>	80	PASS	SVTYPE=DEL;SVLEN=9037;END=2178335;REGIONA=2168644,2169298;REGIONB=2178335,2178961;LFA=28,17;LFB=31,17;LTE=24,15;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:0:27.7878,0.201648,26.2823:24:15:0,0:0,0:0,0
+U00096	2558699	SV_13_1	N	<DEL>	80	PASS	SVTYPE=DEL;SVLEN=6782;END=2565481;REGIONA=2558002,2558701;REGIONB=2565481,2566277;LFA=31,16;LFB=30,16;LTE=24,14;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:0:23.5,0.219708,17.4555:24:14:0,0:0,0:0,0
+U00096	4641652	SV_1_2	N	N[U00096:1[	80	PASS	SVTYPE=BND;REGIONA=1,425;REGIONB=4641057,4641653;LFA=30,18;LFB=30,18;LTE=21,17;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:1:27.6847,26.6217,35.2295:21:17:0,0:0,0:0,0
+U00096	4641653	SV_2_2	N	N[U00096:373[	80	PASS	SVTYPE=BND;REGIONA=373,781;REGIONB=4641373,4641653;LFA=14,0;LFB=14,0;LTE=11,0;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:1:22.8949,26.6216,33.3345:11:0:0,0:14,0:29,0
+U00096	4641653	SV_3_2	N	N[U00096:805[	80	BelowExpectedLinks	SVTYPE=BND;REGIONA=805,1039;REGIONB=4641401,4641653;LFA=3,0;LFB=3,0;LTE=3,0;CTG=.	GT:CN:COV:DV:RV:LQ:RR:DR	1/1:1:34.9447,26.622,32.7273:3:0:0,0:18,0:44,0

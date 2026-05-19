@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Marko SV Benchmark — breseq vs yAMP Concordance</title>
+    <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+            color: #333;
+        }
+        h1 { border-bottom: 2px solid #0366d6; padding-bottom: 8px; }
+        h2 { margin-top: 32px; color: #24292e; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .meta { color: #586069; font-size: 0.9em; }
+        .section { margin: 24px 0; }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+        .stat-card {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #24292e;
+        }
+        .stat-card .label {
+            font-size: 0.85em;
+            color: #586069;
+            margin-top: 4px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .badge-pass { background: #dcffe4; color: #22863a; }
+        .badge-warn { background: #fff5b1; color: #735c0f; }
+        .badge-fail { background: #ffeef0; color: #cb2431; }
+        .badge-na { background: #f1f1f1; color: #888; }
+        .badge-yes { background: #dcffe4; color: #22863a; }
+        .badge-no { background: #ffeef0; color: #cb2431; }
+        .finding { margin: 8px 0; padding: 8px 12px; border-left: 3px solid #0366d6; background: #f6f8fa; }
+        .finding-good { border-left-color: #22863a; }
+        .finding-note { border-left-color: #e36209; }
+        .finding-info { border-left-color: #0366d6; }
+        .tabulator { font-size: 0.9em; border: 1px solid #e1e4e8; }
+        .tabulator .tabulator-header { background: #f6f8fa; }
+        .tabulator-row.tabulator-row-even { background: #fafbfc; }
+        .footer {
+            color: #586069;
+            font-size: 0.85em;
+            margin-top: 40px;
+            border-top: 1px solid #e1e4e8;
+            padding-top: 12px;
+        }
+        details { margin: 8px 0; }
+        details summary { cursor: pointer; color: #0366d6; font-weight: 600; }
+        pre.audit { background: #f6f8fa; padding: 12px; border-radius: 4px; font-size: 0.85em; overflow-x: auto; }
+    </style>
+</head>
+<body>
+
+<h1>Marko SV Benchmark &mdash; breseq vs yAMP Concordance</h1>
+<p class="meta">
+    Sample: <strong>SRR6281661</strong> &middot;
+    Organism: <em>E. coli</em> K-12 MG1655 &middot;
+    Ploidy: 1 (haploid) &middot;
+    Generated 2026-05-19 16:54
+</p>
+<p class="meta">
+    Ground truth: <strong>breseq 0.39.0</strong> &middot;
+    yAMP tools: GATK HaplotypeCaller (joint germline, ploidy=1), Manta, TIDDIT &middot;
+    SV merge: SURVIVOR 1.0.7
+</p>
+
+<!-- Section 1: Summary Stats -->
+<div class="section">
+    <h2>Summary</h2>
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="value">4/4</div>
+            <div class="label">breseq large deletions<br>detected by yAMP (Manta + TIDDIT)</div>
+        </div>
+        <div class="stat-card">
+            <div class="value">0/3</div>
+            <div class="label">breseq-unique MOB insertions<br>detected by yAMP (IS2, IS5 &mdash; requires assembly-based detection)</div>
+        </div>
+        <div class="stat-card">
+            <div class="value">11/11</div>
+            <div class="label">breseq SNPs + InDels<br>detected by yAMP (10/11 passed HC filter)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 2: SV Concordance -->
+<div class="section">
+    <h2>Structural Variant Concordance</h2>
+    <p class="meta">
+        breseq detected 4 large deletions and 3 IS-element mobilizations (MOB).
+        Manta and TIDDIT independently confirm all 4 deletions.
+        SURVIVOR merge (max_dist=1000bp, type_agree=yes) used for consensus.
+        <br>Click any <strong>Position</strong> value to open the IGV report with read pileup at that locus.
+    </p>
+    <div id="sv-table"></div>
+</div>
+
+<!-- Section 3: SNP/InDel Concordance -->
+<div class="section">
+    <h2>SNP / InDel Concordance</h2>
+    <p class="meta">
+        breseq called 11 SNPs/small indels (ground truth).
+        HaplotypeCaller called 76 total variants; all 11 breseq calls detected.
+        65 HC-only variants cluster in 3 regions (likely alignment artifacts).
+        FILTER column from GATK VariantFiltration (soft filtering fallback for custom genomes).
+        <br>Click any <strong>Position</strong> value to open the IGV report with read pileup at that locus.
+    </p>
+    <details>
+        <summary>Filter metrics explained (QD, DP, SOR)</summary>
+        <div style="padding: 10px 0; font-size: 0.9em; line-height: 1.6;">
+            <p>GATK VariantFiltration populates the FILTER column with <code>PASS</code> or named filter tags
+               but <strong>does not remove any variants</strong>. This is a soft filter fallback used when
+               VQSR cannot run (no known variant resources for custom genomes).</p>
+            <table style="border-collapse: collapse; width: 100%; margin: 10px 0;">
+                <thead>
+                    <tr style="background: #f6f8fa; text-align: left;">
+                        <th style="padding: 6px 10px; border: 1px solid #e1e4e8;">Column</th>
+                        <th style="padding: 6px 10px; border: 1px solid #e1e4e8;">Metric</th>
+                        <th style="padding: 6px 10px; border: 1px solid #e1e4e8;">Filter Threshold</th>
+                        <th style="padding: 6px 10px; border: 1px solid #e1e4e8;">Interpretation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;"><strong>QD</strong></td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Quality by Depth</td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">QD &lt; 2.0 &rarr; <code>QD_filter</code></td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">QUAL score / total depth. Low QD = weak evidence per read. Higher is better.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;"><strong>DP</strong></td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Read Depth</td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">&mdash; (no filter)</td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Total reads at this position (INFO/DP, cohort-level). Shown for context only.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;"><strong>SOR</strong></td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Strand Odds Ratio</td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">SOR &gt; 3.0 &rarr; <code>SOR_filter</code></td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Strand bias test. SOR &gt; 3.0 = variant seen disproportionately on one strand (possible artifact). Lower is better.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;"><strong>HC Filter</strong></td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">FILTER column</td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Combined result</td>
+                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">
+                            <code>PASS</code> = passes all filters.
+                            Otherwise shows which filter(s) flagged the variant
+                            (e.g. <code>QD_filter</code>, <code>SOR_filter</code>, <code>MQ_filter</code>).
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="margin-top: 8px;">
+                <strong>Other soft filters applied</strong> (not shown as columns):
+                FS &gt; 60.0 (<code>FS_filter</code>),
+                MQ &lt; 40.0 (<code>MQ_filter</code>),
+                MQRankSum &lt; -12.5,
+                ReadPosRankSum &lt; -8.0,
+                QUAL &lt; 30.0.
+                INDEL thresholds are more lenient (FS &gt; 200, SOR &gt; 10).
+            </p>
+            <p style="color: #586069;">
+                Thresholds follow GATK best practices for human data.
+                See <code>conf/modules/joint_germline.config</code> for full configuration.
+            </p>
+        </div>
+    </details>
+    <div id="snp-table"></div>
+</div>
+
+<!-- Section 4: Key Findings -->
+<div class="section">
+    <h2>Key Findings</h2>
+    <div class="finding finding-good">
+        <strong>100% large deletion recall.</strong>
+        All 4 breseq deletions (776 bp &ndash; 6,790 bp) detected by both Manta and TIDDIT
+        with &le;8 bp coordinate difference. SURVIVOR consensus confirms all 4.
+    </div>
+    <div class="finding finding-good">
+        <strong>100% SNP/InDel recall.</strong>
+        All 11 breseq SNPs and small indels detected by HaplotypeCaller.
+        10/11 pass soft quality filters (PASS). 1 flagged by SOR_filter.
+    </div>
+    <div class="finding finding-note">
+        <strong>rpoS nonsense mutation soft-filtered.</strong>
+        G2867455A (rpoS, W &rarr; Stop) has SOR=3.014, barely above the 3.0 threshold.
+        QD=29.56 is excellent (threshold: 2.0). This is a biologically important mutation
+        frequently seen in <em>E. coli</em> lab evolution. Consider relaxing SOR threshold
+        or reviewing this filter for haploid organisms.
+    </div>
+    <div class="finding finding-info">
+        <strong>MOB insertions are breseq-unique.</strong>
+        3 IS-element mobilizations (2&times;IS2, 1&times;IS5) detected only by breseq.
+        This is expected: standard SV callers cannot resolve insertions of repeat elements
+        already present elsewhere in the genome. breseq uses assembly-based junction detection.
+    </div>
+    <div class="finding finding-info">
+        <strong>yAMP found additional SVs not in breseq.</strong>
+        A 9,049 bp deletion at position 2,169,285 (Manta + TIDDIT consensus) and
+        an inversion at ~1,207,789 were detected by SV callers but not breseq.
+        These may represent real structural variants or alignment artifacts worth investigating.
+    </div>
+</div>
+
+<!-- Section 5: SURVIVOR Merge Audit -->
+<div class="section">
+    <h2>SURVIVOR Merge Audit</h2>
+    <details>
+        <summary>Show audit details</summary>
+        <pre class="audit">SURVIVOR Merge Audit
+====================
+Input:     Manta (10 records) + TIDDIT (20 records)
+Union:     15 records (max_dist=1000, min_callers=1)
+Consensus: 6 records (max_dist=1000, min_callers=2)
+
+Union SUPP_VEC:     {
+  "01": 8,
+  "11": 6,
+  "10": 1
+}
+  11 = Manta + TIDDIT
+  10 = Manta only
+  01 = TIDDIT only
+
+Consensus SUPP_VEC: {
+  "11": 6
+}
+  All consensus records have SUPP=2 (both callers agree) ✓
+
+Files:
+  sv_vcf_list.txt      — input file list for SURVIVOR
+  manta.vcf            — decompressed Manta VCF
+  tiddit.vcf           — decompressed TIDDIT VCF
+  merged_union.vcf     — SURVIVOR union output
+  merged_consensus.vcf — SURVIVOR consensus output
+  compare_breseq_sv.py — breseq GD vs SURVIVOR comparison script
+  comparison_report.tsv — detailed matching results
+  generate_dashboard.py — this dashboard generator (reproducible)</pre>
+    </details>
+</div>
+
+<div class="footer">
+    Ground truth: breseq 0.39.0 &middot;
+    Pipeline: yAMP (nf-core/sarek 3.5.1 fork) &middot;
+    Reference: U00096.3 (NCBI) &middot;
+    Generated by <code>generate_dashboard.py</code>
+</div>
+
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script>
+    // --- Embedded data ---
+    const svData = [
+  {
+    "type": "DEL",
+    "pos": 257908,
+    "size": 776,
+    "breseq": "Yes",
+    "manta": "Yes",
+    "tiddit": "Yes",
+    "consensus": "Manta + TIDDIT",
+    "notes": "Matched (dist=8bp)",
+    "source": "breseq + SV callers",
+    "_sort": 0
+  },
+  {
+    "type": "DEL",
+    "pos": 1299499,
+    "size": 1199,
+    "breseq": "Yes",
+    "manta": "Yes",
+    "tiddit": "Yes",
+    "consensus": "Manta + TIDDIT",
+    "notes": "Matched (dist=4bp)",
+    "source": "breseq + SV callers",
+    "_sort": 1
+  },
+  {
+    "type": "DEL",
+    "pos": 1978503,
+    "size": 776,
+    "breseq": "Yes",
+    "manta": "Yes",
+    "tiddit": "Yes",
+    "consensus": "Manta + TIDDIT",
+    "notes": "Matched (dist=8bp)",
+    "source": "breseq + SV callers",
+    "_sort": 2
+  },
+  {
+    "type": "DEL",
+    "pos": 2558699,
+    "size": 6790,
+    "breseq": "Yes",
+    "manta": "Yes",
+    "tiddit": "Yes",
+    "consensus": "Manta + TIDDIT",
+    "notes": "Matched (dist=8bp)",
+    "source": "breseq + SV callers",
+    "_sort": 3
+  },
+  {
+    "type": "MOB",
+    "pos": 1301117,
+    "size": 1331,
+    "breseq": "Yes",
+    "manta": "N/A",
+    "tiddit": "N/A",
+    "consensus": "\u2014",
+    "notes": "IS2 (-), TSD: GTCCC (5 bp)",
+    "source": "breseq only",
+    "_sort": 4
+  },
+  {
+    "type": "MOB",
+    "pos": 2987179,
+    "size": 1195,
+    "breseq": "Yes",
+    "manta": "N/A",
+    "tiddit": "N/A",
+    "consensus": "\u2014",
+    "notes": "IS5 (+), TSD: CTAG (4 bp)",
+    "source": "breseq only",
+    "_sort": 5
+  },
+  {
+    "type": "MOB",
+    "pos": 4248592,
+    "size": 1331,
+    "breseq": "Yes",
+    "manta": "N/A",
+    "tiddit": "N/A",
+    "consensus": "\u2014",
+    "notes": "IS2 (+), TSD: CCGGG (5 bp)",
+    "source": "breseq only",
+    "_sort": 6
+  },
+  {
+    "type": "DEL",
+    "pos": 2169298,
+    "size": 9043,
+    "breseq": "No",
+    "manta": "Yes",
+    "tiddit": "Yes",
+    "consensus": "Manta + TIDDIT",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 7
+  },
+  {
+    "type": "INV",
+    "pos": 1,
+    "size": 4641651,
+    "breseq": "No",
+    "manta": "No",
+    "tiddit": "Yes",
+    "consensus": "TIDDIT only",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 8
+  },
+  {
+    "type": "INV",
+    "pos": 566708,
+    "size": 1411,
+    "breseq": "No",
+    "manta": "No",
+    "tiddit": "Yes",
+    "consensus": "TIDDIT only",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 9
+  },
+  {
+    "type": "INV",
+    "pos": 568119,
+    "size": 1411,
+    "breseq": "No",
+    "manta": "No",
+    "tiddit": "Yes",
+    "consensus": "TIDDIT only",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 10
+  },
+  {
+    "type": "INV",
+    "pos": 581278,
+    "size": 1055165,
+    "breseq": "No",
+    "manta": "No",
+    "tiddit": "Yes",
+    "consensus": "TIDDIT only",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 11
+  },
+  {
+    "type": "INV",
+    "pos": 1207789,
+    "size": 1846,
+    "breseq": "No",
+    "manta": "Yes",
+    "tiddit": "Yes",
+    "consensus": "Manta + TIDDIT",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 12
+  },
+  {
+    "type": "INV",
+    "pos": 1209602,
+    "size": 1797,
+    "breseq": "No",
+    "manta": "Yes",
+    "tiddit": "No",
+    "consensus": "Manta only",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 13
+  },
+  {
+    "type": "INV",
+    "pos": 1430512,
+    "size": 1448,
+    "breseq": "No",
+    "manta": "No",
+    "tiddit": "Yes",
+    "consensus": "TIDDIT only",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 14
+  },
+  {
+    "type": "INV",
+    "pos": 1431776,
+    "size": 1448,
+    "breseq": "No",
+    "manta": "No",
+    "tiddit": "Yes",
+    "consensus": "TIDDIT only",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 15
+  },
+  {
+    "type": "INV",
+    "pos": 2067358,
+    "size": 919825,
+    "breseq": "No",
+    "manta": "No",
+    "tiddit": "Yes",
+    "consensus": "TIDDIT only",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 16
+  },
+  {
+    "type": "INV",
+    "pos": 4641652,
+    "size": 4641651,
+    "breseq": "No",
+    "manta": "No",
+    "tiddit": "Yes",
+    "consensus": "TIDDIT only",
+    "notes": "SV-caller only",
+    "source": "SV callers only",
+    "_sort": 17
+  }
+];
+    const snpData = [
+  {
+    "pos": 409876,
+    "type": "SNP",
+    "gene": "rdgC",
+    "effect": "synonymous",
+    "breseq": "Yes",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 25.36,
+    "hc_dp": 19,
+    "hc_sor": 1.292,
+    "notes": "High quality",
+    "_sort": 0,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1169836,
+    "type": "SNP",
+    "gene": "ldtC",
+    "effect": "nonsynonymous",
+    "breseq": "Yes",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 28.73,
+    "hc_dp": 21,
+    "hc_sor": 1.23,
+    "notes": "High quality",
+    "_sort": 1,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1189980,
+    "type": "SNP",
+    "gene": "phoP",
+    "effect": "synonymous",
+    "breseq": "Yes",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 30.97,
+    "hc_dp": 18,
+    "hc_sor": 0.914,
+    "notes": "High quality",
+    "_sort": 2,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1337394,
+    "type": "SNP",
+    "gene": "acnA",
+    "effect": "nonsynonymous",
+    "breseq": "Yes",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 32.0,
+    "hc_dp": 24,
+    "hc_sor": 1.085,
+    "notes": "High quality",
+    "_sort": 3,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1399465,
+    "type": "SNP",
+    "gene": "fnr",
+    "effect": "nonsynonymous",
+    "breseq": "Yes",
+    "ref": "T",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 27.24,
+    "hc_dp": 24,
+    "hc_sor": 1.708,
+    "notes": "High quality",
+    "_sort": 4,
+    "ref_alt": "T\u2192A"
+  },
+  {
+    "pos": 1652331,
+    "type": "SNP",
+    "gene": "ydfD/ynfP",
+    "effect": "intergenic",
+    "breseq": "Yes",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 28.2,
+    "hc_dp": 24,
+    "hc_sor": 0.963,
+    "notes": "High quality",
+    "_sort": 5,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 2040433,
+    "type": "SNP",
+    "gene": "msrP",
+    "effect": "nonsynonymous",
+    "breseq": "Yes",
+    "ref": "C",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 25.0,
+    "hc_dp": 19,
+    "hc_sor": 1.609,
+    "notes": "High quality",
+    "_sort": 6,
+    "ref_alt": "C\u2192A"
+  },
+  {
+    "pos": 2867455,
+    "type": "SNP",
+    "gene": "rpoS",
+    "effect": "nonsense",
+    "breseq": "Yes",
+    "ref": "G",
+    "alt": "A",
+    "hc_filter": "SOR_filter",
+    "hc_qd": 29.56,
+    "hc_dp": 25,
+    "hc_sor": 3.014,
+    "notes": "Soft-filtered: SOR_filter (SOR=3.014, threshold=3.0)",
+    "_sort": 7,
+    "ref_alt": "G\u2192A"
+  },
+  {
+    "pos": 3560455,
+    "type": "INS",
+    "gene": "rtcR/glpG",
+    "effect": "small_indel",
+    "breseq": "Yes",
+    "ref": "C",
+    "alt": "CG",
+    "hc_filter": "PASS",
+    "hc_qd": 30.62,
+    "hc_dp": 29,
+    "hc_sor": 0.906,
+    "notes": "High quality",
+    "_sort": 8,
+    "ref_alt": "C\u2192CG"
+  },
+  {
+    "pos": 4223638,
+    "type": "SNP",
+    "gene": "iclR/metH",
+    "effect": "intergenic",
+    "breseq": "Yes",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 26.8,
+    "hc_dp": 22,
+    "hc_sor": 1.828,
+    "notes": "High quality",
+    "_sort": 9,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 4296381,
+    "type": "INS",
+    "gene": "gltP/yjcO",
+    "effect": "small_indel",
+    "breseq": "Yes",
+    "ref": "A",
+    "alt": "ACG",
+    "hc_filter": "PASS",
+    "hc_qd": 26.0,
+    "hc_dp": 33,
+    "hc_sor": 0.752,
+    "notes": "High quality",
+    "_sort": 10,
+    "ref_alt": "A\u2192ACG"
+  },
+  {
+    "pos": 566463,
+    "type": "SNP",
+    "gene": "b0535",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 9.33,
+    "hc_dp": 36,
+    "hc_sor": 0.534,
+    "notes": "566k cluster (8 SNPs in 65 bp)",
+    "_sort": 11,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 566468,
+    "type": "SNP",
+    "gene": "b0535",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 8.2,
+    "hc_dp": 36,
+    "hc_sor": 0.693,
+    "notes": "566k cluster (8 SNPs in 65 bp)",
+    "_sort": 12,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 566492,
+    "type": "SNP",
+    "gene": "b0535",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 6.78,
+    "hc_dp": 45,
+    "hc_sor": 0.852,
+    "notes": "566k cluster (8 SNPs in 65 bp)",
+    "_sort": 13,
+    "ref_alt": "G\u2192T"
+  },
+  {
+    "pos": 566493,
+    "type": "SNP",
+    "gene": "b0535",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 6.78,
+    "hc_dp": 45,
+    "hc_sor": 0.852,
+    "notes": "566k cluster (8 SNPs in 65 bp)",
+    "_sort": 14,
+    "ref_alt": "G\u2192A"
+  },
+  {
+    "pos": 566498,
+    "type": "SNP",
+    "gene": "b0535",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 6.78,
+    "hc_dp": 45,
+    "hc_sor": 0.852,
+    "notes": "566k cluster (8 SNPs in 65 bp)",
+    "_sort": 15,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 566510,
+    "type": "SNP",
+    "gene": "b0535",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "C",
+    "hc_filter": "QD_filter",
+    "hc_qd": 0.74,
+    "hc_dp": 48,
+    "hc_sor": 0.533,
+    "notes": "566k cluster (8 SNPs in 65 bp)",
+    "_sort": 16,
+    "ref_alt": "G\u2192C"
+  },
+  {
+    "pos": 566513,
+    "type": "SNP",
+    "gene": "b0535",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "QD_filter",
+    "hc_qd": 0.85,
+    "hc_dp": 41,
+    "hc_sor": 0.602,
+    "notes": "566k cluster (8 SNPs in 65 bp)",
+    "_sort": 17,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 566528,
+    "type": "SNP",
+    "gene": "b0535",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 2.0,
+    "hc_dp": 40,
+    "hc_sor": 0.701,
+    "notes": "566k cluster (8 SNPs in 65 bp)",
+    "_sort": 18,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 579094,
+    "type": "DEL",
+    "gene": "b0553",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "TA",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 3.86,
+    "hc_dp": 58,
+    "hc_sor": 0.643,
+    "notes": "579k cluster (7 variants in 450 bp)",
+    "_sort": 19,
+    "ref_alt": "TA\u2192T"
+  },
+  {
+    "pos": 579127,
+    "type": "SNP",
+    "gene": "b0553",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "QD_filter",
+    "hc_qd": 1.85,
+    "hc_dp": 73,
+    "hc_sor": 0.685,
+    "notes": "579k cluster (7 variants in 450 bp)",
+    "_sort": 20,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 579134,
+    "type": "SNP",
+    "gene": "b0553",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 2.25,
+    "hc_dp": 71,
+    "hc_sor": 0.737,
+    "notes": "579k cluster (7 variants in 450 bp)",
+    "_sort": 21,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 579146,
+    "type": "SNP",
+    "gene": "b0553",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 5.94,
+    "hc_dp": 62,
+    "hc_sor": 0.478,
+    "notes": "579k cluster (7 variants in 450 bp)",
+    "_sort": 22,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 579457,
+    "type": "SNP",
+    "gene": "b0558",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 3.54,
+    "hc_dp": 51,
+    "hc_sor": 0.551,
+    "notes": "579k cluster (7 variants in 450 bp)",
+    "_sort": 23,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 579502,
+    "type": "SNP",
+    "gene": "b0558",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "QD_filter",
+    "hc_qd": 1.92,
+    "hc_dp": 48,
+    "hc_sor": 0.368,
+    "notes": "579k cluster (7 variants in 450 bp)",
+    "_sort": 24,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 579540,
+    "type": "SNP",
+    "gene": "b0558",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 4.85,
+    "hc_dp": 48,
+    "hc_sor": 0.402,
+    "notes": "579k cluster (7 variants in 450 bp)",
+    "_sort": 25,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 1299498,
+    "type": "INS",
+    "gene": "b1241",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "AATAATAATCAATTGTTAAATTATTGTGCATTTCACTACT",
+    "hc_filter": "PASS",
+    "hc_qd": 22.73,
+    "hc_dp": 11,
+    "hc_sor": 0.074,
+    "notes": "Near DEL breakpoint at 1,299,499",
+    "_sort": 26,
+    "ref_alt": "A\u2192AATAATAATCAATTGTTAAATTATTGTGCATTTCACTACT"
+  },
+  {
+    "pos": 1299500,
+    "type": "INS",
+    "gene": "b1241",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "GAACTGTAATCAGAAAAGATAGACATGCTTAGCCAATCTCTATTTGATTGAATTGA",
+    "hc_filter": "PASS",
+    "hc_qd": 22.73,
+    "hc_dp": 11,
+    "hc_sor": 0.074,
+    "notes": "Near DEL breakpoint at 1,299,499",
+    "_sort": 27,
+    "ref_alt": "G\u2192GAACTGTAATCAGAAAAGATAGACATGCTTAGCCAATCTCTATTTGATTGAATTGA"
+  },
+  {
+    "pos": 1429069,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 6.05,
+    "hc_dp": 46,
+    "hc_sor": 0.602,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 28,
+    "ref_alt": "T\u2192A"
+  },
+  {
+    "pos": 1429072,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 6.05,
+    "hc_dp": 47,
+    "hc_sor": 0.602,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 29,
+    "ref_alt": "A\u2192C"
+  },
+  {
+    "pos": 1429111,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 3.84,
+    "hc_dp": 58,
+    "hc_sor": 0.495,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 30,
+    "ref_alt": "A\u2192C"
+  },
+  {
+    "pos": 1429114,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 3.84,
+    "hc_dp": 55,
+    "hc_sor": 0.495,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 31,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429126,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 9.75,
+    "hc_dp": 52,
+    "hc_sor": 0.631,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 32,
+    "ref_alt": "A\u2192C"
+  },
+  {
+    "pos": 1429128,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 9.75,
+    "hc_dp": 52,
+    "hc_sor": 0.631,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 33,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1429160,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 7.17,
+    "hc_dp": 44,
+    "hc_sor": 0.998,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 34,
+    "ref_alt": "C\u2192G"
+  },
+  {
+    "pos": 1429164,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 9.23,
+    "hc_dp": 43,
+    "hc_sor": 0.817,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 35,
+    "ref_alt": "C\u2192G"
+  },
+  {
+    "pos": 1429171,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 9.23,
+    "hc_dp": 45,
+    "hc_sor": 0.817,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 36,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1429204,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 11.28,
+    "hc_dp": 54,
+    "hc_sor": 0.223,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 37,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429207,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 11.28,
+    "hc_dp": 52,
+    "hc_sor": 0.223,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 38,
+    "ref_alt": "T\u2192G"
+  },
+  {
+    "pos": 1429225,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 3.91,
+    "hc_dp": 48,
+    "hc_sor": 0.965,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 39,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429228,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 4.82,
+    "hc_dp": 46,
+    "hc_sor": 1.038,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 40,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 1429231,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "QD_filter",
+    "hc_qd": 1.06,
+    "hc_dp": 33,
+    "hc_sor": 1.901,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 41,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 1429243,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "C",
+    "hc_filter": "QD_filter",
+    "hc_qd": 1.06,
+    "hc_dp": 33,
+    "hc_sor": 1.901,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 42,
+    "ref_alt": "A\u2192C"
+  },
+  {
+    "pos": 1429246,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "T",
+    "hc_filter": "QD_filter",
+    "hc_qd": 1.06,
+    "hc_dp": 33,
+    "hc_sor": 1.901,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 43,
+    "ref_alt": "A\u2192T"
+  },
+  {
+    "pos": 1429261,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "QD_filter",
+    "hc_qd": 1.15,
+    "hc_dp": 39,
+    "hc_sor": 1.536,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 44,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 1429273,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 5.02,
+    "hc_dp": 51,
+    "hc_sor": 0.593,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 45,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 1429291,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 13.73,
+    "hc_dp": 55,
+    "hc_sor": 0.876,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 46,
+    "ref_alt": "T\u2192A"
+  },
+  {
+    "pos": 1429297,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 10.0,
+    "hc_dp": 59,
+    "hc_sor": 1.189,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 47,
+    "ref_alt": "C\u2192G"
+  },
+  {
+    "pos": 1429300,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 10.0,
+    "hc_dp": 62,
+    "hc_sor": 1.189,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 48,
+    "ref_alt": "T\u2192G"
+  },
+  {
+    "pos": 1429319,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 2.45,
+    "hc_dp": 63,
+    "hc_sor": 1.078,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 49,
+    "ref_alt": "G\u2192T"
+  },
+  {
+    "pos": 1429345,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 5.62,
+    "hc_dp": 59,
+    "hc_sor": 0.569,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 50,
+    "ref_alt": "T\u2192G"
+  },
+  {
+    "pos": 1429353,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 7.02,
+    "hc_dp": 58,
+    "hc_sor": 0.519,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 51,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429354,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 5.72,
+    "hc_dp": 54,
+    "hc_sor": 0.375,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 52,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1429360,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 6.02,
+    "hc_dp": 54,
+    "hc_sor": 0.375,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 53,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429364,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 4.52,
+    "hc_dp": 53,
+    "hc_sor": 0.474,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 54,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 1429404,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 6.56,
+    "hc_dp": 43,
+    "hc_sor": 1.358,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 55,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429732,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 4.63,
+    "hc_dp": 27,
+    "hc_sor": 1.061,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 56,
+    "ref_alt": "G\u2192A"
+  },
+  {
+    "pos": 1429735,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "QD_filter",
+    "hc_qd": 1.52,
+    "hc_dp": 23,
+    "hc_sor": 0.527,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 57,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1429741,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 3.64,
+    "hc_dp": 22,
+    "hc_sor": 0.368,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 58,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1429744,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 3.64,
+    "hc_dp": 22,
+    "hc_sor": 0.368,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 59,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 1429750,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "QD_filter",
+    "hc_qd": 1.52,
+    "hc_dp": 23,
+    "hc_sor": 0.527,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 60,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429816,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 6.54,
+    "hc_dp": 28,
+    "hc_sor": 0.586,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 61,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429820,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 7.74,
+    "hc_dp": 27,
+    "hc_sor": 0.476,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 62,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1429823,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 7.74,
+    "hc_dp": 28,
+    "hc_sor": 0.476,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 63,
+    "ref_alt": "A\u2192C"
+  },
+  {
+    "pos": 1429851,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 3.08,
+    "hc_dp": 26,
+    "hc_sor": 0.235,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 64,
+    "ref_alt": "G\u2192A"
+  },
+  {
+    "pos": 1429858,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 3.08,
+    "hc_dp": 26,
+    "hc_sor": 0.235,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 65,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429861,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 5.0,
+    "hc_dp": 25,
+    "hc_sor": 0.139,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 66,
+    "ref_alt": "G\u2192C"
+  },
+  {
+    "pos": 1429863,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 5.0,
+    "hc_dp": 25,
+    "hc_sor": 0.139,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 67,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1429888,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "C",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 3.64,
+    "hc_dp": 22,
+    "hc_sor": 0.122,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 68,
+    "ref_alt": "C\u2192T"
+  },
+  {
+    "pos": 1429897,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 3.64,
+    "hc_dp": 22,
+    "hc_sor": 0.122,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 69,
+    "ref_alt": "T\u2192A"
+  },
+  {
+    "pos": 1429906,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 8.5,
+    "hc_dp": 20,
+    "hc_sor": 0.039,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 70,
+    "ref_alt": "G\u2192A"
+  },
+  {
+    "pos": 1429914,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "A",
+    "hc_filter": "PASS",
+    "hc_qd": 7.36,
+    "hc_dp": 17,
+    "hc_sor": 0.03,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 71,
+    "ref_alt": "G\u2192A"
+  },
+  {
+    "pos": 1429917,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "missense_variant",
+    "breseq": "No",
+    "ref": "A",
+    "alt": "G",
+    "hc_filter": "PASS",
+    "hc_qd": 7.36,
+    "hc_dp": 17,
+    "hc_sor": 0.03,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 72,
+    "ref_alt": "A\u2192G"
+  },
+  {
+    "pos": 1429927,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "G",
+    "alt": "T",
+    "hc_filter": "PASS",
+    "hc_qd": 5.72,
+    "hc_dp": 14,
+    "hc_sor": 0.473,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 73,
+    "ref_alt": "G\u2192T"
+  },
+  {
+    "pos": 1429930,
+    "type": "SNP",
+    "gene": "b1372",
+    "effect": "synonymous_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "C",
+    "hc_filter": "PASS",
+    "hc_qd": 5.72,
+    "hc_dp": 14,
+    "hc_sor": 0.473,
+    "notes": "1429k cluster (47 SNPs in 860 bp)",
+    "_sort": 74,
+    "ref_alt": "T\u2192C"
+  },
+  {
+    "pos": 4035734,
+    "type": "SNP",
+    "gene": "b3846",
+    "effect": "upstream_gene_variant",
+    "breseq": "No",
+    "ref": "T",
+    "alt": "G",
+    "hc_filter": "SOR_filter",
+    "hc_qd": 28.17,
+    "hc_dp": 12,
+    "hc_sor": 5.136,
+    "notes": "Isolated HC-only SNP",
+    "_sort": 75,
+    "ref_alt": "T\u2192G"
+  }
+];
+
+    // --- Badge formatters ---
+    function yesNoBadge(cell) {
+        var v = cell.getValue();
+        if (v === "Yes") return '<span class="badge badge-yes">Yes</span>';
+        if (v === "No") return '<span class="badge badge-no">No</span>';
+        if (v === "N/A") return '<span class="badge badge-na">N/A</span>';
+        return v;
+    }
+
+    function filterBadge(cell) {
+        var v = cell.getValue();
+        if (v === "PASS") return '<span class="badge badge-pass">PASS</span>';
+        if (v === "NOT_FOUND") return '<span class="badge badge-fail">NOT FOUND</span>';
+        return '<span class="badge badge-warn">' + v + '</span>';
+    }
+
+    function consensusBadge(cell) {
+        var v = cell.getValue();
+        if (v === "Manta + TIDDIT") return '<span class="badge badge-yes">Manta + TIDDIT</span>';
+        if (v === "Manta only") return '<span class="badge badge-warn">Manta only</span>';
+        if (v === "TIDDIT only") return '<span class="badge badge-warn">TIDDIT only</span>';
+        return '<span class="badge badge-na">&mdash;</span>';
+    }
+
+    var igvHcUrl = "SRR6281661_report.html";
+    var igvSvUrl = "SRR6281661_sv_report.html";
+
+    function snpPosLink(cell) {
+        var pos = cell.getValue();
+        var display = pos.toLocaleString();
+        return '<a href="' + igvHcUrl + '?locus=U00096:' + pos + '" target="_blank" title="Open in IGV report (HC)">' + display + '</a>';
+    }
+
+    function svPosLink(cell) {
+        var pos = cell.getValue();
+        var display = pos.toLocaleString();
+        var row = cell.getRow().getData();
+        if (row.type === "MOB") return display;
+        return '<a href="' + igvSvUrl + '?locus=U00096:' + pos + '" target="_blank" title="Open in IGV report (SV)">' + display + '</a>';
+    }
+
+    function effectBadge(cell) {
+        var v = cell.getValue();
+        if (!v) return '';
+        if (v.includes('nonsense')) return '<span class="badge badge-fail">' + v + '</span>';
+        if (v.includes('nonsynonymous')) return '<span class="badge badge-warn">' + v + '</span>';
+        if (v.includes('synonymous') && !v.includes('non')) return '<span class="badge badge-pass">' + v + '</span>';
+        return '<span class="badge badge-na">' + v + '</span>';
+    }
+
+    // --- SV Concordance Table ---
+    new Tabulator("#sv-table", {
+        data: svData,
+        layout: "fitDataFill",
+        headerSortTristate: true,
+        initialSort: [{ column: "_sort", dir: "asc" }],
+        columns: [
+            { title: "Type", field: "type", headerFilter: "list", headerFilterParams: { valuesLookup: true }, width: 80 },
+            { title: "Position", field: "pos", sorter: "number", hozAlign: "right",
+               formatter: svPosLink },
+            { title: "Size (bp)", field: "size", sorter: "number", hozAlign: "right",
+               formatter: function(cell) { return cell.getValue().toLocaleString(); } },
+            { title: "breseq", field: "breseq", hozAlign: "center", formatter: yesNoBadge, width: 80 },
+            { title: "Manta", field: "manta", hozAlign: "center", formatter: yesNoBadge, width: 80 },
+            { title: "TIDDIT", field: "tiddit", hozAlign: "center", formatter: yesNoBadge, width: 80 },
+            { title: "Notes", field: "notes", minWidth: 250 },
+        ],
+    });
+
+    // --- SNP/InDel Concordance Table ---
+    new Tabulator("#snp-table", {
+        data: snpData,
+        layout: "fitDataFill",
+        headerSortTristate: true,
+        initialSort: [{ column: "_sort", dir: "asc" }],
+        columns: [
+            { title: "Position", field: "pos", sorter: "number", hozAlign: "right",
+               formatter: snpPosLink },
+            { title: "Type", field: "type", width: 60 },
+            { title: "Ref&rarr;Alt", field: "ref_alt", width: 100 },
+            { title: "breseq", field: "breseq", hozAlign: "center", formatter: yesNoBadge, width: 80,
+               headerFilter: "list", headerFilterParams: { valuesLookup: true } },
+            { title: "Gene", field: "gene", headerFilter: "input", minWidth: 100 },
+            { title: "Effect", field: "effect", formatter: effectBadge, minWidth: 120 },
+            { title: "HC Filter", field: "hc_filter", hozAlign: "center", formatter: filterBadge, width: 110 },
+            { title: "QD", field: "hc_qd", sorter: "number", hozAlign: "right", width: 70,
+               formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) : ""; } },
+            { title: "DP", field: "hc_dp", sorter: "number", hozAlign: "right", width: 60 },
+            { title: "SOR", field: "hc_sor", sorter: "number", hozAlign: "right", width: 70,
+               formatter: function(cell) {
+                   var v = cell.getValue();
+                   if (v == null) return "";
+                   var s = v.toFixed(2);
+                   return v > 3.0 ? '<span style="color:#cb2431;font-weight:600">' + s + '</span>' : s;
+               } },
+            { title: "Notes", field: "notes", minWidth: 250 },
+        ],
+    });
+</script>
+</body>
+</html>
