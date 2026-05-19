@@ -85,6 +85,17 @@ Key difference: with correct ploidy, chr3 and chr5 are no longer called as delet
 
 4. **Cache invalidation**: When changing `ext.args` in the config, old Nextflow cached results for `CNVKIT_EXPORT` must be cleared or the pipeline run without `-resume` to pick up the new parameter.
 
+## Known Limitation: CN Scale Does Not Reflect Ploidy
+
+The `cn` column in `.call.cns` always uses **cn=2 as baseline** regardless of `--ploidy`, because:
+1. `cnvkit.py batch` builds a flat reference without ploidy awareness
+2. The default thresholds (`-1.1,-0.25,0.2,0.7`) map log2≈0 to cn=2 for all ploidies
+3. `--ploidy` only affects the overflow region (log2>0.7) and VCF export
+
+For haploid samples: cn=2 = normal, cn=3 = duplication, cn=1 = deletion.
+
+See `cnvkit_ploidy_cn_scale.md` for the full investigation and source code analysis.
+
 ## Files Modified
 
-- `nf-core-sarek_3.5.1/3_5_1/conf/modules/cnvkit.config` (line 49)
+- `conf/modules/cnvkit.config` (CNVKIT_CALL and CNVKIT_EXPORT)
