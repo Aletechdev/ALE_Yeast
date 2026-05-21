@@ -2,21 +2,83 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="color-scheme" content="light dark">
     <title>Marko SV Benchmark — breseq vs yAMP Concordance</title>
     <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
     <style>
+        /* --- Light theme (default) --- */
+        :root {
+            color-scheme: light;
+            --bg: #ffffff;
+            --fg: #333333;
+            --fg-heading: #24292e;
+            --fg-muted: #586069;
+            --link: #0366d6;
+            --border: #e1e4e8;
+            --surface: #f6f8fa;
+            --surface-alt: #fafbfc;
+            --badge-pass-bg: #dcffe4; --badge-pass-fg: #22863a;
+            --badge-warn-bg: #fff5b1; --badge-warn-fg: #735c0f;
+            --badge-fail-bg: #ffeef0; --badge-fail-fg: #cb2431;
+            --badge-na-bg: #f1f1f1;   --badge-na-fg: #888888;
+            --finding-bg: #f6f8fa;
+            --finding-warn-border: #e36209; --finding-warn-bg: #fff8f0;
+            --finding-note-border: #6a737d; --finding-note-bg: #f6f8fa;
+            --finding-good-border: #22863a;
+            --finding-info-border: #0366d6;
+            --organism-border: #6f42c1; --organism-bg: #f5f0ff; --organism-fg: #6f42c1;
+            --warn-border: #e36209; --warn-bg: #fff8f0; --warn-fg: #e36209;
+            --sor-high: #cb2431;
+            --code-bg: #f6f8fa;
+            --table-header-bg: #f6f8fa;
+            --table-border: #e1e4e8;
+            --hover: #f0f1f3;
+        }
+
+        /* --- Dark theme --- */
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #0d1117;
+            --fg: #c9d1d9;
+            --fg-heading: #e6edf3;
+            --fg-muted: #8b949e;
+            --link: #58a6ff;
+            --border: #30363d;
+            --surface: #161b22;
+            --surface-alt: #1c2128;
+            --hover: #2d333b;
+            --badge-pass-bg: #1b3a2a; --badge-pass-fg: #56d364;
+            --badge-warn-bg: #3b2e00; --badge-warn-fg: #e3b341;
+            --badge-fail-bg: #3d1418; --badge-fail-fg: #f85149;
+            --badge-na-bg: #21262d;   --badge-na-fg: #8b949e;
+            --finding-bg: #161b22;
+            --finding-warn-border: #d29922; --finding-warn-bg: #1c1500;
+            --finding-note-border: #8b949e; --finding-note-bg: #161b22;
+            --finding-good-border: #56d364;
+            --finding-info-border: #58a6ff;
+            --organism-border: #a371f7; --organism-bg: #1a0f2e; --organism-fg: #a371f7;
+            --warn-border: #d29922; --warn-bg: #1c1500; --warn-fg: #d29922;
+            --sor-high: #f85149;
+            --code-bg: #161b22;
+            --table-header-bg: #1c2128;
+            --table-border: #30363d;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             max-width: 1200px;
             margin: 40px auto;
             padding: 0 20px;
-            color: #333;
+            color: var(--fg);
+            background: var(--bg);
         }
-        h1 { border-bottom: 2px solid #0366d6; padding-bottom: 8px; }
-        h2 { margin-top: 32px; color: #24292e; }
-        a { color: #0366d6; text-decoration: none; }
+        h1 { border-bottom: 2px solid var(--link); padding-bottom: 8px; color: var(--fg-heading); }
+        h2 { margin-top: 32px; color: var(--fg-heading); }
+        h3 { color: var(--fg-heading); }
+        a { color: var(--link); text-decoration: none; }
         a:hover { text-decoration: underline; }
-        .meta { color: #586069; font-size: 0.9em; }
+        code { background: var(--code-bg); padding: 1px 4px; border-radius: 3px; }
+        .meta { color: var(--fg-muted); font-size: 0.9em; }
         .section { margin: 24px 0; }
         .stat-grid {
             display: grid;
@@ -25,8 +87,8 @@
             margin: 16px 0;
         }
         .stat-card {
-            background: #f6f8fa;
-            border: 1px solid #e1e4e8;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 6px;
             padding: 16px;
             text-align: center;
@@ -34,13 +96,17 @@
         .stat-card .value {
             font-size: 2em;
             font-weight: 700;
-            color: #24292e;
+            color: var(--fg-heading);
         }
         .stat-card .label {
             font-size: 0.85em;
-            color: #586069;
+            color: var(--fg-muted);
             margin-top: 4px;
         }
+        .stat-card.card-organism { border-left: 3px solid var(--organism-border); background: var(--organism-bg); }
+        .stat-card.card-organism .value { font-size: 1.1em; color: var(--organism-fg); }
+        .stat-card.card-warn { border-left: 3px solid var(--warn-border); background: var(--warn-bg); }
+        .stat-card.card-warn .value { color: var(--warn-fg); }
         .badge {
             display: inline-block;
             padding: 2px 8px;
@@ -48,43 +114,117 @@
             font-size: 0.8em;
             font-weight: 600;
         }
-        .badge-pass { background: #dcffe4; color: #22863a; }
-        .badge-warn { background: #fff5b1; color: #735c0f; }
-        .badge-fail { background: #ffeef0; color: #cb2431; }
-        .badge-na { background: #f1f1f1; color: #888; }
-        .badge-yes { background: #dcffe4; color: #22863a; }
-        .badge-no { background: #ffeef0; color: #cb2431; }
-        .finding { margin: 8px 0; padding: 8px 12px; border-left: 3px solid #0366d6; background: #f6f8fa; }
-        .finding-good { border-left-color: #22863a; }
-        .finding-note { border-left-color: #e36209; }
-        .finding-info { border-left-color: #0366d6; }
-        .tabulator { font-size: 0.9em; border: 1px solid #e1e4e8; }
-        .tabulator .tabulator-header { background: #f6f8fa; }
-        .tabulator-row.tabulator-row-even { background: #fafbfc; }
+        .badge-pass { background: var(--badge-pass-bg); color: var(--badge-pass-fg); }
+        .badge-warn { background: var(--badge-warn-bg); color: var(--badge-warn-fg); }
+        .badge-fail { background: var(--badge-fail-bg); color: var(--badge-fail-fg); }
+        .badge-na { background: var(--badge-na-bg); color: var(--badge-na-fg); }
+        .badge-yes { background: var(--badge-pass-bg); color: var(--badge-pass-fg); }
+        .badge-no { background: var(--badge-fail-bg); color: var(--badge-fail-fg); }
+        .finding { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--link); background: var(--finding-bg); }
+        .finding-good { border-left-color: var(--finding-good-border); }
+        .finding-warn { border-left-color: var(--finding-warn-border); background: var(--finding-warn-bg); }
+        .finding-note { border-left-color: var(--finding-note-border); background: var(--finding-note-bg); }
+        .finding-info { border-left-color: var(--finding-info-border); }
+        .tabulator { font-size: 0.9em; border: 1px solid var(--table-border); }
+        .tabulator .tabulator-header { background: var(--table-header-bg); color: var(--fg); }
+        .tabulator .tabulator-header .tabulator-col { background: var(--table-header-bg); border-color: var(--table-border); color: var(--fg); }
+        .tabulator .tabulator-header .tabulator-col .tabulator-col-content { color: var(--fg); }
+        .tabulator-row { background: var(--bg); color: var(--fg); }
+        .tabulator-row.tabulator-row-even { background: var(--surface-alt); }
+        .tabulator-row .tabulator-cell { border-color: var(--table-border); }
+        .tabulator .tabulator-header .tabulator-col { border-right: 1px solid var(--table-border); }
+        .tabulator .tabulator-tableholder { background: var(--bg); }
+        .tabulator-row.tabulator-row-odd { background: var(--bg); }
+        .tabulator-row .tabulator-cell a { color: var(--link); }
+        .tabulator .tabulator-header .tabulator-header-filter input {
+            background: var(--surface); color: var(--fg); border: 1px solid var(--border);
+        }
+        /*
+         * Tabulator hover overrides — hardcoded per theme.
+         * Using html[data-theme] prefix to beat Tabulator's selector specificity.
+         * Hardcoded colors because some browsers (Safari) have issues resolving
+         * CSS custom properties inside :hover pseudo-states on third-party elements.
+         */
+        html[data-theme="light"] .tabulator .tabulator-header .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover,
+        html:not([data-theme]) .tabulator .tabulator-header .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover {
+            background-color: #e8e9eb !important;
+        }
+        html[data-theme="light"] .tabulator-row.tabulator-selectable:hover,
+        html:not([data-theme]) .tabulator-row.tabulator-selectable:hover {
+            background-color: #f0f1f3 !important;
+        }
+        html[data-theme="light"] .tabulator-row:hover .tabulator-cell,
+        html:not([data-theme]) .tabulator-row:hover .tabulator-cell {
+            background-color: #f0f1f3 !important;
+        }
+        html[data-theme="dark"] .tabulator .tabulator-header .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover {
+            background-color: #3a414b !important;
+        }
+        html[data-theme="dark"] .tabulator-row.tabulator-selectable:hover {
+            background-color: #2d333b !important;
+        }
+        html[data-theme="dark"] .tabulator-row:hover .tabulator-cell {
+            background-color: #2d333b !important;
+        }
         .footer {
-            color: #586069;
+            color: var(--fg-muted);
             font-size: 0.85em;
             margin-top: 40px;
-            border-top: 1px solid #e1e4e8;
+            border-top: 1px solid var(--border);
             padding-top: 12px;
         }
         details { margin: 8px 0; }
-        details summary { cursor: pointer; color: #0366d6; font-weight: 600; }
-        pre.audit { background: #f6f8fa; padding: 12px; border-radius: 4px; font-size: 0.85em; overflow-x: auto; }
+        details summary { cursor: pointer; color: var(--link); font-weight: 600; }
+        pre.audit { background: var(--surface); padding: 12px; border-radius: 4px; font-size: 0.85em; overflow-x: auto; color: var(--fg); }
+        /* Theme toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 12px;
+            right: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 1.1em;
+            line-height: 1;
+            z-index: 1000;
+            color: var(--fg);
+        }
+        .theme-toggle:hover { background: var(--surface-alt); }
+        /* Inline table in details (quality metrics) */
+        .inline-table th, .inline-table td {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+        }
+        .inline-table tr:first-child { background: var(--surface); }
     </style>
+    <script>
+        // Apply theme immediately (before paint) to prevent flash.
+        // Always set data-theme explicitly so we don't rely on CSS media queries.
+        (function() {
+            var saved = localStorage.getItem('dashboard-theme');
+            var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+            var csm = document.querySelector('meta[name="color-scheme"]');
+            if (csm) csm.setAttribute('content', theme);
+        })();
+    </script>
 </head>
 <body>
+
+<button class="theme-toggle" id="themeToggle" title="Toggle dark / light mode" aria-label="Toggle dark mode">&#9790;</button>
 
 <h1>Marko SV Benchmark &mdash; breseq vs yAMP Concordance</h1>
 <p class="meta">
     Sample: <strong>SRR6281661</strong> &middot;
     Organism: <em>E. coli</em> K-12 MG1655 &middot;
     Ploidy: 1 (haploid) &middot;
-    Generated 2026-05-19 16:54
+    Generated 2026-05-20 16:58
 </p>
 <p class="meta">
-    Ground truth: <strong>breseq 0.39.0</strong> &middot;
-    yAMP tools: GATK HaplotypeCaller (joint germline, ploidy=1), Manta, TIDDIT &middot;
+    Callers compared: <strong>breseq 0.39.0</strong> vs
+    <strong>yAMP v1.0.0 pre-release</strong> (GATK HaplotypeCaller joint gVCF calling ploidy=1, Manta, TIDDIT) &middot;
     SV merge: SURVIVOR 1.0.7
 </p>
 
@@ -92,11 +232,15 @@
 <div class="section">
     <h2>Summary</h2>
     <div class="stat-grid">
+        <div class="stat-card card-organism">
+            <div class="value"><em>E. coli</em> K-12</div>
+            <div class="label">MG1655 (prokaryote, haploid)<br>SRR6281661</div>
+        </div>
         <div class="stat-card">
             <div class="value">4/4</div>
             <div class="label">breseq large deletions<br>detected by yAMP (Manta + TIDDIT)</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card card-warn">
             <div class="value">0/3</div>
             <div class="label">breseq-unique MOB insertions<br>detected by yAMP (IS2, IS5 &mdash; requires assembly-based detection)</div>
         </div>
@@ -107,95 +251,27 @@
     </div>
 </div>
 
-<!-- Section 2: SV Concordance -->
-<div class="section">
-    <h2>Structural Variant Concordance</h2>
-    <p class="meta">
-        breseq detected 4 large deletions and 3 IS-element mobilizations (MOB).
-        Manta and TIDDIT independently confirm all 4 deletions.
-        SURVIVOR merge (max_dist=1000bp, type_agree=yes) used for consensus.
-        <br>Click any <strong>Position</strong> value to open the IGV report with read pileup at that locus.
-    </p>
-    <div id="sv-table"></div>
-</div>
-
-<!-- Section 3: SNP/InDel Concordance -->
-<div class="section">
-    <h2>SNP / InDel Concordance</h2>
-    <p class="meta">
-        breseq called 11 SNPs/small indels (ground truth).
-        HaplotypeCaller called 76 total variants; all 11 breseq calls detected.
-        65 HC-only variants cluster in 3 regions (likely alignment artifacts).
-        FILTER column from GATK VariantFiltration (soft filtering fallback for custom genomes).
-        <br>Click any <strong>Position</strong> value to open the IGV report with read pileup at that locus.
-    </p>
-    <details>
-        <summary>Filter metrics explained (QD, DP, SOR)</summary>
-        <div style="padding: 10px 0; font-size: 0.9em; line-height: 1.6;">
-            <p>GATK VariantFiltration populates the FILTER column with <code>PASS</code> or named filter tags
-               but <strong>does not remove any variants</strong>. This is a soft filter fallback used when
-               VQSR cannot run (no known variant resources for custom genomes).</p>
-            <table style="border-collapse: collapse; width: 100%; margin: 10px 0;">
-                <thead>
-                    <tr style="background: #f6f8fa; text-align: left;">
-                        <th style="padding: 6px 10px; border: 1px solid #e1e4e8;">Column</th>
-                        <th style="padding: 6px 10px; border: 1px solid #e1e4e8;">Metric</th>
-                        <th style="padding: 6px 10px; border: 1px solid #e1e4e8;">Filter Threshold</th>
-                        <th style="padding: 6px 10px; border: 1px solid #e1e4e8;">Interpretation</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;"><strong>QD</strong></td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Quality by Depth</td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">QD &lt; 2.0 &rarr; <code>QD_filter</code></td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">QUAL score / total depth. Low QD = weak evidence per read. Higher is better.</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;"><strong>DP</strong></td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Read Depth</td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">&mdash; (no filter)</td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Total reads at this position (INFO/DP, cohort-level). Shown for context only.</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;"><strong>SOR</strong></td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Strand Odds Ratio</td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">SOR &gt; 3.0 &rarr; <code>SOR_filter</code></td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Strand bias test. SOR &gt; 3.0 = variant seen disproportionately on one strand (possible artifact). Lower is better.</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;"><strong>HC Filter</strong></td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">FILTER column</td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">Combined result</td>
-                        <td style="padding: 6px 10px; border: 1px solid #e1e4e8;">
-                            <code>PASS</code> = passes all filters.
-                            Otherwise shows which filter(s) flagged the variant
-                            (e.g. <code>QD_filter</code>, <code>SOR_filter</code>, <code>MQ_filter</code>).
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <p style="margin-top: 8px;">
-                <strong>Other soft filters applied</strong> (not shown as columns):
-                FS &gt; 60.0 (<code>FS_filter</code>),
-                MQ &lt; 40.0 (<code>MQ_filter</code>),
-                MQRankSum &lt; -12.5,
-                ReadPosRankSum &lt; -8.0,
-                QUAL &lt; 30.0.
-                INDEL thresholds are more lenient (FS &gt; 200, SOR &gt; 10).
-            </p>
-            <p style="color: #586069;">
-                Thresholds follow GATK best practices for human data.
-                See <code>conf/modules/joint_germline.config</code> for full configuration.
-            </p>
-        </div>
-    </details>
-    <div id="snp-table"></div>
-</div>
-
-<!-- Section 4: Key Findings -->
+<!-- Section 2: Key Findings -->
 <div class="section">
     <h2>Key Findings</h2>
+    <div class="finding finding-warn">
+        <strong>Mobile element insertion (MOB) calls are breseq-unique.</strong>
+        3 IS-element mobilizations (2&times;IS2, 1&times;IS5) detected only by breseq.
+        This is expected: standard SV callers cannot resolve insertions of repeat elements
+        already present elsewhere in the genome. breseq uses assembly-based junction detection.
+        <br><br>
+        In prokaryotes, MOBs are predominantly insertion sequence (IS) element insertions,
+        for which breseq is the established tool.
+        <br><br>
+        In eukaryotic microbes such as <em>S. cerevisiae</em>, MOBs are predominantly
+        insertions of long terminal repeat (LTR) retrotransposons (the Ty1&ndash;Ty5 families in yeast),
+        detectable by RelocaTE2, TEMP, TEMP2, and TEBreak
+        (<a href="https://doi.org/10.1186/s13100-023-00296-4" target="_blank">Chen et al. 2023, <em>Mobile DNA</em></a>),
+        but reliable calling depends on a high-quality reference genome paired with
+        comprehensive, consistent mobile element annotation, including both coordinate
+        records on the chromosome and a curated consensus sequence library.
+        The latter set is not currently integrated into yAMP v1.0.0.
+    </div>
     <div class="finding finding-good">
         <strong>100% large deletion recall.</strong>
         All 4 breseq deletions (776 bp &ndash; 6,790 bp) detected by both Manta and TIDDIT
@@ -207,17 +283,12 @@
         10/11 pass soft quality filters (PASS). 1 flagged by SOR_filter.
     </div>
     <div class="finding finding-note">
-        <strong>rpoS nonsense mutation soft-filtered.</strong>
-        G2867455A (rpoS, W &rarr; Stop) has SOR=3.014, barely above the 3.0 threshold.
-        QD=29.56 is excellent (threshold: 2.0). This is a biologically important mutation
-        frequently seen in <em>E. coli</em> lab evolution. Consider relaxing SOR threshold
-        or reviewing this filter for haploid organisms.
-    </div>
-    <div class="finding finding-info">
-        <strong>MOB insertions are breseq-unique.</strong>
-        3 IS-element mobilizations (2&times;IS2, 1&times;IS5) detected only by breseq.
-        This is expected: standard SV callers cannot resolve insertions of repeat elements
-        already present elsewhere in the genome. breseq uses assembly-based junction detection.
+        <strong>rpoS nonsense SNP soft-filtered.</strong>
+        SNP G&rarr;A at position
+        <a href="SRR6281661_report.html?locus=U00096:2867455" target="_blank">2,867,455</a>
+        (rpoS Q33*, nonsense) has SOR=3.014, barely above the 3.0 threshold.
+        QD=29.56 is excellent (threshold: 2.0).
+        Consider relaxing SOR threshold or reviewing this filter for haploid organisms.
     </div>
     <div class="finding finding-info">
         <strong>yAMP found additional SVs not in breseq.</strong>
@@ -225,6 +296,100 @@
         an inversion at ~1,207,789 were detected by SV callers but not breseq.
         These may represent real structural variants or alignment artifacts worth investigating.
     </div>
+</div>
+
+<!-- Section 3: SV Concordance -->
+<div class="section">
+    <h2>Structural Variant Concordance</h2>
+    <p class="meta">
+        breseq detected 4 large deletions and 3 IS-element mobilizations (MOB).
+        Manta and TIDDIT independently confirm all 4 deletions.
+        SURVIVOR merge (max_dist=1000bp, type_agree=yes) used for consensus.
+        <br>Click any <strong>Position</strong> value to open the IGV report with read pileup at that locus.
+    </p>
+    <details class="finding finding-note" style="margin-bottom:12px">
+        <summary><strong>SV IGV-reports are a work in progress.</strong></summary>
+        The current SV reports reuse the SNP/InDel template and show raw breakpoint pileups,
+        but SV visualization best practices differ significantly &mdash; e.g. paired-end insert size
+        coloring, split-read highlighting, and wider flanking windows for large events.
+        Additionally, a scoring or evaluation framework for SV concordance (e.g. reciprocal overlap
+        thresholds, breakpoint tolerance, genotype agreement) has not yet been established.
+    </details>
+    <div id="sv-table"></div>
+</div>
+
+<!-- Section 3: SNP/InDel Concordance -->
+<div class="section">
+    <h2>SNP / InDel Concordance</h2>
+    <p class="meta">
+        breseq called 11 SNPs/small indels.
+        HaplotypeCaller called 76 total variants; all 11 breseq calls detected.
+        65 HC-only variants cluster in 3 regions (likely alignment artifacts).
+        FILTER column from GATK VariantFiltration (soft filtering fallback for custom genomes).
+        <br>Click any <strong>Position</strong> value to open the IGV report with read pileup at that locus.
+    </p>
+    <details>
+        <summary>Filter metrics explained (QD, DP, SOR)</summary>
+        <div style="padding: 10px 0; font-size: 0.9em; line-height: 1.6;">
+            <p>GATK VariantFiltration populates the FILTER column with <code>PASS</code> or named filter tags
+               but <strong>does not remove any variants</strong>. This is a soft filter fallback used when
+               VQSR cannot run (no known variant resources for custom genomes).</p>
+            <table class="inline-table" style="border-collapse: collapse; width: 100%; margin: 10px 0;">
+                <thead>
+                    <tr>
+                        <th>Column</th>
+                        <th>Metric</th>
+                        <th>Filter Threshold</th>
+                        <th>Interpretation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>QD</strong></td>
+                        <td>Quality by Depth</td>
+                        <td>QD &lt; 2.0 &rarr; <code>QD_filter</code></td>
+                        <td>QUAL score / total depth. Low QD = weak evidence per read. Higher is better.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>DP</strong></td>
+                        <td>Read Depth</td>
+                        <td>&mdash; (no filter)</td>
+                        <td>Total reads at this position (INFO/DP, cohort-level). Shown for context only.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>SOR</strong></td>
+                        <td>Strand Odds Ratio</td>
+                        <td>SOR &gt; 3.0 &rarr; <code>SOR_filter</code></td>
+                        <td>Strand bias test. SOR &gt; 3.0 = variant seen disproportionately on one strand (possible artifact). Lower is better.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>HC Filter</strong></td>
+                        <td>FILTER column</td>
+                        <td>Combined result</td>
+                        <td>
+                            <code>PASS</code> = passes all filters.
+                            Otherwise shows which filter(s) flagged the variant
+                            (e.g. <code>QD_filter</code>, <code>SOR_filter</code>, <code>MQ_filter</code>).
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <strong>Other soft filters applied</strong> (not shown as columns):
+                FS &gt; 60.0 (<code>FS_filter</code>),
+                MQ &lt; 40.0 (<code>MQ_filter</code>),
+                MQRankSum &lt; -12.5,
+                ReadPosRankSum &lt; -8.0,
+                QUAL &lt; 30.0.
+                INDEL thresholds are more lenient (FS &gt; 200, SOR &gt; 10).
+            </p>
+            <p style="color: var(--fg-muted);">
+                Thresholds follow GATK best practices for human data.
+                See <code>conf/modules/joint_germline.config</code> for full configuration.
+            </p>
+        </div>
+    </details>
+    <div id="snp-table"></div>
 </div>
 
 <!-- Section 5: SURVIVOR Merge Audit -->
@@ -264,9 +429,69 @@ Files:
     </details>
 </div>
 
+<!-- Section 6: IGV-Reports Audit -->
+<div class="section">
+    <h2>IGV-Reports Audit</h2>
+    <details>
+        <summary>Show IGV-report generation details</summary>
+        <div style="padding:12px 16px; line-height:1.7; font-size:0.95em;">
+        <h3 style="margin-top:0;">SNP/InDel report (HaplotypeCaller)</h3>
+        <p>
+            The per-sample IGV report
+            <a href="SRR6281661_report.html" target="_blank">SRR6281661_report.html</a>
+            is generated from the snpEff-annotated HaplotypeCaller VCF
+            (<code>SRR6281661.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz</code>)
+            using <a href="https://github.com/igvteam/igv-reports" target="_blank">igv-reports</a>.
+        </p>
+        <p><strong>Processing steps</strong> (see <code>generate_igvreport.sh</code>):</p>
+        <ol>
+            <li><strong>Multi-allelic split</strong> &mdash; <code>bcftools norm -m-</code> splits multi-allelic sites so each alt allele has its own row.</li>
+            <li><strong>FILTER promotion</strong> &mdash; The original FILTER column value (e.g.&nbsp;PASS, SOR_filter) is copied into an INFO tag
+                <code>VCF_FILTER</code> so it appears as a searchable column in the report table.</li>
+            <li><strong>VAF annotation</strong> &mdash; <code>bcftools +fill-tags</code> adds a FORMAT/VAF field for allele-fraction display.</li>
+            <li><strong>Report creation</strong> &mdash; <code>create_report</code> renders each variant with &plusmn;500&nbsp;bp flanking,
+                the CRAM alignment track, and GFF3 gene annotations.
+                <br><code style="font-size:0.85em; white-space:pre-wrap;">create_report hc_prepared.vcf.gz --fasta ref.fasta --tracks genes.sorted.gff3.gz sample.md.cram --template custom_template_sample.html --filter-config filter_config.yaml --info-columns ANN VCF_FILTER ORIG_ALT AC AF DP QD MQ --sample-columns GT AD DP GQ VAF --flanking 500 --title "SRR6281661 - HaplotypeCaller SNP/InDel (E. coli K-12)" --output SRR6281661_report.html</code></li>
+            <li><strong>VCF embedding</strong> &mdash; The prepared VCF is base64-encoded into the HTML for self-contained download.</li>
+        </ol>
+        <p>
+            The report contains <strong>76 variants</strong> (all from joint gVCF calling, soft-filtered) and allows
+            interactive sorting, filtering, and IGV-style pileup inspection per variant.
+        </p>
+
+        <h3>SV report (SURVIVOR union) &mdash; work in progress</h3>
+        <p>
+            An initial SV report
+            <a href="SRR6281661_sv_report.html" target="_blank">SRR6281661_sv_report.html</a>
+            was generated from the SURVIVOR merged union VCF (15 records, &plusmn;1000&nbsp;bp flanking).
+            This report is <strong>not yet production-ready</strong>: the visualization approach for symbolic
+            alleles (&lt;DEL&gt;, &lt;INV&gt;, BND) and a scoring / quality-evaluation method for
+            structural variant calls still need further development. It is included here for reference only.
+        </p>
+
+        <h3>Reusable templates</h3>
+        <p>
+            The custom igv-reports template and filter configuration used to generate the reports above
+            are available in the <a href="templates/" target="_blank"><code>templates/</code></a> folder
+            for reuse in other benchmarks or organisms:
+        </p>
+        <ul style="margin:4px 0 0 0;">
+            <li><a href="templates/custom_template_sample.html" target="_blank"><code>custom_template_sample.html</code></a>
+                &mdash; Modified igv-reports HTML template with dark mode support, custom column rendering,
+                and embedded VCF download button.</li>
+            <li><a href="templates/filter_config.yaml" target="_blank"><code>filter_config.yaml</code></a>
+                &mdash; Column visibility and filter configuration for <code>create_report</code>.</li>
+        </ul>
+        <p style="color: var(--fg-muted); margin-top: 6px;">
+            Source: <code>docs/igvreports/</code> in the yAMP repository.
+            See <code>generate_igvreport.sh</code> for the full invocation.
+        </p>
+        </div>
+    </details>
+</div>
+
 <div class="footer">
-    Ground truth: breseq 0.39.0 &middot;
-    Pipeline: yAMP (nf-core/sarek 3.5.1 fork) &middot;
+    Callers: breseq 0.39.0 vs yAMP v1.0.0 pre-release (nf-core/sarek 3.5.1 fork) &middot;
     Reference: U00096.3 (NCBI) &middot;
     Generated by <code>generate_dashboard.py</code>
 </div>
@@ -331,8 +556,12 @@ Files:
     "manta": "N/A",
     "tiddit": "N/A",
     "consensus": "\u2014",
-    "notes": "IS2 (-), TSD: GTCCC (5 bp)",
+    "notes": "IS2 (1,331 bp transposon) inserted in - orientation. Duplicated 5 bp of target DNA (GTCCC) at insertion site. Location: intergenic (+570/-61).",
     "source": "breseq only",
+    "jc_ids": [
+      "243",
+      "244"
+    ],
     "_sort": 4
   },
   {
@@ -343,8 +572,12 @@ Files:
     "manta": "N/A",
     "tiddit": "N/A",
     "consensus": "\u2014",
-    "notes": "IS5 (+), TSD: CTAG (4 bp)",
+    "notes": "IS5 (1,195 bp transposon) inserted in + orientation. Duplicated 4 bp of target DNA (CTAG) at insertion site. Location: intergenic (+103/-354).",
     "source": "breseq only",
+    "jc_ids": [
+      "247",
+      "249"
+    ],
     "_sort": 5
   },
   {
@@ -355,8 +588,12 @@ Files:
     "manta": "N/A",
     "tiddit": "N/A",
     "consensus": "\u2014",
-    "notes": "IS2 (+), TSD: CCGGG (5 bp)",
+    "notes": "IS2 (1,331 bp transposon) inserted in + orientation. Duplicated 5 bp of target DNA (CCGGG) at insertion site. Location: coding (622-626/1341 nt).",
     "source": "breseq only",
+    "jc_ids": [
+      "250",
+      "251"
+    ],
     "_sort": 6
   },
   {
@@ -497,6 +734,7 @@ Files:
     "pos": 409876,
     "type": "SNP",
     "gene": "rdgC",
+    "locus_tag": "b0393",
     "effect": "synonymous",
     "breseq": "Yes",
     "ref": "C",
@@ -513,6 +751,7 @@ Files:
     "pos": 1169836,
     "type": "SNP",
     "gene": "ldtC",
+    "locus_tag": "b1113",
     "effect": "nonsynonymous",
     "breseq": "Yes",
     "ref": "A",
@@ -529,6 +768,7 @@ Files:
     "pos": 1189980,
     "type": "SNP",
     "gene": "phoP",
+    "locus_tag": "b1130",
     "effect": "synonymous",
     "breseq": "Yes",
     "ref": "A",
@@ -545,6 +785,7 @@ Files:
     "pos": 1337394,
     "type": "SNP",
     "gene": "acnA",
+    "locus_tag": "b1276",
     "effect": "nonsynonymous",
     "breseq": "Yes",
     "ref": "A",
@@ -561,6 +802,7 @@ Files:
     "pos": 1399465,
     "type": "SNP",
     "gene": "fnr",
+    "locus_tag": "b1334",
     "effect": "nonsynonymous",
     "breseq": "Yes",
     "ref": "T",
@@ -577,6 +819,7 @@ Files:
     "pos": 1652331,
     "type": "SNP",
     "gene": "ydfD/ynfP",
+    "locus_tag": "b1568",
     "effect": "intergenic",
     "breseq": "Yes",
     "ref": "T",
@@ -593,6 +836,7 @@ Files:
     "pos": 2040433,
     "type": "SNP",
     "gene": "msrP",
+    "locus_tag": "b1971",
     "effect": "nonsynonymous",
     "breseq": "Yes",
     "ref": "C",
@@ -609,6 +853,7 @@ Files:
     "pos": 2867455,
     "type": "SNP",
     "gene": "rpoS",
+    "locus_tag": "b2741",
     "effect": "nonsense",
     "breseq": "Yes",
     "ref": "G",
@@ -625,6 +870,7 @@ Files:
     "pos": 3560455,
     "type": "INS",
     "gene": "rtcR/glpG",
+    "locus_tag": "b4475",
     "effect": "small_indel",
     "breseq": "Yes",
     "ref": "C",
@@ -641,6 +887,7 @@ Files:
     "pos": 4223638,
     "type": "SNP",
     "gene": "iclR/metH",
+    "locus_tag": "b4017",
     "effect": "intergenic",
     "breseq": "Yes",
     "ref": "T",
@@ -657,6 +904,7 @@ Files:
     "pos": 4296381,
     "type": "INS",
     "gene": "gltP/yjcO",
+    "locus_tag": "b4073",
     "effect": "small_indel",
     "breseq": "Yes",
     "ref": "A",
@@ -672,7 +920,8 @@ Files:
   {
     "pos": 566463,
     "type": "SNP",
-    "gene": "b0535",
+    "gene": "fimZ",
+    "locus_tag": "b0535",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "T",
@@ -688,7 +937,8 @@ Files:
   {
     "pos": 566468,
     "type": "SNP",
-    "gene": "b0535",
+    "gene": "fimZ",
+    "locus_tag": "b0535",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "C",
@@ -704,7 +954,8 @@ Files:
   {
     "pos": 566492,
     "type": "SNP",
-    "gene": "b0535",
+    "gene": "fimZ",
+    "locus_tag": "b0535",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "G",
@@ -720,7 +971,8 @@ Files:
   {
     "pos": 566493,
     "type": "SNP",
-    "gene": "b0535",
+    "gene": "fimZ",
+    "locus_tag": "b0535",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "G",
@@ -736,7 +988,8 @@ Files:
   {
     "pos": 566498,
     "type": "SNP",
-    "gene": "b0535",
+    "gene": "fimZ",
+    "locus_tag": "b0535",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "C",
@@ -752,7 +1005,8 @@ Files:
   {
     "pos": 566510,
     "type": "SNP",
-    "gene": "b0535",
+    "gene": "fimZ",
+    "locus_tag": "b0535",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "G",
@@ -768,7 +1022,8 @@ Files:
   {
     "pos": 566513,
     "type": "SNP",
-    "gene": "b0535",
+    "gene": "fimZ",
+    "locus_tag": "b0535",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "C",
@@ -784,7 +1039,8 @@ Files:
   {
     "pos": 566528,
     "type": "SNP",
-    "gene": "b0535",
+    "gene": "fimZ",
+    "locus_tag": "b0535",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "A",
@@ -800,7 +1056,8 @@ Files:
   {
     "pos": 579094,
     "type": "DEL",
-    "gene": "b0553",
+    "gene": "nmpC",
+    "locus_tag": "b0553",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "TA",
@@ -816,7 +1073,8 @@ Files:
   {
     "pos": 579127,
     "type": "SNP",
-    "gene": "b0553",
+    "gene": "nmpC",
+    "locus_tag": "b0553",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "T",
@@ -832,7 +1090,8 @@ Files:
   {
     "pos": 579134,
     "type": "SNP",
-    "gene": "b0553",
+    "gene": "nmpC",
+    "locus_tag": "b0553",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "T",
@@ -848,7 +1107,8 @@ Files:
   {
     "pos": 579146,
     "type": "SNP",
-    "gene": "b0553",
+    "gene": "nmpC",
+    "locus_tag": "b0553",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "A",
@@ -864,7 +1124,8 @@ Files:
   {
     "pos": 579457,
     "type": "SNP",
-    "gene": "b0558",
+    "gene": "ybcV",
+    "locus_tag": "b0558",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -880,7 +1141,8 @@ Files:
   {
     "pos": 579502,
     "type": "SNP",
-    "gene": "b0558",
+    "gene": "ybcV",
+    "locus_tag": "b0558",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -896,7 +1158,8 @@ Files:
   {
     "pos": 579540,
     "type": "SNP",
-    "gene": "b0558",
+    "gene": "ybcV",
+    "locus_tag": "b0558",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "T",
@@ -912,7 +1175,8 @@ Files:
   {
     "pos": 1299498,
     "type": "INS",
-    "gene": "b1241",
+    "gene": "adhE",
+    "locus_tag": "b1241",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "A",
@@ -928,7 +1192,8 @@ Files:
   {
     "pos": 1299500,
     "type": "INS",
-    "gene": "b1241",
+    "gene": "adhE",
+    "locus_tag": "b1241",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "G",
@@ -944,7 +1209,8 @@ Files:
   {
     "pos": 1429069,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -960,7 +1226,8 @@ Files:
   {
     "pos": 1429072,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -976,7 +1243,8 @@ Files:
   {
     "pos": 1429111,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -992,7 +1260,8 @@ Files:
   {
     "pos": 1429114,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "C",
@@ -1008,7 +1277,8 @@ Files:
   {
     "pos": 1429126,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -1024,7 +1294,8 @@ Files:
   {
     "pos": 1429128,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "A",
@@ -1040,7 +1311,8 @@ Files:
   {
     "pos": 1429160,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "C",
@@ -1056,7 +1328,8 @@ Files:
   {
     "pos": 1429164,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "C",
@@ -1072,7 +1345,8 @@ Files:
   {
     "pos": 1429171,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -1088,7 +1362,8 @@ Files:
   {
     "pos": 1429204,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "C",
@@ -1104,7 +1379,8 @@ Files:
   {
     "pos": 1429207,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1120,7 +1396,8 @@ Files:
   {
     "pos": 1429225,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "C",
@@ -1136,7 +1413,8 @@ Files:
   {
     "pos": 1429228,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1152,7 +1430,8 @@ Files:
   {
     "pos": 1429231,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1168,7 +1447,8 @@ Files:
   {
     "pos": 1429243,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "A",
@@ -1184,7 +1464,8 @@ Files:
   {
     "pos": 1429246,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -1200,7 +1481,8 @@ Files:
   {
     "pos": 1429261,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1216,7 +1498,8 @@ Files:
   {
     "pos": 1429273,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1232,7 +1515,8 @@ Files:
   {
     "pos": 1429291,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1248,7 +1532,8 @@ Files:
   {
     "pos": 1429297,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "C",
@@ -1264,7 +1549,8 @@ Files:
   {
     "pos": 1429300,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1280,7 +1566,8 @@ Files:
   {
     "pos": 1429319,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "G",
@@ -1296,7 +1583,8 @@ Files:
   {
     "pos": 1429345,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1312,7 +1600,8 @@ Files:
   {
     "pos": 1429353,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "C",
@@ -1328,7 +1617,8 @@ Files:
   {
     "pos": 1429354,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -1344,7 +1634,8 @@ Files:
   {
     "pos": 1429360,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "C",
@@ -1360,7 +1651,8 @@ Files:
   {
     "pos": 1429364,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "T",
@@ -1376,7 +1668,8 @@ Files:
   {
     "pos": 1429404,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "C",
@@ -1392,7 +1685,8 @@ Files:
   {
     "pos": 1429732,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "G",
@@ -1408,7 +1702,8 @@ Files:
   {
     "pos": 1429735,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -1424,7 +1719,8 @@ Files:
   {
     "pos": 1429741,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "A",
@@ -1440,7 +1736,8 @@ Files:
   {
     "pos": 1429744,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1456,7 +1753,8 @@ Files:
   {
     "pos": 1429750,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "C",
@@ -1472,7 +1770,8 @@ Files:
   {
     "pos": 1429816,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "C",
@@ -1488,7 +1787,8 @@ Files:
   {
     "pos": 1429820,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "A",
@@ -1504,7 +1804,8 @@ Files:
   {
     "pos": 1429823,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "A",
@@ -1520,7 +1821,8 @@ Files:
   {
     "pos": 1429851,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "G",
@@ -1536,7 +1838,8 @@ Files:
   {
     "pos": 1429858,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "C",
@@ -1552,7 +1855,8 @@ Files:
   {
     "pos": 1429861,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "G",
@@ -1568,7 +1872,8 @@ Files:
   {
     "pos": 1429863,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "A",
@@ -1584,7 +1889,8 @@ Files:
   {
     "pos": 1429888,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "C",
@@ -1600,7 +1906,8 @@ Files:
   {
     "pos": 1429897,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1616,7 +1923,8 @@ Files:
   {
     "pos": 1429906,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "G",
@@ -1632,7 +1940,8 @@ Files:
   {
     "pos": 1429914,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "G",
@@ -1648,7 +1957,8 @@ Files:
   {
     "pos": 1429917,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "missense_variant",
     "breseq": "No",
     "ref": "A",
@@ -1664,7 +1974,8 @@ Files:
   {
     "pos": 1429927,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "G",
@@ -1680,7 +1991,8 @@ Files:
   {
     "pos": 1429930,
     "type": "SNP",
-    "gene": "b1372",
+    "gene": "stfR",
+    "locus_tag": "b1372",
     "effect": "synonymous_variant",
     "breseq": "No",
     "ref": "T",
@@ -1696,7 +2008,8 @@ Files:
   {
     "pos": 4035734,
     "type": "SNP",
-    "gene": "b3846",
+    "gene": "fadB",
+    "locus_tag": "b3846",
     "effect": "upstream_gene_variant",
     "breseq": "No",
     "ref": "T",
@@ -1752,6 +2065,19 @@ Files:
         return '<a href="' + igvSvUrl + '?locus=U00096:' + pos + '" target="_blank" title="Open in IGV report (SV)">' + display + '</a>';
     }
 
+    function svNotesFormatter(cell) {
+        var notes = cell.getValue() || '';
+        var row = cell.getRow().getData();
+        var jcIds = row.jc_ids;
+        if (jcIds && jcIds.length > 0) {
+            var links = jcIds.map(function(id) {
+                return '<a href="evidence/JC_' + id + '.html" target="_blank" title="breseq junction evidence #' + id + '">JC&nbsp;' + id + '</a>';
+            });
+            return '<span class="badge badge-na" style="margin-right:6px">breseq evidence: ' + links.join(', ') + '</span> ' + notes;
+        }
+        return notes;
+    }
+
     function effectBadge(cell) {
         var v = cell.getValue();
         if (!v) return '';
@@ -1776,7 +2102,7 @@ Files:
             { title: "breseq", field: "breseq", hozAlign: "center", formatter: yesNoBadge, width: 80 },
             { title: "Manta", field: "manta", hozAlign: "center", formatter: yesNoBadge, width: 80 },
             { title: "TIDDIT", field: "tiddit", hozAlign: "center", formatter: yesNoBadge, width: 80 },
-            { title: "Notes", field: "notes", minWidth: 250 },
+            { title: "Notes", field: "notes", formatter: svNotesFormatter, minWidth: 350 },
         ],
     });
 
@@ -1794,6 +2120,7 @@ Files:
             { title: "breseq", field: "breseq", hozAlign: "center", formatter: yesNoBadge, width: 80,
                headerFilter: "list", headerFilterParams: { valuesLookup: true } },
             { title: "Gene", field: "gene", headerFilter: "input", minWidth: 100 },
+            { title: "Locus Tag", field: "locus_tag", headerFilter: "input", width: 90 },
             { title: "Effect", field: "effect", formatter: effectBadge, minWidth: 120 },
             { title: "HC Filter", field: "hc_filter", hozAlign: "center", formatter: filterBadge, width: 110 },
             { title: "QD", field: "hc_qd", sorter: "number", hozAlign: "right", width: 70,
@@ -1804,11 +2131,48 @@ Files:
                    var v = cell.getValue();
                    if (v == null) return "";
                    var s = v.toFixed(2);
-                   return v > 3.0 ? '<span style="color:#cb2431;font-weight:600">' + s + '</span>' : s;
+                   return v > 3.0 ? '<span style="color:var(--sor-high);font-weight:600">' + s + '</span>' : s;
                } },
             { title: "Notes", field: "notes", minWidth: 250 },
         ],
     });
+
+    // --- Theme toggle ---
+    // Keep mql reference at module scope so Safari doesn't garbage-collect it
+    var __darkMql = window.matchMedia('(prefers-color-scheme: dark)');
+    (function() {
+        var btn = document.getElementById('themeToggle');
+        var root = document.documentElement;
+        function currentTheme() {
+            return root.getAttribute('data-theme') ||
+                (__darkMql.matches ? 'dark' : 'light');
+        }
+        function applyTheme(theme) {
+            root.setAttribute('data-theme', theme);
+            var csm = document.querySelector('meta[name="color-scheme"]');
+            if (csm) csm.setAttribute('content', theme);
+            btn.textContent = theme === 'dark' ? '☀' : '☾';
+        }
+        applyTheme(currentTheme());
+        btn.addEventListener('click', function() {
+            var next = currentTheme() === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('dashboard-theme', next);
+            applyTheme(next);
+        });
+        // React to system theme changes in real time (if user hasn't manually toggled).
+        // Use addListener for Safari compat (addEventListener not supported on
+        // MediaQueryList in Safari < 14 and unreliable in some later versions).
+        function onSystemChange(e) {
+            if (!localStorage.getItem('dashboard-theme')) {
+                applyTheme(e.matches ? 'dark' : 'light');
+            }
+        }
+        if (__darkMql.addEventListener) {
+            __darkMql.addEventListener('change', onSystemChange);
+        } else if (__darkMql.addListener) {
+            __darkMql.addListener(onSystemChange);
+        }
+    })();
 </script>
 </body>
 </html>

@@ -1,0 +1,53 @@
+# Tabulator filter configuration for igv-reports cohort report
+# Only INFO columns need explicit config; sample FORMAT columns get default text filters
+# Reference: https://github.com/igvteam/igv-reports/blob/master/test/data/variants/filter_config.yaml
+
+columns:
+  GENE:
+    type: string
+    filter: contains         # substring search box
+    formatter: "html"        # render <br> between multi-transcript annotations
+  EFFECTS:
+    type: string
+    filter: list             # dropdown with all unique values
+    formatter: "html"        # render <br> between multi-transcript annotations
+  IMPACT:
+    type: string
+    filter: list             # dropdown: HIGH, MODERATE, LOW, MODIFIER
+    formatter: "html"        # render <br> between multi-transcript annotations
+  TRANSCRIPT:
+    type: string
+    filter: contains
+    formatter: "html"        # render <br> between multi-transcript annotations
+  GENE_ID:
+    type: string
+    filter: contains
+    formatter: "html"        # render <br> between multi-transcript annotations
+  PROTEIN ALTERATION:
+    type: string
+    filter: contains
+    formatter: "html"        # render <br> between multi-transcript annotations
+  DNA ALTERATION:
+    type: string
+    filter: contains
+    formatter: "html"        # render <br> between multi-transcript annotations
+  VCF_FILTER:
+    type: string
+    filter: list             # dropdown: PASS, QD_filter, MQ_filter, etc.
+  ORIG_ALT:
+    type: string
+    filter: contains         # substring search for original multi-allelic context
+  AF:
+    type: number
+    filter: range            # min/max numeric slider
+  DP:
+    type: number
+    filter: threshold        # numeric cutoff (e.g., DP >= 10)
+    threshold: 10
+  QD:
+    type: number
+    filter: range            # min/max numeric range
+  MQ:
+    type: number
+    filter: threshold        # numeric cutoff (e.g., MQ >= 40)
+    threshold: 40

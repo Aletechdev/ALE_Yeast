@@ -1,0 +1,415 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ALE Variant Inspector</title>
+
+    <!-- Tabulator -->
+    <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+
+    <!-- igv -->
+    <script src="https://cdn.jsdelivr.net/npm/igv@3.5.2/dist/igv.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-size: 13px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* --- Header toolbar --- */
+        #toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: #f6f8fa;
+            border-bottom: 1px solid #d0d7de;
+            flex-shrink: 0;
+        }
+        #toolbar h1 {
+            font-size: 1.1em;
+            margin: 0;
+            color: #24292f;
+        }
+        #clearFilters, #exportFilters, #importFilters, #exportCsv, #downloadVcf {
+            padding: 4px 10px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        #clearFilters { background: #555555; }
+        #clearFilters:hover { background: #333333; }
+        #exportFilters { background: #d45500; }
+        #exportFilters:hover { background: #b34700; }
+        #importFilters { background: #d45500; }
+        #importFilters:hover { background: #b34700; }
+        #exportCsv { background: #0077bb; }
+        #exportCsv:hover { background: #005fa3; }
+        #downloadVcf { background: #7b2d8b; }
+        #downloadVcf:hover { background: #5f2269; }
+
+        /* --- Main content: table + IGV split --- */
+        #content {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* Table panel — 1:1 split with IGV */
+        #tablePanel {
+            flex: 1;
+            min-height: 200px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border-bottom: 3px solid #d0d7de;
+        }
+
+        #tableSelectorDiv {
+            flex: 1;
+            overflow: auto;
+        }
+
+        /* Override Tabulator's pagination to be sticky at bottom */
+        .tabulator .tabulator-footer {
+            position: sticky;
+            bottom: 0;
+            background: #f6f8fa;
+            border-top: 1px solid #d0d7de;
+            z-index: 10;
+        }
+
+        /* IGV panel — 1:1 split with table */
+        #igvPanel {
+            flex: 1;
+            min-height: 200px;
+            overflow: auto;
+        }
+
+        #igvDiv {
+            height: 100%;
+        }
+
+        /* Resize handle between panels */
+        #resizeHandle {
+            height: 6px;
+            background: #d0d7de;
+            cursor: row-resize;
+            flex-shrink: 0;
+        }
+        #resizeHandle:hover {
+            background: #0366d6;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="app">
+    <!-- Toolbar -->
+    <div id="toolbar">
+        <h1>ALE Variant Inspector</h1>
+        <button id="clearFilters">Clear Filters</button>
+        <button id="exportFilters">Export Filters</button>
+        <button id="importFilters">Import Filters</button>
+        <button id="exportCsv">Export CSV</button>
+        <button id="downloadVcf">Download VCF</button>
+        <input type="file" id="filterFileInput" accept=".json" style="display:none">
+    </div>
+
+    <!-- Main content -->
+    <div id="content">
+        <!-- Variant table -->
+        <div id="tablePanel">
+            <div id="tableSelectorDiv"></div>
+        </div>
+
+        <!-- Drag handle -->
+        <div id="resizeHandle"></div>
+
+        <!-- IGV browser -->
+        <div id="igvPanel">
+            <div id="igvDiv"></div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+
+    const tableJson = "@TABLE_JSON@";
+    const sessionDictionary = "@SESSION_DICTIONARY@";
+    const filterConfig = "@FILTER_CONFIG@";
+
+    // Embedded VCF (base64-encoded gzip) — injected by build script
+    const vcfBase64 = "@VCF_BASE64@";
+    const vcfFilename = "@VCF_FILENAME@";
+
+    let igvBrowser;
+    let table;
+
+    document.addEventListener("DOMContentLoaded", function () {
+        initIGV();
+        initResizeHandle();
+    });
+
+    function initIGV() {
+        const igvDiv = document.getElementById("igvDiv");
+        const options = {
+            sessionURL: sessionDictionary["0"],
+            showChromosomeWidget: false,
+            showCenterGuide: true,
+            search: false
+        };
+
+        igv.createBrowser(igvDiv, options)
+            .then(function (b) {
+                igvBrowser = b;
+                initTable();
+            });
+    }
+
+    // Custom formatter: strips empty <br> entries, shows "GENE: change" for context
+    function annCondensedFormatter(cell) {
+        const val = cell.getValue();
+        if (!val) return "";
+        const row = cell.getRow().getData();
+        const genes = (row["GENE"] || "").split("<br>");
+        const parts = val.split("<br>");
+        const items = [];
+        for (let i = 0; i < parts.length; i++) {
+            if (parts[i].trim()) {
+                const gene = genes[i] ? genes[i].trim() : "";
+                items.push(gene ? `<b>${gene}</b>: ${parts[i].trim()}` : parts[i].trim());
+            }
+        }
+        return items.length ? items.join("<br>") : "";
+    }
+
+    const columnSettings = {
+        "GENE":               { type: "string", filter: "contains", formatter: "html" },
+        "EFFECTS":            { type: "string", filter: "list",     formatter: "html" },
+        "IMPACT":             { type: "string", filter: "list",     formatter: "html" },
+        "TRANSCRIPT":         { type: "string", filter: "contains", formatter: "html" },
+        "GENE_ID":            { type: "string", filter: "contains", formatter: "html" },
+        "PROTEIN ALTERATION": { type: "string", filter: "contains", formatter: annCondensedFormatter },
+        "DNA ALTERATION":     { type: "string", filter: "contains", formatter: annCondensedFormatter },
+        "VCF_FILTER":         { type: "string", filter: "list" },
+        "ORIG_ALT":           { type: "string", filter: "contains" },
+        "AF":                 { type: "number", filter: "range" },
+        "DP":                 { type: "number", filter: "number" },
+        "QD":                 { type: "number", filter: "range" },
+        "MQ":                 { type: "number", filter: "number" },
+    };
+
+    function initTable() {
+        const columnConfig = tableJson.headers
+            .filter(header => header !== "unique_id")
+            .map(header => {
+                const settings = columnSettings[header] || {};
+                const isNumber = settings.type === "number";
+                return {
+                    title: header,
+                    field: header,
+                    sorter: isNumber ? "number" : "string",
+                    headerFilter: isNumber ? "number" : "input",
+                    headerFilterPlaceholder: `Filter ${header}`,
+                    formatter: settings.formatter || undefined,
+                };
+            });
+
+        table = new Tabulator("#tableSelectorDiv", {
+            data: tableJson.rows.map(row => {
+                const obj = {};
+                tableJson.headers.forEach((header, i) => {
+                    obj[header] = row[i];
+                });
+                return obj;
+            }),
+            columns: columnConfig,
+            layout: "fitDataTable",
+            height: "100%",
+            pagination: true,
+            paginationSize: 25,
+            paginationSizeSelector: [10, 25, 50, 100],
+            paginationCounter: "rows",
+            selectable: 1,
+        });
+
+        // Clear filters
+        document.getElementById("clearFilters").addEventListener("click", function() {
+            table.clearFilter(true);
+        });
+
+        // Export filter configuration as JSON
+        document.getElementById("exportFilters").addEventListener("click", function() {
+            const filters = table.getHeaderFilters();
+            if (!filters.length) {
+                alert("No filters are currently active.");
+                return;
+            }
+            const json = JSON.stringify(filters, null, 2);
+            const blob = new Blob([json], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "variant_filters.json";
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Import filter configuration from JSON
+        document.getElementById("importFilters").addEventListener("click", function() {
+            document.getElementById("filterFileInput").click();
+        });
+        document.getElementById("filterFileInput").addEventListener("change", function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    const filters = JSON.parse(ev.target.result);
+                    table.clearFilter(true);
+                    filters.forEach(f => {
+                        table.setHeaderFilterValue(f.field, f.value);
+                    });
+                } catch (err) {
+                    alert("Invalid filter file: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = "";
+        });
+
+        // Export CSV (respects active filters — only exports visible rows)
+        document.getElementById("exportCsv").addEventListener("click", function() {
+            table.download("csv", "variants_export.csv", {}, "active");
+        });
+
+        // Download raw VCF file
+        document.getElementById("downloadVcf").addEventListener("click", function() {
+            if (!vcfBase64 || vcfBase64 === "@" + "VCF_BASE64@") {
+                alert("VCF file not embedded in this report.");
+                return;
+            }
+            const blob = new Blob(
+                [Uint8Array.from(atob(vcfBase64), c => c.charCodeAt(0))],
+                { type: "application/gzip" }
+            );
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = vcfFilename || "variants.vcf.gz";
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Row click → load IGV session
+        table.on("rowClick", function(e, row) {
+            const uniqueId = row.getData()["unique_id"];
+            const session = sessionDictionary[uniqueId];
+            if (session) {
+                igvBrowser.loadSession({ url: session });
+            }
+        });
+
+        // Handle ?locus= parameter from cohort report cross-link
+        const params = new URLSearchParams(window.location.search);
+        const locus = params.get("locus");
+        if (locus) {
+            const [chrom, pos] = locus.split(":");
+            const posNum = parseInt(pos);
+
+            // Wait for table to be fully rendered before navigating
+            table.on("renderComplete", function locusHandler() {
+                table.off("renderComplete", locusHandler); // Only run once
+
+                // Find the row index in the full dataset
+                const allData = table.getData();
+                let targetIdx = -1;
+                let targetUniqueId = null;
+                for (let i = 0; i < allData.length; i++) {
+                    if (allData[i]["CHROM"] === chrom &&
+                        (allData[i]["POSITION"] === posNum || allData[i]["POSITION"] === pos)) {
+                        targetIdx = i;
+                        targetUniqueId = allData[i]["unique_id"];
+                        break;
+                    }
+                }
+                if (targetIdx === -1) return;
+
+                // Remove pagination so table becomes a scrollable list
+                table.setPageSize(allData.length);
+
+                setTimeout(function() {
+                    const rows = table.getRows();
+                    const targetRow = rows.find(r => r.getData()["unique_id"] === targetUniqueId);
+                    if (targetRow) {
+                        targetRow.select();
+                        // Natural scroll: centers the row, but at edges just scrolls as far as possible
+                        const rowEl = targetRow.getElement();
+                        if (rowEl) {
+                            rowEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }
+                    }
+                    const session = sessionDictionary[targetUniqueId];
+                    if (session) igvBrowser.loadSession({ url: session });
+                }, 300);
+            });
+        }
+    }
+
+    // --- Resizable split panes ---
+    function initResizeHandle() {
+        const handle = document.getElementById("resizeHandle");
+        const tablePanel = document.getElementById("tablePanel");
+        const igvPanel = document.getElementById("igvPanel");
+        const content = document.getElementById("content");
+        let startY, startTableH, startIgvH;
+
+        handle.addEventListener("mousedown", function(e) {
+            e.preventDefault();
+            startY = e.clientY;
+            startTableH = tablePanel.offsetHeight;
+            startIgvH = igvPanel.offsetHeight;
+            document.addEventListener("mousemove", onDrag);
+            document.addEventListener("mouseup", onRelease);
+            document.body.style.cursor = "row-resize";
+            document.body.style.userSelect = "none";
+        });
+
+        function onDrag(e) {
+            const dy = e.clientY - startY;
+            const newTableH = Math.max(150, startTableH + dy);
+            const newIgvH = Math.max(150, startIgvH - dy);
+            tablePanel.style.flex = "none";
+            igvPanel.style.flex = "none";
+            tablePanel.style.height = newTableH + "px";
+            igvPanel.style.height = newIgvH + "px";
+        }
+
+        function onRelease() {
+            document.removeEventListener("mousemove", onDrag);
+            document.removeEventListener("mouseup", onRelease);
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+        }
+    }
+
+</script>
+</body>
+</html>

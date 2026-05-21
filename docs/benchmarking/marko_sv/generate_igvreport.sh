@@ -11,7 +11,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 SAMPLE="SRR6281661"
-OUTDIR="${REPO_ROOT}/docs/benchmarking/marko_sv/sv_comparison"
+OUTDIR="${REPO_ROOT}/docs/benchmarking/marko_sv/sv_comparison/report"
 
 # --- Shared input files ---
 CRAM="${REPO_ROOT}/output_marko_sv/preprocessing/markduplicates/${SAMPLE}/${SAMPLE}.md.cram"
