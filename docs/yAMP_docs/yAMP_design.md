@@ -40,6 +40,16 @@ Enabling population mode for BreSeq (Not released): for population samples run `
 Next release variant calling candidates (Not fully customized/validated):
 FreeBayes (SNP + InDel): lacks HaplotypeCaller’s joint calling mode, custom cohort joint VCF too noisy (multi-allelic sites normalization issues)
 Control-FREEC (CNV): lacks standard VCF output, thus no functional annotation by SnpEff. Also crashes on some samples (std::length_error in v11.6b). See `docs/variant-calling/controlfreec/controlfreec_germline_changes.md`
+  - Ottilie pilot (4 samples, S288C R64): no Control-FREEC crashes
+  - Ottilie Tier 2 (86 samples, S288C R64): 4 samples crashed (exit 134 / SIGABRT), all `std::length_error` during copy number annotation:
+    - `BMS983970-2R1e` (failed 3 times: initial + 2 retries)
+    - `CBR868--15R3a`
+    - `DDD01027481--11_R3a`
+    - `MMV306025--R1-2`
+    - Work dirs: `work_ottilie_tier2/{94,a3,76}/` (BMS983970), `26/` (CBR868), `f5/` (DDD01027), `c6/` (MMV306025)
+    - Root cause: excessive breakpoint density triggers C++ vector overflow (e.g., mitochondrial chr)
+    - Pipeline stopped after retry (global `errorStrategy = 'retry'`, `maxRetries = 1` in `bin/nextflow.config`)
+    - TODO: set `errorStrategy = { task.exitStatus == 134 ? 'ignore' : 'retry' }` for `FREEC_.*` in `conf/modules/controlfreec.config` so pipeline continues past deterministic crashes
 Always diploid: DeepVariant (SNP + InDel), Manta (SV), Mutect2 (SNP + InDel, too sensitive compared to HaplotypeCaller)
 Always haploid: BreSeq (SNP, InDel, SV; docker build for only internal usage, not sub-processes optimized nor released)
 

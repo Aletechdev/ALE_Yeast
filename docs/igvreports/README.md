@@ -102,7 +102,37 @@ Consider adding/removing:
 - **Remove**: `AN` (always same for joint calling), `AC` (redundant with per-sample GT)
 - **Review**: Whether INFO-level `AF` vs per-sample `AF` is more useful
 
-### 4. CRAM Track Feasibility
+### 4. Demo Reports Missing Soft-Filter INFO Columns
+
+The demo report workflow ([generate_demo_reports.nf](generate_demo_reports.nf) lines 130, 178) uses
+`--info-columns ANN VCF_FILTER ORIG_ALT AC AF DP QD MQ`, but the joint germline soft filter
+(`VARIANTFILTRATION_FALLBACK` in `conf/modules/joint_germline.config`) evaluates these INFO fields:
+
+| Field | In demo report? | Soft filter usage |
+|-------|-----------------|-------------------|
+| QD | Yes | `QD < 2.0` |
+| MQ | Yes | `MQ < 40.0` |
+| FS | **No** | `FS > 60.0` (SNP), `FS > 200.0` (INDEL) |
+| SOR | **No** | `SOR > 3.0` (SNP), `SOR > 10.0` (INDEL) |
+| MQRankSum | **No** | `MQRankSum < -12.5` |
+| ReadPosRankSum | **No** | `ReadPosRankSum < -8.0` |
+
+Without these columns, reviewers cannot see *why* a variant was flagged in the FILTER column.
+
+**Action**: Add `FS SOR MQRankSum ReadPosRankSum` to `--info-columns` in both `IGVREPORTS_COHORT`
+and `IGVREPORTS_SAMPLE` processes, and add corresponding entries to the Tabulator filter config YAML.
+
+### 5. Review and Deliver SV IGVReports
+
+A pilot SV report was generated for the Marko benchmark (`docs/benchmarking/marko_sv/generate_igvreport.sh`).
+It produces two reports for E. coli K-12 sample SRR6281661:
+- SNP/InDel report from HaplotypeCaller
+- SV report from SURVIVOR merged union VCF (DEL/INV breakpoints with CRAM pileups)
+
+**Action**: Review the SV report output, refine column selection and flanking region, and integrate
+SV IGVReports into the main pipeline for delivery alongside SNP/InDel reports.
+
+### 6. CRAM Track Feasibility
 
 To make with-CRAMs runs viable on D4as (16 GB):
 - Pre-filter to PASS-only: `bcftools view -f PASS` (~737 variants vs 1,748)

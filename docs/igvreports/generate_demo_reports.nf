@@ -32,6 +32,8 @@ params.custom_template     = null   // Custom HTML template for cohort report
 params.sample_template     = null   // Custom HTML template for per-sample reports (1:1 split)
 params.outdir              = 'docs/igvreports/demo'
 params.samples             = null   // comma-separated sample IDs
+params.multiqc_data_dir    = null   // path to multiqc_data/ directory (for multi-caller index)
+params.generate_index_script = null // path to generate_index.py
 
 // --- Processes ---
 
@@ -218,91 +220,46 @@ process GENERATE_INDEX {
     tag 'index'
     label 'process_low'
 
+    // No container — runs on host Python (nf-env has jinja2 + pandas)
+
     publishDir "${params.outdir}", mode: 'copy'
 
     input:
     path cohort_report
     path sample_reports
     val variant_counts  // map of sample_id -> count
+    path multiqc_data_dir
+    path generate_index_script
+    path templates_dir
 
     output:
     path "index.html"
 
     script:
-    def count_map = variant_counts
-
-    def sample_rows = sample_reports.collect { f ->
-        def name = f.name.replace('_report.html', '')
-        def type = name.startsWith('A0-') ? 'Ancestral' : 'Evolved'
-        // Extract ALE lineage from sample name: A{n}-F{n} pattern
-        def lineage = name.startsWith('A0-') ? 'CEN.PK parent' : name.replaceAll(/^(A\d+)-F(\d+).*/, '$1 (Flask $2)')
-        def variants = count_map[name] ?: '?'
-        "<tr><td><a href=\"samples/${f.name}\">${name}</a></td><td>${type}</td><td>${lineage}</td><td>${variants}</td></tr>"
-    }.sort().join('\n                ')
+    // Write variant counts to JSON for the Python script
+    def counts_json = new groovy.json.JsonBuilder(variant_counts).toString()
 
     """
-    cat <<'HTMLEOF' > index.html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>ALE Variant Review - IGVReports Demo</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; }
-        h1 { border-bottom: 2px solid #0366d6; padding-bottom: 8px; }
-        h2 { margin-top: 32px; color: #24292e; }
-        a { color: #0366d6; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .report-link { display: block; padding: 8px 12px; margin: 4px 0; border-radius: 4px; background: #f6f8fa; }
-        .report-link:hover { background: #e1e4e8; }
-        .meta { color: #586069; font-size: 0.9em; margin-left: 8px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 8px; }
-        th, td { text-align: left; padding: 6px 12px; border: 1px solid #e1e4e8; }
-        th { background: #f6f8fa; }
-        .note { color: #586069; font-size: 0.9em; margin-top: 4px; }
-    </style>
-</head>
-<body>
-    <h1>ALE Variant Review - IGVReports Demo</h1>
-    <p>Variants called using <a href="https://gatk.broadinstitute.org/hc/en-us/articles/5358864757787-HaplotypeCaller">GATK HaplotypeCaller</a>
-        joint germline calling (GATK best practices), annotated with
-        <a href="https://pcingola.github.io/SnpEff/">SnpEff</a>.
-        Reports generated with <a href="https://github.com/igvteam/igv-reports">igv-reports</a> v1.16.0.</p>
-    <p class="note">New to VCF format? See the <a href="https://gatk.broadinstitute.org/hc/en-us/articles/360035531692-VCF-Variant-Call-Format">GATK VCF introduction</a>.</p>
+    # Write variant counts from Nextflow to a temp JSON file
+    cat <<'COUNTJSON' > variant_counts.json
+${counts_json}
+COUNTJSON
 
-    <div>
-        <h2>Cohort Overview</h2>
-        <a class="report-link" href="cohort_report.html">
-            Cohort variant table (all variants, all 17 samples)
-            <span class="meta">Tabulator.js with column filters + ANN columns (GENE, EFFECTS, IMPACT) + per-sample GT/AD/DP/GQ/VAF</span>
-        </a>
-        <p class="note">Multi-allelic variants split into biallelic rows (bcftools norm -m-). ORIG_ALT column shows original multi-allelic context for split records.</p>
-    </div>
+    # Run the Jinja2-based index generator
+    python3 ${generate_index_script} \\
+        --multiqc-dir ${multiqc_data_dir} \\
+        --output index.html \\
+        --cohort-report ${cohort_report} \\
+        --sample-reports-dir samples \\
+        --variant-counts-json variant_counts.json \\
+        --templates-dir ${templates_dir}
 
-    <div>
-        <h2>Per-Sample Reports (with IGV read pileups + gene track)</h2>
-        <p class="note">Demo subset: I1 replicates only (one per ALE lineage).
-            I2/I3 replicates are excluded from this demo due to large HTML file sizes (135-196 MB per report)
-            caused by higher ploidy configuration that reports lower frequency mutations.</p>
-        <p class="note">Per-sample VCFs include all variants (soft-filtered, not hard-filtered).
-            The VCF_FILTER column shows quality flags (PASS, QD_filter, MQ_filter, etc.) but no variants are removed.</p>
-        <table>
-            <thead><tr><th>Sample</th><th>Type</th><th>ALE Lineage</th><th>Variants</th></tr></thead>
-            <tbody>
-                ${sample_rows}
-            </tbody>
-        </table>
-    </div>
-
-    <div style="color: #586069; font-size: 0.85em; margin-top: 40px; border-top: 1px solid #e1e4e8; padding-top: 12px;">
-        Generated from SnpEff-annotated HaplotypeCaller joint germline calling.<br>
-        Per-sample reports include GFF3 gene track + CRAM read pileups + FORMAT/VAF.<br>
-        Multi-allelic variants split with bcftools norm -m- (ORIG_ALT preserves original context).<br>
-        Reference: draft_ref52.fasta
-    </div>
-</body>
-</html>
-HTMLEOF
+    # Create samples/ symlink so relative links in index.html work at publish time
+    # (sample reports are staged flat by Nextflow, but published into samples/)
+    mkdir -p samples
+    for f in *_report.html; do
+        [ -f "\$f" ] && [ "\$f" != "cohort_report.html" ] && ln -sf "../\$f" "samples/\$f" || true
+    done
     """
 }
 
@@ -379,10 +336,17 @@ workflow {
             m
         }
 
-    // --- Generate index.html ---
+    // --- Generate index.html (Jinja2-based multi-caller dashboard) ---
+    ch_multiqc_data = Channel.value(file(params.multiqc_data_dir))
+    ch_generate_script = Channel.value(file(params.generate_index_script))
+    ch_templates = Channel.value(file("${projectDir}/docs/igvreports/templates"))
+
     GENERATE_INDEX(
         IGVREPORTS_COHORT.out.collect(),
         IGVREPORTS_SAMPLE.out.collect(),
-        ch_count_map
+        ch_count_map,
+        ch_multiqc_data,
+        ch_generate_script,
+        ch_templates
     )
 }

@@ -25,6 +25,8 @@ nextflow run "${REPO_ROOT}/docs/igvreports/generate_demo_reports.nf" \
     --sample_template "${REPO_ROOT}/docs/igvreports/custom_template_sample.html" \
     --outdir "${REPO_ROOT}/docs/igvreports/demo" \
     --samples "${SAMPLES}" \
+    --multiqc_data_dir "${REPO_ROOT}/output_all/multiqc/multiqc_data" \
+    --generate_index_script "${REPO_ROOT}/docs/igvreports/generate_index.py" \
     -resume
 
 echo ""
