@@ -256,3 +256,30 @@ Control-FREEC does not produce standard VCF output natively. Its CNV calls are i
 **Impact**: FREEC CNV regions are not annotated with gene names or functional impact. Manual cross-referencing with gene coordinates is needed for biological interpretation.
 
 **⚠️ TODO (next release)**: Investigate converting FREEC output to standard SV-VCF format (e.g., via `freec2vcf` or custom script) so that SnpEff annotation can be applied consistently across all CNV callers.
+
+---
+
+## ⚠️ Investigation Needed: Missed Whole-Chromosome Duplication (Ottilie Pilot)
+
+**Date**: 2026-05-22
+**Status**: Needs investigation before promoting Control-FREEC as a supported CNV tool
+
+### Observation
+
+In the Ottilie pilot validation (4 samples, all haploid/ploidy=1), Control-FREEC **failed to detect** the one validated whole-chromosome CNV event: **CBR110-15-R3a chr I duplication** (confirmed in Ottilie Sup Data 5 truth set).
+
+| Tool | Chr I detection | Evidence |
+|------|----------------|----------|
+| **CNVKit** (.call.cns) | cn=3 (all ploidies) | **Detected** — ploidy-independent |
+| **CNVKit** (VCF, --ploidy 2) | DUP, CN=3 | **Detected** — shown because cn≠ploidy |
+| **Control-FREEC** (_CNVs) | Not listed | **Missed** |
+| **Control-FREEC** (.bed) | chrI segments at CN≈2.4–2.8 | Signal present but not called |
+
+CNVKit's `.call.cns` reports chr I as cn=3 regardless of the `--ploidy` parameter (1, 2, or 3), since CN integer assignment uses fixed diploid-scale thresholds. For production, CNVKit `--ploidy` is being set to 2 (default) so that the VCF export correctly emits chr I as a DUP record (cn=3 ≠ ploidy=2). Post-VCF configuration change is in progress (see `docs/variant-calling/cnvkit/cnvkit_ploidy_cn_scale.md`).
+
+### Action Items
+
+- [ ] Investigate why Control-FREEC missed chr I despite signal in .bed (window size? significance threshold? mosaicism?)
+- [ ] Test with relaxed parameters (`breakPointThreshold`, `coefficientOfVariation`)
+- [ ] Run on Tier 2 samples with known CNVs (BMS983970-2R1e, Diethylstilbestrol--15A) to assess broader sensitivity
+- [ ] Compare Control-FREEC vs CNVKit sensitivity across all truth set CNV events before deciding on tool inclusion
