@@ -11,8 +11,9 @@ We have SNV/INDEL concordance (98.8% on Tier 2) validated, but no systematic rev
 
 ## Scope decisions
 - **Control-FREEC**: Skip — did not complete all samples in Tier 2
-- **CNV truth set**: Only 1 sample in pilot (CBR110-15-R3a), 2 in Tier 2 (Diethylstilbestrol--15A, BMS983970-2R1e) — report truth concordance + characterization for all samples
+- **CNV truth set**: Only 1 sample in pilot (CBR110-15-R3a), 2 in Tier 2 (Diethylstilbestrol--15A, BMS983970-2R1e) — report truth concordance + characterization for all samples. **Note**: Truth set is too thin for statistical power; results demonstrate methodology. Tier 3 samples may be needed for robust CNV validation.
 - **SV**: No truth set — characterization only (SURVIVOR merge Manta+TIDDIT), lower priority
+- **SNV/INDEL (HaplotypeCaller)**: Already validated by `snv_indel_concordance.py` at sample level against Sup Data 4. No additional work needed.
 
 ## Implementation plan
 
@@ -68,6 +69,7 @@ Functions (reuse patterns from `docs/benchmarking/marko_sv/sv_comparison/generat
 - `parse_survivor_vcf(vcf_path)` — extract SVTYPE, SVLEN, SUPP_VEC
 - `characterize_sample(sample, output_dir)` — per-sample SV summary
 - `subtract_parent(evolved_svs, parent_svs, max_dist=1000)` — flag shared SVs
+- **Parent sample**: `NODRUG-GM2` (hardcoded in `snv_indel_concordance.py`, single parent with `is_parent=True` in dictionary). Note: dictionary has `NODRUG--GM2` (double dash) but pipeline output uses `NODRUG-GM2` (single dash). The `--parent` arg from `validate_all.py` should propagate this consistently.
 - Output CSV: `sample, manta_total, manta_pass, tiddit_total, tiddit_pass, consensus_count, evolved_unique_consensus, sv_types`
 
 ### Step 3: Create `validate_all.py` orchestrator
@@ -79,39 +81,52 @@ Functions (reuse patterns from `docs/benchmarking/marko_sv/sv_comparison/generat
 - Args: `--output-dir`, `--results-dir`, `--parent`
 
 ## Execution order
-1. **Revert CNVKit `--ploidy` to 2** in `conf/modules/cnvkit.config`:
+
+**⚠️ Dependency**: Step 1 requires a pipeline re-run (~2 hours for Tier 2 with optimized resource allocation). Steps 3–5 can be developed in parallel while the re-run completes, but CNV validation results require the re-run output.
+
+1. ✅ **Revert CNVKit `--ploidy` to nf-core/sarek 3.5.1 defaults** in `conf/modules/cnvkit.config` (completed 2026-05-26):
+   - Reverted to original upstream (commit `3c155ab`) — removed all `--ploidy ${meta.ploidy}` additions. cnvkit defaults to `--ploidy 2`.
+   - Updated docs: `cnvkit_ploidy_behavior.md`, `cnvkit_ploidy_cn_scale.md`, `cnvkit_sarek_dual_call.md`
+   - ✅ Pilot re-run completed. Verified `cns[2]` index (alphabetical: `.bintest.cns`[0], `.call.cns`[1], `.cns`[2] — correct). Updated `cnvkit_sarek_dual_call.md` with actual post-revert data: Carmaphycin chr XII now cn=13/cn=4 in both files (was cn=7/cn=2 with ploidy=1). Only remaining difference: CBR110 chr VI (cn=2 vs cn=3 from re-centering).
+   - **Original plan notes** (retained for context):
    - Change `--ploidy ${meta.ploidy}` → `--ploidy 2` in `CNVKIT_CALL` (line 38), germline override (line 47), and `CNVKIT_EXPORT` (line 57)
    - **Verified**: Dual `CNVKIT_CALL` config (generic line 28-43, germline override line 45-48) is **original nf-core/sarek 3.5.1 design** — diff against `.claude/worktrees/sarek-compare/nf-core-sarek_3.5.1/3_5_1/conf/modules/cnvkit.config` shows our only change was adding ploidy documentation comments (lines 30-37). The subworkflow (`bam_variant_calling_cnvkit/main.nf`) is identical to upstream.
    - **Known trade-off in sarek design**: `CNVKIT_BATCH` internally produces `.md.call.cns` (re-centered log2, has `p_ttest`, merged segments). Then `CNVKIT_CALL` re-calls from `.md.cns` (raw segmented) with `--filter ci` for germline, producing `.md.germline.call.cns` (CI-filtered, no re-centering, no `p_ttest`). The VCF is exported from `.germline.call.cns`. This is intentional — sarek likely prefers CI filtering for germline to reduce false positives (germline CNVs should be high-confidence, so segments with CI spanning zero are treated as noise).
    - **Impact**: Re-centering gap (~0.03 log2 shift) can flip CN calls at threshold boundaries (e.g., chr VI: log2=0.217→cn=3 in `.germline.call.cns` vs log2=0.187→cn=2 in `.call.cns`). High-CN overflow formula (`ceil(ploidy × 2^log2)`) also differs when `--ploidy` differs between the two calls (e.g., Carmaphycin chr XII: cn=13 in `.call.cns` vs cn=7 in `.germline.call.cns` with ploidy=1). After reverting to `--ploidy 2`, the overflow formula will match and only the re-centering difference remains.
    - **Full investigation**: See `docs/variant-calling/cnvkit/cnvkit_sarek_dual_call.md` for complete comparison with data from all 4 pilot samples.
-   - **Note**: `cns[2]` in `CNVKIT_CALL` input (line 31 of subworkflow) is index-based selection from `CNVKIT_BATCH.out.cns` glob — picks `.cns` correctly (alphabetical: `.bintest.cns`[0], `.call.cns`[1], `.cns`[2]) but is fragile if file naming changes
-2. **Build dual CN matrices** — generate two segment-level matrices from both `.md.call.cns` and `.md.germline.call.cns` to empirically compare:
-   - **Sensitive matrix** (from `.md.call.cns`): Re-centered log2, includes `p_ttest` for user-controlled quality filtering, retains all segments. Better for mixed-population ALE where subclonal/mosaic signals are weak.
-   - **Stringent matrix** (from `.md.germline.call.cns`): CI-filtered, no re-centering (cleaner calls, fewer false positives, matches VCF output). Better for clonal ALE samples with strong, unambiguous signal.
-   - **Columns per sample**: log2, cn (integer from file), absolute_cn (`ploidy × 2^log2` continuous), p_ttest (sensitive matrix only)
-   - **Compare**: Where do the two matrices agree/disagree? Check disagreements against known CNVs. Determine if one mode fits all ALE use cases or if clonal vs mixed-population samples need different modes.
-   - **Additionally**: Build `.cnr` bin-level matrix (`ploidy × 2^log2`) for continuous CN heatmaps/clustering.
-   - See `docs/variant-calling/cnvkit/cnvkit_cn_calculation.md` and `docs/variant-calling/cnvkit/cnvkit_sarek_dual_call.md` for details.
-3. Enhance `cnv_concordance.py` (CNVKit-only, dynamic mapping)
-4. Create `sv_characterization.py`
-5. Create `validate_all.py`
-6. Run on pilot (`output_ottilie`) — verify all 3 sections
+   - **⚠️ REVIEW BEFORE EXECUTING**: `cns[2]` in `CNVKIT_CALL` input (line 31 of subworkflow) is index-based selection from `CNVKIT_BATCH.out.cns` glob — picks `.cns` correctly (alphabetical: `.bintest.cns`[0], `.call.cns`[1], `.cns`[2]) but is fragile if file naming changes. **Verify** by checking actual output: `ls output_ottilie/variant_calling/cnvkit/<any_sample>/*.cns | sort` — if glob order doesn't match `[.bintest.cns, .call.cns, .cns]`, the pipeline silently picks the wrong file. This is a sarek upstream concern, not a validation script issue.
+2. ✅ **Build dual CN matrices** (completed 2026-05-26) — `bin/build_cn_matrix.py`
+   - **Script**: `bin/build_cn_matrix.py --output-dir <dir> --ploidy <N> [--results-dir <dir>]`
+   - Builds 3 matrix types: sensitive segments (`.call.cns`), stringent segments (`.germline.call.cns`), continuous bins (`.cnr`)
+   - Outputs chromosome-level summary + per-segment detail + sensitive/stringent comparison
+   - **Pilot results** (4 samples, ploidy=1): Only 1 CN disagreement — CBR110-15-R3a chr VI (cn=2 sensitive vs cn=3 stringent, re-centering threshold flip at log2≈0.2). All other segments agree.
+   - Output files in `output_ottilie/cn_matrices/`: `cn_segments_sensitive.csv`, `cn_segments_stringent.csv`, `cn_chr_summary_*.csv`, `cn_bins_continuous.csv`, `cn_sensitive_vs_stringent.csv`
+3. ✅ **Enhance `cnv_concordance.py`** (completed 2026-05-26) — CNVKit-only, dynamic mapping via `sample_name_dictionary.csv`, `--csv`/`--all-samples` flags. Pilot: 1/1 truth events detected (100%).
+4. ✅ **Create `sv_characterization.py`** (completed 2026-05-26) — SURVIVOR merge Manta+TIDDIT, parent subtraction, per-sample SV summary.
+   - **Script**: `04_validate/sv_characterization.py --output-dir <dir> --dictionary <csv> [--csv <path>]`
+   - **Pilot results** (4 samples): Consensus SVs 17–27 per evolved sample, parent subtraction removes 25–49% of union SVs. Carmaphycin has highest SV burden (269 union, 202 evolved-unique).
+5. ✅ **Create `validate_all.py`** (completed 2026-05-26) — Orchestrator that calls all 4 scripts, produces unified `VALIDATION_REPORT.md`.
+   - **Script**: `04_validate/validate_all.py --output-dir <dir> --results-dir <dir> --ploidy <N> [--skip snv cnv sv matrix]`
+   - Calls: `snv_indel_concordance.py`, `cnv_concordance.py`, `sv_characterization.py`, `build_cn_matrix.py`
+6. ✅ **Run on pilot** (`output_ottilie`) — verified all 4 sections pass, report at `pilot_results/VALIDATION_REPORT.md`
 7. Run on Tier 2 (`output_ottilie_tier2`) — full 86-sample validation
 
 ## Verification
 ```bash
-source ~/miniforge3/etc/profile.d/conda.sh && conda activate nf-env
+eval "$(conda shell.bash hook 2>/dev/null)" && conda activate nf-env
 
-# Pilot (4 samples)
+# Pilot (4 samples) — with SURVIVOR merged VCFs saved
 python docs/benchmarking/ottilie_xenobiotic_ale/04_validate/validate_all.py \
     --output-dir output_ottilie \
-    --results-dir docs/benchmarking/ottilie_xenobiotic_ale/04_validate/pilot_results
+    --results-dir docs/benchmarking/ottilie_xenobiotic_ale/04_validate/pilot_results \
+    --save-vcfs
 
-# Tier 2 (86 samples)
+# Tier 2 (86 samples) — with SURVIVOR merged VCFs saved
 python docs/benchmarking/ottilie_xenobiotic_ale/04_validate/validate_all.py \
     --output-dir output_ottilie_tier2 \
-    --results-dir docs/benchmarking/ottilie_xenobiotic_ale/04_validate/tier2_results
+    --results-dir docs/benchmarking/ottilie_xenobiotic_ale/04_validate/tier2_results \
+    --ploidy 1 \
+    --save-vcfs
 ```
 
 Expected outputs per run:
@@ -119,8 +134,18 @@ Expected outputs per run:
 - `cnv_concordance.csv`
 - `sv_characterization.csv`
 - `VALIDATION_REPORT.md` (unified)
+- `<output-dir>/cn_matrices/*.csv` (6 CN matrix files)
+- `<output-dir>/sv_merged/<sample>/*.vcf.gz` (4 merged VCFs per sample, with `--save-vcfs`)
 
 ## Dependencies
 - `bcftools`, `samtools`, `SURVIVOR` 1.0.7 — all in nf-env (`conda activate nf-env`)
 - Python: `openpyxl` (in nf-env)
 - Existing: `sample_name_dictionary.csv`, Sup Data 4 + 5 xlsx files
+
+## Bonus features (lower priority)
+
+### Bonus 1: Joint-to-individual split integrity check
+Verify that `individual_from_joint/` VCFs correctly preserve all variants from the joint VCF. For each sample, compare variant count and positions between `individual_from_joint/<sample>.vcf.gz` and `bcftools view -s <sample> joint_calling.vcf.gz`. Flag any discrepancies.
+
+### Bonus 2: Cross-variant-type co-occurrence matrix
+Build an all-mutation-type matrix (SNV + INDEL + CNV + SV per sample per genomic region) to identify regions where multiple mutation types co-occur (e.g., SNV clusters near CNV breakpoints). Biologically meaningful for ALE — could reveal hotspots of genomic instability or compound adaptive events. Requires all validation steps completed first to provide input data.

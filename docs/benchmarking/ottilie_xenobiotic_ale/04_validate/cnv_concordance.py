@@ -1,16 +1,28 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
-Task 2: CNV Concordance — CNVKit/Control-FREEC vs Ottilie Sup Data 5.
+CNV Concordance — CNVKit vs Ottilie Sup Data 5.
 
-Compares pipeline CNV calls against the 24-event truth set from
+Compares pipeline CNVKit calls against the 24-event truth set from
 Ottilie et al. (2022) Commun Biol 5:128.
 
-For Tier 1, only CBR110-15-R3a has a known CNV (whole chr I duplication).
+Uses sample_name_dictionary.csv for dynamic mapping between Sup Data 5
+clone names and pipeline sample names. Reports truth concordance for
+samples with known CNVs and characterizes all non-diploid segments for
+all samples.
+
+CNVKit CN scale note: cn=2 is always baseline regardless of ploidy.
+  cn>2 = gain, cn<2 = loss. See cnvkit_ploidy_cn_scale.md.
 
 Usage:
-    source ~/miniforge3/etc/profile.d/conda.sh && conda activate nf-env
-    pip install openpyxl  # if not already installed
-    python 04_validate/cnv_concordance.py
+    python 04_validate/cnv_concordance.py \\
+        --output-dir output_ottilie \\
+        --dictionary data/ottilie/sample_name_dictionary.csv
+
+    # All samples, CSV output:
+    python 04_validate/cnv_concordance.py \\
+        --output-dir output_ottilie \\
+        --dictionary data/ottilie/sample_name_dictionary.csv \\
+        --all-samples --csv results/cnv_concordance.csv
 
 Requires: openpyxl
 """
@@ -29,12 +41,8 @@ except ImportError:
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 DEFAULT_TRUTH_SET = REPO_ROOT / "data/ottilie/supplementary/sup_5_42003_2022_3076_MOESM7_ESM.xlsx"
+DEFAULT_DICTIONARY = REPO_ROOT / "data/ottilie/sample_name_dictionary.csv"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output_ottilie"
-
-# Pilot samples with known CNV in Sup Data 5
-PILOT_CNV_SAMPLES = {
-    "CBR110-15R3a": "CBR110-15-R3a",  # sup5 name -> pipeline name
-}
 
 # Chromosome lengths (S288C R64-1-1, Ensembl)
 CHR_LENGTHS = {
@@ -45,32 +53,72 @@ CHR_LENGTHS = {
 }
 
 
-def load_cnv_truth_set(xlsx_path, sample_map):
-    """Load CNV events from Sup Data 5."""
+def build_sup5_map(dictionary_path, output_dir):
+    """Build sup5 clone name -> pipeline sample name mapping.
+
+    Reads the sample_name_dictionary.csv and checks which samples exist
+    in the pipeline cnvkit output directory.
+    Returns dict mapping sup5 clone names to pipeline directory names.
+    """
+    cnvkit_dir = Path(output_dir) / "variant_calling/cnvkit"
+    if not cnvkit_dir.exists():
+        sys.exit(f"CNVKit output directory not found: {cnvkit_dir}")
+    available = set(p.name for p in cnvkit_dir.iterdir() if p.is_dir())
+
+    sup5_map = {}
+    with open(dictionary_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            sup5 = row.get("clone_name_sup5", "").strip()
+            sup4 = row.get("clone_name_sup4", "").strip()
+            lib = row.get("library_name_sra", "").strip()
+            is_parent = row.get("is_parent", "").strip() == "True"
+
+            if not sup5 or is_parent:
+                continue
+
+            # Try library name first (pipeline uses this), then sup5, then sup4
+            for candidate in [lib, sup5, sup4]:
+                if candidate and candidate in available:
+                    sup5_map[sup5] = candidate
+                    break
+
+    return sup5_map
+
+
+def load_cnv_truth_set(xlsx_path, sup5_map):
+    """Load CNV events from Sup Data 5.
+
+    Returns dict: pipeline_sample_name -> list of event dicts.
+    Also returns unmapped: list of (clone_name, events) not in sup5_map.
+    """
     wb = openpyxl.load_workbook(xlsx_path, read_only=True)
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
     headers = [str(v) for v in rows[1]]
 
     truth = {}
+    unmapped = {}
     for row in rows[2:]:
         d = dict(zip(headers, row))
         clone = str(d.get("Clone name", "")).strip()
-        if clone in sample_map:
-            sample = sample_map[clone]
-            if sample not in truth:
-                truth[sample] = []
-            truth[sample].append({
-                "chrom": str(d["Chromosome"]).strip(),
-                "event_type": str(d["Event type"]).strip(),
-                "genes": str(d.get("Genes involved in CNV", "")).strip(),
-            })
+        event = {
+            "chrom": str(d["Chromosome"]).strip(),
+            "event_type": str(d["Event type"]).strip(),
+            "genes": str(d.get("Genes involved in CNV", "")).strip(),
+        }
+        if clone in sup5_map:
+            sample = sup5_map[clone]
+            truth.setdefault(sample, []).append(event)
+        else:
+            unmapped.setdefault(clone, []).append(event)
+
     wb.close()
-    return truth
+    return truth, unmapped
 
 
 def load_cnvkit_calls(output_dir, sample):
-    """Load CNVKit .call.cns segments."""
+    """Load CNVKit .md.call.cns segments (sensitive, has p_ttest)."""
     cns_path = Path(output_dir) / f"variant_calling/cnvkit/{sample}/{sample}.md.call.cns"
     if not cns_path.exists():
         return []
@@ -93,115 +141,200 @@ def load_cnvkit_calls(output_dir, sample):
     return segments
 
 
-def load_controlfreec_ratios(output_dir, sample):
-    """Load Control-FREEC per-chromosome median ratios."""
-    ratio_path = list(
-        (Path(output_dir) / f"variant_calling/controlfreec/{sample}").glob("*_ratio.txt")
-    )
-    if not ratio_path:
-        return {}
-    ratios_by_chr = {}
-    with open(ratio_path[0]) as f:
-        f.readline()  # header
-        for line in f:
-            parts = line.strip().split("\t")
-            chrom = parts[0]
-            median_ratio = float(parts[3])
-            if chrom not in ratios_by_chr:
-                ratios_by_chr[chrom] = []
-            ratios_by_chr[chrom].append(median_ratio)
-    # Average the median ratios per chromosome
-    return {ch: sum(vals) / len(vals) for ch, vals in ratios_by_chr.items()}
+def check_cnv_event(segments, chrom, event_type):
+    """Check if CNVKit detects a CNV event on a chromosome.
 
-
-def check_whole_chr_dup(segments, chrom):
-    """Check if CNVKit calls a whole-chromosome duplication."""
+    For whole-chromosome duplications: look for cn>2 covering >80% of chr.
+    For amplifications: look for any cn>2 segment on the chromosome.
+    """
     chr_len = CHR_LENGTHS.get(chrom, 0)
-    for seg in segments:
-        if seg["chrom"] == chrom and seg["cn"] > 2:
+    is_whole_chr = "whole" in event_type.lower() or "aneuploidy" in event_type.lower()
+
+    chr_segs = [s for s in segments if s["chrom"] == chrom and s["cn"] > 2]
+    if not chr_segs:
+        return None, 0
+
+    if is_whole_chr:
+        # Check if a single segment covers >80% of chromosome
+        for seg in chr_segs:
             coverage = (seg["end"] - seg["start"]) / chr_len if chr_len else 0
-            if coverage > 0.8:  # >80% of chromosome = whole-chr event
+            if coverage > 0.8:
                 return seg, coverage
-    return None, 0
+        # Also check combined coverage of all gain segments
+        total_gain = sum(s["end"] - s["start"] for s in chr_segs)
+        combined_cov = total_gain / chr_len if chr_len else 0
+        if combined_cov > 0.8:
+            best = max(chr_segs, key=lambda s: s["end"] - s["start"])
+            return best, combined_cov
+        return None, combined_cov
+    else:
+        # Amplification: any gain segment
+        best = max(chr_segs, key=lambda s: s["end"] - s["start"])
+        coverage = (best["end"] - best["start"]) / chr_len if chr_len else 0
+        return best, coverage
+
+
+def format_segment(seg, chr_len):
+    """Format a segment for display."""
+    span_kb = (seg["end"] - seg["start"]) / 1000
+    cov_pct = (seg["end"] - seg["start"]) / chr_len * 100 if chr_len else 0
+    is_rDNA = seg["chrom"] == "XII" and 400000 < seg["start"] < 500000
+    note = " [rDNA]" if is_rDNA else ""
+    is_subtel = (seg["start"] < 10000 or seg["end"] > chr_len - 10000) if chr_len else False
+    if is_subtel and not is_rDNA:
+        note = " [subtelomeric]"
+    return (f"{seg['chrom']}:{seg['start']}-{seg['end']} ({span_kb:.0f}kb, {cov_pct:.0f}%) "
+            f"cn={seg['cn']} log2={seg['log2']:.3f} depth={seg['depth']:.1f} "
+            f"p={seg['p_ttest']:.2e} probes={seg['probes']}{note}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--truth-set", default=str(DEFAULT_TRUTH_SET), help="Sup Data 5 xlsx")
-    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="Pipeline output directory")
-    parser.add_argument("--all-samples", action="store_true", help="Report CNVKit for all samples, not just truth-set matches")
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--truth-set", default=str(DEFAULT_TRUTH_SET),
+                        help="Sup Data 5 xlsx path")
+    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR),
+                        help="Pipeline output directory")
+    parser.add_argument("--dictionary", default=str(DEFAULT_DICTIONARY),
+                        help="Sample name dictionary CSV")
+    parser.add_argument("--all-samples", action="store_true",
+                        help="Report all samples, not just truth-set matches")
+    parser.add_argument("--csv", default=None,
+                        help="Write machine-readable CSV to this path")
+    parser.add_argument("--parent", default="NODRUG-GM2",
+                        help="Parent sample name (excluded from truth comparison)")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
 
-    # Load truth set
+    # Build dynamic mapping
+    sup5_map = build_sup5_map(args.dictionary, output_dir)
+    print(f"Dictionary: {args.dictionary}")
     print(f"Truth set: {args.truth_set}")
-    truth = load_cnv_truth_set(args.truth_set, PILOT_CNV_SAMPLES)
+    print(f"Mapped {len(sup5_map)} sup5 clone names to pipeline samples")
 
-    # Determine which samples to analyze
+    # Load truth set
+    truth, unmapped = load_cnv_truth_set(args.truth_set, sup5_map)
+    if unmapped:
+        print(f"  {len(unmapped)} truth clones not in pipeline output: "
+              f"{', '.join(sorted(unmapped.keys()))}")
+
+    # Determine samples to analyze
+    cnvkit_dir = output_dir / "variant_calling/cnvkit"
+    all_samples = sorted(d.name for d in cnvkit_dir.iterdir() if d.is_dir())
+
     if args.all_samples:
-        cnvkit_dir = output_dir / "variant_calling/cnvkit"
-        samples = sorted(d.name for d in cnvkit_dir.iterdir() if d.is_dir()) if cnvkit_dir.exists() else []
+        samples = all_samples
     else:
-        samples = list(PILOT_CNV_SAMPLES.values())
+        # Only truth-set samples + parent
+        samples = sorted(set(truth.keys()) | {args.parent} & set(all_samples))
+        if not samples:
+            samples = all_samples
+            print("  No truth-set samples found in output, reporting all samples")
+
+    # CSV output accumulator
+    csv_rows = []
 
     print(f"\n{'=' * 80}")
     print("CNV CONCORDANCE REPORT")
+    print(f"Note: CNVKit CN scale uses cn=2 as baseline (diploid scale).")
+    print(f"  cn>2 = gain, cn<2 = loss, regardless of biological ploidy.")
     print(f"{'=' * 80}")
+
+    total_expected = 0
+    total_detected = 0
 
     for sample in samples:
         truth_events = truth.get(sample, [])
         cnvkit_segs = load_cnvkit_calls(output_dir, sample)
-        freec_ratios = load_controlfreec_ratios(output_dir, sample)
+
+        if not cnvkit_segs:
+            print(f"\n{'─' * 80}")
+            print(f"SAMPLE: {sample} — no CNVKit data")
+            continue
 
         print(f"\n{'─' * 80}")
         print(f"SAMPLE: {sample}")
+        print(f"  Total segments: {len(cnvkit_segs)}")
         print(f"  Truth set CNVs: {len(truth_events)}")
 
-        # Show truth set events and whether detected
+        # Check each truth set event
         for event in truth_events:
+            total_expected += 1
             print(f"\n  EXPECTED: Chr {event['chrom']} — {event['event_type']}")
-            if event["genes"] and event["genes"] != "N/A":
-                print(f"    Genes: {event['genes'][:80]}")
+            if event["genes"] and event["genes"] not in ("N/A", "None"):
+                genes_str = event["genes"][:100]
+                print(f"    Genes: {genes_str}")
 
-            if "duplication" in event["event_type"].lower():
-                seg, cov = check_whole_chr_dup(cnvkit_segs, event["chrom"])
-                if seg:
-                    print(f"    CNVKit: DETECTED — cn={seg['cn']}, log2={seg['log2']:.3f}, "
-                          f"depth={seg['depth']:.1f}, p={seg['p_ttest']:.2e}, coverage={cov:.0%}")
-                else:
-                    print(f"    CNVKit: NOT DETECTED as whole-chromosome event")
-                fr = freec_ratios.get(event["chrom"])
-                if fr:
-                    detected = "ELEVATED" if fr > 1.2 else "normal"
-                    print(f"    Control-FREEC: median ratio={fr:.3f} ({detected})")
+            seg, cov = check_cnv_event(cnvkit_segs, event["chrom"], event["event_type"])
+            if seg:
+                total_detected += 1
+                print(f"    CNVKit: DETECTED — cn={seg['cn']}, log2={seg['log2']:.3f}, "
+                      f"depth={seg['depth']:.1f}, p={seg['p_ttest']:.2e}, coverage={cov:.0%}")
+                csv_rows.append({
+                    "sample": sample,
+                    "chromosome": event["chrom"],
+                    "truth_event": event["event_type"],
+                    "detected": "YES",
+                    "cnvkit_cn": seg["cn"],
+                    "cnvkit_log2": f"{seg['log2']:.3f}",
+                    "cnvkit_depth": f"{seg['depth']:.1f}",
+                    "cnvkit_p_ttest": f"{seg['p_ttest']:.2e}",
+                    "coverage": f"{cov:.0%}",
+                    "probes": seg["probes"],
+                })
+            else:
+                print(f"    CNVKit: NOT DETECTED (coverage={cov:.0%})")
+                csv_rows.append({
+                    "sample": sample,
+                    "chromosome": event["chrom"],
+                    "truth_event": event["event_type"],
+                    "detected": "NO",
+                    "cnvkit_cn": "",
+                    "cnvkit_log2": "",
+                    "cnvkit_depth": "",
+                    "cnvkit_p_ttest": "",
+                    "coverage": f"{cov:.0%}",
+                    "probes": "",
+                })
 
-        # Show all non-diploid CNVKit segments
+        # Show all non-diploid segments
         non_diploid = [s for s in cnvkit_segs if s["cn"] != 2]
         if non_diploid:
-            print(f"\n  ALL CNVKit non-diploid segments ({len(non_diploid)}):")
+            print(f"\n  ALL non-diploid segments ({len(non_diploid)}):")
             for seg in non_diploid:
                 chr_len = CHR_LENGTHS.get(seg["chrom"], 0)
-                span_kb = (seg["end"] - seg["start"]) / 1000
-                cov_pct = (seg["end"] - seg["start"]) / chr_len * 100 if chr_len else 0
-                is_rDNA = seg["chrom"] == "XII" and 400000 < seg["start"] < 500000
-                note = " [rDNA]" if is_rDNA else ""
-                is_subtel = (seg["start"] < 10000 or seg["end"] > chr_len - 10000) if chr_len else False
-                if is_subtel and not is_rDNA:
-                    note = " [subtelomeric]"
-                print(f"    {seg['chrom']}:{seg['start']}-{seg['end']} ({span_kb:.0f}kb, {cov_pct:.0f}%) "
-                      f"cn={seg['cn']} log2={seg['log2']:.3f} depth={seg['depth']:.1f} "
-                      f"p={seg['p_ttest']:.2e} probes={seg['probes']}{note}")
+                print(f"    {format_segment(seg, chr_len)}")
+        else:
+            print(f"\n  No non-diploid segments")
 
-        # Per-chromosome Control-FREEC summary
-        if freec_ratios:
-            elevated = {ch: r for ch, r in freec_ratios.items() if r > 1.2 and ch != "XII"}
-            if elevated:
-                print(f"\n  Control-FREEC elevated chromosomes (ratio > 1.2, excl. XII/rDNA):")
-                for ch, r in sorted(elevated.items()):
-                    print(f"    Chr {ch}: {r:.3f}")
-
+    # Summary
     print(f"\n{'=' * 80}")
+    print("SUMMARY")
+    print(f"  Samples analyzed: {len(samples)}")
+    if total_expected > 0:
+        sensitivity = total_detected / total_expected * 100
+        print(f"  Truth events: {total_expected}")
+        print(f"  Detected: {total_detected}/{total_expected} ({sensitivity:.1f}%)")
+    else:
+        print(f"  No truth events in analyzed samples")
+    print(f"{'=' * 80}")
+
+    # Write CSV
+    if args.csv and csv_rows:
+        csv_path = Path(args.csv)
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = ["sample", "chromosome", "truth_event", "detected",
+                      "cnvkit_cn", "cnvkit_log2", "cnvkit_depth",
+                      "cnvkit_p_ttest", "coverage", "probes"]
+        with open(csv_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in csv_rows:
+                writer.writerow(row)
+        print(f"\nCSV written to: {csv_path}")
 
 
 if __name__ == "__main__":
