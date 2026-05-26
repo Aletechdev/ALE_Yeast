@@ -117,15 +117,23 @@ The default thresholds correctly detect gains (cn>2) and losses (cn<2). For the 
 
 ### For future improvement
 
-Two options if absolute CN is needed:
+Three options if absolute CN is needed:
 
-1. **Post-hoc rescaling** (no pipeline change):
+1. **Continuous CN from `.cnr` log2** (preferred for analysis):
    ```python
-   # In validation/analysis scripts, convert CN relative to ploidy
+   # Gives fractional CN — preserves subclonal/mosaic signals
+   absolute_cn = ploidy * 2**log2  # e.g., log2=0.33, ploidy=1 → 1.26 copies
+   ```
+   Best for multi-sample heatmaps and clustering. Do not round — fractional values
+   reflect real biology (mosaicism, population heterogeneity). See `cnvkit_cn_calculation.md`.
+
+2. **Integer CN from `.call.cns`** (for variant calling/reporting):
+   ```python
+   # Uses CNVKit's tuned thresholds, then shifts to correct ploidy baseline
    absolute_cn = cn - 2 + ploidy  # e.g., cn=3, ploidy=1 → absolute=2
    ```
-
-2. **Use `--center-at` in `cnvkit.py call`** to shift the log2 scale before thresholding. This requires knowing the true center shift, which depends on the sample's actual ploidy and reference construction.
+   Preserves sensitivity for noisy signals (e.g., log2=0.33 → cn=3 on diploid scale).
+   Rounding `ploidy × 2^log2` directly loses these mosaic events on haploid scale.
 
 3. **Build a normal-sample reference** instead of flat reference — pass the parent sample as `-n parent.bam` to `cnvkit.py batch`. This would make the log2 ratios relative to the parent's copy number profile. However, Sarek's CNVKit module may not support this easily for germline-only workflows.
 
@@ -133,6 +141,7 @@ Two options if absolute CN is needed:
 
 - Custom thresholds via `-t` — they assume ploidy-normalized log2 ratios which don't exist with flat references
 - Removing `--ploidy` — it still affects VCF export and high-CN overflow calculations
+- `round(ploidy × 2^log2)` for integer calls — too aggressive for mosaic signals on haploid scale (see `cnvkit_cn_calculation.md` for worked example)
 
 ## Files
 

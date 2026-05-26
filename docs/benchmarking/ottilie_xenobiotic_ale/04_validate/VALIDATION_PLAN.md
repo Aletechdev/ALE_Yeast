@@ -45,7 +45,20 @@ Changes:
   | 2 | DEL | DEL (GT:GQ) | **hidden** (==ploidy) | DUP (GT:GQ:CN:CNQ) |
 
 - **Recommendation**: Use `.call.cns` as primary data source — has explicit CN for all segments regardless of ploidy, no format asymmetry
-- For Ottilie (diploid S288C, ploidy=2): baseline cn=2 correctly hidden, DELs/DUPs emitted as expected
+
+**✅ RESOLVED: CNVKit `--ploidy` pipeline configuration** (2026-05-22):
+
+Ploidy experiment (`04_validate/cnvkit_ploidy_experiment/`) confirmed that `.call.cns` CN values are ploidy-independent (cn=3 for chr I duplication across ploidy=1,2,3), but VCF output is drastically affected:
+
+| Ploidy | VCF behavior (Ottilie haploid samples) |
+|--------|----------------------------------------|
+| 1 (was production) | 18–22 **false DUPs** per sample — every baseline cn=2 segment emitted as DUP |
+| **2 (new production)** | **Only real CNVs** — baseline cn=2 hidden, gains/losses correctly reported |
+| 3 | 16–19 **false DELs** per sample — baseline cn=2 < ploidy=3 |
+
+**Decision**: Change `--ploidy` to 2 in `conf/modules/cnvkit.config` for `CNVKIT_CALL` and `CNVKIT_EXPORT`. This reverts to the original nf-core/sarek default (the pipeline originally did not accept ploidy as a parameter — ploidy support was added later for ALE). Since CNVKit's internal CN scale is always diploid, passing `--ploidy 2` aligns the VCF export with the CN scale and produces clean output. The `.call.cns` is unaffected by this change.
+
+**Note**: This means the VCF "lies" about biological ploidy for haploid samples, but the CN values are correct on the diploid scale. For biological interpretation, use continuous CN from `.cnr` bin-level data: `absolute_cn = ploidy × 2^log2` (preferred — preserves subclonal/mosaic signals), or integer CN from `.call.cns`: `absolute_cn = cn - 2 + ploidy` (loses fractional signal). See `docs/variant-calling/cnvkit/cnvkit_cn_calculation.md` for full derivation and `04_validate/cnvkit_ploidy_experiment/ploidy_comparison.md` for experiment results.
 
 ### Step 2: Create `sv_characterization.py`
 **File**: `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/sv_characterization.py`
@@ -66,11 +79,25 @@ Functions (reuse patterns from `docs/benchmarking/marko_sv/sv_comparison/generat
 - Args: `--output-dir`, `--results-dir`, `--parent`
 
 ## Execution order
-1. Enhance `cnv_concordance.py` (CNVKit-only, dynamic mapping)
-2. Create `sv_characterization.py`
-3. Create `validate_all.py`
-4. Run on pilot (`output_ottilie`) — verify all 3 sections
-5. Run on Tier 2 (`output_ottilie_tier2`) — full 86-sample validation
+1. **Revert CNVKit `--ploidy` to 2** in `conf/modules/cnvkit.config`:
+   - Change `--ploidy ${meta.ploidy}` → `--ploidy 2` in `CNVKIT_CALL` (line 38), germline override (line 47), and `CNVKIT_EXPORT` (line 57)
+   - **Verified**: Dual `CNVKIT_CALL` config (generic line 28-43, germline override line 45-48) is **original nf-core/sarek 3.5.1 design** — diff against `.claude/worktrees/sarek-compare/nf-core-sarek_3.5.1/3_5_1/conf/modules/cnvkit.config` shows our only change was adding ploidy documentation comments (lines 30-37). The subworkflow (`bam_variant_calling_cnvkit/main.nf`) is identical to upstream.
+   - **Known trade-off in sarek design**: `CNVKIT_BATCH` internally produces `.md.call.cns` (re-centered log2, has `p_ttest`, merged segments). Then `CNVKIT_CALL` re-calls from `.md.cns` (raw segmented) with `--filter ci` for germline, producing `.md.germline.call.cns` (CI-filtered, no re-centering, no `p_ttest`). The VCF is exported from `.germline.call.cns`. This is intentional — sarek likely prefers CI filtering for germline to reduce false positives (germline CNVs should be high-confidence, so segments with CI spanning zero are treated as noise).
+   - **Impact**: Re-centering gap (~0.03 log2 shift) can flip CN calls at threshold boundaries (e.g., chr VI: log2=0.217→cn=3 in `.germline.call.cns` vs log2=0.187→cn=2 in `.call.cns`). High-CN overflow formula (`ceil(ploidy × 2^log2)`) also differs when `--ploidy` differs between the two calls (e.g., Carmaphycin chr XII: cn=13 in `.call.cns` vs cn=7 in `.germline.call.cns` with ploidy=1). After reverting to `--ploidy 2`, the overflow formula will match and only the re-centering difference remains.
+   - **Full investigation**: See `docs/variant-calling/cnvkit/cnvkit_sarek_dual_call.md` for complete comparison with data from all 4 pilot samples.
+   - **Note**: `cns[2]` in `CNVKIT_CALL` input (line 31 of subworkflow) is index-based selection from `CNVKIT_BATCH.out.cns` glob — picks `.cns` correctly (alphabetical: `.bintest.cns`[0], `.call.cns`[1], `.cns`[2]) but is fragile if file naming changes
+2. **Build dual CN matrices** — generate two segment-level matrices from both `.md.call.cns` and `.md.germline.call.cns` to empirically compare:
+   - **Sensitive matrix** (from `.md.call.cns`): Re-centered log2, includes `p_ttest` for user-controlled quality filtering, retains all segments. Better for mixed-population ALE where subclonal/mosaic signals are weak.
+   - **Stringent matrix** (from `.md.germline.call.cns`): CI-filtered, no re-centering (cleaner calls, fewer false positives, matches VCF output). Better for clonal ALE samples with strong, unambiguous signal.
+   - **Columns per sample**: log2, cn (integer from file), absolute_cn (`ploidy × 2^log2` continuous), p_ttest (sensitive matrix only)
+   - **Compare**: Where do the two matrices agree/disagree? Check disagreements against known CNVs. Determine if one mode fits all ALE use cases or if clonal vs mixed-population samples need different modes.
+   - **Additionally**: Build `.cnr` bin-level matrix (`ploidy × 2^log2`) for continuous CN heatmaps/clustering.
+   - See `docs/variant-calling/cnvkit/cnvkit_cn_calculation.md` and `docs/variant-calling/cnvkit/cnvkit_sarek_dual_call.md` for details.
+3. Enhance `cnv_concordance.py` (CNVKit-only, dynamic mapping)
+4. Create `sv_characterization.py`
+5. Create `validate_all.py`
+6. Run on pilot (`output_ottilie`) — verify all 3 sections
+7. Run on Tier 2 (`output_ottilie_tier2`) — full 86-sample validation
 
 ## Verification
 ```bash
