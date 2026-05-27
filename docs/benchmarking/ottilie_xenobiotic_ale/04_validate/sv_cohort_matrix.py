@@ -1,15 +1,28 @@
 #!/usr/bin/env python
 """
-SV Cohort Matrix — merges per-sample SURVIVOR union VCFs into a cohort-level
+SV Cohort Matrix — merges per-sample SURVIVOR VCFs into a cohort-level
 wide-format table (one row per SV event, columns = samples).
 
-Runs SURVIVOR merge across all per-sample union VCFs, then maps each cohort
+Runs SURVIVOR merge across all per-sample VCFs, then maps each cohort
 event back to per-sample records to get inner caller info (Manta/TIDDIT).
+
+Supports multiple source VCF types via --source:
+  union       — all calls, min_callers=1, no PASS filter (default)
+  union_pass  — all calls, min_callers=1, PASS-filtered input
+  consensus   — both callers agree, no PASS filter
+  consensus_pass — both callers agree, PASS-filtered input
 
 Usage:
     python sv_cohort_matrix.py \
         --output-dir output_ottilie \
         --csv results/sv_cohort_matrix.csv
+
+    # PASS-filtered, with VCF output:
+    python sv_cohort_matrix.py \
+        --output-dir output_ottilie \
+        --source union_pass \
+        --csv results/sv_cohort_matrix_pass.csv \
+        --vcf results/sv_cohort_merged_pass.vcf.gz
 
 Requires: SURVIVOR, bcftools (both in nf-env)
 """
@@ -27,6 +40,8 @@ DEFAULT_OUTPUT_DIR = REPO_ROOT / "output_ottilie"
 
 CHR_ORDER = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII",
              "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"]
+
+VALID_SOURCES = ["union", "union_pass", "consensus", "consensus_pass"]
 
 # SURVIVOR merge parameters (same as sv_characterization.py)
 MAX_DIST = 1000
@@ -134,6 +149,20 @@ def proximity_match(cohort_rec, sample_records, max_dist=MAX_DIST):
     return best
 
 
+def save_cohort_vcf(raw_vcf, dest_path):
+    """Sort, compress, and index the cohort SURVIVOR VCF."""
+    dest_path = Path(dest_path)
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["bcftools", "sort", "-Oz", "-o", str(dest_path), str(raw_vcf)],
+        check=True, capture_output=True,
+    )
+    subprocess.run(
+        ["bcftools", "index", "-t", str(dest_path)],
+        check=True, capture_output=True,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -143,8 +172,12 @@ def main():
                         help="Pipeline output directory")
     parser.add_argument("--sv-merged-dir", default=None,
                         help="Directory with per-sample SURVIVOR VCFs (default: <output-dir>/sv_merged)")
+    parser.add_argument("--source", default="union", choices=VALID_SOURCES,
+                        help="Which per-sample SURVIVOR VCF to use (default: union)")
     parser.add_argument("--csv", required=True,
                         help="Output CSV path")
+    parser.add_argument("--vcf", default=None,
+                        help="Save cohort SURVIVOR merged VCF (sorted, compressed, indexed)")
     args = parser.parse_args()
 
     sv_dir = Path(args.sv_merged_dir) if args.sv_merged_dir else Path(args.output_dir) / "sv_merged"
@@ -164,13 +197,14 @@ def main():
         print(f"ERROR: No sample directories in {sv_dir}", file=sys.stderr)
         sys.exit(1)
 
+    print(f"Source: {args.source}")
     print(f"Samples: {', '.join(samples)}")
 
-    # Collect per-sample union VCF paths and parse records
+    # Collect per-sample VCF paths and parse records
     sample_vcfs = {}
     sample_records = {}
     for s in samples:
-        vcf = sv_dir / s / f"{s}.survivor.union.vcf.gz"
+        vcf = sv_dir / s / f"{s}.survivor.{args.source}.vcf.gz"
         if not vcf.exists():
             print(f"WARNING: {vcf} not found, skipping {s}", file=sys.stderr)
             continue
@@ -179,6 +213,17 @@ def main():
 
     active_samples = [s for s in samples if s in sample_vcfs]
     print(f"Active samples: {len(active_samples)}")
+
+    if not active_samples:
+        print(f"ERROR: No {args.source} VCFs found. Available types per sample:",
+              file=sys.stderr)
+        # Show what's actually available
+        for s in samples[:1]:
+            sample_dir = sv_dir / s
+            vcfs = sorted(sample_dir.glob("*.vcf.gz"))
+            for v in vcfs:
+                print(f"  {v.name}", file=sys.stderr)
+        sys.exit(1)
 
     # Run cohort-level SURVIVOR merge
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -211,6 +256,11 @@ def main():
         if result.returncode != 0:
             print(f"ERROR: SURVIVOR merge failed: {result.stderr}", file=sys.stderr)
             sys.exit(1)
+
+        # Save VCF output if requested
+        if args.vcf:
+            save_cohort_vcf(cohort_vcf, args.vcf)
+            print(f"Cohort VCF: {args.vcf}")
 
         # Parse cohort VCF — SUPP_VEC is now N-char (one per sample)
         cohort_records = []

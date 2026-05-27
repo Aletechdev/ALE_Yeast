@@ -9,10 +9,20 @@ Reads:
 
 Outputs a wide CSV with {sample}_diploid_cn columns added for each sample.
 
+With --collapse, adjacent bins on the same chromosome with identical diploid_cn
+across all samples are merged into single rows. Continuous columns (log2, cn)
+are averaged over the merged bins.
+
 Usage:
     python cn_cohort_matrix.py \
         --cn-dir output_ottilie/cn_matrices \
         --csv results/cn_cohort_matrix.csv
+
+    # Collapsed:
+    python cn_cohort_matrix.py \
+        --cn-dir output_ottilie/cn_matrices \
+        --csv results/cn_cohort_matrix_collapsed.csv \
+        --collapse
 """
 
 import argparse
@@ -53,6 +63,20 @@ def find_diploid_cn(segments, midpoint):
     return None
 
 
+def merge_group(rows, samples, continuous_cols, diploid_cn_cols):
+    """Merge a group of adjacent bins into one row, averaging continuous columns."""
+    merged = dict(rows[0])
+    merged["end"] = rows[-1]["end"]
+    n = len(rows)
+    for col in continuous_cols:
+        vals = [float(r[col]) for r in rows if r[col] != ""]
+        merged[col] = f"{sum(vals) / len(vals):.4f}" if vals else ""
+    # diploid_cn is identical across group (that's why they were grouped)
+    for col in diploid_cn_cols:
+        merged[col] = rows[0][col]
+    return merged
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -62,11 +86,16 @@ def main():
                         help="Directory containing cn_bins_continuous.csv and cn_segments_sensitive.csv")
     parser.add_argument("--csv", required=True,
                         help="Output CSV path")
+    parser.add_argument("--segments", default="sensitive",
+                        choices=["sensitive", "stringent"],
+                        help="Which segment file to use for diploid_cn overlay (default: sensitive)")
+    parser.add_argument("--collapse", action="store_true",
+                        help="Collapse adjacent bins with identical diploid_cn across all samples")
     args = parser.parse_args()
 
     cn_dir = Path(args.cn_dir)
     bins_path = cn_dir / "cn_bins_continuous.csv"
-    segments_path = cn_dir / "cn_segments_sensitive.csv"
+    segments_path = cn_dir / f"cn_segments_{args.segments}.csv"
 
     for p in (bins_path, segments_path):
         if not p.exists():
@@ -81,6 +110,7 @@ def main():
         if col.endswith("_log2"):
             samples.append(col[:-5])
 
+    print(f"Segments: {args.segments}")
     print(f"Samples: {', '.join(samples)}")
 
     # Load segment lookup
@@ -90,15 +120,13 @@ def main():
     out_path = Path(args.csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(bins_path) as fin, open(out_path, "w", newline="") as fout:
+    # Read and enrich all bins
+    enriched_rows = []
+    with open(bins_path) as fin:
         reader = csv.DictReader(fin)
-        # Build output header: original columns + {sample}_diploid_cn
         out_fields = list(reader.fieldnames)
         for s in samples:
             out_fields.append(f"{s}_diploid_cn")
-
-        writer = csv.DictWriter(fout, fieldnames=out_fields)
-        writer.writeheader()
 
         mapped = 0
         unmapped = 0
@@ -117,12 +145,48 @@ def main():
                 else:
                     unmapped += 1
 
-            writer.writerow(row)
+            enriched_rows.append(row)
 
     total = mapped + unmapped
     print(f"Bins enriched: {mapped}/{total} ({mapped/total*100:.1f}%) mapped to segments")
     if unmapped:
         print(f"  {unmapped} bins had no matching segment (gaps between segments)")
+
+    # Collapse adjacent bins with identical diploid_cn across all samples
+    if args.collapse:
+        diploid_cn_cols = [f"{s}_diploid_cn" for s in samples]
+        continuous_cols = []
+        for s in samples:
+            continuous_cols.extend([f"{s}_log2", f"{s}_cn"])
+
+        collapsed = []
+        group = [enriched_rows[0]]
+
+        def cn_key(row):
+            return (row["chromosome"], tuple(row[c] for c in diploid_cn_cols))
+
+        for row in enriched_rows[1:]:
+            prev = group[-1]
+            # Same chromosome, contiguous, same diploid_cn for all samples
+            if (row["chromosome"] == prev["chromosome"]
+                    and int(row["start"]) == int(prev["end"])
+                    and cn_key(row) == cn_key(prev)):
+                group.append(row)
+            else:
+                collapsed.append(merge_group(group, samples, continuous_cols, diploid_cn_cols))
+                group = [row]
+        collapsed.append(merge_group(group, samples, continuous_cols, diploid_cn_cols))
+
+        print(f"Collapsed: {len(enriched_rows)} bins → {len(collapsed)} regions")
+        enriched_rows = collapsed
+
+    # Write output
+    with open(out_path, "w", newline="") as fout:
+        writer = csv.DictWriter(fout, fieldnames=out_fields)
+        writer.writeheader()
+        for row in enriched_rows:
+            writer.writerow(row)
+
     print(f"Output: {out_path}")
 
 
