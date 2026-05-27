@@ -6,6 +6,10 @@ Reads MultiQC summary TSVs and generates a rich static HTML dashboard
 using Jinja2 templates with Tabulator.js tables. Links to existing
 igv-reports HTML files for alignment drill-down.
 
+Optionally includes CN heatmaps and SV cohort matrices when
+--cnv-sv-data-dir is provided (expects CSV files from cn_cohort_matrix.py
+and sv_cohort_matrix.py).
+
 Usage (standalone):
     python generate_index.py \
         --multiqc-dir output_all/multiqc/multiqc_data \
@@ -13,11 +17,18 @@ Usage (standalone):
         --sample-reports-dir docs/igvreports/demo/samples \
         --cohort-report docs/igvreports/demo/cohort_report.html
 
+Usage with CN/SV data:
+    python generate_index.py \
+        --multiqc-dir output_ottilie/multiqc/multiqc_data \
+        --output docs/igvreports/ottilie_4samples/index.html \
+        --cnv-sv-data-dir docs/igvreports/ottilie_4samples/data
+
 Usage (from Nextflow GENERATE_INDEX process):
     Called with paths resolved by the workflow.
 """
 
 import argparse
+import csv
 import json
 import re
 from datetime import datetime
@@ -31,8 +42,8 @@ from jinja2 import Environment, FileSystemLoader
 # Longest suffixes first so greedy matching works correctly.
 # ---------------------------------------------------------------------------
 CALLER_SUFFIXES = [
-    ("haplotypecaller.from_joint_calling.hard_filtered", None),  # skip filtered rows
-    ("haplotypecaller.from_joint_calling", "HaplotypeCaller"),
+    ("haplotypecaller.from_joint_calling.hard_filtered", "HaplotypeCaller"),  # hard-filtered counts
+    ("haplotypecaller.from_joint_calling", None),  # skip unfiltered rows
     ("freebayes.quality_filtered.normal", None),  # skip filtered rows
     ("manta.diploid_sv", "Manta"),
     ("deepvariant", "DeepVariant"),
@@ -61,13 +72,21 @@ def parse_sample_caller(name: str) -> tuple[str | None, str | None]:
 
 
 def classify_sample(sample_id: str) -> dict:
-    """Classify a sample as Ancestral or Evolved and extract ALE lineage."""
+    """Classify a sample as Ancestral or Evolved and extract ALE lineage.
+
+    Supports both CEN.PK naming (A0-F0-I1-R1) and Ottilie naming
+    (CBR110-15-R3a, Carmaphycin-R9-2, NODRUG-GM2, etc.).
+    """
+    # CEN.PK ALE naming
     if sample_id.startswith("A0-"):
         return {"type": "Ancestral", "lineage": "CEN.PK parent"}
     m = re.match(r"^(A\d+)-F(\d+)", sample_id)
     if m:
         return {"type": "Evolved", "lineage": f"{m.group(1)} (Flask {m.group(2)})"}
-    return {"type": "Unknown", "lineage": sample_id}
+    # Ottilie / generic naming: no-drug control vs evolved
+    if "NODRUG" in sample_id.upper():
+        return {"type": "Ancestral", "lineage": sample_id}
+    return {"type": "Evolved", "lineage": sample_id}
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +118,37 @@ def load_bcftools_stats(multiqc_dir: Path) -> pd.DataFrame:
             "tstv": float(row.get("tstv", 0)),
         })
     return pd.DataFrame(rows)
+
+
+def get_joint_vcf_variant_count(multiqc_dir: Path) -> int | None:
+    """Extract variant count from the joint HaplotypeCaller VCF in MultiQC.
+
+    Looks for 'HaplotypeCaller_joint_calling_soft_filtered' in bcftools stats.
+    Returns the number_of_records, or None if not found.
+    """
+    path = multiqc_dir / "multiqc_bcftools_stats.txt"
+    if not path.exists():
+        return None
+    df = pd.read_csv(path, sep="\t")
+    joint_rows = df[df["Sample"].str.contains("joint_calling_soft_filtered", na=False)]
+    if joint_rows.empty:
+        return None
+    return int(joint_rows.iloc[0].get("number_of_records", 0))
+
+
+def get_joint_vcf_pass_count(joint_vcf: Path | None) -> int | None:
+    """Count PASS variants in the joint VCF using bcftools."""
+    if joint_vcf is None or not joint_vcf.exists():
+        return None
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["bcftools", "view", "-f", "PASS", "-H", str(joint_vcf)],
+            capture_output=True, text=True, timeout=60,
+        )
+        return result.stdout.count("\n")
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
 
 
 def load_snpeff_stats(multiqc_dir: Path) -> pd.DataFrame:
@@ -140,20 +190,29 @@ def load_snpeff_stats(multiqc_dir: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def load_general_stats(multiqc_dir: Path) -> pd.DataFrame:
+def load_general_stats(multiqc_dir: Path, known_samples: set[str] | None = None) -> pd.DataFrame:
     """Load multiqc_general_stats.txt, keeping only sample-level rows.
 
     Sample-level rows have no space+dot suffix (e.g., 'A0-F0-I1-R1').
     Per-lane rows look like 'A0-F0-I1-R1 .Lane 1 Read1'.
     Per-caller rows look like 'A0-F0-I1-R1 .cnvkit'.
+
+    If known_samples is provided, use it to filter. Otherwise fall back to
+    pattern matching (no spaces + ALE naming or known_samples).
     """
     path = multiqc_dir / "multiqc_general_stats.txt"
     df = pd.read_csv(path, sep="\t")
 
-    # Keep only rows where Sample has no space (pure sample ID)
-    # and matches the expected ALE sample pattern (A{n}-F{n}-I{n}-R{n})
-    mask = (~df["Sample"].str.contains(" ", na=False) &
-            df["Sample"].str.match(r"^A\d+-F\d+-I\d+-R\d+$", na=False))
+    # Exclude rows with spaces (per-lane, per-caller breakdown rows)
+    no_space = ~df["Sample"].str.contains(" ", na=False)
+
+    if known_samples:
+        # Use the known sample set from bcftools stats
+        mask = no_space & df["Sample"].isin(known_samples)
+    else:
+        # Fallback: ALE pattern only
+        mask = no_space & df["Sample"].str.match(r"^A\d+-F\d+-I\d+-R\d+$", na=False)
+
     df = df[mask].copy()
     df = df.rename(columns={"Sample": "sample"})
 
@@ -163,13 +222,13 @@ def load_general_stats(multiqc_dir: Path) -> pd.DataFrame:
         "gatk4_markduplicates_mark_duplicates-PERCENT_DUPLICATION": "dup_pct",
         "samtools_flagstat_stats-reads_mapped_percent": "mapped_pct",
         "mosdepth-median_coverage": "median_coverage",
-        "samtools_flagstat_stats-raw_total_sequences": "total_reads",
+        "samtools_flagstat_stats-reads_mapped": "mapped_reads",
     }
     available = {k: v for k, v in cols.items() if k in df.columns}
     df = df[list(available.keys())].rename(columns=available)
 
     # Convert numeric columns
-    for col in ["dup_pct", "mapped_pct", "median_coverage", "total_reads"]:
+    for col in ["dup_pct", "mapped_pct", "median_coverage", "mapped_reads"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -177,18 +236,180 @@ def load_general_stats(multiqc_dir: Path) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# CN/SV data loading from cohort matrix CSVs
+# ---------------------------------------------------------------------------
+
+def _get_sample_columns(headers: list[str], suffix: str) -> list[str]:
+    """Extract sample names from column headers ending with a given suffix."""
+    samples = []
+    for h in headers:
+        if h.endswith(suffix):
+            name = h[: -len(suffix)]
+            if name not in samples:
+                samples.append(name)
+    return samples
+
+
+def load_cn_chr(path: Path) -> dict | None:
+    """Load chromosome-level CN summary CSV. Display value is log2 ratio."""
+    if not path.exists():
+        return None
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        return None
+    samples = _get_sample_columns(list(rows[0].keys()), "_diploid_cn")
+    out = []
+    for r in rows:
+        entry = {"chromosome": r["chromosome"], "length": int(r.get("length", 0))}
+        for s in samples:
+            cn_raw = r.get(f"{s}_diploid_cn", "2")
+            entry[f"{s}_log2"] = round(float(r.get(f"{s}_log2", 0)), 4)
+            entry[f"{s}_note"] = "*" if cn_raw.endswith("*") else ""
+        out.append(entry)
+    change_count = sum(
+        1 for r in out
+        if any(_has_cn_change(r.get(f"{s}_log2", 0)) for s in samples)
+    )
+    return {"rows": out, "samples": samples, "row_count": len(out),
+            "change_count": change_count}
+
+
+def load_cn_regions(path: Path) -> dict | None:
+    """Load collapsed CN region matrix CSV. Display value is log2 ratio."""
+    if not path.exists():
+        return None
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        return None
+    samples = _get_sample_columns(list(rows[0].keys()), "_diploid_cn")
+    out = []
+    for r in rows:
+        start = int(r.get("start", 0))
+        end = int(r.get("end", 0))
+        entry = {
+            "chromosome": r["chromosome"],
+            "start": start,
+            "end": end,
+            "span_kb": round((end - start) / 1000, 1),
+        }
+        for s in samples:
+            entry[f"{s}_log2"] = round(float(r.get(f"{s}_log2", 0)), 4)
+        out.append(entry)
+    change_count = sum(
+        1 for r in out
+        if any(_has_cn_change(r.get(f"{s}_log2", 0)) for s in samples)
+    )
+    return {"rows": out, "samples": samples, "row_count": len(out),
+            "change_count": change_count}
+
+
+def load_sv_matrix(path: Path) -> dict | None:
+    """Load SV cohort matrix CSV."""
+    if not path.exists():
+        return None
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        return None
+    fixed_cols = {"chrom", "pos", "chrom2", "end", "svtype", "svlen"}
+    samples = [h for h in rows[0].keys() if h not in fixed_cols]
+    out = []
+    for r in rows:
+        entry = {
+            "chrom": r["chrom"],
+            "pos": int(r.get("pos", 0)),
+            "chrom2": r.get("chrom2", ""),
+            "end": int(r.get("end", 0)),
+            "svtype": r.get("svtype", ""),
+            "svlen": int(r.get("svlen", 0)),
+        }
+        for s in samples:
+            entry[s] = r.get(s, "-")
+        out.append(entry)
+    both_caller_count = sum(
+        1 for r in out
+        if any("Manta+TIDDIT" in r.get(s, "") for s in samples)
+    )
+    return {"rows": out, "samples": samples, "row_count": len(out),
+            "both_caller_count": both_caller_count}
+
+
+def _has_cn_change(log2: float) -> bool:
+    """Return True if log2 ratio indicates a CN change (same thresholds as heatmap)."""
+    return log2 < -0.4 or log2 > 0.3
+
+
+
+
+def load_cnv_sv_data(data_dir: Path) -> dict:
+    """Load all CN/SV data from a directory. Returns dict for template context."""
+    cn_chr_sens = load_cn_chr(data_dir / "cn_chr_summary_sensitive.csv")
+    cn_chr_str = load_cn_chr(data_dir / "cn_chr_summary_stringent.csv")
+    cn_reg_sens = load_cn_regions(data_dir / "cn_cohort_collapsed_sensitive.csv")
+    cn_reg_str = load_cn_regions(data_dir / "cn_cohort_collapsed_stringent.csv")
+    sv_pass = load_sv_matrix(data_dir / "sv_cohort_matrix_union_pass.csv")
+    sv_all = load_sv_matrix(data_dir / "sv_cohort_matrix_union.csv")
+
+    # Compute summary stats
+    summary = {}
+    if cn_chr_sens and cn_chr_str:
+        samples = cn_chr_sens["samples"]
+        agree = total = 0
+        for rs, rt in zip(cn_chr_sens["rows"], cn_chr_str["rows"]):
+            total += 1
+            sens_changed = any(_has_cn_change(rs.get(f"{s}_log2", 0)) for s in samples)
+            str_changed = any(_has_cn_change(rt.get(f"{s}_log2", 0)) for s in samples)
+            if sens_changed == str_changed:
+                agree += 1
+        summary["cn_agreement_pct"] = round(100 * agree / total, 1) if total else 0
+
+    if sv_pass:
+        summary["sv_pass_count"] = sv_pass["row_count"]
+    if sv_all:
+        summary["sv_all_count"] = sv_all["row_count"]
+
+    return {
+        "cn_chr_sens": cn_chr_sens,
+        "cn_chr_str": cn_chr_str,
+        "cn_reg_sens": cn_reg_sens,
+        "cn_reg_str": cn_reg_str,
+        "sv_pass": sv_pass,
+        "sv_all": sv_all,
+        "cnv_sv_summary": summary,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Context building for Jinja2 template
 # ---------------------------------------------------------------------------
 
-def discover_igv_reports(sample_reports_dir: Path | None) -> dict[str, str]:
-    """Find existing igv-reports HTML files, return {sample_id: relative_path}."""
+def discover_igv_reports(sample_reports_dir: Path | None) -> dict[str, dict[str, str]]:
+    """Find existing igv-reports HTML files.
+
+    Returns {sample_id: {"hc": path, "cnvkit": path, "manta": path, ...}}.
+    """
     if sample_reports_dir is None or not sample_reports_dir.is_dir():
         return {}
-    links = {}
+    links: dict[str, dict[str, str]] = {}
+    caller_suffixes = ["cnvkit", "manta", "tiddit"]
     for f in sorted(sample_reports_dir.glob("*_report.html")):
-        sample_id = f.stem.replace("_report", "")
-        # Relative path from the output index.html location
-        links[sample_id] = f"samples/{f.name}"
+        name = f.stem.replace("_report", "")
+        rel = f"samples/{f.name}"
+        # Check if name ends with a caller suffix
+        matched = False
+        for caller in caller_suffixes:
+            if name.endswith(f"_{caller}"):
+                sample_id = name[: -(len(caller) + 1)]
+                links.setdefault(sample_id, {})
+                links[sample_id][caller] = rel
+                matched = True
+                break
+        if not matched:
+            # Default HC report: {sample}_report.html
+            links.setdefault(name, {})
+            links[name]["hc"] = rel
     return links
 
 
@@ -196,17 +417,22 @@ def build_context(
     multiqc_dir: Path,
     cohort_report: Path | None,
     sample_reports_dir: Path | None,
-    variant_counts: dict[str, int] | None,
+    cnv_sv_data_dir: Path | None = None,
+    multiqc_report_path: str | None = None,
+    show_sensitive: bool = False,
+    joint_vcf: Path | None = None,
 ) -> dict:
     """Build the full template context dictionary."""
 
     bcftools_df = load_bcftools_stats(multiqc_dir)
     snpeff_df = load_snpeff_stats(multiqc_dir)
-    general_df = load_general_stats(multiqc_dir)
 
-    # Get unique samples (sorted)
+    # Get unique samples (sorted) from bcftools stats
     samples = sorted(bcftools_df["sample"].unique())
     callers = sorted(TARGET_CALLERS)
+
+    # Use known samples for general stats filtering
+    general_df = load_general_stats(multiqc_dir, known_samples=set(samples))
 
     # --- Variant counts pivot: {sample: {caller: n_records}} ---
     variant_pivot = {}
@@ -222,55 +448,68 @@ def build_context(
             "low": row["low"],
         }
 
-    # --- QC data for general stats table ---
-    qc_data = []
+    # --- Combined QC + variant summary table ---
+    igv_links = discover_igv_reports(sample_reports_dir)
+
+    # Build QC lookup from general_stats
+    qc_lookup = {}
     for _, row in general_df.iterrows():
-        info = classify_sample(row["sample"])
-        entry = {
-            "sample": row["sample"],
-            "type": info["type"],
-            "lineage": info["lineage"],
+        qc_lookup[row["sample"]] = {
             "dup_pct": round(row.get("dup_pct", 0), 1) if pd.notna(row.get("dup_pct")) else None,
             "mapped_pct": round(row.get("mapped_pct", 0), 1) if pd.notna(row.get("mapped_pct")) else None,
             "median_coverage": int(row.get("median_coverage", 0)) if pd.notna(row.get("median_coverage")) else None,
-            # MultiQC stores total_sequences already in millions
-            "total_reads_m": round(row.get("total_reads", 0), 1) if pd.notna(row.get("total_reads")) else None,
+            "mapped_reads_m": round(row.get("mapped_reads", 0), 1) if pd.notna(row.get("mapped_reads")) else None,
         }
-        qc_data.append(entry)
-
-    # --- Per-sample summary table (combines variant counts + QC + igv links) ---
-    igv_links = discover_igv_reports(sample_reports_dir)
 
     summary_data = []
     for sample in samples:
         info = classify_sample(sample)
         counts = variant_pivot.get(sample, {})
-        hc_impact = impact_pivot.get(sample, {}).get("HaplotypeCaller", {})
+        qc = qc_lookup.get(sample, {})
 
-        # Use variant_counts from Nextflow if provided, otherwise from MultiQC
+        # HC variant count from MultiQC bcftools_stats (hard_filtered tier)
         hc_variants = counts.get("HaplotypeCaller", 0)
-        if variant_counts and sample in variant_counts:
-            hc_variants = variant_counts[sample]
 
         entry = {
             "sample": sample,
             "type": info["type"],
-            "lineage": info["lineage"],
+            # QC fields
+            "median_coverage": qc.get("median_coverage"),
+            "dup_pct": qc.get("dup_pct"),
+            "mapped_pct": qc.get("mapped_pct"),
+            "mapped_reads_m": qc.get("mapped_reads_m"),
+            # Variant fields
             "hc_variants": hc_variants,
             "cnvkit_events": counts.get("CNVKit", 0),
             "tiddit_svs": counts.get("TIDDIT", 0),
             "manta_svs": counts.get("Manta", 0),
-            "hc_high": hc_impact.get("high", 0),
-            "hc_moderate": hc_impact.get("moderate", 0),
-            "hc_low": hc_impact.get("low", 0),
-            "igv_link": igv_links.get(sample),
+            "igv_link": igv_links.get(sample, {}).get("hc"),
+            "cnvkit_igv_link": igv_links.get(sample, {}).get("cnvkit"),
+            "manta_igv_link": igv_links.get(sample, {}).get("manta"),
         }
         summary_data.append(entry)
 
     # --- Cohort report path ---
     cohort_link = None
+    cohort_variant_count = 0
     if cohort_report and cohort_report.exists():
         cohort_link = cohort_report.name
+
+    # Cohort variant count: unique sites in the joint VCF (from MultiQC)
+    joint_count = get_joint_vcf_variant_count(multiqc_dir)
+    if joint_count is not None:
+        cohort_variant_count = joint_count
+    else:
+        # Fallback: sum of per-sample hard-filtered counts
+        cohort_variant_count = sum(s.get("hc_variants", 0) for s in summary_data)
+
+    # PASS variant count from joint VCF (requires bcftools)
+    cohort_pass_count = get_joint_vcf_pass_count(joint_vcf)
+
+    # --- CN/SV data (optional) ---
+    cnv_sv = {}
+    if cnv_sv_data_dir and cnv_sv_data_dir.is_dir():
+        cnv_sv = load_cnv_sv_data(cnv_sv_data_dir)
 
     return {
         "title": "ALE Multi-Caller Variant Dashboard",
@@ -278,8 +517,19 @@ def build_context(
         "n_samples": len(samples),
         "callers": callers,
         "cohort_link": cohort_link,
-        "qc_data_json": json.dumps(qc_data),
+        "cohort_variant_count": cohort_variant_count,
+        "cohort_pass_count": cohort_pass_count,
+        "multiqc_report_path": multiqc_report_path or "../../output_all/multiqc/multiqc_report.html",
         "summary_data_json": json.dumps(summary_data),
+        # CN/SV data (None if not provided)
+        "cn_chr_sens": cnv_sv.get("cn_chr_sens"),
+        "cn_chr_str": cnv_sv.get("cn_chr_str"),
+        "cn_reg_sens": cnv_sv.get("cn_reg_sens"),
+        "cn_reg_str": cnv_sv.get("cn_reg_str"),
+        "sv_pass": cnv_sv.get("sv_pass"),
+        "sv_all": cnv_sv.get("sv_all"),
+        "cnv_sv_summary": cnv_sv.get("cnv_sv_summary", {}),
+        "show_sensitive": show_sensitive,
     }
 
 
@@ -326,25 +576,35 @@ def main():
         help="Path to directory containing per-sample igv-reports HTML files",
     )
     parser.add_argument(
-        "--variant-counts-json", type=Path, default=None,
-        help="JSON file with {sample_id: count} from Nextflow COUNT_VARIANTS",
-    )
-    parser.add_argument(
         "--templates-dir", type=Path, default=None,
         help="Path to Jinja2 templates directory (default: templates/ next to this script)",
     )
+    parser.add_argument(
+        "--cnv-sv-data-dir", type=Path, default=None,
+        help="Directory containing CN/SV cohort matrix CSVs (from cn_cohort_matrix.py, sv_cohort_matrix.py)",
+    )
+    parser.add_argument(
+        "--multiqc-report-path", type=str, default=None,
+        help="Relative path to multiqc_report.html from the output index.html location",
+    )
+    parser.add_argument(
+        "--joint-vcf", type=Path, default=None,
+        help="Path to joint HaplotypeCaller VCF (.vcf.gz) for PASS variant counting",
+    )
+    parser.add_argument(
+        "--show-sensitive", action="store_true", default=False,
+        help="Show sensitive CN and unfiltered SV tabs alongside stringent/PASS (debug mode)",
+    )
     args = parser.parse_args()
-
-    # Load optional variant counts from Nextflow
-    variant_counts = None
-    if args.variant_counts_json and args.variant_counts_json.exists():
-        variant_counts = json.loads(args.variant_counts_json.read_text())
 
     context = build_context(
         multiqc_dir=args.multiqc_dir,
         cohort_report=args.cohort_report,
         sample_reports_dir=args.sample_reports_dir,
-        variant_counts=variant_counts,
+        cnv_sv_data_dir=args.cnv_sv_data_dir,
+        multiqc_report_path=args.multiqc_report_path,
+        show_sensitive=args.show_sensitive,
+        joint_vcf=args.joint_vcf,
     )
 
     # Template directory: explicit arg or relative to this script

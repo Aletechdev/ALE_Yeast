@@ -38,10 +38,11 @@ Sarek then runs `cnvkit.py call` again as a separate process, taking the raw `.m
 CNVKIT_CALL(CNVKIT_BATCH.out.cns.map{ meta, cns -> [meta, cns[2], []]})
 ```
 
-With germline config override (`conf/modules/cnvkit.config:45-48`):
+With germline config override (`conf/modules/cnvkit.config:36-38`):
 ```groovy
-ext.args = { "--filter ci --ploidy ${meta.ploidy}" }
+ext.args = "--filter ci"
 ```
+Note: No explicit `--ploidy` is passed — cnvkit defaults to `--ploidy 2`, which matches the diploid CN scale. See `cnvkit_ploidy_behavior.md` for why `--ploidy ${meta.ploidy}` was reverted.
 
 This produces `.md.germline.call.cns` with:
 - **Original log2**: no re-centering (uses raw segmented values)
@@ -64,11 +65,13 @@ The sarek developers likely chose `--filter ci` for the germline path to reduce 
 
 ### CN call differences (Ottilie pilot, 4 samples)
 
+**Post-revert data (May 2026, `--ploidy 2` for both files):**
+
 | Sample | `.call.cns` segments | `.germline.call.cns` segments | CN differences |
 |--------|---------------------|------------------------------|----------------|
 | CBR110-15-R3a | 20 | 20 | **chr VI**: cn=2 vs cn=3 (re-centering flips threshold) |
-| Carmaphycin-R9-2 | 19 | 19 | **chr XII**: cn=13 vs cn=7, cn=4 vs cn=2 |
-| Doxorubicin16-R2b | 19 | 19 | **chr XII**: cn=13 vs cn=7 |
+| Carmaphycin-R9-2 | 19 | 19 | Identical (cn=13 and cn=4 now agree) |
+| Doxorubicin16-R2b | 18 | 18 | Identical (cn=13 now agrees) |
 | NODRUG-GM2 | 17 | 17 | Identical |
 
 ### CBR110-15-R3a chr VI: Re-centering flips CN
@@ -78,28 +81,25 @@ The sarek developers likely chose `--filter ci` for the germline path to reduce 
 .germline.call.cns:     log2=0.217  → cn=3  (above 0.2 threshold)
 ```
 
-The ~0.03 re-centering shift pushed chr VI below the gain threshold in `.call.cns`. The `.germline.call.cns` (no re-centering) calls it as a gain.
+The ~0.03 re-centering shift pushed chr VI below the gain threshold in `.call.cns`. The `.germline.call.cns` (no re-centering) calls it as a gain. This is the only CN disagreement across all 4 pilot samples after the ploidy revert.
 
-### Carmaphycin chr XII: High-CN overflow formula
+### Carmaphycin chr XII: High-CN now agrees after ploidy revert
 
 ```
 .call.cns (re-centered):   log2=2.587 → cn=13  (ceil(2 × 2^2.587) = ceil(12.03))
-.germline.call.cns:         log2=2.586 → cn=7   (ceil(1 × 2^2.586) = ceil(6.01))
-                                                   ^^ --ploidy 1 used in CNVKIT_CALL
+.germline.call.cns:         log2=2.586 → cn=13  (ceil(2 × 2^2.586) = ceil(12.02))
 ```
 
-For high CN (log2 > 0.7), the overflow formula `ceil(ploidy × 2^log2)` is used, so `--ploidy` directly affects the result. This is the one case where ploidy significantly changes the `.call.cns` output.
+Previously with `--ploidy 1` in `CNVKIT_CALL`, `.germline.call.cns` reported cn=7 (`ceil(1 × 2^2.586)`). After reverting to `--ploidy 2`, both files use the same overflow formula and agree on cn=13.
 
-**After reverting to `--ploidy 2`**, both files will use the same ploidy for the overflow formula, and the only difference will be re-centering.
-
-### chr XII:1063202-1078177: CI filter resets CN
+### Carmaphycin chr XII:1063202-1078177: Small segment also agrees
 
 ```
-.call.cns:              log2=0.774  → cn=4  (re-centered, overflow formula)
-.germline.call.cns:     log2=0.773  → cn=2  (CI filter reset? or ploidy effect)
+.call.cns:              log2=0.774  → cn=4  (ceil(2 × 2^0.774) = ceil(3.42))
+.germline.call.cns:     log2=0.773  → cn=4  (ceil(2 × 2^0.773) = ceil(3.41))
 ```
 
-Only 3 probes in this segment — low confidence. The CI filter likely reset this to baseline.
+Previously cn=2 in `.germline.call.cns` due to either CI filter reset or ploidy=1 effect. With `--ploidy 2`, both agree on cn=4. This 3-probe segment is low confidence but now consistent.
 
 ## Which File to Use
 
@@ -130,14 +130,15 @@ Generate **both** segment-level CN matrices and compare empirically before commi
 | **VCF export** | `.md.germline.call.cns` | Used by sarek pipeline |
 | **Continuous CN / heatmaps** | `.md.cnr` | Bin-level, uniform across samples, `ploidy × 2^log2` |
 
-## Impact of Ploidy Revert (`--ploidy 2`)
+## ✅ Ploidy Reverted to Defaults (May 2026)
 
-After reverting `CNVKIT_CALL` and `CNVKIT_EXPORT` to `--ploidy 2`:
+`CNVKIT_CALL` and `CNVKIT_EXPORT` no longer pass explicit `--ploidy` — both default to `--ploidy 2`, matching the diploid CN scale:
 
 - **`.md.call.cns`**: Unchanged (batch always uses ploidy=2 internally)
-- **`.md.germline.call.cns`**: High-CN overflow formula changes from `ceil(1 × 2^log2)` to `ceil(2 × 2^log2)` — CN values for amplifications will match `.call.cns`
+- **`.md.germline.call.cns`**: High-CN overflow formula now uses `ceil(2 × 2^log2)`, matching `.call.cns`
 - **VCF**: Baseline segments (cn=2) correctly hidden instead of emitted as false DUPs
 - **Remaining difference**: Re-centering (~0.03 log2 shift) between the two files
+- **Carmaphycin chr XII** (verified): Both files now produce cn=13 for log2≈2.59 and cn=4 for log2≈0.77 (previously `.germline.call.cns` reported cn=7 and cn=2 with `--ploidy 1`)
 
 ## Files
 

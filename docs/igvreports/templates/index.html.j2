@@ -2,44 +2,109 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="color-scheme" content="light">
     <title>{{ title }}</title>
     <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
     <style>
+        /* --- Light theme (default) --- */
+        :root {
+            color-scheme: light;
+            --bg: #ffffff;
+            --fg: #333333;
+            --fg-heading: #24292e;
+            --fg-muted: #586069;
+            --link: #0366d6;
+            --border: #e1e4e8;
+            --surface: #f6f8fa;
+            --surface-alt: #fafbfc;
+            --hover: #f0f1f3;
+            --badge-pass-bg: #dcffe4; --badge-pass-fg: #22863a;
+            --badge-warn-bg: #fff5b1; --badge-warn-fg: #735c0f;
+            --badge-fail-bg: #ffeef0; --badge-fail-fg: #cb2431;
+            --badge-na-bg: #f1f1f1;   --badge-na-fg: #888888;
+            --code-bg: #f6f8fa;
+            --table-header-bg: #f6f8fa;
+            --table-border: #e1e4e8;
+            --caller-manta: #22863a; --caller-manta-bg: #dcffe4;
+            --caller-tiddit: #0366d6; --caller-tiddit-bg: #dbedff;
+            --caller-both: #6f42c1; --caller-both-bg: #f5f0ff;
+        }
+
+        /* --- Dark theme --- */
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #0d1117;
+            --fg: #c9d1d9;
+            --fg-heading: #e6edf3;
+            --fg-muted: #8b949e;
+            --link: #58a6ff;
+            --border: #30363d;
+            --surface: #161b22;
+            --surface-alt: #1c2128;
+            --hover: #2d333b;
+            --badge-pass-bg: #1b3a2a; --badge-pass-fg: #56d364;
+            --badge-warn-bg: #3b2e00; --badge-warn-fg: #e3b341;
+            --badge-fail-bg: #3d1418; --badge-fail-fg: #f85149;
+            --badge-na-bg: #21262d;   --badge-na-fg: #8b949e;
+            --code-bg: #161b22;
+            --table-header-bg: #1c2128;
+            --table-border: #30363d;
+            --caller-manta: #56d364; --caller-manta-bg: #1b3a2a;
+            --caller-tiddit: #58a6ff; --caller-tiddit-bg: #0d2240;
+            --caller-both: #a371f7; --caller-both-bg: #1a0f2e;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            max-width: 1100px;
+            max-width: 1400px;
             margin: 40px auto;
             padding: 0 20px;
-            color: #333;
+            background: var(--bg);
+            color: var(--fg);
         }
-        h1 { border-bottom: 2px solid #0366d6; padding-bottom: 8px; }
-        h2 { margin-top: 32px; color: #24292e; }
-        a { color: #0366d6; text-decoration: none; }
+        h1 { border-bottom: 2px solid var(--link); padding-bottom: 8px; color: var(--fg-heading); }
+        h2 { margin-top: 32px; color: var(--fg-heading); }
+        a { color: var(--link); text-decoration: none; }
         a:hover { text-decoration: underline; }
+
+        /* Report link boxes with counts */
+        .report-links { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
         .report-link {
-            display: inline-block;
-            padding: 8px 16px;
-            margin: 4px 8px 4px 0;
-            border-radius: 4px;
-            background: #f6f8fa;
-            border: 1px solid #e1e4e8;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            text-decoration: none;
+            color: var(--fg);
+            font-weight: 500;
+            font-size: 0.9em;
+            transition: background 0.15s;
         }
-        .report-link:hover { background: #e1e4e8; text-decoration: none; }
-        .meta { color: #586069; font-size: 0.9em; }
-        .note { color: #586069; font-size: 0.9em; margin-top: 4px; }
+        .report-link:hover { background: var(--hover); text-decoration: none; }
+        .report-link .count {
+            background: var(--link);
+            color: #fff;
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-size: 0.85em;
+            font-weight: 700;
+        }
+
+        .meta { color: var(--fg-muted); font-size: 0.9em; }
+        .note { color: var(--fg-muted); font-size: 0.9em; margin-top: 4px; }
         .section { margin: 24px 0; }
         .footer {
-            color: #586069;
+            color: var(--fg-muted);
             font-size: 0.85em;
             margin-top: 40px;
-            border-top: 1px solid #e1e4e8;
+            border-top: 1px solid var(--border);
             padding-top: 12px;
         }
-        /* Tabulator overrides for consistent styling */
-        .tabulator { font-size: 0.9em; border: 1px solid #e1e4e8; }
-        .tabulator .tabulator-header { background: #f6f8fa; }
-        .tabulator-row.tabulator-row-even { background: #fafbfc; }
-        .igv-link { cursor: pointer; color: #0366d6; text-decoration: underline; }
+
+        /* Badges */
         .badge {
             display: inline-block;
             padding: 2px 6px;
@@ -47,73 +112,491 @@
             font-size: 0.8em;
             font-weight: 600;
         }
-        .badge-high { background: #ffeef0; color: #cb2431; }
-        .badge-mod { background: #fff5b1; color: #735c0f; }
-        .badge-low { background: #e6ffed; color: #22863a; }
+        .badge-high { background: var(--badge-fail-bg); color: var(--badge-fail-fg); }
+        .badge-mod  { background: var(--badge-warn-bg); color: var(--badge-warn-fg); }
+        .badge-low  { background: var(--badge-pass-bg); color: var(--badge-pass-fg); }
+        .badge-manta { background: var(--caller-manta-bg); color: var(--caller-manta); }
+        .badge-tiddit { background: var(--caller-tiddit-bg); color: var(--caller-tiddit); }
+        .badge-both { background: var(--caller-both-bg); color: var(--caller-both); }
+        .badge-none { color: var(--fg-muted); }
+        .badge-svtype {
+            display: inline-block; padding: 1px 5px; border-radius: 3px;
+            font-size: 0.75em; font-weight: 700;
+        }
+        .svtype-DEL { background: var(--badge-fail-bg); color: var(--badge-fail-fg); }
+        .svtype-DUP { background: #dbedff; color: #0366d6; }
+        .svtype-INV { background: var(--badge-warn-bg); color: var(--badge-warn-fg); }
+        .svtype-TRA { background: var(--caller-both-bg); color: var(--caller-both); }
+        .svtype-INS { background: var(--badge-pass-bg); color: var(--badge-pass-fg); }
+        [data-theme="dark"] .svtype-DUP { background: #0d2240; color: #58a6ff; }
+
+        /* Tab bar */
+        .tab-bar { display: flex; gap: 0; margin-top: 24px; border-bottom: 2px solid var(--border); }
+        .tab-btn {
+            padding: 8px 16px; cursor: pointer; border: none;
+            background: transparent; color: var(--fg-muted); font-size: 0.9em; font-weight: 600;
+            border-bottom: 2px solid transparent; margin-bottom: -2px;
+        }
+        .tab-btn:hover { color: var(--fg); }
+        .tab-btn.active { color: var(--link); border-bottom-color: var(--link); }
+        .tab-panel { display: none; padding-top: 12px; }
+        .tab-panel.active { display: block; }
+
+        .cn-loss { background: var(--badge-fail-bg); color: var(--badge-fail-fg); font-weight: 600; }
+        .cn-neutral { background: var(--bg); color: var(--fg-muted); }
+        .cn-gain { background: #dbedff; color: #0366d6; font-weight: 600; }
+        .cn-amp { background: #0366d6; color: #ffffff; font-weight: 700; }
+        [data-theme="dark"] .cn-gain { background: #0d2240; color: #58a6ff; }
+        [data-theme="dark"] .cn-amp { background: #1158c7; color: #ffffff; }
+
+        /* Summary cards */
+        .cards { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+        .card {
+            flex: 1; min-width: 150px; padding: 14px 18px;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+        }
+        .card .value { font-size: 1.8em; font-weight: 700; color: var(--fg-heading); }
+        .card .label { font-size: 0.85em; color: var(--fg-muted); margin-top: 2px; }
+        .card .card-sub { font-size: 0.6em; color: var(--fg-muted); font-weight: 400; }
+        a.card-link {
+            text-decoration: none; color: inherit; cursor: pointer;
+            border-left: 3px solid var(--link);
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+        a.card-link .label { color: var(--link); }
+        a.card-link .label::after { content: " \2197"; font-size: 0.9em; }
+        a.card-link:hover { background: var(--hover); border-color: var(--link); box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-decoration: none; }
+
+        /* Audit / methodology sections */
+        details { margin: 12px 0; }
+        details summary {
+            cursor: pointer; font-weight: 600; color: var(--fg-heading);
+            padding: 6px 0; font-size: 0.95em;
+        }
+        details summary:hover { color: var(--link); }
+        details[open] summary { margin-bottom: 8px; }
+        .audit-content { padding: 0 16px 12px; line-height: 1.7; font-size: 0.92em; }
+        .audit-content h4 { margin: 14px 0 6px; color: var(--fg-heading); }
+        .audit-content code { background: var(--surface); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+        .audit-content table { border-collapse: collapse; margin: 8px 0; font-size: 0.9em; }
+        .audit-content th, .audit-content td { padding: 5px 12px; border: 1px solid var(--border); text-align: left; }
+        .audit-content th { background: var(--surface); font-weight: 600; }
+        .audit-content .tier-arrow { color: var(--fg-muted); font-size: 1.2em; text-align: center; padding: 2px 0; }
+
+        /* Tabulator overrides */
+        .tabulator { font-size: 0.9em; border: 1px solid var(--table-border); }
+        .tabulator .tabulator-header { background: var(--table-header-bg); color: var(--fg); }
+        .tabulator .tabulator-header .tabulator-col { background: var(--table-header-bg); border-color: var(--table-border); color: var(--fg); }
+        .tabulator .tabulator-header .tabulator-col .tabulator-col-content { color: var(--fg); }
+        .tabulator .tabulator-tableholder { background: var(--bg); }
+        .tabulator-row { background: var(--bg); color: var(--fg); }
+        .tabulator-row.tabulator-row-even { background: var(--surface-alt); }
+        .tabulator-row.tabulator-row-odd { background: var(--bg); }
+        .tabulator-row .tabulator-cell { border-color: var(--table-border); }
+        .tabulator-row .tabulator-cell a { color: var(--link); }
+        .tabulator .tabulator-header .tabulator-col { border-right: 1px solid var(--table-border); }
+        .tabulator .tabulator-header .tabulator-header-filter input {
+            background: var(--surface); color: var(--fg); border: 1px solid var(--border);
+        }
+        /* Tabulator hover — hardcoded per theme for browser compat */
+        html[data-theme="light"] .tabulator .tabulator-header .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover,
+        html:not([data-theme]) .tabulator .tabulator-header .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover {
+            background-color: #e8e9eb !important;
+        }
+        html[data-theme="light"] .tabulator-row.tabulator-selectable:hover,
+        html:not([data-theme]) .tabulator-row.tabulator-selectable:hover {
+            background-color: #f0f1f3 !important;
+        }
+        html[data-theme="dark"] .tabulator .tabulator-header .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover {
+            background-color: #3a414b !important;
+        }
+        html[data-theme="dark"] .tabulator-row.tabulator-selectable:hover {
+            background-color: #2d333b !important;
+        }
+
+        .igv-link { cursor: pointer; color: var(--link); text-decoration: underline; }
+
+        /* Theme toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 12px;
+            right: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 1.1em;
+            line-height: 1;
+            z-index: 1000;
+            color: var(--fg);
+        }
+        .theme-toggle:hover { background: var(--surface-alt); }
     </style>
+    <script>
+        // Apply theme before paint to prevent flash
+        (function() {
+            var saved = localStorage.getItem('dashboard-theme');
+            var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+            var csm = document.querySelector('meta[name="color-scheme"]');
+            if (csm) csm.setAttribute('content', theme);
+        })();
+    </script>
 </head>
 <body>
+
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark / light mode" aria-label="Toggle dark mode">&#9790;</button>
 
     {# ================================================================== #}
     {# Section 1: Header                                                   #}
     {# ================================================================== #}
     <h1>{{ title }}</h1>
+    <p class="note" style="margin:4px 0 8px;font-style:italic">
+        Mutation report prototype &mdash; yAMPv1.0.0 pre-release
+    </p>
     <p class="meta">
         Generated {{ generated_at }} &middot;
         {{ n_samples }} samples &middot;
         {{ callers | length }} variant callers
         ({{ callers | join(', ') }})
     </p>
-    <p>Variants called using
-        <a href="https://gatk.broadinstitute.org/hc/en-us/articles/5358864757787-HaplotypeCaller">GATK HaplotypeCaller</a> (SNVs/indels),
-        <a href="https://github.com/etal/cnvkit">CNVKit</a> (copy number),
-        <a href="https://github.com/SciLifeLab/TIDDIT">TIDDIT</a> (structural variants), and
-        <a href="https://github.com/Illumina/manta">Manta</a> (structural variants).
+    <p class="note">
+        Single Nucleotide Variants (SNVs) and small Insertions/Deletions (InDels) by
+        <a href="https://gatk.broadinstitute.org/hc/en-us/articles/5358864757787-HaplotypeCaller">GATK HaplotypeCaller</a>;
+        Copy Number Variants (CNVs) by
+        <a href="https://github.com/etal/cnvkit">CNVKit</a>;
+        Structural Variants (SVs) by
+        <a href="https://github.com/SciLifeLab/TIDDIT">TIDDIT</a> and
+        <a href="https://github.com/Illumina/manta">Manta</a>.
         Annotated with <a href="https://pcingola.github.io/SnpEff/">SnpEff</a>.
-        Summary data from <a href="https://multiqc.info/">MultiQC</a>.
     </p>
 
     {# ================================================================== #}
-    {# Section 2: Navigation links                                         #}
+    {# Section 2: Report boxes with counts                                 #}
     {# ================================================================== #}
     <div class="section">
         <h2>Reports</h2>
-        {% if cohort_link %}
-        <a class="report-link" href="{{ cohort_link }}">
-            HaplotypeCaller Cohort Report
-        </a>
-        {% endif %}
-        <a class="report-link" href="../../output_all/multiqc/multiqc_report.html">
-            MultiQC Report
-        </a>
+        <div class="cards">
+            <div class="card">
+                <div class="value">{{ n_samples }}</div>
+                <div class="label">Samples</div>
+            </div>
+            {% if cohort_link %}
+            <a class="card card-link" href="{{ cohort_link }}">
+                <div class="value">{% if cohort_pass_count %}{{ cohort_pass_count }} <span class="card-sub">/ {{ cohort_variant_count }}</span>{% elif cohort_variant_count %}{{ cohort_variant_count }}{% else %}&mdash;{% endif %}</div>
+                <div class="label">SNV/InDel Events{% if cohort_pass_count %} (high-confidence / all){% endif %}</div>
+            </a>
+            {% endif %}
+            {% if sv_pass %}
+            <a class="card card-link" href="#sv-section">
+                <div class="value">{{ sv_pass.both_caller_count }} <span class="card-sub">/ {{ sv_pass.row_count }}</span></div>
+                <div class="label">SV Events (high-confidence / all)</div>
+            </a>
+            {% endif %}
+            {% if cn_reg_str or cn_reg_sens %}
+            {% set cn_reg_primary = cn_reg_str or cn_reg_sens %}
+            <a class="card card-link" href="#cn-regions-section">
+                <div class="value">{{ cn_reg_primary.change_count }} <span class="card-sub">/ {{ cn_reg_primary.row_count }}</span></div>
+                <div class="label">CN Windows (high-confidence / all)</div>
+            </a>
+            {% endif %}
+            {% if cn_chr_str or cn_chr_sens %}
+            {% set cn_chr_primary_card = cn_chr_str or cn_chr_sens %}
+            <a class="card card-link" href="#cn-section">
+                <div class="value">{{ cn_chr_primary_card.change_count }} <span class="card-sub">/ {{ cn_chr_primary_card.row_count }}</span></div>
+                <div class="label">Aneuploidy (high-confidence / all)</div>
+            </a>
+            {% endif %}
+            {% if multiqc_report_path %}
+            <a class="card card-link" href="{{ multiqc_report_path }}">
+                <div class="value">QC</div>
+                <div class="label">MultiQC Report</div>
+            </a>
+            {% endif %}
+        </div>
         <p class="note">
-            Cohort report includes all variants across all samples with interactive
-            Tabulator.js table, SnpEff annotations, and IGV browser.
-            Click sample cells in the cohort report to drill down to per-sample
-            reports with CRAM read pileups.
+            Click boxes to open reports or scroll to embedded tables.
+            {% if cohort_link %}
+            Cohort report includes interactive Tabulator.js table, SnpEff annotations, and IGV browser.
+            {% endif %}
         </p>
     </div>
 
     {# ================================================================== #}
-    {# Section 3: QC Overview (Tabulator.js)                               #}
+    {# Section 4: Sample Overview (QC + Variants)                          #}
     {# ================================================================== #}
     <div class="section">
-        <h2>Sample QC Overview</h2>
-        <p class="note">Sequencing quality metrics per sample. Data from MultiQC (Picard MarkDuplicates, Samtools, Mosdepth).</p>
-        <div id="qc-table"></div>
-    </div>
-
-    {# ================================================================== #}
-    {# Section 4: Per-Sample Variant Summary (Tabulator.js)                #}
-    {# ================================================================== #}
-    <div class="section">
-        <h2>Per-Sample Variant Summary</h2>
+        <h2>Sample Overview</h2>
         <p class="note">
-            Variant counts from bcftools stats (MultiQC). HaplotypeCaller counts are from
-            individual-from-joint-calling VCFs. Impact counts from SnpEff annotation.
-            Click sample names to open per-sample igv-reports (where available).
+            QC metrics from MultiQC (Picard, Samtools, Mosdepth). Variant counts from bcftools stats.
+            Click linked counts to open per-sample IGV reports.
+            CNV and SV IGV reports are experimental. SV visualization is harder to standardize than for small mutations.
+            We are following <a href="https://www.youtube.com/watch?v=wuk3Lo_2VlU" target="_blank" rel="noopener">this IGV SV walkthrough</a> to evaluate adaptable solutions for SV viewing.
+            TIDDIT per-mutation IGV reports will be rolled out after evaluation.
         </p>
         <div id="summary-table"></div>
+    </div>
+
+    {# ================================================================== #}
+    {# Section 6: SV Event Matrix (conditional)                            #}
+    {# ================================================================== #}
+    {% if sv_pass %}
+    <div class="section" id="sv-section">
+        <h2>Ensemble SV Events (Manta + TIDDIT)</h2>
+        <p class="note">{{ sv_pass.both_caller_count }} / {{ sv_pass.row_count }} PASS-filtered events detected by both Manta and TIDDIT (high-confidence). Remaining events called by a single caller.</p>
+        {% if show_sensitive and sv_all %}
+        <div class="tab-bar" id="sv-tabs">
+            <button class="tab-btn active" data-tab="sv-pass-panel">SV High-Quality #{{ sv_pass.row_count }}</button>
+            <button class="tab-btn" data-tab="sv-all-panel">SV All #{{ sv_all.row_count }}</button>
+        </div>
+        {% endif %}
+        <div class="tab-panel active" id="sv-pass-panel">
+            <div id="sv-pass-table"></div>
+        </div>
+        {% if show_sensitive and sv_all %}
+        <div class="tab-panel" id="sv-all-panel">
+            <div id="sv-all-table"></div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# ================================================================== #}
+    {# Section 7: Collapsed CN Windows (conditional)                       #}
+    {# ================================================================== #}
+    {% set cn_reg_primary = cn_reg_str if cn_reg_str else cn_reg_sens %}
+    {% if cn_reg_primary %}
+    <div class="section" id="cn-regions-section">
+        <h2>Collapsed CN Windows</h2>
+        <p class="note">{{ cn_reg_primary.change_count }} / {{ cn_reg_primary.row_count }} windows with log2 ratio outside &minus;0.4 to 0.3</p>
+        <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
+            <p class="note" style="margin:0">Collapsed CN windows with genomic coordinates.</p>
+            <button class="tab-btn active cn-metric-btn" data-metric="abs">Absolute CN</button>
+            <button class="tab-btn cn-metric-btn" data-metric="log2">log2 ratio</button>
+        </div>
+        {% if show_sensitive and cn_reg_str and cn_reg_sens %}
+        <div class="tab-bar" id="cn-reg-tabs">
+            <button class="tab-btn active" data-tab="cn-reg-str-panel">CN Regions Stringent #{{ cn_reg_str.row_count }}</button>
+            <button class="tab-btn" data-tab="cn-reg-sens-panel">CN Regions Sensitive #{{ cn_reg_sens.row_count }}</button>
+        </div>
+        {% endif %}
+        <div class="tab-panel active" id="cn-reg-str-panel">
+            <div id="cn-reg-str-table"></div>
+        </div>
+        {% if show_sensitive and cn_reg_str and cn_reg_sens %}
+        <div class="tab-panel" id="cn-reg-sens-panel">
+            <div id="cn-reg-sens-table"></div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# ================================================================== #}
+    {# Section 8: Chromosome Level Copy Number (conditional)               #}
+    {# ================================================================== #}
+    {% set cn_chr_primary = cn_chr_str if cn_chr_str else cn_chr_sens %}
+    {% set cn_chr_primary_label = "Stringent" if cn_chr_str else "Sensitive" %}
+    {% if cn_chr_primary %}
+    <div class="section" id="cn-section">
+        <h2>Chromosome Level Copy Number Change (Aneuploidy)</h2>
+        <p class="note">{{ cn_chr_primary.change_count }} / {{ cn_chr_primary.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3</p>
+        <p class="note">
+            CN per chromosome. Toggle above switches both tables.
+            Chromosomes with mixed CN segments marked with *.
+        </p>
+        {% if show_sensitive and cn_chr_str and cn_chr_sens %}
+        <div class="tab-bar" id="cn-chr-tabs">
+            <button class="tab-btn active" data-tab="cn-chr-str-panel">CN Stringent #{{ cn_chr_str.row_count }}</button>
+            <button class="tab-btn" data-tab="cn-chr-sens-panel">CN Sensitive #{{ cn_chr_sens.row_count }}</button>
+        </div>
+        {% endif %}
+        <div class="tab-panel active" id="cn-chr-str-panel">
+            <div id="cn-chr-str-table"></div>
+        </div>
+        {% if show_sensitive and cn_chr_str and cn_chr_sens %}
+        <div class="tab-panel" id="cn-chr-sens-panel">
+            <div id="cn-chr-sens-table"></div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# ================================================================== #}
+    {# Methodology / Audit                                                 #}
+    {# ================================================================== #}
+    <div class="section">
+        <h2>Methodology</h2>
+
+        <details>
+            <summary>Soft-filter criteria (GATK VariantFiltration)</summary>
+            <div class="audit-content">
+                <p>
+                    The joint-calling VCF is soft-filtered via <code>GATK4 VariantFiltration</code>
+                    as a fallback when VQSR cannot run (no known-sites for custom genomes).
+                    This populates the FILTER column but <strong>retains all variants</strong>.
+                </p>
+                <table>
+                    <tr><th>Filter name</th><th>Expression</th></tr>
+                    <tr><td><code>QD_filter</code></td><td>QD &lt; 2.0</td></tr>
+                    <tr><td><code>FS_filter</code></td><td>FS &gt; 60.0</td></tr>
+                    <tr><td><code>SOR_filter</code></td><td>SOR &gt; 3.0</td></tr>
+                    <tr><td><code>MQ_filter</code></td><td>MQ &lt; 40.0</td></tr>
+                    <tr><td><code>MQRankSum_filter</code></td><td>MQRankSum &lt; &minus;12.5</td></tr>
+                    <tr><td><code>ReadPosRankSum_filter</code></td><td>ReadPosRankSum &lt; &minus;8.0</td></tr>
+                    <tr><td><code>QUAL_filter</code></td><td>QUAL &lt; 30.0</td></tr>
+                    <tr><td><code>FS_INDEL_filter</code></td><td>INDEL &amp;&amp; FS &gt; 200.0</td></tr>
+                    <tr><td><code>SOR_INDEL_filter</code></td><td>INDEL &amp;&amp; SOR &gt; 10.0</td></tr>
+                    <tr><td><code>ReadPosRankSum_INDEL_filter</code></td><td>INDEL &amp;&amp; ReadPosRankSum &lt; &minus;20.0</td></tr>
+                </table>
+                <p>Config: <code>conf/modules/joint_germline.config</code> &rarr; <code>VARIANTFILTRATION_FALLBACK</code></p>
+            </div>
+        </details>
+
+        <details>
+            <summary>SNV / Indel counting (HaplotypeCaller)</summary>
+            <div class="audit-content">
+                <h4>Filtering pipeline</h4>
+                <p>Joint VCF &rarr; soft-filter (GATK VariantFiltration) &rarr; split per sample &rarr; hard-filter</p>
+                <table>
+                    <tr><th>Step</th><th>Source VCF</th><th>Description</th></tr>
+                    <tr>
+                        <td><strong>1. Soft-filtered</strong></td>
+                        <td><code>*_soft_filtered.vcf.gz</code></td>
+                        <td>Joint VCF with FILTER column populated (PASS or quality flags) &mdash; no variants removed</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2. Split per sample</strong></td>
+                        <td><code>*.from_joint_calling.vcf.gz</code></td>
+                        <td>Individual sample VCFs extracted from joint VCF</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3. Hard-filtered</strong></td>
+                        <td><code>*.hard_filtered.vcf.gz</code></td>
+                        <td>PASS + per-sample depth/quality/AF gate (shown in Sample Overview)</td>
+                    </tr>
+                </table>
+
+                <h4>Hard-filter criteria</h4>
+                <p>Applied per-sample after splitting and <code>bcftools norm -m-</code> (multi-allelic splitting):</p>
+                <table>
+                    <tr><th>Filter</th><th>Threshold</th></tr>
+                    <tr><td>Soft-filter</td><td><code>FILTER="PASS"</code></td></tr>
+                    <tr><td>Genotype quality</td><td><code>GQ &ge; 20</code></td></tr>
+                    <tr><td>Read depth</td><td><code>DP &ge; 8</code></td></tr>
+                    <tr><td>Allele frequency</td><td><code>AF &ge; 0.90</code> (clonal) / <code>&ge; 0.05</code> (population)</td></tr>
+                </table>
+                <p>
+                    Config: <code>conf/modules/custom_haplotypecaller_joint_filter.config</code>
+                </p>
+
+                <h4>Notes</h4>
+                <ul>
+                    <li>The cohort card shows unique variant <em>sites</em> in the joint VCF (one row per site), so it is lower than the sum of per-sample counts.</li>
+                    <li>The cohort IGV report may show more rows than the card number because <code>bcftools norm -m-</code> splits multi-allelic sites into separate records.</li>
+                </ul>
+            </div>
+        </details>
+
+        {% if sv_pass %}
+        <details>
+            <summary>SV event matrix (Manta + TIDDIT)</summary>
+            <div class="audit-content">
+                <p>
+                    SVs detected independently by
+                    <a href="https://github.com/Illumina/manta">Manta</a> and
+                    <a href="https://github.com/SciLifeLab/TIDDIT">TIDDIT</a>,
+                    merged into a cohort matrix by <code>build_sv_matrix.py</code>.
+                    Per-sample columns show caller(s): <code>Manta</code>, <code>TIDDIT</code>, or <code>Manta+TIDDIT</code>.
+                </p>
+                <h4>Why counts differ</h4>
+                <ul>
+                    <li><strong>SV Events card + matrix</strong>: PASS-filtered, deduplicated across callers (<code>sv_cohort_matrix_union_pass.csv</code>)</li>
+                    <li><strong>Sample Overview TIDDIT/Manta columns</strong>: raw unfiltered per-sample VCF counts from bcftools stats</li>
+                </ul>
+                <p>
+                    Per-sample counts are much higher because they include non-PASS calls
+                    and are not deduplicated. TIDDIT in particular generates many low-confidence calls.
+                </p>
+            </div>
+        </details>
+        {% endif %}
+
+        {% if cn_chr_str or cn_chr_sens or cn_reg_str or cn_reg_sens %}
+        <details>
+            <summary>Copy number analysis (CNVKit)</summary>
+            <div class="audit-content">
+                <p>
+                    Copy number is called by <a href="https://github.com/etal/cnvkit">CNVKit</a>
+                    using a flat reference (no matched normal pooling).
+                </p>
+                <h4>Card counts</h4>
+                <p>
+                    Cards show <em>changed / total</em> regions. A region counts as changed
+                    when any sample's log2 ratio is &lt; &minus;0.4 (loss) or &gt; 0.3 (gain) &mdash;
+                    same thresholds as heatmap coloring.
+                </p>
+                <h4>Display values</h4>
+                <p>
+                    Default: <strong>absolute CN</strong> = <code>ploidy &times; 2<sup>log2</sup></code>.
+                    Toggle to <strong>log2 ratio</strong> (raw segmented depth vs. flat reference).
+                    Colors always track log2: 0 = neutral, negative = loss (red),
+                    positive = gain (blue), &ge;2.3 = high amplification (dark blue).
+                </p>
+                <h4>CN tiers</h4>
+                <table>
+                    <tr><th>Tier</th><th>Source</th><th>Description</th></tr>
+                    <tr><td><strong>Stringent</strong> (default)</td><td><code>*.germline.call.cns</code></td><td>Germline-mode, stricter segmentation</td></tr>
+                    <tr><td>Sensitive</td><td><code>*.call.cns</code></td><td>Standard calls, more segments</td></tr>
+                </table>
+                <h4>Table views</h4>
+                <p>
+                    <strong>Collapsed CN Windows</strong>: adjacent bins merged where all samples agree;
+                    breakpoints where any sample differs.<br>
+                    <strong>Chromosome Level (Aneuploidy)</strong>: one row per chromosome, dominant segment CN.
+                    Mixed-CN chromosomes marked with *.
+                </p>
+            </div>
+        </details>
+        {% endif %}
+
+        <details>
+            <summary>IGV report generation</summary>
+            <div class="audit-content">
+                <p>Per-sample and cohort reports are generated with
+                    <a href="https://github.com/igvteam/igv-reports">igv-reports</a>.
+                    Processing steps:</p>
+                <ol>
+                    <li><strong>Multi-allelic split</strong> &mdash; <code>bcftools norm -m-</code> so each alt allele has its own row</li>
+                    <li><strong>FILTER promotion</strong> &mdash; FILTER column copied to <code>INFO/VCF_FILTER</code> (igv-reports only reads INFO)</li>
+                    <li><strong>VAF annotation</strong> &mdash; <code>bcftools +fill-tags -- -t FORMAT/VAF</code></li>
+                    <li><strong>Report creation</strong> &mdash; <code>create_report</code> with &plusmn;500 bp flanking, CRAM tracks, GFF3 gene annotations</li>
+                    <li><strong>VCF embedding</strong> &mdash; prepared VCF base64-encoded into HTML for self-contained download</li>
+                </ol>
+                <p>
+                    The cohort report uses the soft-filtered joint VCF (all variants, FILTER column visible).
+                    Per-sample reports use the annotated individual VCFs from joint calling.
+                    Both include <strong>all variants</strong> (not hard-filtered) so users can inspect flagged variants in IGV.
+                </p>
+            </div>
+        </details>
+
+        <details>
+            <summary>Sample Overview data sources</summary>
+            <div class="audit-content">
+                <table>
+                    <tr><th>Column</th><th>Source</th><th>Filter status</th></tr>
+                    <tr><td>Cov</td><td>Mosdepth median coverage</td><td>&mdash;</td></tr>
+                    <tr><td>Dup %</td><td>Picard MarkDuplicates</td><td>&mdash;</td></tr>
+                    <tr><td>Map % / Mapped (M)</td><td>Samtools flagstat</td><td>&mdash;</td></tr>
+                    <tr><td>HaplotypeCaller</td><td>bcftools stats (<code>*.hard_filtered</code>)</td><td>Hard-filtered (PASS + GQ/DP/AF)</td></tr>
+                    <tr><td>CNVKit</td><td>bcftools stats (<code>*.cnvcall</code>)</td><td>Raw (unfiltered)</td></tr>
+                    <tr><td>TIDDIT</td><td>bcftools stats (<code>*.tiddit</code>)</td><td>Raw (unfiltered)</td></tr>
+                    <tr><td>Manta</td><td>bcftools stats (<code>*.manta.diploid_sv</code>)</td><td>Raw (unfiltered)</td></tr>
+                </table>
+                <p>All parsed from <code>multiqc_data/</code> (<code>multiqc_general_stats.txt</code> + <code>multiqc_bcftools_stats.txt</code>).</p>
+            </div>
+        </details>
     </div>
 
     {# ================================================================== #}
@@ -121,8 +604,8 @@
     {# ================================================================== #}
     <div class="footer">
         Generated from MultiQC summary data (bcftools stats, SnpEff, Mosdepth, Picard).<br>
-        Per-sample igv-reports include GFF3 gene track + CRAM read pileups + FORMAT/VAF.<br>
-        Reference: draft_ref52.fasta
+        {% if cn_chr_sens %}CN data: CNVKit .call.cns (sensitive) and .germline.call.cns (stringent). SV data: Manta + TIDDIT.<br>{% endif %}
+        Per-sample igv-reports include GFF3 gene track + CRAM read pileups + FORMAT/VAF.
     </div>
 
     {# ================================================================== #}
@@ -130,39 +613,60 @@
     {# ================================================================== #}
     <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
     <script>
-        // --- Data injected from Python/Jinja2 ---
-        const qcData = {{ qc_data_json }};
-        const summaryData = {{ summary_data_json }};
+        // --- Theme toggle ---
+        var __darkMql = window.matchMedia('(prefers-color-scheme: dark)');
+        (function() {
+            var btn = document.getElementById('themeToggle');
+            var root = document.documentElement;
+            function currentTheme() {
+                return root.getAttribute('data-theme') ||
+                    (__darkMql.matches ? 'dark' : 'light');
+            }
+            function applyTheme(theme) {
+                root.setAttribute('data-theme', theme);
+                var csm = document.querySelector('meta[name="color-scheme"]');
+                if (csm) csm.setAttribute('content', theme);
+                btn.textContent = theme === 'dark' ? '\u2600' : '\u263E';
+            }
+            applyTheme(currentTheme());
+            btn.addEventListener('click', function() {
+                var next = currentTheme() === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('dashboard-theme', next);
+                applyTheme(next);
+            });
+            function onSystemChange(e) {
+                if (!localStorage.getItem('dashboard-theme')) {
+                    applyTheme(e.matches ? 'dark' : 'light');
+                }
+            }
+            if (__darkMql.addEventListener) {
+                __darkMql.addEventListener('change', onSystemChange);
+            } else if (__darkMql.addListener) {
+                __darkMql.addListener(onSystemChange);
+            }
+        })();
 
-        // --- QC Overview Table ---
-        new Tabulator("#qc-table", {
-            data: qcData,
-            layout: "fitDataFill",
-            headerSortTristate: true,
-            initialSort: [{ column: "sample", dir: "asc" }],
-            columns: [
-                { title: "Sample", field: "sample", headerFilter: "input", frozen: true, minWidth: 140 },
-                { title: "Type", field: "type", headerFilter: "list", headerFilterParams: { valuesLookup: true },
-                  formatter: function(cell) {
-                      var v = cell.getValue();
-                      return v === "Ancestral"
-                          ? '<span style="color:#6f42c1;font-weight:600">' + v + '</span>'
-                          : v;
-                  }
-                },
-                { title: "Lineage", field: "lineage", headerFilter: "input" },
-                { title: "Median Cov", field: "median_coverage", hozAlign: "right",
-                  headerFilter: "number", headerFilterPlaceholder: "min", headerFilterFunc: ">=" },
-                { title: "Dup %", field: "dup_pct", hozAlign: "right",
-                  formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) + "%" : ""; } },
-                { title: "Mapped %", field: "mapped_pct", hozAlign: "right",
-                  formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) + "%" : ""; } },
-                { title: "Reads (M)", field: "total_reads_m", hozAlign: "right",
-                  formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) : ""; } },
-            ],
+        // --- Tab switching ---
+        document.querySelectorAll('.tab-bar').forEach(function(bar) {
+            bar.querySelectorAll('.tab-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    bar.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    var tabId = btn.getAttribute('data-tab');
+                    var next = bar.nextElementSibling;
+                    while (next && next.classList.contains('tab-panel')) {
+                        next.classList.remove('active');
+                        next = next.nextElementSibling;
+                    }
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
         });
 
-        // --- Per-Sample Variant Summary Table ---
+        // --- Data injected from Python/Jinja2 ---
+        const summaryData = {{ summary_data_json }};
+
+        // --- Sample Overview Table (QC + Variants) ---
         new Tabulator("#summary-table", {
             data: summaryData,
             layout: "fitDataFill",
@@ -170,58 +674,253 @@
             initialSort: [{ column: "sample", dir: "asc" }],
             columns: [
                 { title: "Sample", field: "sample", headerFilter: "input", frozen: true, minWidth: 140,
-                  formatter: function(cell) {
-                      var row = cell.getRow().getData();
-                      if (row.igv_link) {
-                          return '<a class="igv-link" href="' + row.igv_link + '">' + cell.getValue() + '</a>';
-                      }
-                      return cell.getValue();
-                  },
-                  formatterParams: { urlPrefix: "" }
                 },
                 { title: "Type", field: "type", headerFilter: "list", headerFilterParams: { valuesLookup: true } },
-                { title: "Lineage", field: "lineage", headerFilter: "input" },
+                {
+                    title: "Sequencing QC",
+                    columns: [
+                        { title: "Cov", field: "median_coverage", hozAlign: "right",
+                          titleFormatter: function() { return 'Cov<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 Mosdepth</span>'; },
+                          headerFilter: "number", headerFilterPlaceholder: "min", headerFilterFunc: ">=" },
+                        { title: "Dup %", field: "dup_pct", hozAlign: "right",
+                          titleFormatter: function() { return 'Dup %<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 Picard</span>'; },
+                          formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) + "%" : ""; } },
+                        { title: "Map %", field: "mapped_pct", hozAlign: "right",
+                          titleFormatter: function() { return 'Map %<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 flagstat</span>'; },
+                          formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) + "%" : ""; } },
+                        { title: "Mapped (M)", field: "mapped_reads_m", hozAlign: "right",
+                          titleFormatter: function() { return 'Mapped (M)<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 flagstat</span>'; },
+                          formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) : ""; } },
+                    ]
+                },
                 {
                     title: "SNV / Indel",
                     columns: [
-                        { title: "HC", field: "hc_variants", hozAlign: "right", sorter: "number",
-                          headerFilter: "number", headerFilterPlaceholder: "min", headerFilterFunc: ">=" },
+                        { title: "HaplotypeCaller", field: "hc_variants", hozAlign: "right", sorter: "number",
+                          titleFormatter: function() { return 'HaplotypeCaller<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 hard-filtered</span>'; },
+                          headerFilter: "number", headerFilterPlaceholder: "min", headerFilterFunc: ">=",
+                          formatter: function(cell) {
+                              var row = cell.getRow().getData();
+                              var v = cell.getValue();
+                              if (v == null) return "";
+                              if (row.igv_link) {
+                                  return '<a class="igv-link" href="' + row.igv_link + '">' + v + '</a>';
+                              }
+                              return v;
+                          }
+                        },
                     ]
                 },
                 {
-                    title: "SV / CNV",
+                    title: "CNV",
                     columns: [
-                        { title: "CNVKit", field: "cnvkit_events", hozAlign: "right", sorter: "number" },
-                        { title: "TIDDIT", field: "tiddit_svs", hozAlign: "right", sorter: "number" },
-                        { title: "Manta", field: "manta_svs", hozAlign: "right", sorter: "number" },
+                        { title: "CNVKit", field: "cnvkit_events", hozAlign: "right", sorter: "number",
+                          titleFormatter: function() { return 'CNVKit<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw cnvcall</span>'; },
+                          formatter: function(cell) {
+                              var row = cell.getRow().getData();
+                              var v = cell.getValue();
+                              if (v == null) return "";
+                              if (row.cnvkit_igv_link) {
+                                  return '<a class="igv-link" href="' + row.cnvkit_igv_link + '">' + v + '</a>';
+                              }
+                              return v;
+                          }
+                        },
                     ]
                 },
                 {
-                    title: "HC Impact (SnpEff)",
+                    title: "SV",
                     columns: [
-                        { title: "HIGH", field: "hc_high", hozAlign: "right", sorter: "number",
+                        { title: "TIDDIT", field: "tiddit_svs", hozAlign: "right", sorter: "number",
+                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered</span>'; } },
+                        { title: "Manta", field: "manta_svs", hozAlign: "right", sorter: "number",
+                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered</span>'; },
                           formatter: function(cell) {
+                              var row = cell.getRow().getData();
                               var v = cell.getValue();
-                              return v > 0 ? '<span class="badge badge-high">' + v + '</span>' : '0';
-                          }
-                        },
-                        { title: "MOD", field: "hc_moderate", hozAlign: "right", sorter: "number",
-                          formatter: function(cell) {
-                              var v = cell.getValue();
-                              return v > 0 ? '<span class="badge badge-mod">' + v + '</span>' : '0';
-                          }
-                        },
-                        { title: "LOW", field: "hc_low", hozAlign: "right", sorter: "number",
-                          formatter: function(cell) {
-                              var v = cell.getValue();
-                              return v > 0 ? '<span class="badge badge-low">' + v + '</span>' : '0';
+                              if (v == null) return "";
+                              if (row.manta_igv_link) {
+                                  return '<a class="igv-link" href="' + row.manta_igv_link + '">' + v + '</a>';
+                              }
+                              return v;
                           }
                         },
                     ]
                 },
                 { title: "IGV Report", field: "igv_link", visible: false },
+                { title: "CNVKit IGV", field: "cnvkit_igv_link", visible: false },
+                { title: "Manta IGV", field: "manta_igv_link", visible: false },
             ],
         });
+
+        // --- CN/SV tables (conditional) ---
+        {% if cn_reg_sens %}
+        var cnMetric = "abs"; // "abs" or "log2"
+
+        // Color always by log2 — ploidy-independent
+        function log2Class(v) {
+            if (v < -0.4) return 'cn-loss';
+            if (v <= 0.3) return 'cn-neutral';
+            if (v >= 2.3) return 'cn-amp';
+            return 'cn-gain';
+        }
+        // Tabulator formatter — color by log2, display switches with toggle
+        function cnCellFormatter(cell) {
+            var log2 = cell.getValue();
+            var cls = log2Class(log2);
+            var display = (cnMetric === "log2") ? log2.toFixed(4) : Math.pow(2, log2).toFixed(2);
+            return '<span class="' + cls + '" style="display:inline-block;padding:1px 6px;border-radius:3px">' + display + '</span>';
+        }
+
+        var cnRegSamples = {{ cn_reg_sens.samples | tojson }};
+        function buildCnRegColumns(samples) {
+            var cols = [
+                { title: "Chr", field: "chromosome", headerFilter: "input", frozen: true, width: 60 },
+                { title: "Start", field: "start", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+                { title: "End", field: "end", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+                { title: "Span (kb)", field: "span_kb", sorter: "number", hozAlign: "right" },
+            ];
+            samples.forEach(function(s) {
+                cols.push({
+                    title: s.replace(/-/g, '\u2011'), field: s + "_log2", hozAlign: "center",
+                    sorter: "number", formatter: cnCellFormatter
+                });
+            });
+            return cols;
+        }
+
+        var cnRegTables = [];
+        {% if cn_reg_str %}
+        cnRegTables.push(new Tabulator("#cn-reg-str-table", {
+            data: {{ cn_reg_str.rows | tojson }},
+            layout: "fitDataFill", height: 500,
+            headerSortTristate: true, columns: buildCnRegColumns(cnRegSamples),
+        }));
+        {% elif cn_reg_sens %}
+        cnRegTables.push(new Tabulator("#cn-reg-str-table", {
+            data: {{ cn_reg_sens.rows | tojson }},
+            layout: "fitDataFill", height: 500,
+            headerSortTristate: true, columns: buildCnRegColumns(cnRegSamples),
+        }));
+        {% endif %}
+        {% if show_sensitive and cn_reg_sens and cn_reg_str %}
+        cnRegTables.push(new Tabulator("#cn-reg-sens-table", {
+            data: {{ cn_reg_sens.rows | tojson }},
+            layout: "fitDataFill", height: 500,
+            headerSortTristate: true, columns: buildCnRegColumns(cnRegSamples),
+        }));
+        {% endif %}
+
+        // --- Chromosome-level CN Tabulator tables ---
+        {% if cn_chr_sens %}
+        var cnChrSamples = {{ cn_chr_sens.samples | tojson }};
+        function cnChrCellFormatter(cell) {
+            var row = cell.getRow().getData();
+            var field = cell.getField();
+            var log2 = cell.getValue();
+            var cls = log2Class(log2);
+            var noteField = field.replace('_log2', '_note');
+            var note = row[noteField] || '';
+            var display = (cnMetric === "log2") ? log2.toFixed(4) : Math.pow(2, log2).toFixed(2);
+            return '<span class="' + cls + '" style="display:inline-block;padding:1px 6px;border-radius:3px">' + display + note + '</span>';
+        }
+        function buildCnChrColumns(samples) {
+            var cols = [
+                { title: "Chr", field: "chromosome", headerFilter: "input", frozen: true, width: 60 },
+                { title: "Length", field: "length", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+            ];
+            samples.forEach(function(s) {
+                cols.push({
+                    title: s.replace(/-/g, '\u2011'), field: s + "_log2", hozAlign: "center",
+                    sorter: "number", formatter: cnChrCellFormatter
+                });
+            });
+            return cols;
+        }
+
+        var cnChrTables = [];
+        {% if cn_chr_str %}
+        cnChrTables.push(new Tabulator("#cn-chr-str-table", {
+            data: {{ cn_chr_str.rows | tojson }},
+            layout: "fitDataFill", height: 500,
+            headerSortTristate: true, columns: buildCnChrColumns(cnChrSamples),
+        }));
+        {% elif cn_chr_sens %}
+        cnChrTables.push(new Tabulator("#cn-chr-str-table", {
+            data: {{ cn_chr_sens.rows | tojson }},
+            layout: "fitDataFill", height: 500,
+            headerSortTristate: true, columns: buildCnChrColumns(cnChrSamples),
+        }));
+        {% endif %}
+        {% if show_sensitive and cn_chr_sens and cn_chr_str %}
+        cnChrTables.push(new Tabulator("#cn-chr-sens-table", {
+            data: {{ cn_chr_sens.rows | tojson }},
+            layout: "fitDataFill", height: 500,
+            headerSortTristate: true, columns: buildCnChrColumns(cnChrSamples),
+        }));
+        {% endif %}
+        {% endif %}
+
+        // Toggle: update all CN Tabulator tables (color stays log2-based)
+        document.querySelectorAll('.cn-metric-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.cn-metric-btn').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                cnMetric = btn.getAttribute('data-metric');
+                cnRegTables.forEach(function(t) { t.redraw(true); });
+                {% if cn_chr_sens %}cnChrTables.forEach(function(t) { t.redraw(true); });{% endif %}
+            });
+        });
+        {% endif %}
+
+        {% if sv_pass %}
+        // SV caller badge formatter
+        var svSamples = {{ sv_pass.samples | tojson }};
+        function callerBadge(val) {
+            if (!val || val === '-') return '<span class="badge-none">-</span>';
+            if (val.indexOf('+') > -1) return '<span class="badge badge-both">' + val + '</span>';
+            if (val === 'Manta') return '<span class="badge badge-manta">Manta</span>';
+            if (val === 'TIDDIT') return '<span class="badge badge-tiddit">TIDDIT</span>';
+            return '<span class="badge">' + val + '</span>';
+        }
+        function svtypeBadge(cell) {
+            var v = cell.getValue();
+            return '<span class="badge-svtype svtype-' + v + '">' + v + '</span>';
+        }
+        function buildSvColumns(samples) {
+            var cols = [
+                { title: "Chr", field: "chrom", headerFilter: "input", frozen: true, width: 60 },
+                { title: "Pos", field: "pos", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+                { title: "Chr2", field: "chrom2", width: 60 },
+                { title: "End", field: "end", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+                { title: "Type", field: "svtype", headerFilter: "list", headerFilterParams: { valuesLookup: true }, formatter: svtypeBadge, width: 70 },
+                { title: "Length", field: "svlen", sorter: "number", hozAlign: "right", formatter: function(c) { var v = c.getValue(); return v ? v.toLocaleString() : '0'; } },
+            ];
+            samples.forEach(function(s) {
+                cols.push({
+                    title: s.replace(/-/g, '\u2011'), field: s, hozAlign: "center",
+                    formatter: function(cell) { return callerBadge(cell.getValue()); },
+                    headerFilter: "list", headerFilterParams: { valuesLookup: true },
+                });
+            });
+            return cols;
+        }
+
+        new Tabulator("#sv-pass-table", {
+            data: {{ sv_pass.rows | tojson }},
+            layout: "fitDataFill", height: 600,
+            headerSortTristate: true, columns: buildSvColumns(svSamples),
+            initialSort: [{ column: "chrom", dir: "asc" }, { column: "pos", dir: "asc" }],
+        });
+        {% if show_sensitive and sv_all %}
+        new Tabulator("#sv-all-table", {
+            data: {{ sv_all.rows | tojson }},
+            layout: "fitDataFill", height: 600,
+            headerSortTristate: true, columns: buildSvColumns(svSamples),
+            initialSort: [{ column: "chrom", dir: "asc" }, { column: "pos", dir: "asc" }],
+        });
+        {% endif %}
+        {% endif %}
     </script>
 </body>
 </html>

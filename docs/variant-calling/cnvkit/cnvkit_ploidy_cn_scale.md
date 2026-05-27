@@ -140,7 +140,7 @@ Three options if absolute CN is needed:
 ### Not recommended
 
 - Custom thresholds via `-t` — they assume ploidy-normalized log2 ratios which don't exist with flat references
-- Removing `--ploidy` — it still affects VCF export and high-CN overflow calculations
+- Passing `--ploidy ${meta.ploidy}` — causes false DUPs/DELs in VCF export because the CN scale is always diploid. The pipeline was reverted to nf-core/sarek defaults (no explicit `--ploidy`, defaulting to 2) in May 2026. See `cnvkit_ploidy_behavior.md` for details.
 - `round(ploidy × 2^log2)` for integer calls — too aggressive for mosaic signals on haploid scale (see `cnvkit_cn_calculation.md` for worked example)
 
 ## Files

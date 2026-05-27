@@ -34,6 +34,10 @@ params.outdir              = 'docs/igvreports/demo'
 params.samples             = null   // comma-separated sample IDs
 params.multiqc_data_dir    = null   // path to multiqc_data/ directory (for multi-caller index)
 params.generate_index_script = null // path to generate_index.py
+params.cnv_sv_data_dir     = null   // optional: directory with CN/SV cohort matrix CSVs
+params.multiqc_report_path = null   // optional: relative path to multiqc_report.html from outdir
+params.python_bin          = 'python' // python binary for GENERATE_INDEX (must have pandas, jinja2)
+params.show_sensitive      = false   // show sensitive CN / unfiltered SV tabs (debug mode)
 
 // --- Processes ---
 
@@ -198,21 +202,55 @@ print(f'Embedded {len(b64)//1024} KB base64 as {vcf_name}')
     """
 }
 
-process COUNT_VARIANTS {
+process IGVREPORTS_SV_CNV {
     tag "$meta.id"
     label 'process_low'
 
-    container 'quay.io/biocontainers/bcftools:1.20--h8b25389_0'
+    container 'quay.io/biocontainers/igv-reports:1.16.0--pyh7e72e81_0'
+
+    publishDir "${params.outdir}/samples", mode: 'copy'
 
     input:
-    tuple val(meta), path(vcf), path(tbi)
+    tuple val(meta), path(vcf), path(tbi), path(cram), path(crai)
+    tuple path(gff3_gz), path(gff3_tbi)
+    tuple path(fasta), path(fai)
+    path template
 
     output:
-    tuple val(meta.id), env(VARIANT_COUNT)
+    path "${meta.id}_${meta.caller}_report.html"
 
     script:
+    def info_cols = meta.caller == 'cnvkit'
+        ? "ANN VCF_FILTER SVTYPE SVLEN FOLD_CHANGE FOLD_CHANGE_LOG PROBES"
+        : "ANN VCF_FILTER SVTYPE SVLEN EVENT"
+    def sample_cols = meta.caller == 'cnvkit'
+        ? "GT"
+        : "GT GQ PR SR"
     """
-    VARIANT_COUNT=\$(bcftools view -H ${vcf} | wc -l | tr -d '[:space:]')
+    create_report ${vcf} \\
+        --fasta ${fasta} \\
+        --tracks ${gff3_gz} ${cram} \\
+        --template ${template} \\
+        --info-columns ${info_cols} \\
+        --sample-columns ${sample_cols} \\
+        --flanking 500 \\
+        --title "${meta.id} - ${meta.caller_label} (Yeast ALE)" \\
+        --output ${meta.id}_${meta.caller}_report.html
+
+    # Embed base64-encoded VCF for download button
+    python3 -c "
+import base64, sys
+vcf_path, html_path, vcf_name = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(vcf_path, 'rb') as f:
+    b64 = base64.b64encode(f.read()).decode()
+with open(html_path, 'r') as f:
+    html = f.read()
+html = html.replace('@VCF_BASE64@', b64)
+html = html.replace('@VCF_FILENAME@', vcf_name)
+with open(html_path, 'w') as f:
+    f.write(html)
+print(f'Embedded {len(b64)//1024} KB base64 as {vcf_name}')
+" ${vcf} ${meta.id}_${meta.caller}_report.html ${vcf.name}
     """
 }
 
@@ -227,32 +265,29 @@ process GENERATE_INDEX {
     input:
     path cohort_report
     path sample_reports
-    val variant_counts  // map of sample_id -> count
     path multiqc_data_dir
     path generate_index_script
     path templates_dir
+    path cnv_sv_data_dir  // optional: CN/SV cohort matrix CSVs (use [] for none)
+    val multiqc_report_path  // optional: relative path to multiqc_report.html
 
     output:
     path "index.html"
 
     script:
-    // Write variant counts to JSON for the Python script
-    def counts_json = new groovy.json.JsonBuilder(variant_counts).toString()
+    def cnv_sv_arg = cnv_sv_data_dir.name != 'NO_FILE' ? "--cnv-sv-data-dir ${cnv_sv_data_dir}" : ""
+    def mqc_path_arg = multiqc_report_path ? "--multiqc-report-path '${multiqc_report_path}'" : ""
+    def sensitive_arg = params.show_sensitive ? "--show-sensitive" : ""
 
     """
-    # Write variant counts from Nextflow to a temp JSON file
-    cat <<'COUNTJSON' > variant_counts.json
-${counts_json}
-COUNTJSON
-
     # Run the Jinja2-based index generator
-    python3 ${generate_index_script} \\
+    ${params.python_bin ?: 'python'} ${generate_index_script} \\
         --multiqc-dir ${multiqc_data_dir} \\
         --output index.html \\
         --cohort-report ${cohort_report} \\
         --sample-reports-dir samples \\
-        --variant-counts-json variant_counts.json \\
-        --templates-dir ${templates_dir}
+        --templates-dir ${templates_dir} \\
+        ${cnv_sv_arg} ${mqc_path_arg} ${sensitive_arg}
 
     # Create samples/ symlink so relative links in index.html work at publish time
     # (sample reports are staged flat by Nextflow, but published into samples/)
@@ -291,17 +326,37 @@ workflow {
 
     ch_sample_vcfs = Channel.fromList(sample_list)
         .map { sample ->
-            def vcf = file("${params.annotation_dir}/${sample}/${sample}.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz")
-            def tbi = file("${params.annotation_dir}/${sample}/${sample}.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz.tbi")
-            [ [id: sample], vcf, tbi ]
+            def vcf = file("${params.annotation_dir}/${sample}.haplotypecaller.from_joint_calling/${sample}.haplotypecaller.from_joint_calling.hard_filtered_snpEff.ann.vcf.gz")
+            def tbi = file("${params.annotation_dir}/${sample}.haplotypecaller.from_joint_calling/${sample}.haplotypecaller.from_joint_calling.hard_filtered_snpEff.ann.vcf.gz.tbi")
+            [ [id: sample, caller: 'haplotypecaller', caller_label: 'HaplotypeCaller'], vcf, tbi ]
+        }
+
+    // annotation_dir points to .../annotation/haplotypecaller; parent is .../annotation/
+    def annotation_root = file(params.annotation_dir).parent
+
+    ch_cnvkit_vcfs = Channel.fromList(sample_list)
+        .map { sample ->
+            def vcf = file("${annotation_root}/cnvkit/${sample}/${sample}.cnvcall_snpEff.ann.vcf.gz")
+            def tbi = file("${annotation_root}/cnvkit/${sample}/${sample}.cnvcall_snpEff.ann.vcf.gz.tbi")
+            [ [id: sample, caller: 'cnvkit', caller_label: 'CNVKit'], vcf, tbi ]
+        }
+
+    ch_manta_vcfs = Channel.fromList(sample_list)
+        .map { sample ->
+            def vcf = file("${annotation_root}/manta/${sample}/${sample}.manta.diploid_sv_snpEff.ann.vcf.gz")
+            def tbi = file("${annotation_root}/manta/${sample}/${sample}.manta.diploid_sv_snpEff.ann.vcf.gz.tbi")
+            [ [id: sample, caller: 'manta', caller_label: 'Manta'], vcf, tbi ]
         }
 
     // Single PREPARE_VCF call with all VCFs mixed
-    ch_all_prepared = PREPARE_VCF(ch_joint_vcf.mix(ch_sample_vcfs))
+    ch_all_prepared = PREPARE_VCF(
+        ch_joint_vcf.mix(ch_sample_vcfs, ch_cnvkit_vcfs, ch_manta_vcfs)
+    )
 
-    // Branch into cohort and sample channels
+    // Branch into cohort, HC sample, and SV/CNV channels
     ch_all_prepared.branch {
         cohort: it[0].id == 'cohort'
+        sv_cnv: it[0].caller in ['cnvkit', 'manta']
         sample: true
     }.set { ch_branched }
 
@@ -321,32 +376,40 @@ workflow {
 
     IGVREPORTS_SAMPLE(ch_samples_with_cram, ch_gff3_indexed, ch_fasta, ch_filter_config, ch_sample_template)
 
-    // --- Count variants per sample for index ---
-    COUNT_VARIANTS(ch_samples_prepared)
-
-    // Collect counts into a map: {sample_id: count}
-    ch_count_map = COUNT_VARIANTS.out
-        .collect()
-        .map { list ->
-            def m = [:]
-            // list is flattened: [id1, count1, id2, count2, ...]
-            for (int i = 0; i < list.size(); i += 2) {
-                m[list[i]] = list[i+1].trim()
-            }
-            m
+    // --- CNVKit and Manta per-sample reports ---
+    ch_sv_cnv_with_cram = ch_branched.sv_cnv
+        .map { meta, vcf, tbi ->
+            def cram = file("${params.cram_dir}/${meta.id}/${meta.id}.md.cram")
+            def crai = file("${params.cram_dir}/${meta.id}/${meta.id}.md.cram.crai")
+            [ meta, vcf, tbi, cram, crai ]
         }
+
+    IGVREPORTS_SV_CNV(ch_sv_cnv_with_cram, ch_gff3_indexed, ch_fasta, ch_sample_template)
 
     // --- Generate index.html (Jinja2-based multi-caller dashboard) ---
     ch_multiqc_data = Channel.value(file(params.multiqc_data_dir))
     ch_generate_script = Channel.value(file(params.generate_index_script))
-    ch_templates = Channel.value(file("${projectDir}/docs/igvreports/templates"))
+    ch_templates = Channel.value(file("${projectDir}/templates"))
+
+    // Optional CN/SV data directory
+    ch_cnv_sv_data = params.cnv_sv_data_dir
+        ? Channel.value(file(params.cnv_sv_data_dir))
+        : Channel.value(file("NO_FILE"))
+
+    // Optional MultiQC report relative path
+    ch_mqc_report_path = Channel.value(params.multiqc_report_path ?: "")
+
+    ch_all_sample_reports = IGVREPORTS_SAMPLE.out
+        .mix(IGVREPORTS_SV_CNV.out)
+        .collect()
 
     GENERATE_INDEX(
         IGVREPORTS_COHORT.out.collect(),
-        IGVREPORTS_SAMPLE.out.collect(),
-        ch_count_map,
+        ch_all_sample_reports,
         ch_multiqc_data,
         ch_generate_script,
-        ch_templates
+        ch_templates,
+        ch_cnv_sv_data,
+        ch_mqc_report_path
     )
 }
