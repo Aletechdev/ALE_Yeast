@@ -141,37 +141,49 @@ def load_cnvkit_calls(output_dir, sample):
     return segments
 
 
+def classify_event(event_type):
+    """Classify event as 'whole_chromosome' or 'amplification'."""
+    lower = event_type.lower()
+    if "whole" in lower or "aneuploidy" in lower:
+        return "whole_chromosome"
+    return "amplification"
+
+
 def check_cnv_event(segments, chrom, event_type):
     """Check if CNVKit detects a CNV event on a chromosome.
 
     For whole-chromosome duplications: look for cn>2 covering >80% of chr.
     For amplifications: look for any cn>2 segment on the chromosome.
+
+    Returns (best_segment_or_None, coverage, all_gain_segments_on_chr).
     """
     chr_len = CHR_LENGTHS.get(chrom, 0)
-    is_whole_chr = "whole" in event_type.lower() or "aneuploidy" in event_type.lower()
+    is_whole_chr = classify_event(event_type) == "whole_chromosome"
 
     chr_segs = [s for s in segments if s["chrom"] == chrom and s["cn"] > 2]
     if not chr_segs:
-        return None, 0
+        # Also return all segments on the chromosome (including cn<=2) for context
+        all_chr = [s for s in segments if s["chrom"] == chrom]
+        return None, 0, all_chr
 
     if is_whole_chr:
         # Check if a single segment covers >80% of chromosome
         for seg in chr_segs:
             coverage = (seg["end"] - seg["start"]) / chr_len if chr_len else 0
             if coverage > 0.8:
-                return seg, coverage
+                return seg, coverage, chr_segs
         # Also check combined coverage of all gain segments
         total_gain = sum(s["end"] - s["start"] for s in chr_segs)
         combined_cov = total_gain / chr_len if chr_len else 0
         if combined_cov > 0.8:
             best = max(chr_segs, key=lambda s: s["end"] - s["start"])
-            return best, combined_cov
-        return None, combined_cov
+            return best, combined_cov, chr_segs
+        return None, combined_cov, chr_segs
     else:
         # Amplification: any gain segment
         best = max(chr_segs, key=lambda s: s["end"] - s["start"])
         coverage = (best["end"] - best["start"]) / chr_len if chr_len else 0
-        return best, coverage
+        return best, coverage, chr_segs
 
 
 def format_segment(seg, chr_len):
@@ -263,41 +275,68 @@ def main():
         # Check each truth set event
         for event in truth_events:
             total_expected += 1
-            print(f"\n  EXPECTED: Chr {event['chrom']} — {event['event_type']}")
+            category = classify_event(event["event_type"])
+            print(f"\n  EXPECTED: Chr {event['chrom']} — {event['event_type']} [{category}]")
             if event["genes"] and event["genes"] not in ("N/A", "None"):
                 genes_str = event["genes"][:100]
                 print(f"    Genes: {genes_str}")
 
-            seg, cov = check_cnv_event(cnvkit_segs, event["chrom"], event["event_type"])
+            seg, cov, chr_segs = check_cnv_event(cnvkit_segs, event["chrom"], event["event_type"])
             if seg:
                 total_detected += 1
                 print(f"    CNVKit: DETECTED — cn={seg['cn']}, log2={seg['log2']:.3f}, "
-                      f"depth={seg['depth']:.1f}, p={seg['p_ttest']:.2e}, coverage={cov:.0%}")
+                      f"depth={seg['depth']:.1f}, p={seg['p_ttest']:.2e}, chr_affected={cov:.0%}")
                 csv_rows.append({
                     "sample": sample,
                     "chromosome": event["chrom"],
                     "truth_event": event["event_type"],
+                    "event_category": category,
                     "detected": "YES",
                     "cnvkit_cn": seg["cn"],
                     "cnvkit_log2": f"{seg['log2']:.3f}",
                     "cnvkit_depth": f"{seg['depth']:.1f}",
                     "cnvkit_p_ttest": f"{seg['p_ttest']:.2e}",
-                    "coverage": f"{cov:.0%}",
+                    "chr_affected_pct": f"{cov:.0%}",
                     "probes": seg["probes"],
+                    "partial_details": "",
                 })
             else:
-                print(f"    CNVKit: NOT DETECTED (coverage={cov:.0%})")
+                # Build partial detection details for undetected events
+                partial = ""
+                if chr_segs:
+                    gain_segs = [s for s in chr_segs if s["cn"] > 2]
+                    if gain_segs:
+                        details = []
+                        for s in gain_segs:
+                            span_kb = (s["end"] - s["start"]) / 1000
+                            details.append(f"{s['chrom']}:{s['start']}-{s['end']} "
+                                           f"({span_kb:.0f}kb) cn={s['cn']} log2={s['log2']:.3f}")
+                        partial = "; ".join(details)
+                    else:
+                        # No gain segments — show all segments on chr for context
+                        details = []
+                        for s in chr_segs:
+                            span_kb = (s["end"] - s["start"]) / 1000
+                            details.append(f"{s['chrom']}:{s['start']}-{s['end']} "
+                                           f"({span_kb:.0f}kb) cn={s['cn']} log2={s['log2']:.3f}")
+                        partial = "no gain; all segments: " + "; ".join(details)
+
+                print(f"    CNVKit: NOT DETECTED (chr_affected={cov:.0%})")
+                if partial:
+                    print(f"    Partial: {partial}")
                 csv_rows.append({
                     "sample": sample,
                     "chromosome": event["chrom"],
                     "truth_event": event["event_type"],
+                    "event_category": category,
                     "detected": "NO",
                     "cnvkit_cn": "",
                     "cnvkit_log2": "",
                     "cnvkit_depth": "",
                     "cnvkit_p_ttest": "",
-                    "coverage": f"{cov:.0%}",
+                    "chr_affected_pct": f"{cov:.0%}",
                     "probes": "",
+                    "partial_details": partial,
                 })
 
         # Show all non-diploid segments
@@ -326,9 +365,9 @@ def main():
     if args.csv and csv_rows:
         csv_path = Path(args.csv)
         csv_path.parent.mkdir(parents=True, exist_ok=True)
-        fieldnames = ["sample", "chromosome", "truth_event", "detected",
-                      "cnvkit_cn", "cnvkit_log2", "cnvkit_depth",
-                      "cnvkit_p_ttest", "coverage", "probes"]
+        fieldnames = ["sample", "chromosome", "truth_event", "event_category",
+                      "detected", "cnvkit_cn", "cnvkit_log2", "cnvkit_depth",
+                      "cnvkit_p_ttest", "chr_affected_pct", "probes", "partial_details"]
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()

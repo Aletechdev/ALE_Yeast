@@ -221,6 +221,7 @@ def main():
 
     evolved_samples = [s for s in sup4_map.values() if s in samples_with_truth]
     csv_rows = []
+    fn_rows = []  # missed variant details
 
     # Per-type accumulators
     totals = {"snp_tp": 0, "snp_fn": 0, "indel_tp": 0, "indel_fn": 0}
@@ -283,6 +284,17 @@ def main():
                 flag_str = " " + " ".join(flags) if flags else ""
                 print(f"    {tv['chrom']}:{tv['pos']} {tv['ref']}>{tv['alt']} ({tv['type']}) "
                       f"{tv['gene']} {tv['effect']}{flag_str}")
+                fn_rows.append({
+                    "sample": sample,
+                    "chrom": tv["chrom"],
+                    "pos": tv["pos"],
+                    "ref": tv["ref"],
+                    "alt": tv["alt"],
+                    "type": tv["type"],
+                    "gene": tv.get("gene", ""),
+                    "effect": tv.get("effect", ""),
+                    "flags": " ".join(flags),
+                })
 
         csv_rows.append({
             "sample": sample,
@@ -318,6 +330,17 @@ def main():
             writer.writeheader()
             writer.writerows(csv_rows)
         print(f"\nResults written to {csv_path}")
+
+        # Write missed variants detail CSV
+        if fn_rows:
+            fn_csv_path = csv_path.parent / "snv_indel_missed.csv"
+            fn_fields = ["sample", "chrom", "pos", "ref", "alt", "type",
+                         "gene", "effect", "flags"]
+            with open(fn_csv_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fn_fields)
+                writer.writeheader()
+                writer.writerows(fn_rows)
+            print(f"Missed variants written to {fn_csv_path}")
 
 
 if __name__ == "__main__":

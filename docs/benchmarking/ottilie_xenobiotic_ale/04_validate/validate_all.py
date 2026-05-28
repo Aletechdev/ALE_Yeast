@@ -96,12 +96,21 @@ def generate_report(results_dir, output_dir):
         overall_sens = total_tp / total_truth * 100 if total_truth else 0
         lines.append(f"**Overall sensitivity**: {total_tp}/{total_truth} ({overall_sens:.1f}%)")
         lines.append(f"")
-        lines.append(f"| Sample | Truth | Pipeline | Evolved-unique | TP | FN | Sensitivity | Precision |")
-        lines.append(f"|--------|-------|----------|----------------|----|----|-------------|-----------|")
-        for r in snv_rows:
-            lines.append(f"| {r['sample']} | {r['truth_n']} | {r['pipeline_total']} | "
-                         f"{r['evolved_unique']} | {r['tp_sensitivity']} | {r['fn_sensitivity']} | "
-                         f"{r['sensitivity_pct']}% | {r['precision_pct']}% |")
+
+        # Undetected SNV/INDEL events
+        fn_csv = results_dir / "snv_indel_missed.csv"
+        fn_rows = read_csv_safe(fn_csv)
+        if fn_rows:
+            lines.append(f"### Undetected variants ({len(fn_rows)})")
+            lines.append(f"")
+            lines.append(f"| Sample | Position | Ref>Alt | Type | Gene | Effect | Flags |")
+            lines.append(f"|--------|----------|---------|------|------|--------|-------|")
+            for r in fn_rows:
+                flags = r.get("flags", "")
+                lines.append(f"| {r['sample']} | {r['chrom']}:{r['pos']} | "
+                             f"{r['ref']}>{r['alt']} | {r['type']} | "
+                             f"{r.get('gene', '')} | {r.get('effect', '')} | {flags} |")
+            lines.append(f"")
     else:
         lines.append(f"*No SNV/INDEL concordance data (CSV not found)*")
     lines.append(f"")
@@ -114,20 +123,76 @@ def generate_report(results_dir, output_dir):
         total = len(cnv_rows)
         lines.append(f"**Detection rate**: {detected}/{total} ({detected/total*100:.1f}%)")
         lines.append(f"")
-        lines.append(f"| Sample | Chromosome | Truth event | Detected | CN | log2 | Coverage |")
-        lines.append(f"|--------|------------|-------------|----------|------|------|----------|")
-        for r in cnv_rows:
-            cn = r.get("cnvkit_cn", "")
-            log2 = r.get("cnvkit_log2", "")
-            cov = r.get("coverage", "")
-            lines.append(f"| {r['sample']} | {r['chromosome']} | {r['truth_event']} | "
-                         f"{r['detected']} | {cn} | {log2} | {cov} |")
+
+        # Breakdown by event category
+        has_category = any(r.get("event_category") for r in cnv_rows)
+        if has_category:
+            cat_stats = {}
+            for r in cnv_rows:
+                cat = r.get("event_category", "unknown")
+                cat_stats.setdefault(cat, {"total": 0, "detected": 0})
+                cat_stats[cat]["total"] += 1
+                if r["detected"] == "YES":
+                    cat_stats[cat]["detected"] += 1
+
+            lines.append(f"| Event type | Detected | Total | Rate |")
+            lines.append(f"|------------|----------|-------|------|")
+            for cat in ["whole_chromosome", "amplification"]:
+                if cat in cat_stats:
+                    s = cat_stats[cat]
+                    rate = s["detected"] / s["total"] * 100 if s["total"] else 0
+                    label = ("Whole chromosome duplication" if cat == "whole_chromosome"
+                             else "Focal amplification")
+                    lines.append(f"| {label} | {s['detected']} | {s['total']} | {rate:.0f}% |")
+            lines.append(f"")
+
+        # Undetected CNV events table
+        missed = [r for r in cnv_rows if r["detected"] == "NO"]
+        if missed:
+            lines.append(f"### Undetected events ({len(missed)})")
+            lines.append(f"")
+            lines.append(f"| Sample | Chr | Event type | Chr affected | CNVKit segments |")
+            lines.append(f"|--------|-----|------------|--------------|-----------------|")
+            for r in missed:
+                cat = r.get("event_category", "")
+                cat_label = ("whole chr dup" if cat == "whole_chromosome"
+                             else "focal amp")
+                cov = r.get("chr_affected_pct", "0%")
+                partial = r.get("partial_details", "no signal")
+                lines.append(f"| {r['sample']} | {r['chromosome']} | {cat_label} | {cov} | {partial} |")
+            lines.append(f"")
     else:
         lines.append(f"*No CNV concordance data (CSV not found)*")
     lines.append(f"")
 
+    # Detected events section (full tables)
+    lines.append(f"## 3. Detected Events")
+    lines.append(f"")
+    if snv_rows:
+        lines.append(f"### SNV/INDEL per-sample concordance ({len(snv_rows)} samples)")
+        lines.append(f"")
+        lines.append(f"| Sample | Truth | Pipeline | Evolved-unique | TP | FN | Sensitivity | Precision |")
+        lines.append(f"|--------|-------|----------|----------------|----|----|-------------|-----------|")
+        for r in snv_rows:
+            lines.append(f"| {r['sample']} | {r['truth_n']} | {r['pipeline_total']} | "
+                         f"{r['evolved_unique']} | {r['tp_sensitivity']} | {r['fn_sensitivity']} | "
+                         f"{r['sensitivity_pct']}% | {r['precision_pct']}% |")
+        lines.append(f"")
+    if cnv_rows:
+        lines.append(f"### CNV per-event concordance ({len(cnv_rows)} events)")
+        lines.append(f"")
+        lines.append(f"| Sample | Chromosome | Truth event | Detected | CN | log2 | Chr affected |")
+        lines.append(f"|--------|------------|-------------|----------|------|------|--------------|")
+        for r in cnv_rows:
+            cn = r.get("cnvkit_cn", "")
+            log2 = r.get("cnvkit_log2", "")
+            cov = r.get("chr_affected_pct", "")
+            lines.append(f"| {r['sample']} | {r['chromosome']} | {r['truth_event']} | "
+                         f"{r['detected']} | {cn} | {log2} | {cov} |")
+        lines.append(f"")
+
     # SV section
-    lines.append(f"## 3. SV Characterization (Manta + TIDDIT)")
+    lines.append(f"## 4. SV Characterization (Manta + TIDDIT)")
     lines.append(f"")
     if sv_rows:
         lines.append(f"| Sample | Parent | Manta | TIDDIT | Union | Consensus | Both | Evolved-unique |")
@@ -149,7 +214,7 @@ def generate_report(results_dir, output_dir):
     # CN matrix note
     cn_matrix_dir = Path(output_dir) / "cn_matrices"
     if cn_matrix_dir.exists():
-        lines.append(f"## 4. CN Matrices")
+        lines.append(f"## 5. CN Matrices")
         lines.append(f"")
         lines.append(f"Dual CN matrices generated in `{cn_matrix_dir}/`:")
         for f in sorted(cn_matrix_dir.glob("*.csv")):

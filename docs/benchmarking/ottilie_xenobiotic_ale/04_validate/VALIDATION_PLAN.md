@@ -142,6 +142,21 @@ Expected outputs per run:
 - Python: `openpyxl` (in nf-env)
 - Existing: `sample_name_dictionary.csv`, Sup Data 4 + 5 xlsx files
 
+## Review notes
+
+### PASS-only filtering impact on SNV/INDEL sensitivity (2026-05-28)
+
+Current validation uses **all variants** from the soft-filtered joint VCF (`individual_from_joint/`), including those flagged by QD, SOR, MQ filters. Running with `--pass-only`:
+
+| Mode | Sensitivity | Missed |
+|------|------------|--------|
+| All variants (current) | 339/343 (98.8%) | 4 |
+| PASS-only | 332/343 (96.8%) | 11 |
+
+7 additional true positives are lost to hard filters — mostly intergenic SNPs flagged by QD/SOR. The drop is modest (2%) and acceptable. The hard filters likely remove many more false positives in exchange. Consider reporting both metrics in the final benchmark paper: caller sensitivity (98.8%) vs pipeline sensitivity (96.8%).
+
+The `snv_indel_concordance.py` script supports `--pass-only` for this comparison.
+
 ## Bonus features (lower priority)
 
 ### Bonus 1: Joint-to-individual split integrity check
