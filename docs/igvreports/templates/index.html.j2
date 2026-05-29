@@ -283,7 +283,7 @@
                 <div class="label">Samples</div>
             </div>
             {% if cohort_link %}
-            <a class="card card-link" href="{{ cohort_link }}">
+            <a class="card card-link" href="{{ cohort_link }}" target="_blank">
                 <div class="value">{% if cohort_pass_count %}{{ cohort_pass_count }} <span class="card-sub">/ {{ cohort_variant_count }}</span>{% elif cohort_variant_count %}{{ cohort_variant_count }}{% else %}&mdash;{% endif %}</div>
                 <div class="label">SNV/InDel Events{% if cohort_pass_count %} (high-confidence / all){% endif %}</div>
             </a>
@@ -309,7 +309,7 @@
             </a>
             {% endif %}
             {% if multiqc_report_path %}
-            <a class="card card-link" href="{{ multiqc_report_path }}">
+            <a class="card card-link" href="{{ multiqc_report_path }}" target="_blank">
                 <div class="value">QC</div>
                 <div class="label">MultiQC Report</div>
             </a>
@@ -369,7 +369,7 @@
     {% if cn_reg_primary %}
     <div class="section" id="cn-regions-section">
         <h2>Collapsed CN Windows</h2>
-        <p class="note">{{ cn_reg_primary.change_count }} / {{ cn_reg_primary.row_count }} windows with log2 ratio outside &minus;0.4 to 0.3</p>
+        <p class="note">{{ cn_reg_primary.change_count }} / {{ cn_reg_primary.row_count }} windows with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
         <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
             <p class="note" style="margin:0">Collapsed CN windows with genomic coordinates.</p>
             <button class="tab-btn active cn-metric-btn" data-metric="abs">Absolute CN</button>
@@ -400,7 +400,7 @@
     {% if cn_chr_primary %}
     <div class="section" id="cn-section">
         <h2>Chromosome Level Copy Number Change (Aneuploidy)</h2>
-        <p class="note">{{ cn_chr_primary.change_count }} / {{ cn_chr_primary.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3</p>
+        <p class="note">{{ cn_chr_primary.change_count }} / {{ cn_chr_primary.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
         <p class="note">
             CN per chromosome. Toggle above switches both tables.
             Chromosomes with mixed CN segments marked with *.

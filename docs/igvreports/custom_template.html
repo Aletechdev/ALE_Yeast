@@ -61,7 +61,6 @@
         #exportCsv:hover { background: #005fa3; }
         #downloadVcf { background: #7b2d8b; }
         #downloadVcf:hover { background: #5f2269; }
-
         /* --- Main content: table + IGV split --- */
         #content {
             display: flex;
@@ -94,10 +93,10 @@
             z-index: 10;
         }
 
-        /* IGV panel — bottom 30% */
+        /* IGV panel — bottom ~15% */
         #igvPanel {
-            flex: 3;
-            min-height: 200px;
+            flex: 1.5;
+            min-height: 150px;
             overflow: auto;
         }
 
@@ -132,10 +131,14 @@
         <input type="file" id="filterFileInput" accept=".json" style="display:none">
     </div>
 
-    <!-- Info banner -->
-    <div id="info-banner" style="padding:6px 16px;background:#fff8e1;border-bottom:1px solid #ffe082;font-size:12px;color:#5d4037;flex-shrink:0">
-        This table contains <strong>all</strong> soft-filtered variants (FILTER column annotated, no variants removed).
-        Use the <strong>VCF_FILTER</strong> column to filter for <code>PASS</code> to view high-confidence calls only.
+    <!-- Info banner (dismissible) -->
+    <div id="info-banner" style="padding:6px 16px;background:#fff8e1;border-bottom:1px solid #ffe082;font-size:12px;color:#5d4037;flex-shrink:0;line-height:1.6;display:flex;align-items:flex-start;gap:8px">
+        <span style="flex:1">
+            This VCF contains all soft-filtered variants (FILTER column annotated, no variants removed).
+            Defaulting to <strong>VCF_FILTER = PASS</strong>. Clear the filter to view all variants including flagged ones.
+            Row counts may differ from the dashboard summary due to multi-allelic splitting (<code>bcftools norm -m-</code>) and VCF post-processing. To be validated before release.
+        </span>
+        <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:16px;color:#5d4037;padding:0 2px;line-height:1" title="Dismiss">&times;</button>
     </div>
 
     <!-- Main content -->
@@ -143,6 +146,12 @@
         <!-- Variant table -->
         <div id="tablePanel">
             <div id="tableSelectorDiv"></div>
+        </div>
+
+        <!-- Per-sample navigation hint -->
+        <div id="sample-hint" style="padding:4px 16px;background:#e8f4fd;border-top:1px solid #b3d9f2;border-bottom:1px solid #b3d9f2;font-size:11px;color:#1a5276;flex-shrink:0;display:flex;align-items:center;gap:8px">
+            <span style="flex:1">Cohort-level report. Click any per-sample <strong>GT</strong> or <strong>VAF</strong> cell (non-reference genotypes only, i.e. GT&#8800;0) to open the per-sample IGV report at that locus. Per-sample reports contain only variants passing hard-filter criteria: FILTER=PASS, GQ&#8805;20, DP&#8805;8, AF&#8805;0.90 (clonal) or &#8805;0.05 (population).</span>
+            <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#1a5276;padding:0 2px;line-height:1" title="Dismiss">&times;</button>
         </div>
 
         <!-- Drag handle -->
@@ -256,6 +265,11 @@
             paginationSize: 25,
             paginationSizeSelector: [10, 25, 50, 100],
             paginationCounter: "rows",
+        });
+
+        // Default: show only PASS variants (user can clear to see all)
+        table.on("tableBuilt", function() {
+            table.setHeaderFilterValue("VCF_FILTER", "PASS");
         });
 
         // Clear filters

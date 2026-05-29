@@ -118,6 +118,7 @@ process IGVREPORTS_COHORT {
 
     input:
     tuple val(meta), path(vcf), path(tbi)
+    tuple path(gff3_gz), path(gff3_tbi)
     tuple path(fasta), path(fai)
     path filter_config
     path template
@@ -129,10 +130,11 @@ process IGVREPORTS_COHORT {
     """
     create_report ${vcf} \\
         --fasta ${fasta} \\
+        --tracks ${gff3_gz} \\
         --template ${template} \\
         --filter-config ${filter_config} \\
         --info-columns ANN VCF_FILTER ORIG_ALT AC AF DP QD MQ \\
-        --sample-columns GT AD DP GQ VAF \\
+        --sample-columns GT VAF \\
         --flanking 500 \\
         --title "Cohort - Joint HaplotypeCaller (Yeast ALE)" \\
         --output cohort_report.html
@@ -361,7 +363,7 @@ workflow {
     }.set { ch_branched }
 
     // --- Cohort report (custom template) ---
-    IGVREPORTS_COHORT(ch_branched.cohort, ch_fasta, ch_filter_config, ch_template)
+    IGVREPORTS_COHORT(ch_branched.cohort, ch_gff3_indexed, ch_fasta, ch_filter_config, ch_template)
 
     // --- Per-sample reports ---
     ch_samples_prepared = ch_branched.sample

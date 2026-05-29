@@ -328,47 +328,52 @@
         });
 
         // Handle ?locus= parameter from cohort report cross-link
-        const params = new URLSearchParams(window.location.search);
-        const locus = params.get("locus");
+        const urlParams = new URLSearchParams(window.location.search);
+        const locus = urlParams.get("locus");
         if (locus) {
             const [chrom, pos] = locus.split(":");
             const posNum = parseInt(pos);
 
-            // Wait for table to be fully rendered before navigating
-            table.on("renderComplete", function locusHandler() {
-                table.off("renderComplete", locusHandler); // Only run once
-
-                // Find the row index in the full dataset
+            table.on("tableBuilt", function() {
+                // Find matching row in the full dataset
                 const allData = table.getData();
-                let targetIdx = -1;
                 let targetUniqueId = null;
                 for (let i = 0; i < allData.length; i++) {
                     if (allData[i]["CHROM"] === chrom &&
                         (allData[i]["POSITION"] === posNum || allData[i]["POSITION"] === pos)) {
-                        targetIdx = i;
                         targetUniqueId = allData[i]["unique_id"];
                         break;
                     }
                 }
-                if (targetIdx === -1) return;
+                if (targetUniqueId === null) return;
 
-                // Remove pagination so table becomes a scrollable list
-                table.setPageSize(allData.length);
+                // Calculate which page the row is on and navigate there
+                var targetIdx = allData.findIndex(function(r) { return r["unique_id"] === targetUniqueId; });
+                var pageSize = table.getPageSize();
+                var targetPage = Math.floor(targetIdx / pageSize) + 1;
 
-                setTimeout(function() {
-                    const rows = table.getRows();
-                    const targetRow = rows.find(r => r.getData()["unique_id"] === targetUniqueId);
-                    if (targetRow) {
-                        targetRow.select();
-                        // Natural scroll: centers the row, but at edges just scrolls as far as possible
-                        const rowEl = targetRow.getElement();
-                        if (rowEl) {
-                            rowEl.scrollIntoView({ behavior: "smooth", block: "center" });
-                        }
+                function selectAndScroll() {
+                    var rows = table.searchRows("unique_id", "=", targetUniqueId);
+                    if (rows.length > 0) {
+                        rows[0].select();
+                        table.scrollToRow(rows[0], "center", true);
                     }
-                    const session = sessionDictionary[targetUniqueId];
-                    if (session) igvBrowser.loadSession({ url: session });
-                }, 300);
+                }
+
+                if (targetPage === table.getPage()) {
+                    // Already on the correct page — select directly
+                    selectAndScroll();
+                } else {
+                    table.setPage(targetPage).then(function() {
+                        table.on("renderComplete", function scrollHandler() {
+                            table.off("renderComplete", scrollHandler);
+                            selectAndScroll();
+                        });
+                    });
+                }
+                // Load IGV session for this variant
+                var session = sessionDictionary[targetUniqueId];
+                if (session) igvBrowser.loadSession({ url: session });
             });
         }
     }
