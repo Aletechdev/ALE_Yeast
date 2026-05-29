@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="color-scheme" content="light">
+    <title>ALE Multi-Caller Variant Dashboard</title>
+    <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+    <style>
+        /* --- Light theme (default) --- */
+        :root {
+            color-scheme: light;
+            --bg: #ffffff;
+            --fg: #333333;
+            --fg-heading: #24292e;
+            --fg-muted: #586069;
+            --link: #0366d6;
+            --border: #e1e4e8;
+            --surface: #f6f8fa;
+            --surface-alt: #fafbfc;
+            --hover: #f0f1f3;
+            --badge-pass-bg: #dcffe4; --badge-pass-fg: #22863a;
+            --badge-warn-bg: #fff5b1; --badge-warn-fg: #735c0f;
+            --badge-fail-bg: #ffeef0; --badge-fail-fg: #cb2431;
+            --badge-na-bg: #f1f1f1;   --badge-na-fg: #888888;
+            --code-bg: #f6f8fa;
+            --table-header-bg: #f6f8fa;
+            --table-border: #e1e4e8;
+            --caller-manta: #22863a; --caller-manta-bg: #dcffe4;
+            --caller-tiddit: #0366d6; --caller-tiddit-bg: #dbedff;
+            --caller-both: #6f42c1; --caller-both-bg: #f5f0ff;
+        }
+
+        /* --- Dark theme --- */
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #0d1117;
+            --fg: #c9d1d9;
+            --fg-heading: #e6edf3;
+            --fg-muted: #8b949e;
+            --link: #58a6ff;
+            --border: #30363d;
+            --surface: #161b22;
+            --surface-alt: #1c2128;
+            --hover: #2d333b;
+            --badge-pass-bg: #1b3a2a; --badge-pass-fg: #56d364;
+            --badge-warn-bg: #3b2e00; --badge-warn-fg: #e3b341;
+            --badge-fail-bg: #3d1418; --badge-fail-fg: #f85149;
+            --badge-na-bg: #21262d;   --badge-na-fg: #8b949e;
+            --code-bg: #161b22;
+            --table-header-bg: #1c2128;
+            --table-border: #30363d;
+            --caller-manta: #56d364; --caller-manta-bg: #1b3a2a;
+            --caller-tiddit: #58a6ff; --caller-tiddit-bg: #0d2240;
+            --caller-both: #a371f7; --caller-both-bg: #1a0f2e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background: var(--bg);
+            color: var(--fg);
+        }
+        h1 { border-bottom: 2px solid var(--link); padding-bottom: 8px; color: var(--fg-heading); }
+        h2 { margin-top: 32px; color: var(--fg-heading); }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Report link boxes with counts */
+        .report-links { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+        .report-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            text-decoration: none;
+            color: var(--fg);
+            font-weight: 500;
+            font-size: 0.9em;
+            transition: background 0.15s;
+        }
+        .report-link:hover { background: var(--hover); text-decoration: none; }
+        .report-link .count {
+            background: var(--link);
+            color: #fff;
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-size: 0.85em;
+            font-weight: 700;
+        }
+
+        .meta { color: var(--fg-muted); font-size: 0.9em; }
+        .note { color: var(--fg-muted); font-size: 0.9em; margin-top: 4px; }
+        .section { margin: 24px 0; }
+        .footer {
+            color: var(--fg-muted);
+            font-size: 0.85em;
+            margin-top: 40px;
+            border-top: 1px solid var(--border);
+            padding-top: 12px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .badge-high { background: var(--badge-fail-bg); color: var(--badge-fail-fg); }
+        .badge-mod  { background: var(--badge-warn-bg); color: var(--badge-warn-fg); }
+        .badge-low  { background: var(--badge-pass-bg); color: var(--badge-pass-fg); }
+        .badge-manta { background: var(--caller-manta-bg); color: var(--caller-manta); }
+        .badge-tiddit { background: var(--caller-tiddit-bg); color: var(--caller-tiddit); }
+        .badge-both { background: var(--caller-both-bg); color: var(--caller-both); }
+        .badge-none { color: var(--fg-muted); }
+        .badge-svtype {
+            display: inline-block; padding: 1px 5px; border-radius: 3px;
+            font-size: 0.75em; font-weight: 700;
+        }
+        .svtype-DEL { background: var(--badge-fail-bg); color: var(--badge-fail-fg); }
+        .svtype-DUP { background: #dbedff; color: #0366d6; }
+        .svtype-INV { background: var(--badge-warn-bg); color: var(--badge-warn-fg); }
+        .svtype-TRA { background: var(--caller-both-bg); color: var(--caller-both); }
+        .svtype-INS { background: var(--badge-pass-bg); color: var(--badge-pass-fg); }
+        [data-theme="dark"] .svtype-DUP { background: #0d2240; color: #58a6ff; }
+
+        /* Tab bar */
+        .tab-bar { display: flex; gap: 0; margin-top: 24px; border-bottom: 2px solid var(--border); }
+        .tab-btn {
+            padding: 8px 16px; cursor: pointer; border: none;
+            background: transparent; color: var(--fg-muted); font-size: 0.9em; font-weight: 600;
+            border-bottom: 2px solid transparent; margin-bottom: -2px;
+        }
+        .tab-btn:hover { color: var(--fg); }
+        .tab-btn.active { color: var(--link); border-bottom-color: var(--link); }
+        .tab-panel { display: none; padding-top: 12px; }
+        .tab-panel.active { display: block; }
+
+        .cn-loss { background: var(--badge-fail-bg); color: var(--badge-fail-fg); font-weight: 600; }
+        .cn-neutral { background: var(--bg); color: var(--fg-muted); }
+        .cn-gain { background: #dbedff; color: #0366d6; font-weight: 600; }
+        .cn-amp { background: #0366d6; color: #ffffff; font-weight: 700; }
+        [data-theme="dark"] .cn-gain { background: #0d2240; color: #58a6ff; }
+        [data-theme="dark"] .cn-amp { background: #1158c7; color: #ffffff; }
+
+        /* Summary cards */
+        .cards { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+        .card {
+            flex: 1; min-width: 150px; padding: 14px 18px;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+        }
+        .card .value { font-size: 1.8em; font-weight: 700; color: var(--fg-heading); }
+        .card .label { font-size: 0.85em; color: var(--fg-muted); margin-top: 2px; }
+        .card .card-sub { font-size: 0.6em; color: var(--fg-muted); font-weight: 400; }
+        a.card-link {
+            text-decoration: none; color: inherit; cursor: pointer;
+            border-left: 3px solid var(--link);
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+        a.card-link .label { color: var(--link); }
+        a.card-link .label::after { content: " \2197"; font-size: 0.9em; }
+        a.card-link:hover { background: var(--hover); border-color: var(--link); box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-decoration: none; }
+
+        /* Audit / methodology sections */
+        details { margin: 12px 0; }
+        details summary {
+            cursor: pointer; font-weight: 600; color: var(--fg-heading);
+            padding: 6px 0; font-size: 0.95em;
+        }
+        details summary:hover { color: var(--link); }
+        details[open] summary { margin-bottom: 8px; }
+        .audit-content { padding: 0 16px 12px; line-height: 1.7; font-size: 0.92em; }
+        .audit-content h4 { margin: 14px 0 6px; color: var(--fg-heading); }
+        .audit-content code { background: var(--surface); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+        .audit-content table { border-collapse: collapse; margin: 8px 0; font-size: 0.9em; }
+        .audit-content th, .audit-content td { padding: 5px 12px; border: 1px solid var(--border); text-align: left; }
+        .audit-content th { background: var(--surface); font-weight: 600; }
+        .audit-content .tier-arrow { color: var(--fg-muted); font-size: 1.2em; text-align: center; padding: 2px 0; }
+
+        /* Tabulator overrides */
+        .tabulator { font-size: 0.9em; border: 1px solid var(--table-border); }
+        .tabulator .tabulator-header { background: var(--table-header-bg); color: var(--fg); }
+        .tabulator .tabulator-header .tabulator-col { background: var(--table-header-bg); border-color: var(--table-border); color: var(--fg); }
+        .tabulator .tabulator-header .tabulator-col .tabulator-col-content { color: var(--fg); }
+        .tabulator .tabulator-tableholder { background: var(--bg); }
+        .tabulator-row { background: var(--bg); color: var(--fg); }
+        .tabulator-row.tabulator-row-even { background: var(--surface-alt); }
+        .tabulator-row.tabulator-row-odd { background: var(--bg); }
+        .tabulator-row .tabulator-cell { border-color: var(--table-border); }
+        .tabulator-row .tabulator-cell a { color: var(--link); }
+        .tabulator .tabulator-header .tabulator-col { border-right: 1px solid var(--table-border); }
+        .tabulator .tabulator-header .tabulator-header-filter input {
+            background: var(--surface); color: var(--fg); border: 1px solid var(--border);
+        }
+        /* Tabulator hover — hardcoded per theme for browser compat */
+        html[data-theme="light"] .tabulator .tabulator-header .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover,
+        html:not([data-theme]) .tabulator .tabulator-header .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover {
+            background-color: #e8e9eb !important;
+        }
+        html[data-theme="light"] .tabulator-row.tabulator-selectable:hover,
+        html:not([data-theme]) .tabulator-row.tabulator-selectable:hover {
+            background-color: #f0f1f3 !important;
+        }
+        html[data-theme="dark"] .tabulator .tabulator-header .tabulator-col.tabulator-sortable.tabulator-col-sorter-element:hover {
+            background-color: #3a414b !important;
+        }
+        html[data-theme="dark"] .tabulator-row.tabulator-selectable:hover {
+            background-color: #2d333b !important;
+        }
+
+        .igv-link { cursor: pointer; color: var(--link); text-decoration: underline; }
+
+        /* Theme toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 12px;
+            right: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 1.1em;
+            line-height: 1;
+            z-index: 1000;
+            color: var(--fg);
+        }
+        .theme-toggle:hover { background: var(--surface-alt); }
+    </style>
+    <script>
+        // Apply theme before paint to prevent flash
+        (function() {
+            var saved = localStorage.getItem('dashboard-theme');
+            var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+            var csm = document.querySelector('meta[name="color-scheme"]');
+            if (csm) csm.setAttribute('content', theme);
+        })();
+    </script>
+</head>
+<body>
+
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark / light mode" aria-label="Toggle dark mode">&#9790;</button>
+
+    
+    
+    
+    <h1>ALE Multi-Caller Variant Dashboard</h1>
+    <p class="note" style="margin:4px 0 8px;font-style:italic">
+        Mutation report prototype &mdash; yAMPv1.0.0 pre-release
+    </p>
+    <p class="meta">
+        Generated 2026-05-28 14:35 &middot;
+        4 samples &middot;
+        4 variant callers
+        (CNVKit, HaplotypeCaller, Manta, TIDDIT)
+    </p>
+    <p class="note">
+        Single Nucleotide Variants (SNVs) and small Insertions/Deletions (InDels) by
+        <a href="https://gatk.broadinstitute.org/hc/en-us/articles/5358864757787-HaplotypeCaller">GATK HaplotypeCaller</a>;
+        Copy Number Variants (CNVs) by
+        <a href="https://github.com/etal/cnvkit">CNVKit</a>;
+        Structural Variants (SVs) by
+        <a href="https://github.com/SciLifeLab/TIDDIT">TIDDIT</a> and
+        <a href="https://github.com/Illumina/manta">Manta</a>.
+        Annotated with <a href="https://pcingola.github.io/SnpEff/">SnpEff</a>.
+    </p>
+
+    
+    
+    
+    <div class="section">
+        <h2>Reports</h2>
+        <div class="cards">
+            <div class="card">
+                <div class="value">4</div>
+                <div class="label">Samples</div>
+            </div>
+            
+            <a class="card card-link" href="cohort_report.html" target="_blank">
+                <div class="value">375 <span class="card-sub">/ 469</span></div>
+                <div class="label">SNV/InDel Events (high-confidence / all)</div>
+            </a>
+            
+            
+            <a class="card card-link" href="#sv-section">
+                <div class="value">6 <span class="card-sub">/ 105</span></div>
+                <div class="label">SV Events (high-confidence / all)</div>
+            </a>
+            
+            
+            
+            <a class="card card-link" href="#cn-regions-section">
+                <div class="value">4 <span class="card-sub">/ 22</span></div>
+                <div class="label">CN Windows (high-confidence / all)</div>
+            </a>
+            
+            
+            
+            <a class="card card-link" href="#cn-section">
+                <div class="value">1 <span class="card-sub">/ 16</span></div>
+                <div class="label">Aneuploidy (high-confidence / all)</div>
+            </a>
+            
+            
+            <a class="card card-link" href="multiqc_report.html" target="_blank">
+                <div class="value">QC</div>
+                <div class="label">MultiQC Report</div>
+            </a>
+            
+        </div>
+        <p class="note">
+            Click boxes to open reports or scroll to embedded tables.
+            
+            Cohort report includes interactive Tabulator.js table, SnpEff annotations, and IGV browser.
+            
+        </p>
+    </div>
+
+    
+    
+    
+    <div class="section">
+        <h2>Sample Overview</h2>
+        <p class="note">
+            QC metrics from MultiQC (Picard, Samtools, Mosdepth). Variant counts from bcftools stats.
+            Click linked counts to open per-sample IGV reports.
+            CNV and SV IGV reports are experimental. SV visualization is harder to standardize than for small mutations.
+            We are following <a href="https://www.youtube.com/watch?v=wuk3Lo_2VlU" target="_blank" rel="noopener">this IGV SV walkthrough</a> to evaluate adaptable solutions for SV viewing.
+            TIDDIT per-mutation IGV reports will be rolled out after evaluation.
+        </p>
+        <div id="summary-table"></div>
+    </div>
+
+    
+    
+    
+    
+    <div class="section" id="sv-section">
+        <h2>Ensemble SV Events (Manta + TIDDIT)</h2>
+        <p class="note">6 / 105 PASS-filtered events detected by both Manta and TIDDIT (high-confidence). Remaining events called by a single caller.</p>
+        
+        <div class="tab-panel active" id="sv-pass-panel">
+            <div id="sv-pass-table"></div>
+        </div>
+        
+    </div>
+    
+
+    
+    
+    
+    
+    
+    <div class="section" id="cn-regions-section">
+        <h2>Collapsed CN Windows</h2>
+        <p class="note">4 / 22 windows with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
+        <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
+            <p class="note" style="margin:0">Collapsed CN windows with genomic coordinates.</p>
+            <button class="tab-btn active cn-metric-btn" data-metric="abs">Absolute CN</button>
+            <button class="tab-btn cn-metric-btn" data-metric="log2">log2 ratio</button>
+        </div>
+        
+        <div class="tab-panel active" id="cn-reg-str-panel">
+            <div id="cn-reg-str-table"></div>
+        </div>
+        
+    </div>
+    
+
+    
+    
+    
+    
+    
+    
+    <div class="section" id="cn-section">
+        <h2>Chromosome Level Copy Number Change (Aneuploidy)</h2>
+        <p class="note">1 / 16 chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
+        <p class="note">
+            CN per chromosome. Toggle above switches both tables.
+            Chromosomes with mixed CN segments marked with *.
+        </p>
+        
+        <div class="tab-panel active" id="cn-chr-str-panel">
+            <div id="cn-chr-str-table"></div>
+        </div>
+        
+    </div>
+    
+
+    
+    
+    
+    <div class="section">
+        <h2>Methodology</h2>
+
+        <details>
+            <summary>Soft-filter criteria (GATK VariantFiltration)</summary>
+            <div class="audit-content">
+                <p>
+                    The joint-calling VCF is soft-filtered via <code>GATK4 VariantFiltration</code>
+                    as a fallback when VQSR cannot run (no known-sites for custom genomes).
+                    This populates the FILTER column but <strong>retains all variants</strong>.
+                </p>
+                <table>
+                    <tr><th>Filter name</th><th>Expression</th></tr>
+                    <tr><td><code>QD_filter</code></td><td>QD &lt; 2.0</td></tr>
+                    <tr><td><code>FS_filter</code></td><td>FS &gt; 60.0</td></tr>
+                    <tr><td><code>SOR_filter</code></td><td>SOR &gt; 3.0</td></tr>
+                    <tr><td><code>MQ_filter</code></td><td>MQ &lt; 40.0</td></tr>
+                    <tr><td><code>MQRankSum_filter</code></td><td>MQRankSum &lt; &minus;12.5</td></tr>
+                    <tr><td><code>ReadPosRankSum_filter</code></td><td>ReadPosRankSum &lt; &minus;8.0</td></tr>
+                    <tr><td><code>QUAL_filter</code></td><td>QUAL &lt; 30.0</td></tr>
+                    <tr><td><code>FS_INDEL_filter</code></td><td>INDEL &amp;&amp; FS &gt; 200.0</td></tr>
+                    <tr><td><code>SOR_INDEL_filter</code></td><td>INDEL &amp;&amp; SOR &gt; 10.0</td></tr>
+                    <tr><td><code>ReadPosRankSum_INDEL_filter</code></td><td>INDEL &amp;&amp; ReadPosRankSum &lt; &minus;20.0</td></tr>
+                </table>
+                <p>Config: <code>conf/modules/joint_germline.config</code> &rarr; <code>VARIANTFILTRATION_FALLBACK</code></p>
+            </div>
+        </details>
+
+        <details>
+            <summary>SNV / Indel counting (HaplotypeCaller)</summary>
+            <div class="audit-content">
+                <h4>Filtering pipeline</h4>
+                <p>Joint VCF &rarr; soft-filter (GATK VariantFiltration) &rarr; split per sample &rarr; hard-filter</p>
+                <table>
+                    <tr><th>Step</th><th>Source VCF</th><th>Description</th></tr>
+                    <tr>
+                        <td><strong>1. Soft-filtered</strong></td>
+                        <td><code>*_soft_filtered.vcf.gz</code></td>
+                        <td>Joint VCF with FILTER column populated (PASS or quality flags) &mdash; no variants removed</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2. Split per sample</strong></td>
+                        <td><code>*.from_joint_calling.vcf.gz</code></td>
+                        <td>Individual sample VCFs extracted from joint VCF</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3. Hard-filtered</strong></td>
+                        <td><code>*.hard_filtered.vcf.gz</code></td>
+                        <td>PASS + per-sample depth/quality/AF gate (shown in Sample Overview)</td>
+                    </tr>
+                </table>
+
+                <h4>Hard-filter criteria</h4>
+                <p>Applied per-sample after splitting and <code>bcftools norm -m-</code> (multi-allelic splitting):</p>
+                <table>
+                    <tr><th>Filter</th><th>Threshold</th></tr>
+                    <tr><td>Soft-filter</td><td><code>FILTER="PASS"</code></td></tr>
+                    <tr><td>Genotype quality</td><td><code>GQ &ge; 20</code></td></tr>
+                    <tr><td>Read depth</td><td><code>DP &ge; 8</code></td></tr>
+                    <tr><td>Allele frequency</td><td><code>AF &ge; 0.90</code> (clonal) / <code>&ge; 0.05</code> (population)</td></tr>
+                </table>
+                <p>
+                    Config: <code>conf/modules/custom_haplotypecaller_joint_filter.config</code>
+                </p>
+
+                <h4>Notes</h4>
+                <ul>
+                    <li>The cohort card shows unique variant <em>sites</em> in the joint VCF (one row per site), so it is lower than the sum of per-sample counts.</li>
+                    <li>The cohort IGV report may show more rows than the card number because <code>bcftools norm -m-</code> splits multi-allelic sites into separate records.</li>
+                </ul>
+            </div>
+        </details>
+
+        
+        <details>
+            <summary>SV event matrix (Manta + TIDDIT)</summary>
+            <div class="audit-content">
+                <p>
+                    SVs detected independently by
+                    <a href="https://github.com/Illumina/manta">Manta</a> and
+                    <a href="https://github.com/SciLifeLab/TIDDIT">TIDDIT</a>,
+                    merged into a cohort matrix by <code>build_sv_matrix.py</code>.
+                    Per-sample columns show caller(s): <code>Manta</code>, <code>TIDDIT</code>, or <code>Manta+TIDDIT</code>.
+                </p>
+                <h4>Why counts differ</h4>
+                <ul>
+                    <li><strong>SV Events card + matrix</strong>: PASS-filtered, deduplicated across callers (<code>sv_cohort_matrix_union_pass.csv</code>)</li>
+                    <li><strong>Sample Overview TIDDIT/Manta columns</strong>: raw unfiltered per-sample VCF counts from bcftools stats</li>
+                </ul>
+                <p>
+                    Per-sample counts are much higher because they include non-PASS calls
+                    and are not deduplicated. TIDDIT in particular generates many low-confidence calls.
+                </p>
+            </div>
+        </details>
+        
+
+        
+        <details>
+            <summary>Copy number analysis (CNVKit)</summary>
+            <div class="audit-content">
+                <p>
+                    Copy number is called by <a href="https://github.com/etal/cnvkit">CNVKit</a>
+                    using a flat reference (no matched normal pooling).
+                </p>
+                <h4>Card counts</h4>
+                <p>
+                    Cards show <em>changed / total</em> regions. A region counts as changed
+                    when any sample's log2 ratio is &lt; &minus;0.4 (loss) or &gt; 0.3 (gain) &mdash;
+                    same thresholds as heatmap coloring.
+                </p>
+                <h4>Display values</h4>
+                <p>
+                    Default: <strong>absolute CN</strong> = <code>ploidy &times; 2<sup>log2</sup></code>.
+                    Toggle to <strong>log2 ratio</strong> (raw segmented depth vs. flat reference).
+                    Colors always track log2: 0 = neutral, negative = loss (red),
+                    positive = gain (blue), &ge;2.3 = high amplification (dark blue).
+                </p>
+                <h4>CN tiers</h4>
+                <table>
+                    <tr><th>Tier</th><th>Source</th><th>Description</th></tr>
+                    <tr><td><strong>Stringent</strong> (default)</td><td><code>*.germline.call.cns</code></td><td>Germline-mode, stricter segmentation</td></tr>
+                    <tr><td>Sensitive</td><td><code>*.call.cns</code></td><td>Standard calls, more segments</td></tr>
+                </table>
+                <h4>Table views</h4>
+                <p>
+                    <strong>Collapsed CN Windows</strong>: adjacent bins merged where all samples agree;
+                    breakpoints where any sample differs.<br>
+                    <strong>Chromosome Level (Aneuploidy)</strong>: one row per chromosome, dominant segment CN.
+                    Mixed-CN chromosomes marked with *.
+                </p>
+            </div>
+        </details>
+        
+
+        <details>
+            <summary>IGV report generation</summary>
+            <div class="audit-content">
+                <p>Per-sample and cohort reports are generated with
+                    <a href="https://github.com/igvteam/igv-reports">igv-reports</a>.
+                    Processing steps:</p>
+                <ol>
+                    <li><strong>Multi-allelic split</strong> &mdash; <code>bcftools norm -m-</code> so each alt allele has its own row</li>
+                    <li><strong>FILTER promotion</strong> &mdash; FILTER column copied to <code>INFO/VCF_FILTER</code> (igv-reports only reads INFO)</li>
+                    <li><strong>VAF annotation</strong> &mdash; <code>bcftools +fill-tags -- -t FORMAT/VAF</code></li>
+                    <li><strong>Report creation</strong> &mdash; <code>create_report</code> with &plusmn;500 bp flanking, CRAM tracks, GFF3 gene annotations</li>
+                    <li><strong>VCF embedding</strong> &mdash; prepared VCF base64-encoded into HTML for self-contained download</li>
+                </ol>
+                <p>
+                    The cohort report uses the soft-filtered joint VCF (all variants, FILTER column visible).
+                    Per-sample reports use the annotated individual VCFs from joint calling.
+                    Both include <strong>all variants</strong> (not hard-filtered) so users can inspect flagged variants in IGV.
+                </p>
+            </div>
+        </details>
+
+        <details>
+            <summary>Sample Overview data sources</summary>
+            <div class="audit-content">
+                <table>
+                    <tr><th>Column</th><th>Source</th><th>Filter status</th></tr>
+                    <tr><td>Cov</td><td>Mosdepth median coverage</td><td>&mdash;</td></tr>
+                    <tr><td>Dup %</td><td>Picard MarkDuplicates</td><td>&mdash;</td></tr>
+                    <tr><td>Map % / Mapped (M)</td><td>Samtools flagstat</td><td>&mdash;</td></tr>
+                    <tr><td>HaplotypeCaller</td><td>bcftools stats (<code>*.hard_filtered</code>)</td><td>Hard-filtered (PASS + GQ/DP/AF)</td></tr>
+                    <tr><td>CNVKit</td><td>bcftools stats (<code>*.cnvcall</code>)</td><td>Raw (unfiltered)</td></tr>
+                    <tr><td>TIDDIT</td><td>bcftools stats (<code>*.tiddit</code>)</td><td>Raw (unfiltered)</td></tr>
+                    <tr><td>Manta</td><td>bcftools stats (<code>*.manta.diploid_sv</code>)</td><td>Raw (unfiltered)</td></tr>
+                </table>
+                <p>All parsed from <code>multiqc_data/</code> (<code>multiqc_general_stats.txt</code> + <code>multiqc_bcftools_stats.txt</code>).</p>
+            </div>
+        </details>
+    </div>
+
+    
+    
+    
+    <div class="footer">
+        Generated from MultiQC summary data (bcftools stats, SnpEff, Mosdepth, Picard).<br>
+        CN data: CNVKit .call.cns (sensitive) and .germline.call.cns (stringent). SV data: Manta + TIDDIT.<br>
+        Per-sample igv-reports include GFF3 gene track + CRAM read pileups + FORMAT/VAF.
+    </div>
+
+    
+    
+    
+    <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+    <script>
+        // --- Theme toggle ---
+        var __darkMql = window.matchMedia('(prefers-color-scheme: dark)');
+        (function() {
+            var btn = document.getElementById('themeToggle');
+            var root = document.documentElement;
+            function currentTheme() {
+                return root.getAttribute('data-theme') ||
+                    (__darkMql.matches ? 'dark' : 'light');
+            }
+            function applyTheme(theme) {
+                root.setAttribute('data-theme', theme);
+                var csm = document.querySelector('meta[name="color-scheme"]');
+                if (csm) csm.setAttribute('content', theme);
+                btn.textContent = theme === 'dark' ? '\u2600' : '\u263E';
+            }
+            applyTheme(currentTheme());
+            btn.addEventListener('click', function() {
+                var next = currentTheme() === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('dashboard-theme', next);
+                applyTheme(next);
+            });
+            function onSystemChange(e) {
+                if (!localStorage.getItem('dashboard-theme')) {
+                    applyTheme(e.matches ? 'dark' : 'light');
+                }
+            }
+            if (__darkMql.addEventListener) {
+                __darkMql.addEventListener('change', onSystemChange);
+            } else if (__darkMql.addListener) {
+                __darkMql.addListener(onSystemChange);
+            }
+        })();
+
+        // --- Tab switching ---
+        document.querySelectorAll('.tab-bar').forEach(function(bar) {
+            bar.querySelectorAll('.tab-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    bar.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    var tabId = btn.getAttribute('data-tab');
+                    var next = bar.nextElementSibling;
+                    while (next && next.classList.contains('tab-panel')) {
+                        next.classList.remove('active');
+                        next = next.nextElementSibling;
+                    }
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+        });
+
+        // --- Data injected from Python/Jinja2 ---
+        const summaryData = [{"sample": "CBR110-15-R3a", "type": "Evolved", "median_coverage": 83, "dup_pct": 7.0, "mapped_pct": 98.8, "mapped_reads_m": 12.4, "hc_variants": 163, "cnvkit_events": 5, "tiddit_svs": 170, "manta_svs": 22, "igv_link": "samples/CBR110-15-R3a_report.html", "cnvkit_igv_link": "samples/CBR110-15-R3a_cnvkit_report.html", "manta_igv_link": "samples/CBR110-15-R3a_manta_report.html"}, {"sample": "Carmaphycin-R9-2", "type": "Evolved", "median_coverage": 165, "dup_pct": 12.4, "mapped_pct": 98.3, "mapped_reads_m": 25.4, "hc_variants": 193, "cnvkit_events": 2, "tiddit_svs": 378, "manta_svs": 35, "igv_link": "samples/Carmaphycin-R9-2_report.html", "cnvkit_igv_link": "samples/Carmaphycin-R9-2_cnvkit_report.html", "manta_igv_link": "samples/Carmaphycin-R9-2_manta_report.html"}, {"sample": "Doxorubicin16-R2b", "type": "Evolved", "median_coverage": 91, "dup_pct": 9.6, "mapped_pct": 98.9, "mapped_reads_m": 13.8, "hc_variants": 224, "cnvkit_events": 1, "tiddit_svs": 116, "manta_svs": 21, "igv_link": "samples/Doxorubicin16-R2b_report.html", "cnvkit_igv_link": "samples/Doxorubicin16-R2b_cnvkit_report.html", "manta_igv_link": "samples/Doxorubicin16-R2b_manta_report.html"}, {"sample": "NODRUG-GM2", "type": "Ancestral", "median_coverage": 44, "dup_pct": 1.1, "mapped_pct": 98.7, "mapped_reads_m": 6.3, "hc_variants": 175, "cnvkit_events": 1, "tiddit_svs": 170, "manta_svs": 8, "igv_link": "samples/NODRUG-GM2_report.html", "cnvkit_igv_link": "samples/NODRUG-GM2_cnvkit_report.html", "manta_igv_link": "samples/NODRUG-GM2_manta_report.html"}];
+
+        // --- Sample Overview Table (QC + Variants) ---
+        new Tabulator("#summary-table", {
+            data: summaryData,
+            layout: "fitDataFill",
+            headerSortTristate: true,
+            initialSort: [{ column: "sample", dir: "asc" }],
+            columns: [
+                { title: "Sample", field: "sample", headerFilter: "input", frozen: true, minWidth: 140,
+                },
+                { title: "Type", field: "type", headerFilter: "list", headerFilterParams: { valuesLookup: true } },
+                {
+                    title: "Sequencing QC",
+                    columns: [
+                        { title: "Cov", field: "median_coverage", hozAlign: "right",
+                          titleFormatter: function() { return 'Cov<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 Mosdepth</span>'; },
+                          headerFilter: "number", headerFilterPlaceholder: "min", headerFilterFunc: ">=" },
+                        { title: "Dup %", field: "dup_pct", hozAlign: "right",
+                          titleFormatter: function() { return 'Dup %<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 Picard</span>'; },
+                          formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) + "%" : ""; } },
+                        { title: "Map %", field: "mapped_pct", hozAlign: "right",
+                          titleFormatter: function() { return 'Map %<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 flagstat</span>'; },
+                          formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) + "%" : ""; } },
+                        { title: "Mapped (M)", field: "mapped_reads_m", hozAlign: "right",
+                          titleFormatter: function() { return 'Mapped (M)<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 flagstat</span>'; },
+                          formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) : ""; } },
+                    ]
+                },
+                {
+                    title: "SNV / Indel",
+                    columns: [
+                        { title: "HaplotypeCaller", field: "hc_variants", hozAlign: "right", sorter: "number",
+                          titleFormatter: function() { return 'HaplotypeCaller<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 hard-filtered</span>'; },
+                          headerFilter: "number", headerFilterPlaceholder: "min", headerFilterFunc: ">=",
+                          formatter: function(cell) {
+                              var row = cell.getRow().getData();
+                              var v = cell.getValue();
+                              if (v == null) return "";
+                              if (row.igv_link) {
+                                  return '<a class="igv-link" href="' + row.igv_link + '">' + v + '</a>';
+                              }
+                              return v;
+                          }
+                        },
+                    ]
+                },
+                {
+                    title: "CNV",
+                    columns: [
+                        { title: "CNVKit", field: "cnvkit_events", hozAlign: "right", sorter: "number",
+                          titleFormatter: function() { return 'CNVKit<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw cnvcall</span>'; },
+                          formatter: function(cell) {
+                              var row = cell.getRow().getData();
+                              var v = cell.getValue();
+                              if (v == null) return "";
+                              if (row.cnvkit_igv_link) {
+                                  return '<a class="igv-link" href="' + row.cnvkit_igv_link + '">' + v + '</a>';
+                              }
+                              return v;
+                          }
+                        },
+                    ]
+                },
+                {
+                    title: "SV",
+                    columns: [
+                        { title: "TIDDIT", field: "tiddit_svs", hozAlign: "right", sorter: "number",
+                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered</span>'; } },
+                        { title: "Manta", field: "manta_svs", hozAlign: "right", sorter: "number",
+                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered</span>'; },
+                          formatter: function(cell) {
+                              var row = cell.getRow().getData();
+                              var v = cell.getValue();
+                              if (v == null) return "";
+                              if (row.manta_igv_link) {
+                                  return '<a class="igv-link" href="' + row.manta_igv_link + '">' + v + '</a>';
+                              }
+                              return v;
+                          }
+                        },
+                    ]
+                },
+                { title: "IGV Report", field: "igv_link", visible: false },
+                { title: "CNVKit IGV", field: "cnvkit_igv_link", visible: false },
+                { title: "Manta IGV", field: "manta_igv_link", visible: false },
+            ],
+        });
+
+        // --- CN/SV tables (conditional) ---
+        
+        var cnMetric = "abs"; // "abs" or "log2"
+
+        // Color always by log2 — ploidy-independent
+        function log2Class(v) {
+            if (v < -0.4) return 'cn-loss';
+            if (v <= 0.3) return 'cn-neutral';
+            if (v >= 2.3) return 'cn-amp';
+            return 'cn-gain';
+        }
+        // Tabulator formatter — color by log2, display switches with toggle
+        function cnCellFormatter(cell) {
+            var log2 = cell.getValue();
+            var cls = log2Class(log2);
+            var display = (cnMetric === "log2") ? log2.toFixed(4) : Math.pow(2, log2).toFixed(2);
+            return '<span class="' + cls + '" style="display:inline-block;padding:1px 6px;border-radius:3px">' + display + '</span>';
+        }
+
+        var cnRegSamples = ["CBR110-15-R3a", "Carmaphycin-R9-2", "Doxorubicin16-R2b", "NODRUG-GM2"];
+        function buildCnRegColumns(samples) {
+            var cols = [
+                { title: "Chr", field: "chromosome", headerFilter: "input", frozen: true, width: 60 },
+                { title: "Start", field: "start", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+                { title: "End", field: "end", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+                { title: "Span (kb)", field: "span_kb", sorter: "number", hozAlign: "right" },
+            ];
+            samples.forEach(function(s) {
+                cols.push({
+                    title: s.replace(/-/g, '\u2011'), field: s + "_log2", hozAlign: "center",
+                    sorter: "number", formatter: cnCellFormatter
+                });
+            });
+            return cols;
+        }
+
+        var cnRegTables = [];
+        
+        cnRegTables.push(new Tabulator("#cn-reg-str-table", {
+            data: [{"CBR110-15-R3a_log2": 0.0206, "Carmaphycin-R9-2_log2": 0.0312, "Doxorubicin16-R2b_log2": 0.0314, "NODRUG-GM2_log2": 0.0239, "chromosome": "X", "end": 745751, "span_kb": 745.8, "start": 0}, {"CBR110-15-R3a_log2": 0.359, "Carmaphycin-R9-2_log2": 0.0286, "Doxorubicin16-R2b_log2": 0.0167, "NODRUG-GM2_log2": 0.0007, "chromosome": "I", "end": 230218, "span_kb": 230.2, "start": 0}, {"CBR110-15-R3a_log2": 0.0116, "Carmaphycin-R9-2_log2": 0.0135, "Doxorubicin16-R2b_log2": 0.0145, "NODRUG-GM2_log2": 0.0313, "chromosome": "V", "end": 576874, "span_kb": 576.9, "start": 0}, {"CBR110-15-R3a_log2": 0.2965, "Carmaphycin-R9-2_log2": 0.1191, "Doxorubicin16-R2b_log2": 0.0954, "NODRUG-GM2_log2": 0.0213, "chromosome": "II", "end": 59866, "span_kb": 59.9, "start": 0}, {"CBR110-15-R3a_log2": -0.0527, "Carmaphycin-R9-2_log2": -0.0179, "Doxorubicin16-R2b_log2": -0.0111, "NODRUG-GM2_log2": -0.0026, "chromosome": "II", "end": 763295, "span_kb": 703.4, "start": 59866}, {"CBR110-15-R3a_log2": 0.2393, "Carmaphycin-R9-2_log2": 0.0556, "Doxorubicin16-R2b_log2": 0.0133, "NODRUG-GM2_log2": 0.0124, "chromosome": "II", "end": 813184, "span_kb": 49.9, "start": 763295}, {"CBR110-15-R3a_log2": 0.1355, "Carmaphycin-R9-2_log2": -0.0029, "Doxorubicin16-R2b_log2": -0.1303, "NODRUG-GM2_log2": -0.037, "chromosome": "III", "end": 316620, "span_kb": 316.6, "start": 0}, {"CBR110-15-R3a_log2": -0.0087, "Carmaphycin-R9-2_log2": -0.0371, "Doxorubicin16-R2b_log2": -0.0307, "NODRUG-GM2_log2": -0.0189, "chromosome": "IV", "end": 1531933, "span_kb": 1531.9, "start": 0}, {"CBR110-15-R3a_log2": -0.0142, "Carmaphycin-R9-2_log2": -0.0264, "Doxorubicin16-R2b_log2": -0.0409, "NODRUG-GM2_log2": -0.0384, "chromosome": "IX", "end": 389900, "span_kb": 389.9, "start": 0}, {"CBR110-15-R3a_log2": 0.3558, "Carmaphycin-R9-2_log2": 0.1231, "Doxorubicin16-R2b_log2": 0.1206, "NODRUG-GM2_log2": 0.0421, "chromosome": "IX", "end": 439888, "span_kb": 50.0, "start": 389900}, {"CBR110-15-R3a_log2": 0.2172, "Carmaphycin-R9-2_log2": 0.0278, "Doxorubicin16-R2b_log2": -0.0024, "NODRUG-GM2_log2": 0.0136, "chromosome": "VI", "end": 270161, "span_kb": 270.2, "start": 0}, {"CBR110-15-R3a_log2": 0.0425, "Carmaphycin-R9-2_log2": -0.0008, "Doxorubicin16-R2b_log2": -0.0019, "NODRUG-GM2_log2": -0.0036, "chromosome": "VII", "end": 1090940, "span_kb": 1090.9, "start": 0}, {"CBR110-15-R3a_log2": -0.0102, "Carmaphycin-R9-2_log2": 0.0378, "Doxorubicin16-R2b_log2": -0.0031, "NODRUG-GM2_log2": 0.0248, "chromosome": "VIII", "end": 562643, "span_kb": 562.6, "start": 0}, {"CBR110-15-R3a_log2": -0.0355, "Carmaphycin-R9-2_log2": -0.0142, "Doxorubicin16-R2b_log2": -0.0231, "NODRUG-GM2_log2": -0.0124, "chromosome": "XI", "end": 666816, "span_kb": 666.8, "start": 0}, {"CBR110-15-R3a_log2": -0.0837, "Carmaphycin-R9-2_log2": -0.0477, "Doxorubicin16-R2b_log2": -0.0511, "NODRUG-GM2_log2": -0.0254, "chromosome": "XII", "end": 449240, "span_kb": 449.2, "start": 0}, {"CBR110-15-R3a_log2": 2.4686, "Carmaphycin-R9-2_log2": 2.5861, "Doxorubicin16-R2b_log2": 2.5903, "NODRUG-GM2_log2": 2.8422, "chromosome": "XII", "end": 494164, "span_kb": 44.9, "start": 449240}, {"CBR110-15-R3a_log2": -0.0246, "Carmaphycin-R9-2_log2": -0.0183, "Doxorubicin16-R2b_log2": -0.0131, "NODRUG-GM2_log2": -0.005, "chromosome": "XII", "end": 1063202, "span_kb": 569.0, "start": 494164}, {"CBR110-15-R3a_log2": 0.8548, "Carmaphycin-R9-2_log2": 0.7726, "Doxorubicin16-R2b_log2": 0.6117, "NODRUG-GM2_log2": 0.6125, "chromosome": "XII", "end": 1078177, "span_kb": 15.0, "start": 1063202}, {"CBR110-15-R3a_log2": 0.0397, "Carmaphycin-R9-2_log2": 0.0076, "Doxorubicin16-R2b_log2": 0.0181, "NODRUG-GM2_log2": 0.0133, "chromosome": "XIII", "end": 924431, "span_kb": 924.4, "start": 0}, {"CBR110-15-R3a_log2": -0.0314, "Carmaphycin-R9-2_log2": -0.0016, "Doxorubicin16-R2b_log2": -0.0174, "NODRUG-GM2_log2": -0.0071, "chromosome": "XIV", "end": 784333, "span_kb": 784.3, "start": 0}, {"CBR110-15-R3a_log2": 0.0051, "Carmaphycin-R9-2_log2": -0.0315, "Doxorubicin16-R2b_log2": -0.044, "NODRUG-GM2_log2": -0.0243, "chromosome": "XV", "end": 1091291, "span_kb": 1091.3, "start": 0}, {"CBR110-15-R3a_log2": 0.0048, "Carmaphycin-R9-2_log2": -0.0059, "Doxorubicin16-R2b_log2": -0.008, "NODRUG-GM2_log2": 0.0048, "chromosome": "XVI", "end": 948066, "span_kb": 948.1, "start": 0}],
+            layout: "fitDataFill", height: 500,
+            headerSortTristate: true, columns: buildCnRegColumns(cnRegSamples),
+        }));
+        
+        
+
+        // --- Chromosome-level CN Tabulator tables ---
+        
+        var cnChrSamples = ["CBR110-15-R3a", "Carmaphycin-R9-2", "Doxorubicin16-R2b", "NODRUG-GM2"];
+        function cnChrCellFormatter(cell) {
+            var row = cell.getRow().getData();
+            var field = cell.getField();
+            var log2 = cell.getValue();
+            var cls = log2Class(log2);
+            var noteField = field.replace('_log2', '_note');
+            var note = row[noteField] || '';
+            var display = (cnMetric === "log2") ? log2.toFixed(4) : Math.pow(2, log2).toFixed(2);
+            return '<span class="' + cls + '" style="display:inline-block;padding:1px 6px;border-radius:3px">' + display + note + '</span>';
+        }
+        function buildCnChrColumns(samples) {
+            var cols = [
+                { title: "Chr", field: "chromosome", headerFilter: "input", frozen: true, width: 60 },
+                { title: "Length", field: "length", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+            ];
+            samples.forEach(function(s) {
+                cols.push({
+                    title: s.replace(/-/g, '\u2011'), field: s + "_log2", hozAlign: "center",
+                    sorter: "number", formatter: cnChrCellFormatter
+                });
+            });
+            return cols;
+        }
+
+        var cnChrTables = [];
+        
+        cnChrTables.push(new Tabulator("#cn-chr-str-table", {
+            data: [{"CBR110-15-R3a_log2": 0.359, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": 0.0286, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": 0.0167, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": 0.0007, "NODRUG-GM2_note": "", "chromosome": "I", "length": 230218}, {"CBR110-15-R3a_log2": -0.0527, "CBR110-15-R3a_note": "*", "Carmaphycin-R9-2_log2": -0.0033, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.0018, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": 0.0, "NODRUG-GM2_note": "", "chromosome": "II", "length": 813184}, {"CBR110-15-R3a_log2": 0.1355, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": -0.0029, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.1303, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": -0.037, "NODRUG-GM2_note": "", "chromosome": "III", "length": 316620}, {"CBR110-15-R3a_log2": -0.0087, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": -0.0371, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.0307, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": -0.0189, "NODRUG-GM2_note": "", "chromosome": "IV", "length": 1531933}, {"CBR110-15-R3a_log2": 0.0116, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": 0.0135, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": 0.0145, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": 0.0313, "NODRUG-GM2_note": "", "chromosome": "V", "length": 576874}, {"CBR110-15-R3a_log2": 0.2172, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": 0.0278, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.0024, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": 0.0136, "NODRUG-GM2_note": "", "chromosome": "VI", "length": 270161}, {"CBR110-15-R3a_log2": 0.0425, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": -0.0008, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.0019, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": -0.0036, "NODRUG-GM2_note": "", "chromosome": "VII", "length": 1090940}, {"CBR110-15-R3a_log2": -0.0102, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": 0.0378, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.0031, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": 0.0248, "NODRUG-GM2_note": "", "chromosome": "VIII", "length": 562643}, {"CBR110-15-R3a_log2": -0.0142, "CBR110-15-R3a_note": "*", "Carmaphycin-R9-2_log2": -0.0094, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.0225, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": -0.0292, "NODRUG-GM2_note": "", "chromosome": "IX", "length": 439888}, {"CBR110-15-R3a_log2": 0.0206, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": 0.0312, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": 0.0314, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": 0.0239, "NODRUG-GM2_note": "", "chromosome": "X", "length": 745751}, {"CBR110-15-R3a_log2": -0.0355, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": -0.0142, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.0231, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": -0.0124, "NODRUG-GM2_note": "", "chromosome": "XI", "length": 666816}, {"CBR110-15-R3a_log2": 0.1744, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": -0.0183, "Carmaphycin-R9-2_note": "*", "Doxorubicin16-R2b_log2": 0.0029, "Doxorubicin16-R2b_note": "*", "NODRUG-GM2_log2": 0.2131, "NODRUG-GM2_note": "*", "chromosome": "XII", "length": 1078177}, {"CBR110-15-R3a_log2": 0.0397, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": 0.0076, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": 0.0182, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": 0.0133, "NODRUG-GM2_note": "", "chromosome": "XIII", "length": 924431}, {"CBR110-15-R3a_log2": -0.0314, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": -0.0016, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.0174, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": -0.0071, "NODRUG-GM2_note": "", "chromosome": "XIV", "length": 784333}, {"CBR110-15-R3a_log2": 0.0051, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": -0.0315, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.044, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": -0.0243, "NODRUG-GM2_note": "", "chromosome": "XV", "length": 1091291}, {"CBR110-15-R3a_log2": 0.0048, "CBR110-15-R3a_note": "", "Carmaphycin-R9-2_log2": -0.0059, "Carmaphycin-R9-2_note": "", "Doxorubicin16-R2b_log2": -0.008, "Doxorubicin16-R2b_note": "", "NODRUG-GM2_log2": 0.0048, "NODRUG-GM2_note": "", "chromosome": "XVI", "length": 948066}],
+            layout: "fitDataFill", height: 500,
+            headerSortTristate: true, columns: buildCnChrColumns(cnChrSamples),
+        }));
+        
+        
+        
+
+        // Toggle: update all CN Tabulator tables (color stays log2-based)
+        document.querySelectorAll('.cn-metric-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.cn-metric-btn').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                cnMetric = btn.getAttribute('data-metric');
+                cnRegTables.forEach(function(t) { t.redraw(true); });
+                cnChrTables.forEach(function(t) { t.redraw(true); });
+            });
+        });
+        
+
+        
+        // SV caller badge formatter
+        var svSamples = ["CBR110-15-R3a", "Carmaphycin-R9-2", "Doxorubicin16-R2b", "NODRUG-GM2"];
+        function callerBadge(val) {
+            if (!val || val === '-') return '<span class="badge-none">-</span>';
+            if (val.indexOf('+') > -1) return '<span class="badge badge-both">' + val + '</span>';
+            if (val === 'Manta') return '<span class="badge badge-manta">Manta</span>';
+            if (val === 'TIDDIT') return '<span class="badge badge-tiddit">TIDDIT</span>';
+            return '<span class="badge">' + val + '</span>';
+        }
+        function svtypeBadge(cell) {
+            var v = cell.getValue();
+            return '<span class="badge-svtype svtype-' + v + '">' + v + '</span>';
+        }
+        function buildSvColumns(samples) {
+            var cols = [
+                { title: "Chr", field: "chrom", headerFilter: "input", frozen: true, width: 60 },
+                { title: "Pos", field: "pos", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+                { title: "Chr2", field: "chrom2", width: 60 },
+                { title: "End", field: "end", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+                { title: "Type", field: "svtype", headerFilter: "list", headerFilterParams: { valuesLookup: true }, formatter: svtypeBadge, width: 70 },
+                { title: "Length", field: "svlen", sorter: "number", hozAlign: "right", formatter: function(c) { var v = c.getValue(); return v ? v.toLocaleString() : '0'; } },
+            ];
+            samples.forEach(function(s) {
+                cols.push({
+                    title: s.replace(/-/g, '\u2011'), field: s, hozAlign: "center",
+                    formatter: function(cell) { return callerBadge(cell.getValue()); },
+                    headerFilter: "list", headerFilterParams: { valuesLookup: true },
+                });
+            });
+            return cols;
+        }
+
+        new Tabulator("#sv-pass-table", {
+            data: [{"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "TIDDIT", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "I", "chrom2": "I", "end": 27092, "pos": 25519, "svlen": 1573, "svtype": "DEL"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "I", "chrom2": "I", "end": 62365, "pos": 61514, "svlen": 851, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "I", "chrom2": "I", "end": 170241, "pos": 169407, "svlen": 834, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "TIDDIT", "NODRUG-GM2": "-", "chrom": "II", "chrom2": "II", "end": 254032, "pos": 253408, "svlen": 624, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "II", "chrom2": "II", "end": 490241, "pos": 489416, "svlen": 825, "svtype": "DUP"}, {"CBR110-15-R3a": "Manta+TIDDIT", "Carmaphycin-R9-2": "Manta+TIDDIT", "Doxorubicin16-R2b": "Manta+TIDDIT", "NODRUG-GM2": "Manta+TIDDIT", "chrom": "III", "chrom2": "III", "end": 92867, "pos": 84792, "svlen": 7806, "svtype": "DEL"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "III", "chrom2": "III", "end": 213373, "pos": 213273, "svlen": 100, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "IV", "chrom2": "IV", "end": 288491, "pos": 287654, "svlen": 837, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "IV", "chrom2": "IV", "end": 384614, "pos": 383738, "svlen": 876, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "-", "chrom": "IV", "chrom2": "V", "end": 117116, "pos": 470387, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "-", "chrom": "IV", "chrom2": "V", "end": 117150, "pos": 723088, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "IV", "chrom2": "XV", "end": 159702, "pos": 727485, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "IV", "chrom2": "IV", "end": 837461, "pos": 836633, "svlen": 828, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "IV", "chrom2": "IV", "end": 1250364, "pos": 1249533, "svlen": 831, "svtype": "DUP"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "IV", "chrom2": "XV", "end": 159694, "pos": 1279238, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta+TIDDIT", "Carmaphycin-R9-2": "Manta+TIDDIT", "Doxorubicin16-R2b": "Manta+TIDDIT", "NODRUG-GM2": "Manta+TIDDIT", "chrom": "V", "chrom2": "VI", "end": 81173, "pos": 33467, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "-", "chrom": "V", "chrom2": "IV", "end": 470387, "pos": 117116, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "-", "chrom": "V", "chrom2": "IV", "end": 723088, "pos": 117150, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "V", "chrom2": "V", "end": 463645, "pos": 463591, "svlen": 54, "svtype": "DUP"}, {"CBR110-15-R3a": "Manta+TIDDIT", "Carmaphycin-R9-2": "Manta+TIDDIT", "Doxorubicin16-R2b": "Manta+TIDDIT", "NODRUG-GM2": "Manta+TIDDIT", "chrom": "VI", "chrom2": "V", "end": 33467, "pos": 81173, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "VII", "chrom2": "VII", "end": 55169, "pos": 54291, "svlen": 878, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "TIDDIT", "NODRUG-GM2": "-", "chrom": "VII", "chrom2": "VII", "end": 227111, "pos": 226454, "svlen": 657, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "VII", "chrom2": "VII", "end": 494940, "pos": 494143, "svlen": 797, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "TIDDIT", "NODRUG-GM2": "-", "chrom": "VII", "chrom2": "VII", "end": 517873, "pos": 517270, "svlen": 603, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "Manta", "chrom": "VII", "chrom2": "VII", "end": 530118, "pos": 530034, "svlen": 84, "svtype": "INS"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "VII", "chrom2": "VII", "end": 1013695, "pos": 1012824, "svlen": 871, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "VII", "chrom2": "XV", "end": 159684, "pos": 1052935, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "-", "chrom": "VIII", "chrom2": "XV", "end": 159619, "pos": 32737, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "TIDDIT", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "VIII", "chrom2": "VIII", "end": 484832, "pos": 483915, "svlen": 917, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "TIDDIT", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "VIII", "chrom2": "VIII", "end": 498482, "pos": 497552, "svlen": 930, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "VIII", "chrom2": "VIII", "end": 527202, "pos": 526354, "svlen": 848, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "TIDDIT", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "VIII", "chrom2": "VIII", "end": 556976, "pos": 556841, "svlen": 135, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "IX", "chrom2": "IX", "end": 54877, "pos": 53998, "svlen": 879, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "IX", "chrom2": "XV", "end": 159686, "pos": 332515, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "X", "chrom2": "X", "end": 293337, "pos": 292493, "svlen": 844, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XI", "chrom2": "XI", "end": 82389, "pos": 81585, "svlen": 804, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "-", "chrom": "XI", "chrom2": "XV", "end": 159560, "pos": 653082, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XII", "chrom2": "XV", "end": 159697, "pos": 46203, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta+TIDDIT", "Carmaphycin-R9-2": "Manta+TIDDIT", "Doxorubicin16-R2b": "Manta+TIDDIT", "NODRUG-GM2": "Manta+TIDDIT", "chrom": "XII", "chrom2": "XII", "end": 734686, "pos": 732283, "svlen": 2521, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "Manta", "chrom": "XII", "chrom2": "XII", "end": 818812, "pos": 818469, "svlen": 343, "svtype": "INS"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XII", "chrom2": "XII", "end": 1012287, "pos": 1012222, "svlen": 65, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XIII", "chrom2": "XIII", "end": 220347, "pos": 219493, "svlen": 854, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XIII", "chrom2": "XIII", "end": 673497, "pos": 672583, "svlen": 914, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XIII", "chrom2": "XIII", "end": 819179, "pos": 819110, "svlen": 69, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "Manta+TIDDIT", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "Manta", "chrom": "XIII", "chrom2": "XIII", "end": 908617, "pos": 908139, "svlen": 623, "svtype": "DUP"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "XV", "end": 192942, "pos": 159560, "svlen": 33298, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "XI", "end": 653082, "pos": 159560, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "Manta", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "VIII", "end": 32737, "pos": 159619, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "XV", "end": 619877, "pos": 159654, "svlen": 460223, "svtype": "INV"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "XVI", "end": 450398, "pos": 159655, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "XV", "end": 931844, "pos": 159673, "svlen": 772171, "svtype": "INV"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "VII", "end": 1052935, "pos": 159684, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "IX", "end": 332515, "pos": 159686, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "IV", "end": 1279238, "pos": 159694, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "XII", "end": 46203, "pos": 159697, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "IV", "end": 727485, "pos": 159702, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "XV", "end": 159654, "pos": 619877, "svlen": 460223, "svtype": "INV"}, {"CBR110-15-R3a": "Manta+TIDDIT", "Carmaphycin-R9-2": "Manta+TIDDIT", "Doxorubicin16-R2b": "Manta+TIDDIT", "NODRUG-GM2": "Manta+TIDDIT", "chrom": "XV", "chrom2": "XV", "end": 722440, "pos": 722257, "svlen": 187, "svtype": "DEL"}, {"CBR110-15-R3a": "Manta", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XV", "chrom2": "XV", "end": 159673, "pos": 931844, "svlen": 772171, "svtype": "INV"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XVI", "chrom2": "XVI", "end": 112843, "pos": 111961, "svlen": 882, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "Manta", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "XVI", "chrom2": "XV", "end": 159655, "pos": 450398, "svlen": 0, "svtype": "TRA"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "TIDDIT", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "Mito", "chrom2": "Mito", "end": 85779, "pos": 1, "svlen": 85778, "svtype": "DUP"}, {"CBR110-15-R3a": "TIDDIT", "Carmaphycin-R9-2": "TIDDIT", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "-", "chrom": "Mito", "chrom2": "Mito", "end": 84395, "pos": 206, "svlen": 84189, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 3353, "pos": 3112, "svlen": 241, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 5896, "pos": 5765, "svlen": 140, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 7089, "pos": 6961, "svlen": 128, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 8579, "pos": 8339, "svlen": 240, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 12071, "pos": 11952, "svlen": 119, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 13284, "pos": 13119, "svlen": 165, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 22427, "pos": 22364, "svlen": 128, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 23920, "pos": 23855, "svlen": 73, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 25165, "pos": 25058, "svlen": 107, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 28012, "pos": 27892, "svlen": 120, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 29768, "pos": 29432, "svlen": 336, "svtype": "INV"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 30815, "pos": 30678, "svlen": 137, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 33012, "pos": 32794, "svlen": 218, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 34726, "pos": 34547, "svlen": 179, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 35924, "pos": 35725, "svlen": 199, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 38001, "pos": 37758, "svlen": 243, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 40314, "pos": 40135, "svlen": 179, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 42767, "pos": 42656, "svlen": 111, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 43979, "pos": 43770, "svlen": 209, "svtype": "INV"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 44738, "pos": 44543, "svlen": 195, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 45415, "pos": 45307, "svlen": 108, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 47377, "pos": 47193, "svlen": 184, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 48974, "pos": 48665, "svlen": 309, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 52102, "pos": 51652, "svlen": 450, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 52943, "pos": 52876, "svlen": 67, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 54410, "pos": 54309, "svlen": 101, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 55929, "pos": 55718, "svlen": 211, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 57456, "pos": 57036, "svlen": 420, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 59205, "pos": 59053, "svlen": 152, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 63363, "pos": 63187, "svlen": 176, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 65519, "pos": 65424, "svlen": 95, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 66650, "pos": 66520, "svlen": 130, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 67841, "pos": 67703, "svlen": 138, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 68958, "pos": 68772, "svlen": 231, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 71199, "pos": 71018, "svlen": 181, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 74696, "pos": 74582, "svlen": 114, "svtype": "DUP"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 77214, "pos": 77103, "svlen": 111, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 78247, "pos": 78090, "svlen": 500, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 81028, "pos": 80953, "svlen": 75, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 82315, "pos": 82126, "svlen": 189, "svtype": "DEL"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 85014, "pos": 84876, "svlen": 203, "svtype": "INV"}, {"CBR110-15-R3a": "-", "Carmaphycin-R9-2": "-", "Doxorubicin16-R2b": "-", "NODRUG-GM2": "TIDDIT", "chrom": "Mito", "chrom2": "Mito", "end": 1, "pos": 85779, "svlen": 85778, "svtype": "INV"}],
+            layout: "fitDataFill", height: 600,
+            headerSortTristate: true, columns: buildSvColumns(svSamples),
+            initialSort: [{ column: "chrom", dir: "asc" }, { column: "pos", dir: "asc" }],
+        });
+        
+        
+    </script>
+</body>
+</html>

@@ -109,6 +109,15 @@ bin/multiqc/
 assets/references/busco_output/
 assets/references/busco_downloads/
 
+# IGV reports - generated outputs (large HTML with embedded CRAM/VCF data)
+docs/igvreports/**/samples/
+docs/igvreports/**/cohort_report.html
+docs/igvreports/**/multiqc_report.html
+docs/igvreports/**/mutation_overview.html
+docs/igvreports/**/prepare/
+docs/igvreports/**/pipeline_info/
+docs/igvreports/**/*.png
+
 # macOS .DS_Store in tracked subdirectories (overrides !data/dicarboxylic_acids/**)
 data/dicarboxylic_acids/.DS_Store
 .env

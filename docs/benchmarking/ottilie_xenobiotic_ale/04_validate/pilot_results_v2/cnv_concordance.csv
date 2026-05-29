@@ -1,0 +1,2 @@
+sample,chromosome,truth_event,event_category,detected,cnvkit_cn,cnvkit_log2,cnvkit_depth,cnvkit_p_ttest,chr_affected_pct,probes,partial_details
+CBR110-15-R3a,I,Whole Chromosome Duplication,whole_chromosome,YES,3,0.329,115.9,5.19e-14,100%,46,
