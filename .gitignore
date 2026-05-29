@@ -111,7 +111,6 @@ assets/references/busco_downloads/
 
 # IGV reports - generated outputs (large HTML with embedded CRAM/VCF data)
 docs/igvreports/**/samples/
-docs/igvreports/**/cohort_report.html
 docs/igvreports/**/multiqc_report.html
 docs/igvreports/**/mutation_overview.html
 docs/igvreports/**/prepare/
