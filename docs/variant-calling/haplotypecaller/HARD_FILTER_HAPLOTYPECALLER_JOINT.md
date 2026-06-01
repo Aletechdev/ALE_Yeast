@@ -16,8 +16,14 @@ FILTER="PASS" & FORMAT/GQ>=20 & FORMAT/DP>=8 & FORMAT/AD[0:1]/(FORMAT/AD[0:0]+FO
 **Dynamic AF threshold** based on `meta.clonal_or_population` from the samplesheet:
 | Sample type | AF threshold | Rationale |
 |-------------|-------------|-----------|
-| Clonal      | >= 90%      | Expects near-fixed mutations in clonal isolates |
+| Clonal      | >= 80%      | Near-fixed mutations; allows sub-fixation variants from ongoing sweeps or harvest heterogeneity |
 | Population  | >= 5%       | Captures low-frequency variants in mixed populations (ploidy=10) |
+
+> **Changed June 2026**: Clonal AF threshold relaxed from 90% to 80%. Ottilie Tier 2 validation
+> showed 1,030 quality-assured variants (PASS + GQ>=20 + DP>=8) across 86 samples with AF in
+> [0.80, 0.90) — ~12 per sample. The stricter 90% threshold also missed truth mutation #12
+> (CDC43 missense, AF=82.5% in MMV1078458--4R3a). An 80% threshold still filters clearly
+> heterogeneous calls while capturing biologically relevant near-fixed ALE mutations.
 
 ## Why It Was Disabled
 
