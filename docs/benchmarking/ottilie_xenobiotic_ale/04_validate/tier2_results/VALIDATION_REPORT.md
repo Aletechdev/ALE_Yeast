@@ -1,6 +1,6 @@
 # Ottilie Benchmark Validation Report
 
-**Generated**: 2026-05-28 14:26
+**Generated**: 2026-05-29 10:18
 **Pipeline output**: `output_ottilie_tier2`
 
 ## 1. SNV/INDEL Concordance (HaplotypeCaller vs Sup Data 4)
@@ -31,8 +31,8 @@
 | Sample | Chr | Event type | Chr affected | CNVKit segments |
 |--------|-----|------------|--------------|-----------------|
 | Doxorubicin-135-R2b | XIII | focal amp | 0% | no gain; all segments: XIII:0-204873 (205kb) cn=2 log2=0.096; XIII:204873-924431 (720kb) cn=2 log2=-0.007 |
-| Etoposide-R7b-2 | XII | whole chr dup | 0% | XII:449240-1078177 (629kb) cn=3 log2=0.503 |
-| Etoposide-R9b-2 | XII | whole chr dup | 0% | XII:449240-1078177 (629kb) cn=3 log2=0.374 |
+| Etoposide-R7b-2 | XII | whole chr dup | 58% | XII:449240-1078177 (629kb) cn=3 log2=0.503 |
+| Etoposide-R9b-2 | XII | whole chr dup | 58% | XII:449240-1078177 (629kb) cn=3 log2=0.374 |
 | MMV085203-11R3a | XIV | focal amp | 0% | no gain; all segments: XIV:0-784333 (784kb) cn=2 log2=0.022 |
 | MMV085203-7R3a | XIV | focal amp | 0% | no gain; all segments: XIV:0-784333 (784kb) cn=2 log2=0.004 |
 | Tavabarole-9Res2c | XIII | focal amp | 0% | no gain; all segments: XIII:0-204873 (205kb) cn=2 log2=0.083; XIII:204873-924431 (720kb) cn=2 log2=-0.008 |
@@ -134,30 +134,30 @@
 
 | Sample | Chromosome | Truth event | Detected | CN | log2 | Chr affected |
 |--------|------------|-------------|----------|------|------|--------------|
-| BMS983970-2R1e | X | Whole chromosome duplication | YES | 3 | 0.613 |  |
-| CBR110-15R3a | I | Whole Chromosome Duplication | YES | 3 | 0.329 |  |
-| CBR113-7R4a | XV | Amplification | YES | 4 | 0.762 |  |
-| DS28-R5-2 | II | Whole chromosome duplication | YES | 4 | 0.934 |  |
-| DS4-R6-2 | XIII | Whole chromosome duplication | YES | 4 | 0.970 |  |
-| Diethylstilbestrol--15A | IV | Amplification | YES | 4 | 0.842 |  |
-| Doxorubicin-135-R2b | XIII | Amplification | NO |  |  |  |
-| Doxorubicin-24R3a | IX | Whole chromosome duplication | YES | 4 | 0.929 |  |
-| Etoposide-R4b-2 | V | Whole chromosome duplication | YES | 3 | 0.270 |  |
-| Etoposide-R7b-2 | XII | Whole chromosome duplication | NO |  |  |  |
-| Etoposide-R9b-2 | XII | Whole chromosome duplication | NO |  |  |  |
-| GNF-Pf-1618-7R2b | XVI | Amplification | YES | 6 | 1.513 |  |
-| GNFpf2740--15_R5a | XVI | Amplification | YES | 5 | 1.212 |  |
-| HygromycinB-36R8a | XI | Whole chromosome duplication | YES | 4 | 0.958 |  |
-| MMV085203-11R3a | XIV | Amplification | NO |  |  |  |
-| MMV085203-7R3a | XIV | Amplification | NO |  |  |  |
-| MMV665794-10R9c | XVI | Amplification | YES | 12 | 2.515 |  |
-| MMV665794-11R9c | XVI | Amplification | YES | 13 | 2.588 |  |
-| MMV665794-7R9c | XVI | Amplification | YES | 17 | 3.075 |  |
-| MMV665794-8R9c | XVI | Amplification | YES | 14 | 2.725 |  |
-| Tavabarole-9Res2c | XIII | Amplification | NO |  |  |  |
-| Wortmannin-13R3a | XV | Amplification | YES | 5 | 1.118 |  |
-| Wortmannin-17-R3a | II | Whole Chromosome Duplication | YES | 3 | 0.504 |  |
-| Wortmannin-17-R3a | VII | Whole Chromosome Duplication | YES | 3 | 0.561 |  |
+| BMS983970-2R1e | X | Whole chromosome duplication | YES | 3 | 0.613 | 100% |
+| CBR110-15R3a | I | Whole Chromosome Duplication | YES | 3 | 0.329 | 100% |
+| CBR113-7R4a | XV | Amplification | YES | 4 | 0.762 | 10% |
+| DS28-R5-2 | II | Whole chromosome duplication | YES | 4 | 0.934 | 100% |
+| DS4-R6-2 | XIII | Whole chromosome duplication | YES | 4 | 0.970 | 100% |
+| Diethylstilbestrol--15A | IV | Amplification | YES | 4 | 0.842 | 8% |
+| Doxorubicin-135-R2b | XIII | Amplification | NO |  |  | 0% |
+| Doxorubicin-24R3a | IX | Whole chromosome duplication | YES | 4 | 0.929 | 100% |
+| Etoposide-R4b-2 | V | Whole chromosome duplication | YES | 3 | 0.270 | 100% |
+| Etoposide-R7b-2 | XII | Whole chromosome duplication | NO |  |  | 58% |
+| Etoposide-R9b-2 | XII | Whole chromosome duplication | NO |  |  | 58% |
+| GNF-Pf-1618-7R2b | XVI | Amplification | YES | 6 | 1.513 | 11% |
+| GNFpf2740--15_R5a | XVI | Amplification | YES | 5 | 1.212 | 2% |
+| HygromycinB-36R8a | XI | Whole chromosome duplication | YES | 4 | 0.958 | 100% |
+| MMV085203-11R3a | XIV | Amplification | NO |  |  | 0% |
+| MMV085203-7R3a | XIV | Amplification | NO |  |  | 0% |
+| MMV665794-10R9c | XVI | Amplification | YES | 12 | 2.515 | 3% |
+| MMV665794-11R9c | XVI | Amplification | YES | 13 | 2.588 | 2% |
+| MMV665794-7R9c | XVI | Amplification | YES | 17 | 3.075 | 3% |
+| MMV665794-8R9c | XVI | Amplification | YES | 14 | 2.725 | 2% |
+| Tavabarole-9Res2c | XIII | Amplification | NO |  |  | 0% |
+| Wortmannin-13R3a | XV | Amplification | YES | 5 | 1.118 | 8% |
+| Wortmannin-17-R3a | II | Whole Chromosome Duplication | YES | 3 | 0.504 | 100% |
+| Wortmannin-17-R3a | VII | Whole Chromosome Duplication | YES | 3 | 0.561 | 100% |
 
 ## 4. SV Characterization (Manta + TIDDIT)
 

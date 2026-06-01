@@ -19,23 +19,33 @@ generate_ottilie_reports.sh  →  generate_demo_reports.nf  →  index.html + sa
 ### Target Architecture (Single Run)
 
 ```
-run_ottilie_pilot.sh  →  main.nf (Sarek)
-                              ↓ after annotation + MultiQC
-                         MUTATION_REPORT subworkflow
-                              ├── BUILD_CN_MATRIX
-                              ├── BUILD_SV_MATRIX
-                              ├── PREPARE_VCF
-                              ├── IGVREPORTS_COHORT
-                              ├── IGVREPORTS_SAMPLE
-                              ├── IGVREPORTS_SV_CNV
-                              └── GENERATE_INDEX
-                                    ↓
-                              outdir/reports/
-                              ├── index.html
-                              ├── cohort_report.html
-                              ├── multiqc_report.html
-                              └── samples/*.html
+run_ottilie_pilot.sh  →  main.nf
+                              │
+                              ├── NFCORE_SAREK workflow
+                              │     └── SAREK (alignment → variant calling → annotation → MultiQC)
+                              │           ↓ emits: multiqc_report, versions
+                              │
+                              └── MUTATION_REPORT subworkflow  ← runs after SAREK completes
+                                    ├── BUILD_CN_MATRIX
+                                    ├── BUILD_SV_MATRIX
+                                    ├── PREPARE_VCF
+                                    ├── IGVREPORTS_COHORT
+                                    ├── IGVREPORTS_SAMPLE
+                                    ├── IGVREPORTS_SV_CNV
+                                    └── GENERATE_INDEX
+                                          ↓
+                                    outdir/mutation_reports/
+                                    ├── index.html
+                                    ├── cohort_report.html
+                                    ├── multiqc_report.html
+                                    └── samples/*.html
 ```
+
+**Integration point**: `main.nf` (top-level), inside the unnamed `workflow {}` block, after `NFCORE_SAREK()` and before `PIPELINE_COMPLETION()`. Gated behind `--generate_reports` flag.
+
+**Why here and not inside Sarek?** The SAREK workflow only emits `multiqc_report` and `versions`. Adding new emit channels would require modifying the forked Sarek workflow internals. Instead, MUTATION_REPORT collects its inputs from the published `outdir/` paths (VCFs, CRAMs, MultiQC data), which are already written to disk by the time SAREK completes. This keeps the Sarek fork minimal and the report generation cleanly separated.
+
+**Note**: `outdir/reports/` is already used by Sarek for per-tool QC outputs (bcftools, fastqc, mosdepth, samtools, snpeff, vcftools). The mutation report bundle goes to `outdir/mutation_reports/` to avoid collision.
 
 ---
 
@@ -44,7 +54,7 @@ run_ottilie_pilot.sh  →  main.nf (Sarek)
 The final deliverable is a folder that can be opened offline in a browser:
 
 ```
-outdir/reports/
+outdir/mutation_reports/
 ├── index.html                         ← Dashboard hub (entry point)
 ├── cohort_report.html                 ← All variants, Tabulator.js, cross-linked to samples
 ├── multiqc_report.html                ← Copied/linked from MultiQC output
@@ -334,10 +344,35 @@ Add a brief header comment to each template explaining its role:
 - Gate behind `--generate_reports` flag
 
 ### Phase 3: Integrate into main.nf
-- Hook subworkflow after annotation completes
-- Pass channels: annotated VCFs, CRAMs, reference, GFF3, MultiQC data
-- Auto-discover samples from samplesheet
-- Publish report bundle to `outdir/reports/`
+
+**Location**: Top-level `main.nf` (`/home/azureuser/Docs/ALE_nextflow/main.nf`), inside the unnamed `workflow {}` block.
+
+**Integration sketch** (after `NFCORE_SAREK`, before `PIPELINE_COMPLETION`):
+```groovy
+// main.nf — unnamed workflow {} block
+
+NFCORE_SAREK(PIPELINE_INITIALISATION.out.samplesheet)
+
+// MUTATION_REPORT: generate IGV-based HTML report bundle
+if (params.generate_reports) {
+    MUTATION_REPORT(
+        params.outdir,           // base output dir (published VCFs, CRAMs, MultiQC already here)
+        params.input,            // samplesheet CSV → auto-discover sample list
+        fasta,                   // reference FASTA
+        fasta_fai,               // reference index
+        // GFF3 from SnpEff cache or params
+    )
+}
+
+PIPELINE_COMPLETION(...)
+```
+
+**Key design decisions:**
+- Inputs collected from `params.outdir` paths (already published by Sarek), not from internal Sarek channels
+- Sample list auto-discovered from `params.input` samplesheet (eliminates hardcoded `--samples`)
+- Gated behind `--generate_reports` flag (opt-in, no impact on existing runs)
+- Publish report bundle to `outdir/mutation_reports/` (note: `outdir/reports/` is already used by Sarek for per-tool QC outputs like bcftools, fastqc, mosdepth, etc.)
+- SAREK workflow stays unmodified — no new emit channels needed
 
 ### Phase 4: Test and Document
 - Test with Ottilie pilot (4 samples) and CEN.PK (17 samples)

@@ -157,7 +157,7 @@ def generate_report(results_dir, output_dir):
                 cat = r.get("event_category", "")
                 cat_label = ("whole chr dup" if cat == "whole_chromosome"
                              else "focal amp")
-                cov = r.get("chr_affected_pct", "0%")
+                cov = r.get("chr_affected_pct") or r.get("coverage", "0%")
                 partial = r.get("partial_details", "no signal")
                 lines.append(f"| {r['sample']} | {r['chromosome']} | {cat_label} | {cov} | {partial} |")
             lines.append(f"")
@@ -186,7 +186,7 @@ def generate_report(results_dir, output_dir):
         for r in cnv_rows:
             cn = r.get("cnvkit_cn", "")
             log2 = r.get("cnvkit_log2", "")
-            cov = r.get("chr_affected_pct", "")
+            cov = r.get("chr_affected_pct") or r.get("coverage", "")
             lines.append(f"| {r['sample']} | {r['chromosome']} | {r['truth_event']} | "
                          f"{r['detected']} | {cn} | {log2} | {cov} |")
         lines.append(f"")
