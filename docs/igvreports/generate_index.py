@@ -42,8 +42,8 @@ from jinja2 import Environment, FileSystemLoader
 # Longest suffixes first so greedy matching works correctly.
 # ---------------------------------------------------------------------------
 CALLER_SUFFIXES = [
-    ("haplotypecaller.from_joint_calling.hard_filtered", "HaplotypeCaller"),  # hard-filtered counts
-    ("haplotypecaller.from_joint_calling", None),  # skip unfiltered rows
+    ("haplotypecaller.from_joint_calling.hard_filtered", None),  # skip hard-filtered rows
+    ("haplotypecaller.from_joint_calling", "HaplotypeCaller"),  # soft-filtered (all non-ref variants)
     ("freebayes.quality_filtered.normal", None),  # skip filtered rows
     ("manta.diploid_sv", "Manta"),
     ("deepvariant", "DeepVariant"),
@@ -149,6 +149,30 @@ def get_joint_vcf_pass_count(joint_vcf: Path | None) -> int | None:
         return result.stdout.count("\n")
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
+
+
+def get_prepared_vcf_counts(prepared_vcf: Path | None) -> tuple[int | None, int | None]:
+    """Count total and PASS variants in the prepared (post-norm) VCF.
+
+    Returns (total, pass_count) or (None, None) if unavailable.
+    """
+    if prepared_vcf is None or not prepared_vcf.exists():
+        return None, None
+    import subprocess
+    try:
+        total_result = subprocess.run(
+            ["bcftools", "view", "-H", str(prepared_vcf)],
+            capture_output=True, text=True, timeout=60,
+        )
+        total = total_result.stdout.count("\n")
+        pass_result = subprocess.run(
+            ["bcftools", "view", "-f", "PASS", "-H", str(prepared_vcf)],
+            capture_output=True, text=True, timeout=60,
+        )
+        pass_count = pass_result.stdout.count("\n")
+        return total, pass_count
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None, None
 
 
 def load_snpeff_stats(multiqc_dir: Path) -> pd.DataFrame:
@@ -421,6 +445,7 @@ def build_context(
     multiqc_report_path: str | None = None,
     show_sensitive: bool = False,
     joint_vcf: Path | None = None,
+    prepared_vcf: Path | None = None,
 ) -> dict:
     """Build the full template context dictionary."""
 
@@ -467,7 +492,7 @@ def build_context(
         counts = variant_pivot.get(sample, {})
         qc = qc_lookup.get(sample, {})
 
-        # HC variant count from MultiQC bcftools_stats (hard_filtered tier)
+        # HC variant count from MultiQC bcftools_stats (soft-filtered, all non-ref)
         hc_variants = counts.get("HaplotypeCaller", 0)
 
         entry = {
@@ -495,16 +520,22 @@ def build_context(
     if cohort_report and cohort_report.exists():
         cohort_link = cohort_report.name
 
-    # Cohort variant count: unique sites in the joint VCF (from MultiQC)
-    joint_count = get_joint_vcf_variant_count(multiqc_dir)
-    if joint_count is not None:
-        cohort_variant_count = joint_count
+    # Post-norm counts from prepared VCF (match cohort report table rows)
+    prepared_total, prepared_pass = get_prepared_vcf_counts(prepared_vcf)
+    if prepared_total is not None:
+        cohort_variant_count = prepared_total
+        cohort_pass_count = prepared_pass
     else:
-        # Fallback: sum of per-sample hard-filtered counts
-        cohort_variant_count = sum(s.get("hc_variants", 0) for s in summary_data)
+        # Fallback to pre-norm counts from MultiQC
+        joint_count = get_joint_vcf_variant_count(multiqc_dir)
+        if joint_count is not None:
+            cohort_variant_count = joint_count
+        else:
+            cohort_variant_count = sum(s.get("hc_variants", 0) for s in summary_data)
+        cohort_pass_count = get_joint_vcf_pass_count(joint_vcf)
 
-    # PASS variant count from joint VCF (requires bcftools)
-    cohort_pass_count = get_joint_vcf_pass_count(joint_vcf)
+    # Pre-norm count for context (shown as subtitle on card)
+    cohort_prenorm_count = get_joint_vcf_variant_count(multiqc_dir)
 
     # --- CN/SV data (optional) ---
     cnv_sv = {}
@@ -519,6 +550,7 @@ def build_context(
         "cohort_link": cohort_link,
         "cohort_variant_count": cohort_variant_count,
         "cohort_pass_count": cohort_pass_count,
+        "cohort_prenorm_count": cohort_prenorm_count,
         "multiqc_report_path": multiqc_report_path or "../../output_all/multiqc/multiqc_report.html",
         "summary_data_json": json.dumps(summary_data),
         # CN/SV data (None if not provided)
@@ -592,6 +624,10 @@ def main():
         help="Path to joint HaplotypeCaller VCF (.vcf.gz) for PASS variant counting",
     )
     parser.add_argument(
+        "--prepared-vcf", type=Path, default=None,
+        help="Path to prepared (post-norm) cohort VCF for accurate row counting matching cohort report table",
+    )
+    parser.add_argument(
         "--show-sensitive", action="store_true", default=False,
         help="Show sensitive CN and unfiltered SV tabs alongside stringent/PASS (debug mode)",
     )
@@ -605,6 +641,7 @@ def main():
         multiqc_report_path=args.multiqc_report_path,
         show_sensitive=args.show_sensitive,
         joint_vcf=args.joint_vcf,
+        prepared_vcf=args.prepared_vcf,
     )
 
     # Template directory: explicit arg or relative to this script

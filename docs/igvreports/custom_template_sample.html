@@ -43,7 +43,7 @@
             margin: 0;
             color: #24292f;
         }
-        #clearFilters, #exportFilters, #importFilters, #exportCsv, #downloadVcf {
+        #clearFilters, #exportFilters, #importFilters, #exportCsv, #downloadVcf, #showLegend {
             padding: 4px 10px;
             color: white;
             border: none;
@@ -61,6 +61,49 @@
         #exportCsv:hover { background: #005fa3; }
         #downloadVcf { background: #7b2d8b; }
         #downloadVcf:hover { background: #5f2269; }
+        #showLegend { background: #4a6785; }
+        #showLegend:hover { background: #3a5575; }
+        /* Legend modal */
+        #legendOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.4);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        #legendOverlay.open { display: flex; }
+        #legendModal {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(0,0,0,.25);
+            max-width: 720px;
+            width: 90%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #legendModal .legend-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #d0d7de;
+        }
+        #legendModal .legend-header h2 { margin: 0; font-size: 1em; }
+        #legendModal .legend-close {
+            background: none; border: none; font-size: 18px; cursor: pointer; color: #555; padding: 0 4px;
+        }
+        #legendModal .legend-body {
+            overflow-y: auto;
+            padding: 12px 16px;
+        }
+        #legendModal table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        #legendModal th { text-align: left; padding: 6px 8px; background: #f6f8fa; border-bottom: 2px solid #d0d7de; }
+        #legendModal td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+        #legendModal td:first-child { font-weight: 600; white-space: nowrap; min-width: 140px; }
+        #legendModal .legend-group { color: #555; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 8px 4px; }
         /* Column chooser */
         #columnChooserWrap { position: relative; }
         #toggleColumns { padding: 4px 10px; color: white; background: #2e7d32; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
@@ -162,7 +205,19 @@
             <button id="toggleColumns">Columns</button>
             <div id="columnChooserMenu"></div>
         </div>
+        <button id="showLegend">Legend</button>
         <input type="file" id="filterFileInput" accept=".json" style="display:none">
+    </div>
+
+    <!-- Legend modal -->
+    <div id="legendOverlay">
+        <div id="legendModal">
+            <div class="legend-header">
+                <h2>Column Legend</h2>
+                <button class="legend-close" title="Close">&times;</button>
+            </div>
+            <div class="legend-body" id="legendBody"></div>
+        </div>
     </div>
 
     <!-- Main content -->
@@ -188,9 +243,10 @@
     const sessionDictionary = "@SESSION_DICTIONARY@";
     const filterConfig = "@FILTER_CONFIG@";
 
-    // Embedded VCF (base64-encoded gzip) — injected by build script
-    const vcfBase64 = "@VCF_BASE64@";
+    // VCF download link (file-based) — injected by build script
+    const vcfHref = "@VCF_HREF@";
     const vcfFilename = "@VCF_FILENAME@";
+    const reportType = "@REPORT_TYPE@";
 
     let igvBrowser;
     let table;
@@ -249,9 +305,10 @@
         "MQ":                 { type: "number", filter: "number" },
     };
 
-    // Columns hidden by default (toggle via Columns button)
-    const hiddenByDefault = new Set(["ID", "TRANSCRIPT", "GENE_ID", "AC", "AF", "DP", "QD", "MQ"]);
-    const hiddenSuffixes = [":GT"];
+    // Columns hidden by default (HaplotypeCaller reports only; SV/CNV reports show all columns)
+    const isHC = reportType === "haplotypecaller";
+    const hiddenByDefault = isHC ? new Set(["ID", "TRANSCRIPT", "GENE_ID", "AC", "AF", "DP", "QD", "MQ"]) : new Set();
+    const hiddenSuffixes = isHC ? [":GT"] : [];
     function isHiddenByDefault(header) {
         if (hiddenByDefault.has(header)) return true;
         return hiddenSuffixes.some(s => header.endsWith(s));
@@ -301,6 +358,7 @@
 
         table.on("tableBuilt", function() {
             buildColumnChooser();
+            handleLocusParam();
         });
 
         // Clear filters
@@ -353,22 +411,16 @@
             table.download("csv", "variants_export.csv", {}, "active");
         });
 
-        // Download raw VCF file
+        // Download VCF file (links to vcf/ folder)
         document.getElementById("downloadVcf").addEventListener("click", function() {
-            if (!vcfBase64 || vcfBase64 === "@" + "VCF_BASE64@") {
-                alert("VCF file not embedded in this report.");
+            if (!vcfHref || vcfHref === "@" + "VCF_HREF@") {
+                alert("VCF download not available for this report.");
                 return;
             }
-            const blob = new Blob(
-                [Uint8Array.from(atob(vcfBase64), c => c.charCodeAt(0))],
-                { type: "application/gzip" }
-            );
-            const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.href = url;
+            a.href = vcfHref;
             a.download = vcfFilename || "variants.vcf.gz";
             a.click();
-            URL.revokeObjectURL(url);
         });
 
         // Row click → load IGV session
@@ -380,63 +432,56 @@
             }
         });
 
-        // Handle ?locus= parameter from cohort report cross-link
+    }
+
+    // Handle ?locus= parameter from cohort report cross-link
+    function handleLocusParam() {
         const urlParams = new URLSearchParams(window.location.search);
         const locus = urlParams.get("locus");
-        if (locus) {
-            const [chrom, pos] = locus.split(":");
-            const posNum = parseInt(pos);
+        if (!locus) return;
 
-            table.on("tableBuilt", function() {
-                // Find matching row in the full dataset
-                const allData = table.getData();
-                let targetUniqueId = null;
-                for (let i = 0; i < allData.length; i++) {
-                    if (allData[i]["CHROM"] === chrom &&
-                        (allData[i]["POSITION"] === posNum || allData[i]["POSITION"] === pos)) {
-                        targetUniqueId = allData[i]["unique_id"];
-                        break;
-                    }
+        const [chrom, pos] = locus.split(":");
+        const posNum = parseInt(pos);
+
+        // Find matching row in the full dataset
+        const allData = table.getData();
+        let targetUniqueId = null;
+        for (let i = 0; i < allData.length; i++) {
+            if (allData[i]["CHROM"] === chrom &&
+                (allData[i]["POSITION"] === posNum || allData[i]["POSITION"] === pos)) {
+                targetUniqueId = allData[i]["unique_id"];
+                break;
+            }
+        }
+        if (targetUniqueId === null) return;
+
+        // Calculate which page the row is on and navigate there
+        var targetIdx = allData.findIndex(function(r) { return r["unique_id"] === targetUniqueId; });
+        var pageSize = table.getPageSize();
+        var targetPage = Math.floor(targetIdx / pageSize) + 1;
+
+        function selectAndScroll() {
+            var rows = table.getRows("active");
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].getData()["unique_id"] === targetUniqueId) {
+                    rows[i].select();
+                    table.scrollToRow(rows[i], "center", true);
+                    return;
                 }
-                if (targetUniqueId === null) return;
+            }
+        }
 
-                // Calculate which page the row is on and navigate there
-                var targetIdx = allData.findIndex(function(r) { return r["unique_id"] === targetUniqueId; });
-                var pageSize = table.getPageSize();
-                var targetPage = Math.floor(targetIdx / pageSize) + 1;
-
-                function selectAndScroll() {
-                    // Search active (rendered) rows for reliable selection
-                    var rows = table.getRows("active");
-                    for (var i = 0; i < rows.length; i++) {
-                        if (rows[i].getData()["unique_id"] === targetUniqueId) {
-                            rows[i].select();
-                            table.scrollToRow(rows[i], "center", true);
-                            return;
-                        }
-                    }
-                }
-
-                function selectAfterRender() {
-                    // Small delay ensures DOM is fully updated after page change
-                    setTimeout(selectAndScroll, 50);
-                }
-
-                if (targetPage === table.getPage()) {
-                    selectAfterRender();
-                } else {
-                    table.setPage(targetPage).then(function() {
-                        table.on("renderComplete", function scrollHandler() {
-                            table.off("renderComplete", scrollHandler);
-                            selectAfterRender();
-                        });
-                    });
-                }
-                // Load IGV session for this variant
-                var session = sessionDictionary[targetUniqueId];
-                if (session) igvBrowser.loadSession({ url: session });
+        if (targetPage === table.getPage()) {
+            setTimeout(selectAndScroll, 100);
+        } else {
+            table.setPage(targetPage).then(function() {
+                setTimeout(selectAndScroll, 100);
             });
         }
+
+        // Load IGV session for this variant
+        var session = sessionDictionary[targetUniqueId];
+        if (session) igvBrowser.loadSession({ url: session });
     }
 
     // --- Column chooser ---
@@ -472,6 +517,91 @@
         if (!document.getElementById("columnChooserWrap").contains(e.target)) {
             menu.style.display = "none";
         }
+    });
+
+    // --- Legend modal ---
+    const columnDescriptions = {
+        // VCF core fields
+        "CHROM":              ["VCF", "Chromosome or contig name"],
+        "POSITION":           ["VCF", "1-based genomic position of the variant"],
+        "REF":                ["VCF", "Reference allele at this position"],
+        "ALT":                ["VCF", "Alternate allele (after multi-allelic splitting)"],
+        "ID":                 ["VCF", "Variant identifier (typically '.' for novel variants)"],
+        "VCF_FILTER":         ["VCF", "Soft-filter status from GATK VariantFiltration (PASS = high confidence; other values indicate which quality filter was triggered)"],
+        "ORIG_ALT":           ["VCF", "Original ALT allele(s) before bcftools norm -m- splitting (shows the multi-allelic representation)"],
+        // VCF INFO / quality
+        "AC":                 ["Quality", "Allele count — number of ALT alleles across all samples"],
+        "AF":                 ["Quality", "Allele frequency — fraction of ALT alleles across all samples in the cohort"],
+        "DP":                 ["Quality", "Total read depth at this position"],
+        "QD":                 ["Quality", "Quality by Depth — QUAL score normalized by unfiltered depth; low QD (<2) flags low-confidence calls"],
+        "MQ":                 ["Quality", "Root mean square mapping quality of reads at this site; low MQ (<40) indicates ambiguous alignments"],
+        // SnpEff annotation
+        "GENE":               ["SnpEff", "Gene symbol affected by this variant"],
+        "GENE_ID":            ["SnpEff", "Systematic gene identifier (e.g., SGD ID for yeast)"],
+        "EFFECTS":            ["SnpEff", "Predicted variant effect (e.g., missense_variant, synonymous_variant, frameshift_variant)"],
+        "IMPACT":             ["SnpEff", "Predicted impact severity: HIGH (loss of function), MODERATE (non-disruptive change), LOW (mostly harmless), MODIFIER (non-coding region)"],
+        "TRANSCRIPT":         ["SnpEff", "Transcript ID used for effect prediction"],
+        "PROTEIN ALTERATION": ["SnpEff", "Amino acid change in HGVS notation (e.g., p.Ala123Thr)"],
+        "DNA ALTERATION":     ["SnpEff", "Nucleotide change in HGVS notation (e.g., c.367G>A)"],
+        // SV/CNV fields (CNVKit)
+        "SVTYPE":             ["SV/CNV", "Structural variant type (DEL = deletion, DUP = duplication, BND = breakend, INV = inversion)"],
+        "SVLEN":              ["SV/CNV", "Length of the structural variant in base pairs (negative for deletions)"],
+        "FOLD_CHANGE":        ["CNVKit", "Copy number fold change relative to diploid baseline (1.0 = no change, 0.5 = single-copy loss, 1.5 = single-copy gain)"],
+        "FOLD_CHANGE_LOG":    ["CNVKit", "Log2 of fold change — positive = gain, negative = loss, 0 = neutral"],
+        "PROBES":             ["CNVKit", "Number of bins/probes supporting this CNV call (more probes = higher confidence)"],
+        // SV fields (Manta)
+        "EVENT":              ["Manta", "Manta event identifier — groups breakend pairs belonging to the same structural variant"],
+        "PR":                 ["Manta", "Spanning paired-read support — read pairs spanning the breakpoint (ref, alt counts)"],
+        "SR":                 ["Manta", "Split-read support — reads crossing the exact breakpoint (ref, alt counts)"],
+        // Per-sample FORMAT fields (single-sample report)
+        "GT":                 ["Sample", "Genotype (0/0 = ref homozygous, 0/1 = heterozygous, 1/1 = alt homozygous)"],
+        "AD":                 ["Sample", "Allelic depths — read counts for ref and alt alleles (e.g., 45,23)"],
+        "GQ":                 ["Sample", "Genotype quality — Phred-scaled confidence that the genotype is correct (higher = more confident)"],
+        "VAF":                ["Sample", "Variant allele frequency — fraction of reads supporting the alt allele (computed by bcftools +fill-tags)"],
+    };
+
+    function buildLegendContent() {
+        const body = document.getElementById("legendBody");
+        if (!table) { body.innerHTML = "<p>Table not loaded yet.</p>"; return; }
+
+        const headers = table.getColumns().map(c => c.getField()).filter(f => f && f !== "unique_id");
+        let html = '<table>';
+
+        const groups = {};
+        headers.forEach(h => {
+            // Match exact or strip sample prefix for FORMAT fields
+            let desc = columnDescriptions[h];
+            if (!desc) {
+                const match = h.match(/^(.+):(GT|AD|DP|GQ|VAF)$/);
+                if (match) desc = columnDescriptions[match[2]];
+            }
+            if (desc) {
+                const [group, text] = desc;
+                if (!groups[group]) groups[group] = [];
+                groups[group].push([h, text]);
+            }
+        });
+
+        for (const [group, entries] of Object.entries(groups)) {
+            html += `<tr><td colspan="2" class="legend-group">${group}</td></tr>`;
+            for (const [col, desc] of entries) {
+                html += `<tr><td>${col}</td><td>${desc}</td></tr>`;
+            }
+        }
+
+        html += '</table>';
+        body.innerHTML = html;
+    }
+
+    document.getElementById("showLegend").addEventListener("click", function() {
+        buildLegendContent();
+        document.getElementById("legendOverlay").classList.add("open");
+    });
+    document.querySelector("#legendModal .legend-close").addEventListener("click", function() {
+        document.getElementById("legendOverlay").classList.remove("open");
+    });
+    document.getElementById("legendOverlay").addEventListener("click", function(e) {
+        if (e.target === this) this.classList.remove("open");
     });
 
     // --- Resizable split panes ---

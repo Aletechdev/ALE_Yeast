@@ -43,7 +43,7 @@
             margin: 0;
             color: #24292f;
         }
-        #clearFilters, #exportFilters, #importFilters, #exportCsv, #downloadVcf {
+        #clearFilters, #exportFilters, #importFilters, #exportCsv, #downloadVcf, #showLegend {
             padding: 4px 10px;
             color: white;
             border: none;
@@ -61,6 +61,49 @@
         #exportCsv:hover { background: #005fa3; }
         #downloadVcf { background: #7b2d8b; }
         #downloadVcf:hover { background: #5f2269; }
+        #showLegend { background: #4a6785; }
+        #showLegend:hover { background: #3a5575; }
+        /* Legend modal */
+        #legendOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.4);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        #legendOverlay.open { display: flex; }
+        #legendModal {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(0,0,0,.25);
+            max-width: 720px;
+            width: 90%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #legendModal .legend-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #d0d7de;
+        }
+        #legendModal .legend-header h2 { margin: 0; font-size: 1em; }
+        #legendModal .legend-close {
+            background: none; border: none; font-size: 18px; cursor: pointer; color: #555; padding: 0 4px;
+        }
+        #legendModal .legend-body {
+            overflow-y: auto;
+            padding: 12px 16px;
+        }
+        #legendModal table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        #legendModal th { text-align: left; padding: 6px 8px; background: #f6f8fa; border-bottom: 2px solid #d0d7de; }
+        #legendModal td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+        #legendModal td:first-child { font-weight: 600; white-space: nowrap; min-width: 140px; }
+        #legendModal .legend-group { color: #555; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 8px 4px; }
         /* Column chooser */
         #columnChooserWrap { position: relative; }
         #toggleColumns { padding: 4px 10px; color: white; background: #2e7d32; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
@@ -162,17 +205,19 @@
             <button id="toggleColumns">Columns</button>
             <div id="columnChooserMenu"></div>
         </div>
+        <button id="showLegend">Legend</button>
         <input type="file" id="filterFileInput" accept=".json" style="display:none">
     </div>
 
-    <!-- Info banner (dismissible) -->
-    <div id="info-banner" style="padding:6px 16px;background:#fff8e1;border-bottom:1px solid #ffe082;font-size:12px;color:#5d4037;flex-shrink:0;line-height:1.6;display:flex;align-items:flex-start;gap:8px">
-        <span style="flex:1">
-            This VCF contains all soft-filtered variants (FILTER column annotated, no variants removed).
-            Defaulting to <strong>VCF_FILTER = PASS</strong>. Clear the filter to view all variants including flagged ones.
-            Row counts may differ from the dashboard summary due to multi-allelic splitting (<code>bcftools norm -m-</code>) and VCF post-processing. To be validated before release.
-        </span>
-        <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:16px;color:#5d4037;padding:0 2px;line-height:1" title="Dismiss">&times;</button>
+    <!-- Legend modal -->
+    <div id="legendOverlay">
+        <div id="legendModal">
+            <div class="legend-header">
+                <h2>Column Legend</h2>
+                <button class="legend-close" title="Close">&times;</button>
+            </div>
+            <div class="legend-body" id="legendBody"></div>
+        </div>
     </div>
 
     <!-- Main content -->
@@ -184,7 +229,7 @@
 
         <!-- Per-sample navigation hint -->
         <div id="sample-hint" style="padding:4px 16px;background:#e8f4fd;border-top:1px solid #b3d9f2;border-bottom:1px solid #b3d9f2;font-size:11px;color:#1a5276;flex-shrink:0;display:flex;align-items:center;gap:8px">
-            <span style="flex:1">Cohort-level report. Click any per-sample <strong>GT</strong> or <strong>VAF</strong> cell (non-reference genotypes only, i.e. GT&#8800;0) to open the per-sample IGV report at that locus. Per-sample reports contain only variants passing hard-filter criteria: FILTER=PASS, GQ&#8805;20, DP&#8805;8, AF&#8805;0.90 (clonal) or &#8805;0.05 (population).</span>
+            <span style="flex:1">Cohort-level report. Click any per-sample <strong>GT</strong> or <strong>VAF</strong> cell (non-reference genotypes only, i.e. GT&#8800;0) to open the per-sample IGV report at that locus. Per-sample reports include all non-reference variants from joint calling (soft-filtered, annotated by SnpEff).</span>
             <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#1a5276;padding:0 2px;line-height:1" title="Dismiss">&times;</button>
         </div>
 
@@ -204,8 +249,8 @@
     const sessionDictionary = "@SESSION_DICTIONARY@";
     const filterConfig = "@FILTER_CONFIG@";
 
-    // Embedded VCF (base64-encoded gzip) — injected by build script
-    const vcfBase64 = "@VCF_BASE64@";
+    // VCF download link (file-based) — injected by build script
+    const vcfHref = "@VCF_HREF@";
     const vcfFilename = "@VCF_FILENAME@";
 
     let igvBrowser;
@@ -377,22 +422,16 @@
             table.download("csv", "variants_export.csv", {}, "active");
         });
 
-        // Download raw VCF file
+        // Download VCF file (links to vcf/ folder)
         document.getElementById("downloadVcf").addEventListener("click", function() {
-            if (!vcfBase64 || vcfBase64 === "@" + "VCF_BASE64@") {
-                alert("VCF file not embedded in this report.");
+            if (!vcfHref || vcfHref === "@" + "VCF_HREF@") {
+                alert("VCF download not available for this report.");
                 return;
             }
-            const blob = new Blob(
-                [Uint8Array.from(atob(vcfBase64), c => c.charCodeAt(0))],
-                { type: "application/gzip" }
-            );
-            const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.href = url;
+            a.href = vcfHref;
             a.download = vcfFilename || "variants.vcf.gz";
             a.click();
-            URL.revokeObjectURL(url);
         });
 
         // Cell click → link to per-sample report (sample columns only)
@@ -460,6 +499,101 @@
         if (!document.getElementById("columnChooserWrap").contains(e.target)) {
             menu.style.display = "none";
         }
+    });
+
+    // --- Legend modal ---
+    const columnDescriptions = {
+        // VCF core fields
+        "CHROM":              ["VCF", "Chromosome or contig name"],
+        "POSITION":           ["VCF", "1-based genomic position of the variant"],
+        "REF":                ["VCF", "Reference allele at this position"],
+        "ALT":                ["VCF", "Alternate allele (after multi-allelic splitting)"],
+        "ID":                 ["VCF", "Variant identifier (typically '.' for novel variants)"],
+        "VCF_FILTER":         ["VCF", "Soft-filter status from GATK VariantFiltration (PASS = high confidence; other values indicate which quality filter was triggered)"],
+        "ORIG_ALT":           ["VCF", "Original ALT allele(s) before bcftools norm -m- splitting (shows the multi-allelic representation)"],
+        // VCF INFO / quality
+        "AC":                 ["Quality", "Allele count — number of ALT alleles across all samples"],
+        "AF":                 ["Quality", "Allele frequency — fraction of ALT alleles across all samples in the cohort"],
+        "DP":                 ["Quality", "Total read depth at this position (summed across all samples)"],
+        "QD":                 ["Quality", "Quality by Depth — QUAL score normalized by unfiltered depth; low QD (<2) flags low-confidence calls"],
+        "MQ":                 ["Quality", "Root mean square mapping quality of reads at this site; low MQ (<40) indicates ambiguous alignments"],
+        // SnpEff annotation
+        "GENE":               ["SnpEff", "Gene symbol affected by this variant"],
+        "GENE_ID":            ["SnpEff", "Systematic gene identifier (e.g., SGD ID for yeast)"],
+        "EFFECTS":            ["SnpEff", "Predicted variant effect (e.g., missense_variant, synonymous_variant, frameshift_variant)"],
+        "IMPACT":             ["SnpEff", "Predicted impact severity: HIGH (loss of function), MODERATE (non-disruptive change), LOW (mostly harmless), MODIFIER (non-coding region)"],
+        "TRANSCRIPT":         ["SnpEff", "Transcript ID used for effect prediction"],
+        "PROTEIN ALTERATION": ["SnpEff", "Amino acid change in HGVS notation (e.g., p.Ala123Thr)"],
+        "DNA ALTERATION":     ["SnpEff", "Nucleotide change in HGVS notation (e.g., c.367G>A)"],
+    };
+
+    // Per-sample column patterns (cohort report)
+    const sampleFieldDescriptions = {
+        "GT":  "Genotype (0/0 = ref homozygous, 0/1 = heterozygous, 1/1 = alt homozygous)",
+        "AD":  "Allelic depths — read counts for ref and alt alleles (e.g., 45,23)",
+        "DP":  "Sample-level read depth at this position",
+        "GQ":  "Genotype quality — Phred-scaled confidence that the genotype is correct (higher = more confident)",
+        "VAF": "Variant allele frequency — fraction of reads supporting the alt allele (computed by bcftools +fill-tags)",
+    };
+
+    function buildLegendContent() {
+        const body = document.getElementById("legendBody");
+        if (!table) { body.innerHTML = "<p>Table not loaded yet.</p>"; return; }
+
+        const headers = table.getColumns().map(c => c.getField()).filter(f => f && f !== "unique_id");
+        let html = '<table>';
+
+        // Group: known columns
+        const groups = {};
+        const perSample = [];
+        headers.forEach(h => {
+            if (columnDescriptions[h]) {
+                const [group, desc] = columnDescriptions[h];
+                if (!groups[group]) groups[group] = [];
+                groups[group].push([h, desc]);
+            } else {
+                const match = h.match(/^(.+):(GT|AD|DP|GQ|VAF)$/);
+                if (match) {
+                    perSample.push([h, match[1], match[2]]);
+                }
+            }
+        });
+
+        for (const [group, entries] of Object.entries(groups)) {
+            html += `<tr><td colspan="2" class="legend-group">${group}</td></tr>`;
+            for (const [col, desc] of entries) {
+                html += `<tr><td>${col}</td><td>${desc}</td></tr>`;
+            }
+        }
+
+        // Per-sample columns
+        if (perSample.length > 0) {
+            html += '<tr><td colspan="2" class="legend-group">Per-sample fields</td></tr>';
+            // Show one description per field type, not per sample
+            const shown = new Set();
+            for (const [col, sample, field] of perSample) {
+                if (!shown.has(field)) {
+                    shown.add(field);
+                    const desc = sampleFieldDescriptions[field] || "";
+                    html += `<tr><td>{sample}:${field}</td><td>${desc}</td></tr>`;
+                }
+            }
+            html += `<tr><td colspan="2" style="font-size:11px;color:#666;padding-top:8px">Click any non-reference GT or VAF cell to open the per-sample IGV report at that locus.</td></tr>`;
+        }
+
+        html += '</table>';
+        body.innerHTML = html;
+    }
+
+    document.getElementById("showLegend").addEventListener("click", function() {
+        buildLegendContent();
+        document.getElementById("legendOverlay").classList.add("open");
+    });
+    document.querySelector("#legendModal .legend-close").addEventListener("click", function() {
+        document.getElementById("legendOverlay").classList.remove("open");
+    });
+    document.getElementById("legendOverlay").addEventListener("click", function(e) {
+        if (e.target === this) this.classList.remove("open");
     });
 
     // --- Resizable split panes ---

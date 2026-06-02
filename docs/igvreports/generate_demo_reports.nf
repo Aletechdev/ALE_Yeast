@@ -67,6 +67,8 @@ process PREPARE_VCF {
 
     container 'quay.io/biocontainers/bcftools:1.20--h8b25389_0'
 
+    publishDir "${params.outdir}/prepare", mode: 'copy'
+
     input:
     tuple val(meta), path(vcf), path(tbi)
 
@@ -139,20 +141,9 @@ process IGVREPORTS_COHORT {
         --title "Cohort - Joint HaplotypeCaller (Yeast ALE)" \\
         --output cohort_report.html
 
-    # Embed base64-encoded VCF for download button
-    python3 -c "
-import base64, sys
-vcf_path, html_path, vcf_name = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(vcf_path, 'rb') as f:
-    b64 = base64.b64encode(f.read()).decode()
-with open(html_path, 'r') as f:
-    html = f.read()
-html = html.replace('@VCF_BASE64@', b64)
-html = html.replace('@VCF_FILENAME@', vcf_name)
-with open(html_path, 'w') as f:
-    f.write(html)
-print(f'Embedded {len(b64)//1024} KB base64 as {vcf_name}')
-" ${vcf} cohort_report.html ${vcf.name}
+    # Set VCF download link (file-based, replaces base64 embedding)
+    sed -i 's|@VCF_HREF@|vcf/haplotypecaller/cohort_haplotypecaller_annotated.vcf.gz|g' cohort_report.html
+    sed -i 's|@VCF_FILENAME@|cohort_haplotypecaller_annotated.vcf.gz|g' cohort_report.html
     """
 }
 
@@ -187,20 +178,10 @@ process IGVREPORTS_SAMPLE {
         --title "${meta.id} - HaplotypeCaller (Yeast ALE)" \\
         --output ${meta.id}_report.html
 
-    # Embed base64-encoded VCF for download button
-    python3 -c "
-import base64, sys
-vcf_path, html_path, vcf_name = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(vcf_path, 'rb') as f:
-    b64 = base64.b64encode(f.read()).decode()
-with open(html_path, 'r') as f:
-    html = f.read()
-html = html.replace('@VCF_BASE64@', b64)
-html = html.replace('@VCF_FILENAME@', vcf_name)
-with open(html_path, 'w') as f:
-    f.write(html)
-print(f'Embedded {len(b64)//1024} KB base64 as {vcf_name}')
-" ${vcf} ${meta.id}_report.html ${vcf.name}
+    # Set VCF download link and report type
+    sed -i 's|@VCF_HREF@|../vcf/haplotypecaller/${meta.id}_haplotypecaller_annotated.vcf.gz|g' ${meta.id}_report.html
+    sed -i 's|@VCF_FILENAME@|${meta.id}_haplotypecaller_annotated.vcf.gz|g' ${meta.id}_report.html
+    sed -i 's|@REPORT_TYPE@|haplotypecaller|g' ${meta.id}_report.html
     """
 }
 
@@ -239,20 +220,135 @@ process IGVREPORTS_SV_CNV {
         --title "${meta.id} - ${meta.caller_label} (Yeast ALE)" \\
         --output ${meta.id}_${meta.caller}_report.html
 
-    # Embed base64-encoded VCF for download button
-    python3 -c "
-import base64, sys
-vcf_path, html_path, vcf_name = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(vcf_path, 'rb') as f:
-    b64 = base64.b64encode(f.read()).decode()
-with open(html_path, 'r') as f:
-    html = f.read()
-html = html.replace('@VCF_BASE64@', b64)
-html = html.replace('@VCF_FILENAME@', vcf_name)
-with open(html_path, 'w') as f:
-    f.write(html)
-print(f'Embedded {len(b64)//1024} KB base64 as {vcf_name}')
-" ${vcf} ${meta.id}_${meta.caller}_report.html ${vcf.name}
+    # Set VCF download link and report type
+    sed -i 's|@VCF_HREF@|../vcf/${meta.caller}/${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
+    sed -i 's|@VCF_FILENAME@|${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
+    sed -i 's|@REPORT_TYPE@|sv_cnv|g' ${meta.id}_${meta.caller}_report.html
+    """
+}
+
+process PUBLISH_VCFS {
+    tag 'vcf_files'
+    label 'process_low'
+
+    container 'quay.io/biocontainers/bcftools:1.20--h8b25389_0'
+
+    publishDir "${params.outdir}/vcf", mode: 'copy'
+
+    input:
+    tuple val(meta_cohort), path(cohort_vcf), path(cohort_tbi)
+    path hc_vcfs      // flattened list: [sample1.vcf.gz, sample1.vcf.gz.tbi, sample2.vcf.gz, ...]
+    path cnvkit_vcfs   // flattened list
+    path manta_vcfs    // flattened list
+    path tiddit_vcfs   // flattened list
+
+    output:
+    path "haplotypecaller/*",  emit: hc
+    path "cnvkit/*",           emit: cnvkit
+    path "manta/*",            emit: manta
+    path "tiddit/*",           emit: tiddit
+    path "README.md",          emit: readme
+
+    script:
+    """
+    mkdir -p haplotypecaller cnvkit manta tiddit
+
+    # Cohort HaplotypeCaller VCF
+    cp ${cohort_vcf} haplotypecaller/cohort_haplotypecaller_annotated.vcf.gz
+    cp ${cohort_tbi} haplotypecaller/cohort_haplotypecaller_annotated.vcf.gz.tbi
+
+    # Per-sample HaplotypeCaller VCFs (rename for consistency)
+    for f in ${hc_vcfs}; do
+        [ ! -f "\$f" ] && continue
+        base=\$(basename "\$f")
+        # Extract sample name: {sample}.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz -> {sample}
+        sample=\$(echo "\$base" | sed 's/.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz\$//' | sed 's/.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz.tbi\$//')
+        if echo "\$base" | grep -q '.tbi\$'; then
+            cp "\$f" "haplotypecaller/\${sample}_haplotypecaller_annotated.vcf.gz.tbi"
+        elif echo "\$base" | grep -q '.vcf.gz\$'; then
+            cp "\$f" "haplotypecaller/\${sample}_haplotypecaller_annotated.vcf.gz"
+        fi
+    done
+
+    # Per-sample CNVKit VCFs
+    for f in ${cnvkit_vcfs}; do
+        [ ! -f "\$f" ] && continue
+        base=\$(basename "\$f")
+        sample=\$(echo "\$base" | sed 's/.cnvcall_snpEff.ann.vcf.gz\$//' | sed 's/.cnvcall_snpEff.ann.vcf.gz.tbi\$//')
+        if echo "\$base" | grep -q '.tbi\$'; then
+            cp "\$f" "cnvkit/\${sample}_cnvkit.vcf.gz.tbi"
+        elif echo "\$base" | grep -q '.vcf.gz\$'; then
+            cp "\$f" "cnvkit/\${sample}_cnvkit.vcf.gz"
+        fi
+    done
+
+    # Per-sample Manta VCFs
+    for f in ${manta_vcfs}; do
+        [ ! -f "\$f" ] && continue
+        base=\$(basename "\$f")
+        sample=\$(echo "\$base" | sed 's/.manta.diploid_sv_snpEff.ann.vcf.gz\$//' | sed 's/.manta.diploid_sv_snpEff.ann.vcf.gz.tbi\$//')
+        if echo "\$base" | grep -q '.tbi\$'; then
+            cp "\$f" "manta/\${sample}_manta.vcf.gz.tbi"
+        elif echo "\$base" | grep -q '.vcf.gz\$'; then
+            cp "\$f" "manta/\${sample}_manta.vcf.gz"
+        fi
+    done
+
+    # Per-sample TIDDIT VCFs
+    for f in ${tiddit_vcfs}; do
+        [ ! -f "\$f" ] && continue
+        base=\$(basename "\$f")
+        sample=\$(echo "\$base" | sed 's/.tiddit_snpEff.ann.vcf.gz\$//' | sed 's/.tiddit_snpEff.ann.vcf.gz.tbi\$//')
+        if echo "\$base" | grep -q '.tbi\$'; then
+            cp "\$f" "tiddit/\${sample}_tiddit.vcf.gz.tbi"
+        elif echo "\$base" | grep -q '.vcf.gz\$'; then
+            cp "\$f" "tiddit/\${sample}_tiddit.vcf.gz"
+        fi
+    done
+
+    cat > README.md << 'EOF'
+# VCF Downloads
+
+Pre-normalization annotated VCF files organized by variant caller.
+These are the canonical variant calls suitable for sharing and downstream analysis.
+
+## haplotypecaller/
+
+- **cohort_haplotypecaller_annotated.vcf.gz**: Joint HaplotypeCaller VCF (all samples),
+  soft-filtered (GATK VariantFiltration), annotated with SnpEff.
+- **{sample}_haplotypecaller_annotated.vcf.gz**: Per-sample VCFs extracted from the joint
+  VCF. Non-reference genotypes only (ref-homozygous sites removed). SnpEff annotated.
+  No hard filter applied — all variants where the sample has a non-ref genotype are included.
+
+### Processing chain for per-sample VCFs:
+1. Joint calling (GATK HaplotypeCaller → GenotypeGVCFs)
+2. Soft filtering (GATK VariantFiltration: QD, FS, SOR, MQ filters)
+3. Sample extraction (bcftools view -s)
+4. Ref-genotype removal (bcftools filter: keep GT != 0/0)
+5. Annotation (SnpEff)
+
+## cnvkit/
+
+- **{sample}_cnvkit.vcf.gz**: CNVKit copy number calls, SnpEff annotated.
+
+## manta/
+
+- **{sample}_manta.vcf.gz**: Manta structural variant calls (diploid_sv), SnpEff annotated.
+
+## tiddit/
+
+- **{sample}_tiddit.vcf.gz**: TIDDIT structural variant calls, SnpEff annotated.
+
+## IGV Report Display VCFs
+
+The IGV reports use a _post-processed_ version of these VCFs for the interactive table:
+1. `bcftools norm -m-` (multi-allelic splitting — increases row count)
+2. FILTER column promoted to INFO/VCF_FILTER
+3. `bcftools +fill-tags FORMAT/VAF` added
+
+These display VCFs are internal to the reports and not published here.
+To reproduce, see the methodology section in index.html.
+EOF
     """
 }
 
@@ -272,6 +368,7 @@ process GENERATE_INDEX {
     path templates_dir
     path cnv_sv_data_dir  // optional: CN/SV cohort matrix CSVs (use [] for none)
     val multiqc_report_path  // optional: relative path to multiqc_report.html
+    path prepared_cohort_vcf  // post-norm prepared VCF for accurate row counting
 
     output:
     path "index.html"
@@ -280,6 +377,7 @@ process GENERATE_INDEX {
     def cnv_sv_arg = cnv_sv_data_dir.name != 'NO_FILE' ? "--cnv-sv-data-dir ${cnv_sv_data_dir}" : ""
     def mqc_path_arg = multiqc_report_path ? "--multiqc-report-path '${multiqc_report_path}'" : ""
     def sensitive_arg = params.show_sensitive ? "--show-sensitive" : ""
+    def prepared_vcf_arg = prepared_cohort_vcf.name != 'NO_FILE' ? "--prepared-vcf ${prepared_cohort_vcf}" : ""
 
     """
     # Run the Jinja2-based index generator
@@ -289,7 +387,7 @@ process GENERATE_INDEX {
         --cohort-report ${cohort_report} \\
         --sample-reports-dir samples \\
         --templates-dir ${templates_dir} \\
-        ${cnv_sv_arg} ${mqc_path_arg} ${sensitive_arg}
+        ${cnv_sv_arg} ${mqc_path_arg} ${sensitive_arg} ${prepared_vcf_arg}
 
     # Create samples/ symlink so relative links in index.html work at publish time
     # (sample reports are staged flat by Nextflow, but published into samples/)
@@ -328,8 +426,8 @@ workflow {
 
     ch_sample_vcfs = Channel.fromList(sample_list)
         .map { sample ->
-            def vcf = file("${params.annotation_dir}/${sample}.haplotypecaller.from_joint_calling/${sample}.haplotypecaller.from_joint_calling.hard_filtered_snpEff.ann.vcf.gz")
-            def tbi = file("${params.annotation_dir}/${sample}.haplotypecaller.from_joint_calling/${sample}.haplotypecaller.from_joint_calling.hard_filtered_snpEff.ann.vcf.gz.tbi")
+            def vcf = file("${params.annotation_dir}/${sample}/${sample}.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz")
+            def tbi = file("${params.annotation_dir}/${sample}/${sample}.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz.tbi")
             [ [id: sample, caller: 'haplotypecaller', caller_label: 'HaplotypeCaller'], vcf, tbi ]
         }
 
@@ -349,6 +447,31 @@ workflow {
             def tbi = file("${annotation_root}/manta/${sample}/${sample}.manta.diploid_sv_snpEff.ann.vcf.gz.tbi")
             [ [id: sample, caller: 'manta', caller_label: 'Manta'], vcf, tbi ]
         }
+
+    // --- Publish pre-norm annotated VCFs to vcf/ folder ---
+    // HC per-sample: non-ref annotated VCFs (no hard filter, for download/sharing)
+    ch_hc_annotated = Channel.fromList(sample_list)
+        .map { sample ->
+            def vcf = file("${params.annotation_dir}/${sample}/${sample}.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz")
+            def tbi = file("${params.annotation_dir}/${sample}/${sample}.haplotypecaller.from_joint_calling_snpEff.ann.vcf.gz.tbi")
+            [ vcf, tbi ]
+        }
+
+    // TIDDIT per-sample annotated VCFs
+    ch_tiddit_vcfs = Channel.fromList(sample_list)
+        .map { sample ->
+            def vcf = file("${annotation_root}/tiddit/${sample}/${sample}.tiddit_snpEff.ann.vcf.gz")
+            def tbi = file("${annotation_root}/tiddit/${sample}/${sample}.tiddit_snpEff.ann.vcf.gz.tbi")
+            [ vcf, tbi ]
+        }
+
+    PUBLISH_VCFS(
+        ch_joint_vcf,
+        ch_hc_annotated.flatMap { vcf, tbi -> [vcf, tbi] }.collect(),
+        ch_cnvkit_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect(),
+        ch_manta_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect(),
+        ch_tiddit_vcfs.flatMap { vcf, tbi -> [vcf, tbi] }.collect()
+    )
 
     // Single PREPARE_VCF call with all VCFs mixed
     ch_all_prepared = PREPARE_VCF(
@@ -401,6 +524,9 @@ workflow {
     // Optional MultiQC report relative path
     ch_mqc_report_path = Channel.value(params.multiqc_report_path ?: "")
 
+    // Prepared cohort VCF for accurate post-norm row counting
+    ch_prepared_cohort_vcf = ch_branched.cohort.map { meta, vcf, tbi -> vcf }
+
     ch_all_sample_reports = IGVREPORTS_SAMPLE.out
         .mix(IGVREPORTS_SV_CNV.out)
         .collect()
@@ -412,6 +538,7 @@ workflow {
         ch_generate_script,
         ch_templates,
         ch_cnv_sv_data,
-        ch_mqc_report_path
+        ch_mqc_report_path,
+        ch_prepared_cohort_vcf.collect()
     )
 }

@@ -158,6 +158,7 @@
         .card .value { font-size: 1.8em; font-weight: 700; color: var(--fg-heading); }
         .card .label { font-size: 0.85em; color: var(--fg-muted); margin-top: 2px; }
         .card .card-sub { font-size: 0.6em; color: var(--fg-muted); font-weight: 400; }
+        .card .card-note { font-size: 0.7em; color: var(--fg-muted); margin-top: 2px; font-weight: 400; }
         a.card-link {
             text-decoration: none; color: inherit; cursor: pointer;
             border-left: 3px solid var(--link);
@@ -256,7 +257,7 @@
         Mutation report prototype &mdash; yAMPv1.0.0 pre-release
     </p>
     <p class="meta">
-        Generated 2026-06-02 14:14 &middot;
+        Generated 2026-06-02 21:33 &middot;
         4 samples &middot;
         4 variant callers
         (CNVKit, HaplotypeCaller, Manta, TIDDIT)
@@ -284,8 +285,11 @@
             </div>
             
             <a class="card card-link" href="cohort_report.html" target="_blank">
-                <div class="value">402 <span class="card-sub">/ 469</span></div>
+                <div class="value">417 <span class="card-sub">/ 484</span></div>
                 <div class="label">SNV/InDel Events (high-confidence / all)</div>
+                
+                <div class="card-note">469 pre-normalized sites in downloadable VCF</div>
+                
             </a>
             
             
@@ -408,20 +412,34 @@
                     The joint-calling VCF is soft-filtered via <code>GATK4 VariantFiltration</code>
                     as a fallback when VQSR cannot run (no known-sites for custom genomes).
                     This populates the FILTER column but <strong>retains all variants</strong>.
+                    Filters use <code>vc.isSNP()</code> / <code>vc.isIndel()</code> JEXL syntax.
                 </p>
+
+                <h4>Universal filters (SNPs + INDELs)</h4>
                 <table>
                     <tr><th>Filter name</th><th>Expression</th></tr>
                     <tr><td><code>QD_filter</code></td><td>QD &lt; 2.0</td></tr>
-                    <tr><td><code>FS_filter</code></td><td>FS &gt; 60.0</td></tr>
-                    <tr><td><code>SOR_filter</code></td><td>SOR &gt; 3.0</td></tr>
-                    <tr><td><code>MQ_filter</code></td><td>MQ &lt; 40.0</td></tr>
-                    <tr><td><code>MQRankSum_filter</code></td><td>MQRankSum &lt; &minus;12.5</td></tr>
-                    <tr><td><code>ReadPosRankSum_filter</code></td><td>ReadPosRankSum &lt; &minus;8.0</td></tr>
                     <tr><td><code>QUAL_filter</code></td><td>QUAL &lt; 30.0</td></tr>
-                    <tr><td><code>FS_INDEL_filter</code></td><td>INDEL &amp;&amp; FS &gt; 200.0</td></tr>
-                    <tr><td><code>SOR_INDEL_filter</code></td><td>INDEL &amp;&amp; SOR &gt; 10.0</td></tr>
-                    <tr><td><code>ReadPosRankSum_INDEL_filter</code></td><td>INDEL &amp;&amp; ReadPosRankSum &lt; &minus;20.0</td></tr>
                 </table>
+
+                <h4>SNP-only filters (<a href="https://gatk.broadinstitute.org/hc/en-us/articles/360035531112">GATK best practices</a>)</h4>
+                <table>
+                    <tr><th>Filter name</th><th>Expression</th></tr>
+                    <tr><td><code>FS_filter</code></td><td>vc.isSNP() &amp;&amp; FS &gt; 60.0</td></tr>
+                    <tr><td><code>SOR_filter</code></td><td>vc.isSNP() &amp;&amp; SOR &gt; 3.0</td></tr>
+                    <tr><td><code>MQ_filter</code></td><td>vc.isSNP() &amp;&amp; MQ &lt; 40.0</td></tr>
+                    <tr><td><code>MQRankSum_filter</code></td><td>vc.isSNP() &amp;&amp; MQRankSum &lt; &minus;12.5</td></tr>
+                    <tr><td><code>ReadPosRankSum_filter</code></td><td>vc.isSNP() &amp;&amp; ReadPosRankSum &lt; &minus;8.0</td></tr>
+                </table>
+
+                <h4>INDEL-only filters (more lenient per GATK recommendation)</h4>
+                <table>
+                    <tr><th>Filter name</th><th>Expression</th></tr>
+                    <tr><td><code>FS_INDEL_filter</code></td><td>vc.isIndel() &amp;&amp; FS &gt; 200.0</td></tr>
+                    <tr><td><code>ReadPosRankSum_INDEL_filter</code></td><td>vc.isIndel() &amp;&amp; ReadPosRankSum &lt; &minus;20.0</td></tr>
+                </table>
+                <p><em>No SOR, MQ, or MQRankSum filters for INDELs per GATK recommendation.</em></p>
+
                 <p>Config: <code>conf/modules/joint_germline.config</code> &rarr; <code>VARIANTFILTRATION_FALLBACK</code></p>
             </div>
         </details>
@@ -430,7 +448,7 @@
             <summary>SNV / Indel counting (HaplotypeCaller)</summary>
             <div class="audit-content">
                 <h4>Filtering pipeline</h4>
-                <p>Joint VCF &rarr; soft-filter (GATK VariantFiltration) &rarr; split per sample &rarr; hard-filter</p>
+                <p>Joint VCF &rarr; soft-filter (GATK VariantFiltration) &rarr; split per sample &rarr; SnpEff annotation</p>
                 <table>
                     <tr><th>Step</th><th>Source VCF</th><th>Description</th></tr>
                     <tr>
@@ -441,32 +459,48 @@
                     <tr>
                         <td><strong>2. Split per sample</strong></td>
                         <td><code>*.from_joint_calling.vcf.gz</code></td>
-                        <td>Individual sample VCFs extracted from joint VCF</td>
+                        <td>Individual sample VCFs extracted via <code>bcftools view -s</code>, ref-only genotypes removed</td>
                     </tr>
                     <tr>
-                        <td><strong>3. Hard-filtered</strong></td>
-                        <td><code>*.hard_filtered.vcf.gz</code></td>
-                        <td>PASS + per-sample depth/quality/AF gate (shown in Sample Overview)</td>
+                        <td><strong>3. Annotated</strong></td>
+                        <td><code>*_snpEff.ann.vcf.gz</code></td>
+                        <td>SnpEff functional annotation (gene, impact, protein change)</td>
                     </tr>
                 </table>
 
-                <h4>Hard-filter criteria</h4>
-                <p>Applied per-sample after splitting and <code>bcftools norm -m-</code> (multi-allelic splitting):</p>
-                <table>
-                    <tr><th>Filter</th><th>Threshold</th></tr>
-                    <tr><td>Soft-filter</td><td><code>FILTER="PASS"</code></td></tr>
-                    <tr><td>Genotype quality</td><td><code>GQ &ge; 20</code></td></tr>
-                    <tr><td>Read depth</td><td><code>DP &ge; 8</code></td></tr>
-                    <tr><td>Allele frequency</td><td><code>AF &ge; 0.90</code> (clonal) / <code>&ge; 0.05</code> (population)</td></tr>
-                </table>
+                <h4>What the HaplotypeCaller column shows</h4>
                 <p>
-                    Config: <code>conf/modules/custom_haplotypecaller_joint_filter.config</code>
+                    The <strong>HaplotypeCaller</strong> count in the Sample Overview table is the total number of
+                    non-reference variants per sample after soft filtering and SnpEff annotation (step 3 above).
+                    This includes <em>all</em> variants regardless of FILTER status (PASS and flagged).
+                    Use the per-sample IGV reports or the cohort report's VCF_FILTER column to distinguish
+                    PASS variants from those flagged by soft filters.
+                </p>
+
+                <h4>Optional: hard filtering for downstream analysis</h4>
+                <p>
+                    The reports and downloadable VCFs intentionally include all soft-filtered variants
+                    so users can inspect flagged calls in IGV before deciding on thresholds.
+                    For downstream analysis requiring a high-confidence call set, consider applying
+                    additional hard filters on the exported VCF, for example:
+                </p>
+                <pre style="background:#f6f8fa;padding:8px 12px;border-radius:4px;font-size:0.85em;overflow-x:auto"><code>bcftools view -f PASS input.vcf.gz \
+  | bcftools filter -i 'FORMAT/GQ>=20 && FORMAT/DP>=8' \
+  | bcftools filter -i 'FORMAT/VAF>=0.90'   # clonal samples
+  # or FORMAT/VAF>=0.05 for population samples</code></pre>
+                <p>
+                    Adjust thresholds based on your experiment design (ploidy, clonal vs. population,
+                    expected allele frequency). The pipeline produces hard-filtered VCFs as an intermediate
+                    output (<code>*.hard_filtered_snpEff.ann.vcf.gz</code>) with default thresholds
+                    PASS + GQ&ge;20 + DP&ge;8 + AF&ge;0.80 (clonal) / &ge;0.05 (population),
+                    available in the annotation output directory for reference.
                 </p>
 
                 <h4>Notes</h4>
                 <ul>
                     <li>The cohort card shows unique variant <em>sites</em> in the joint VCF (one row per site), so it is lower than the sum of per-sample counts.</li>
                     <li>The cohort IGV report may show more rows than the card number because <code>bcftools norm -m-</code> splits multi-allelic sites into separate records.</li>
+                    <li>All reports include <strong>all non-reference variants</strong> (soft-filtered only) &mdash; use the VCF_FILTER column to identify PASS variants.</li>
                 </ul>
             </div>
         </details>
@@ -544,12 +578,19 @@
                     <li><strong>FILTER promotion</strong> &mdash; FILTER column copied to <code>INFO/VCF_FILTER</code> (igv-reports only reads INFO)</li>
                     <li><strong>VAF annotation</strong> &mdash; <code>bcftools +fill-tags -- -t FORMAT/VAF</code></li>
                     <li><strong>Report creation</strong> &mdash; <code>create_report</code> with &plusmn;500 bp flanking, CRAM tracks, GFF3 gene annotations</li>
-                    <li><strong>VCF embedding</strong> &mdash; prepared VCF base64-encoded into HTML for self-contained download</li>
+                    <li><strong>VCF downloads</strong> &mdash; pre-normalization annotated VCFs published to <code>vcf/</code> folder, organized by variant caller; reports link to these files for download</li>
                 </ol>
                 <p>
                     The cohort report uses the soft-filtered joint VCF (all variants, FILTER column visible).
                     Per-sample reports use the annotated individual VCFs from joint calling.
-                    Both include <strong>all variants</strong> (not hard-filtered) so users can inspect flagged variants in IGV.
+                    Both include <strong>all non-reference variants</strong> so users can inspect flagged variants in IGV.
+                </p>
+                <p>
+                    <strong>VCF Downloads:</strong> The <code>vcf/</code> folder contains pre-normalization annotated VCFs
+                    suitable for sharing and downstream analysis, organized by variant caller
+                    (<code>haplotypecaller/</code>, <code>cnvkit/</code>, <code>manta/</code>).
+                    These are the canonical variant calls before multi-allelic splitting.
+                    See <code>vcf/README.md</code> for details and reproducibility instructions.
                 </p>
             </div>
         </details>
@@ -562,7 +603,7 @@
                     <tr><td>Cov</td><td>Mosdepth median coverage</td><td>&mdash;</td></tr>
                     <tr><td>Dup %</td><td>Picard MarkDuplicates</td><td>&mdash;</td></tr>
                     <tr><td>Map % / Mapped (M)</td><td>Samtools flagstat</td><td>&mdash;</td></tr>
-                    <tr><td>HaplotypeCaller</td><td>bcftools stats (<code>*.hard_filtered</code>)</td><td>Hard-filtered (PASS + GQ/DP/AF)</td></tr>
+                    <tr><td>HaplotypeCaller</td><td>bcftools stats (<code>*_snpEff.ann</code>)</td><td>Soft-filtered, annotated (all non-ref variants)</td></tr>
                     <tr><td>CNVKit</td><td>bcftools stats (<code>*.cnvcall</code>)</td><td>Raw (unfiltered)</td></tr>
                     <tr><td>TIDDIT</td><td>bcftools stats (<code>*.tiddit</code>)</td><td>Raw (unfiltered)</td></tr>
                     <tr><td>Manta</td><td>bcftools stats (<code>*.manta.diploid_sv</code>)</td><td>Raw (unfiltered)</td></tr>
@@ -637,7 +678,7 @@
         });
 
         // --- Data injected from Python/Jinja2 ---
-        const summaryData = [{"sample": "CBR110-15-R3a", "type": "Evolved", "median_coverage": 83, "dup_pct": 7.0, "mapped_pct": 98.8, "mapped_reads_m": 12.4, "hc_variants": 187, "cnvkit_events": 5, "tiddit_svs": 170, "manta_svs": 22, "igv_link": "samples/CBR110-15-R3a_report.html", "cnvkit_igv_link": "samples/CBR110-15-R3a_cnvkit_report.html", "manta_igv_link": "samples/CBR110-15-R3a_manta_report.html"}, {"sample": "Carmaphycin-R9-2", "type": "Evolved", "median_coverage": 165, "dup_pct": 12.4, "mapped_pct": 98.3, "mapped_reads_m": 25.4, "hc_variants": 216, "cnvkit_events": 2, "tiddit_svs": 378, "manta_svs": 35, "igv_link": "samples/Carmaphycin-R9-2_report.html", "cnvkit_igv_link": "samples/Carmaphycin-R9-2_cnvkit_report.html", "manta_igv_link": "samples/Carmaphycin-R9-2_manta_report.html"}, {"sample": "Doxorubicin16-R2b", "type": "Evolved", "median_coverage": 91, "dup_pct": 9.6, "mapped_pct": 98.9, "mapped_reads_m": 13.8, "hc_variants": 255, "cnvkit_events": 1, "tiddit_svs": 116, "manta_svs": 21, "igv_link": "samples/Doxorubicin16-R2b_report.html", "cnvkit_igv_link": "samples/Doxorubicin16-R2b_cnvkit_report.html", "manta_igv_link": "samples/Doxorubicin16-R2b_manta_report.html"}, {"sample": "NODRUG-GM2", "type": "Ancestral", "median_coverage": 44, "dup_pct": 1.1, "mapped_pct": 98.7, "mapped_reads_m": 6.3, "hc_variants": 200, "cnvkit_events": 1, "tiddit_svs": 170, "manta_svs": 8, "igv_link": "samples/NODRUG-GM2_report.html", "cnvkit_igv_link": "samples/NODRUG-GM2_cnvkit_report.html", "manta_igv_link": "samples/NODRUG-GM2_manta_report.html"}];
+        const summaryData = [{"sample": "CBR110-15-R3a", "type": "Evolved", "median_coverage": 83, "dup_pct": 7.0, "mapped_pct": 98.8, "mapped_reads_m": 12.4, "hc_variants": 267, "cnvkit_events": 5, "tiddit_svs": 170, "manta_svs": 22, "igv_link": "samples/CBR110-15-R3a_report.html", "cnvkit_igv_link": "samples/CBR110-15-R3a_cnvkit_report.html", "manta_igv_link": "samples/CBR110-15-R3a_manta_report.html"}, {"sample": "Carmaphycin-R9-2", "type": "Evolved", "median_coverage": 165, "dup_pct": 12.4, "mapped_pct": 98.3, "mapped_reads_m": 25.4, "hc_variants": 306, "cnvkit_events": 2, "tiddit_svs": 378, "manta_svs": 35, "igv_link": "samples/Carmaphycin-R9-2_report.html", "cnvkit_igv_link": "samples/Carmaphycin-R9-2_cnvkit_report.html", "manta_igv_link": "samples/Carmaphycin-R9-2_manta_report.html"}, {"sample": "Doxorubicin16-R2b", "type": "Evolved", "median_coverage": 91, "dup_pct": 9.6, "mapped_pct": 98.9, "mapped_reads_m": 13.8, "hc_variants": 343, "cnvkit_events": 1, "tiddit_svs": 116, "manta_svs": 21, "igv_link": "samples/Doxorubicin16-R2b_report.html", "cnvkit_igv_link": "samples/Doxorubicin16-R2b_cnvkit_report.html", "manta_igv_link": "samples/Doxorubicin16-R2b_manta_report.html"}, {"sample": "NODRUG-GM2", "type": "Ancestral", "median_coverage": 44, "dup_pct": 1.1, "mapped_pct": 98.7, "mapped_reads_m": 6.3, "hc_variants": 278, "cnvkit_events": 1, "tiddit_svs": 170, "manta_svs": 8, "igv_link": "samples/NODRUG-GM2_report.html", "cnvkit_igv_link": "samples/NODRUG-GM2_cnvkit_report.html", "manta_igv_link": "samples/NODRUG-GM2_manta_report.html"}];
 
         // --- Sample Overview Table (QC + Variants) ---
         new Tabulator("#summary-table", {
@@ -670,7 +711,7 @@
                     title: "SNV / Indel",
                     columns: [
                         { title: "HaplotypeCaller", field: "hc_variants", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'HaplotypeCaller<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 hard-filtered</span>'; },
+                          titleFormatter: function() { return 'HaplotypeCaller<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 soft-filtered</span>'; },
                           headerFilter: "number", headerFilterPlaceholder: "min", headerFilterFunc: ">=",
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
