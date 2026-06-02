@@ -1,6 +1,6 @@
 # Ottilie Benchmark Validation Report
 
-**Generated**: 2026-05-28 14:28
+**Generated**: 2026-06-01 14:55
 **Pipeline output**: `output_ottilie`
 
 ## 1. SNV/INDEL Concordance (HaplotypeCaller vs Sup Data 4)

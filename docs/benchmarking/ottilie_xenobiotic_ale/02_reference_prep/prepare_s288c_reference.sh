@@ -85,7 +85,22 @@ ${DB_NAME}.genome : Saccharomyces_cerevisiae
 EOF
 
     # Copy inputs for snpEff build
-    cp S288C_R64.gff3 "snpeff_cache/${DB_NAME}/genes.gff"
+    # Fix Ensembl GFF3 for SnpEff 5.1 compatibility:
+    # 1. Strip type prefixes from ID/Parent (gene:, transcript:, CDS:, chromosome:)
+    #    — SnpEff can't resolve the gene→mRNA→CDS hierarchy with prefixed IDs,
+    #    causing WARNING_TRANSCRIPT_NO_START_CODON and broken gene models
+    # 2. Strip exon Name= and exon_id= attributes — SnpEff treats these as
+    #    independent gene models (e.g. YAR050W_mRNA-E1 instead of FLO1)
+    sed '
+      /\texon\t/s/;Name=[^;]*//
+      /\texon\t/s/;exon_id=[^;]*//
+      s/ID=gene:/ID=/g
+      s/ID=transcript:/ID=/g
+      s/ID=CDS:/ID=/g
+      s/ID=chromosome:/ID=/g
+      s/Parent=gene:/Parent=/g
+      s/Parent=transcript:/Parent=/g
+    ' S288C_R64.gff3 > "snpeff_cache/${DB_NAME}/genes.gff"
     cp S288C_R64.fa   "snpeff_cache/${DB_NAME}/sequences.fa"
 
     # Build database inside Docker container

@@ -1,0 +1,25 @@
+sample,chromosome,truth_event,event_category,detected,cnvkit_cn,cnvkit_log2,cnvkit_depth,cnvkit_p_ttest,chr_affected_pct,probes,partial_details
+BMS983970-2R1e,X,Whole chromosome duplication,whole_chromosome,YES,3,0.613,103.7,1.60e-90,100%,149,
+CBR110-15R3a,I,Whole Chromosome Duplication,whole_chromosome,YES,3,0.329,115.9,5.19e-14,100%,46,
+CBR113-7R4a,XV,Amplification,amplification,YES,4,0.762,155.5,6.22e-08,10%,22,
+DS28-R5-2,II,Whole chromosome duplication,whole_chromosome,YES,4,0.934,210.4,4.66e-174,100%,163,
+DS4-R6-2,XIII,Whole chromosome duplication,whole_chromosome,YES,4,0.970,36.3,1.84e-155,100%,185,
+Diethylstilbestrol--15A,IV,Amplification,amplification,YES,4,0.842,50.1,5.54e-19,8%,23,
+Doxorubicin-135-R2b,XIII,Amplification,amplification,NO,,,,,0%,,no gain; all segments: XIII:0-204873 (205kb) cn=2 log2=0.096; XIII:204873-924431 (720kb) cn=2 log2=-0.007
+Doxorubicin-24R3a,IX,Whole chromosome duplication,whole_chromosome,YES,4,0.929,161.2,3.39e-55,100%,88,
+Etoposide-R4b-2,V,Whole chromosome duplication,whole_chromosome,YES,3,0.270,105.7,3.61e-23,100%,115,
+Etoposide-R7b-2,XII,Whole chromosome duplication,whole_chromosome,NO,,,,,58%,,XII:449240-1078177 (629kb) cn=3 log2=0.503
+Etoposide-R9b-2,XII,Whole chromosome duplication,whole_chromosome,NO,,,,,58%,,XII:449240-1078177 (629kb) cn=3 log2=0.374
+GNF-Pf-1618-7R2b,XVI,Amplification,amplification,YES,6,1.513,109.0,7.20e-19,11%,20,
+GNFpf2740--15_R5a,XVI,Amplification,amplification,YES,5,1.212,118.3,1.83e-03,2%,4,
+HygromycinB-36R8a,XI,Whole chromosome duplication,whole_chromosome,YES,4,0.958,79.7,2.25e-79,100%,133,
+MMV085203-11R3a,XIV,Amplification,amplification,NO,,,,,0%,,no gain; all segments: XIV:0-784333 (784kb) cn=2 log2=0.022
+MMV085203-7R3a,XIV,Amplification,amplification,NO,,,,,0%,,no gain; all segments: XIV:0-784333 (784kb) cn=2 log2=0.004
+MMV665794-10R9c,XVI,Amplification,amplification,YES,12,2.515,377.5,1.55e-06,3%,6,
+MMV665794-11R9c,XVI,Amplification,amplification,YES,13,2.588,297.3,9.07e-04,2%,3,
+MMV665794-7R9c,XVI,Amplification,amplification,YES,17,3.075,500.7,2.18e-04,3%,6,
+MMV665794-8R9c,XVI,Amplification,amplification,YES,14,2.725,298.2,6.94e-03,2%,4,
+Tavabarole-9Res2c,XIII,Amplification,amplification,NO,,,,,0%,,no gain; all segments: XIII:0-204873 (205kb) cn=2 log2=0.083; XIII:204873-924431 (720kb) cn=2 log2=-0.008
+Wortmannin-13R3a,XV,Amplification,amplification,YES,5,1.118,136.1,3.07e-10,8%,17,
+Wortmannin-17-R3a,II,Whole Chromosome Duplication,whole_chromosome,YES,3,0.504,126.0,2.86e-115,100%,163,
+Wortmannin-17-R3a,VII,Whole Chromosome Duplication,whole_chromosome,YES,3,0.561,130.7,2.93e-126,100%,218,

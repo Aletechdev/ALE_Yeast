@@ -2,7 +2,7 @@
 
 ## Overview
 
-GATK VariantFiltration is applied as a **soft filter** (also called "filter annotation") on the joint HaplotypeCaller VCF. It **populates the FILTER column** with `PASS` or named filter tags but **does not remove any variants**. All 1,748 variants remain in the output; 737 (42.2%) are marked `PASS`.
+GATK VariantFiltration is applied as a **soft filter** (also called "filter annotation") on the joint HaplotypeCaller VCF. It **populates the FILTER column** with `PASS` or named filter tags but **does not remove any variants**.
 
 This was implemented as a fallback because VQSR (Variant Quality Score Recalibration) requires known variant resources (e.g., dbSNP, HapMap) that don't exist for our custom yeast genome.
 
@@ -29,62 +29,81 @@ This means a variant can be marked `PASS` at the cohort level but still have poo
 
 ## Filter Definitions
 
-### SNP Filters
+Filters are split by variant type per GATK best practices ([section C: SNPs, section D: INDELs](https://gatk.broadinstitute.org/hc/en-us/articles/360035531112--How-to-Filter-variants-either-with-VQSR-or-by-hard-filtering)). INDELs receive fewer and more lenient filters because they naturally show more strand bias and positional bias due to alignment difficulties.
 
-| Filter Name | Expression | What It Measures | Why It Matters |
-|-------------|-----------|------------------|----------------|
-| **QD_filter** | `QD < 2.0` | **Quality by Depth** - QUAL score normalized by total read depth (INFO/DP). Low QD means the variant quality is not supported by sufficient evidence per read. | Catches low-confidence calls inflated by high depth. Most restrictive filter in our data (49.1% of flagged variants). |
-| **FS_filter** | `FS > 60.0` | **Fisher Strand bias** - Phred-scaled p-value from Fisher's exact test for strand bias. Tests whether ALT allele is seen disproportionately on one strand vs the other. | High FS indicates the variant may be a sequencing or PCR artifact. Real variants should appear on both strands roughly equally. Scale: 0 = no bias, higher = more bias. |
-| **SOR_filter** | `SOR > 3.0` | **Strand Odds Ratio** - Similar to FS but uses a symmetric odds ratio test that is better for high-depth data. Less sensitive to large sample sizes than Fisher's test. | Complementary strand bias metric. Preferred over FS when depth is very high (common in ALE experiments with deep sequencing). |
-| **MQ_filter** | `MQ < 40.0` | **Mapping Quality** - Root mean square of mapping qualities of all reads at the site. MQ=60 is the maximum (unique mapping); lower values mean reads map to multiple locations. | Low MQ suggests the region is repetitive or has paralogs. Variants in poorly-mapped regions are unreliable. MQ < 40 is a strong signal of ambiguous mapping. |
-| **MQRankSum_filter** | `MQRankSum < -12.5` | **Mapping Quality Rank Sum Test** - Compares mapping qualities of reads supporting REF vs ALT alleles using a Mann-Whitney U test. Negative = ALT reads have worse mapping quality. | Large negative values mean ALT-supporting reads map poorly compared to REF reads, suggesting the "variant" is actually a mismapping artifact. |
-| **ReadPosRankSum_filter** | `ReadPosRankSum < -8.0` | **Read Position Rank Sum Test** - Compares positions within reads where REF vs ALT alleles are observed. Negative = ALT alleles tend to appear at read ends. | Variants seen only at read ends are often sequencing errors (quality drops at read termini). Real variants should appear uniformly across read positions. |
-| **QUAL_filter** | `QUAL < 30.0` | **Site Quality** - Phred-scaled probability that the site has a non-reference allele in at least one sample. QUAL=30 means 99.9% confidence. | Basic quality threshold. QUAL < 30 means >0.1% chance the site is actually homozygous reference across all samples. |
+### Universal Filters (apply to both SNPs and INDELs)
 
-### INDEL-Specific Filters (More Lenient)
+| Filter Name | Expression | What It Measures |
+|-------------|-----------|------------------|
+| **QD_filter** | `QD < 2.0` | **Quality by Depth** — QUAL normalized by total read depth. Low QD means variant quality is not supported by sufficient evidence per read. |
+| **QUAL_filter** | `QUAL < 30.0` | **Site Quality** — Phred-scaled probability of non-reference allele. QUAL < 30 means >0.1% chance the site is homozygous reference. |
 
-INDELs naturally show more strand bias and positional bias than SNPs due to alignment difficulties, so thresholds are relaxed.
+### SNP-Only Filters (GATK section [C])
+
+These use `vc.isSNP()` to restrict to SNP records only.
+
+| Filter Name | Expression | What It Measures |
+|-------------|-----------|------------------|
+| **FS_filter** | `vc.isSNP() && FS > 60.0` | **Fisher Strand bias** — Phred-scaled p-value for strand bias. High FS suggests PCR or sequencing artifact. |
+| **SOR_filter** | `vc.isSNP() && SOR > 3.0` | **Strand Odds Ratio** — Symmetric odds ratio test for strand bias. Preferred over FS at high depth. |
+| **MQ_filter** | `vc.isSNP() && MQ < 40.0` | **Mapping Quality** — RMS mapping quality. Low MQ means reads map to multiple locations (repetitive region). |
+| **MQRankSum_filter** | `vc.isSNP() && MQRankSum < -12.5` | **MQ Rank Sum Test** — Compares mapping quality of REF vs ALT reads. Large negative = ALT reads map poorly → mismapping artifact. |
+| **ReadPosRankSum_filter** | `vc.isSNP() && ReadPosRankSum < -8.0` | **Read Position Rank Sum Test** — Compares read positions of REF vs ALT. Negative = ALT at read ends → sequencing error. |
+
+### INDEL-Only Filters (GATK section [D])
+
+These use `vc.isIndel()` to restrict to INDEL records only. Per GATK, INDELs do **not** receive SOR, MQ, or MQRankSum filters.
 
 | Filter Name | Expression | Why More Lenient |
 |-------------|-----------|------------------|
-| **FS_INDEL_filter** | `TYPE==INDEL && FS > 200.0` | INDELs cause alignment artifacts that inflate FS. Threshold is 3.3x higher than SNP filter (200 vs 60). |
-| **SOR_INDEL_filter** | `TYPE==INDEL && SOR > 10.0` | Same rationale as FS. Threshold is 3.3x higher than SNP filter (10 vs 3). |
-| **ReadPosRankSum_INDEL_filter** | `TYPE==INDEL && ReadPosRankSum < -20.0` | INDELs near read ends cause soft-clipping that shifts apparent positions. Threshold is 2.5x more lenient than SNP filter (-20 vs -8). |
+| **FS_INDEL_filter** | `vc.isIndel() && FS > 200.0` | INDELs cause alignment artifacts that inflate FS. Threshold is 3.3x higher than SNP (200 vs 60). |
+| **ReadPosRankSum_INDEL_filter** | `vc.isIndel() && ReadPosRankSum < -20.0` | INDELs near read ends cause soft-clipping. Threshold is 2.5x more lenient than SNP (-20 vs -8). |
 
 ### Filter Application Logic
 
-A variant can accumulate **multiple filter tags**. The FILTER column is semicolon-delimited:
+Each filter is evaluated independently. A variant can accumulate **multiple filter tags** (semicolon-delimited):
 
 ```
-# Single filter failure:
-FILTER=QD_filter
-
-# Multiple filter failures:
-FILTER=QD_filter;FS_filter;SOR_filter
-
-# Passes all filters:
-FILTER=PASS
+FILTER=PASS                          # Passes all filters
+FILTER=QD_filter                     # Fails one filter
+FILTER=QD_filter;FS_filter;SOR_filter  # Fails multiple filters
 ```
 
-**Important**: INDEL-specific filters are combined with `TYPE==INDEL &&`, so they only apply to INDELs. SNP filters apply to all variant types (SNPs and INDELs both). This means an INDEL can be flagged by both SNP and INDEL filters.
+SNP-only filters (`vc.isSNP()`) are skipped for INDELs and vice versa. A SNP will never receive `FS_INDEL_filter`, and an INDEL will never receive `SOR_filter`.
 
-## Filter Performance (Test Data)
+### Important: `TYPE==` JEXL Syntax Bug
 
-From 1,748 total variants in the joint VCF:
+The `TYPE==SNP` and `TYPE==INDEL` JEXL expressions **silently match nothing** in GATK VariantFiltration — they are syntactically accepted but produce zero filter hits. This was discovered during Ottilie Tier 2 validation (June 2026).
+
+| Syntax | Result |
+|--------|--------|
+| `TYPE==SNP && SOR > 3.0` | 0 matches (broken) |
+| `vc.isSNP() && SOR > 3.0` | 135 matches (correct) |
+| `TYPE==INDEL && SOR > 3.0` | 0 matches (broken) |
+| `vc.isIndel() && SOR > 3.0` | 94 matches (correct) |
+
+**Always use `vc.isSNP()` / `vc.isIndel()`** for type-specific filtering in GATK VariantFiltration.
+
+## Filter Performance
+
+### Pre-fix baseline (CEN.PK 6 samples, TYPE== era — INDEL filters were no-ops)
+
+From 1,748 total variants:
 
 | Outcome | Count | Percentage |
 |---------|-------|------------|
 | **PASS** | 737 | 42.2% |
 | Flagged (1+ filters) | 1,011 | 57.8% |
 
-Most common filter flags:
+### Ottilie Tier 2 (86 samples, vc.isSNP()/vc.isIndel() fix)
 
-| Filter | Variants Flagged | % of Total |
-|--------|-----------------|------------|
-| QD_filter | 831 | 49.1% |
-| SOR_filter | 278 | 16.4% |
-| MQ_filter | 107 | 6.3% |
-| FS_filter | 77 | 4.5% |
+From 1,521 total variants (823 SNPs, 698 INDELs):
+
+| Metric | Before fix | After fix |
+|--------|-----------|-----------|
+| INDEL PASS rate | 514/698 (73.6%) | ~677/698 (97.0%) |
+| INDELs wrongly filtered by SNP thresholds | 163 | 0 |
+| Truth set sensitivity (PASS only) | 332/343 (96.8%) | 333/343 (97.1%) |
 
 ## Pipeline Position
 
@@ -104,15 +123,15 @@ GenomicsDBImport → GenotypeGVCFs → MergeVCFs (joint_germline.vcf.gz)
 ```
 
 **Three-tier priority logic** (in workflow):
-1. VQSR recalibrated VCF (when known sites available - e.g., human)
-2. Filter-annotated VCF (fallback for custom genomes - our case)
+1. VQSR recalibrated VCF (when known sites available — e.g., human)
+2. Filter-annotated VCF (fallback for custom genomes — our case)
 3. Unfiltered VCF (should not happen)
 
 ## Configuration
 
-**Config file**: `conf/modules/joint_germline.config` (lines 87-108)
+**Config file**: `conf/modules/joint_germline.config`
 
-**Workflow file**: `subworkflows/local/bam_joint_calling_germline_gatk/main.nf` (lines 70-75, 141-161)
+**Workflow file**: `subworkflows/local/bam_joint_calling_germline_gatk/main.nf`
 
 ## Relationship to Hard Filter
 
@@ -140,8 +159,12 @@ bcftools view -H file.vcf.gz | wc -l             # Total count
 
 The current filter thresholds are based on **GATK best practices for human data**. Potential adjustments for yeast:
 
-- **QD_filter (QD < 2.0)**: Most restrictive filter (49.1%). Yeast has a smaller genome with higher per-base coverage; consider whether QD < 1.5 or QD < 1.0 would be more appropriate.
+- **QD_filter (QD < 2.0)**: Most restrictive filter. Yeast has a smaller genome with higher per-base coverage; consider whether QD < 1.5 or QD < 1.0 would be more appropriate.
 - **MQ_filter (MQ < 40.0)**: Yeast genome has fewer repetitive regions than human, so most reads should map uniquely (MQ=60). This filter likely catches genuine mapping issues.
-- **SOR/FS thresholds**: Deep ALE sequencing may amplify natural strand bias. Monitor whether real mutations are being incorrectly flagged.
+- **SOR/FS thresholds**: Deep ALE sequencing may amplify natural strand bias. Ottilie Tier 2 validation showed 5 of 8 missed truth mutations were lost to SOR_filter. Monitor whether real mutations are being incorrectly flagged.
 
 These thresholds should be validated against known ALE mutation types before relaxation.
+
+## Verification Script
+
+After changing filter expressions, run `docs/variant-calling/haplotypecaller/verify_soft_filter_fix.sh` to spot-check that INDELs are recovered and SNPs remain correctly filtered.

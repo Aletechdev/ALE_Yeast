@@ -61,7 +61,36 @@
         #exportCsv:hover { background: #005fa3; }
         #downloadVcf { background: #7b2d8b; }
         #downloadVcf:hover { background: #5f2269; }
-
+        /* Column chooser */
+        #columnChooserWrap { position: relative; }
+        #toggleColumns { padding: 4px 10px; color: white; background: #2e7d32; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+        #toggleColumns:hover { background: #1b5e20; }
+        #columnChooserMenu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: white;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.15);
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 1000;
+            min-width: 200px;
+            padding: 6px 0;
+        }
+        #columnChooserMenu label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 12px;
+        }
+        #columnChooserMenu label:hover { background: #f0f4f8; }
         /* --- Main content: table + IGV split --- */
         #content {
             display: flex;
@@ -129,6 +158,10 @@
         <button id="importFilters">Import Filters</button>
         <button id="exportCsv">Export CSV</button>
         <button id="downloadVcf">Download VCF</button>
+        <div id="columnChooserWrap">
+            <button id="toggleColumns">Columns</button>
+            <div id="columnChooserMenu"></div>
+        </div>
         <input type="file" id="filterFileInput" accept=".json" style="display:none">
     </div>
 
@@ -216,12 +249,26 @@
         "MQ":                 { type: "number", filter: "number" },
     };
 
+    // Columns hidden by default (toggle via Columns button)
+    const hiddenByDefault = new Set(["ID", "TRANSCRIPT", "GENE_ID", "AC", "AF", "DP", "QD", "MQ"]);
+    const hiddenSuffixes = [":GT"];
+    function isHiddenByDefault(header) {
+        if (hiddenByDefault.has(header)) return true;
+        return hiddenSuffixes.some(s => header.endsWith(s));
+    }
+
+    const frozenCount = 4; // freeze first N visible columns (CHROM, POSITION, REF, ALT)
+
     function initTable() {
+        let visibleIdx = 0;
         const columnConfig = tableJson.headers
             .filter(header => header !== "unique_id")
             .map(header => {
                 const settings = columnSettings[header] || {};
                 const isNumber = settings.type === "number";
+                const vis = !isHiddenByDefault(header);
+                const frozen = vis && visibleIdx < frozenCount;
+                if (vis) visibleIdx++;
                 return {
                     title: header,
                     field: header,
@@ -229,6 +276,8 @@
                     headerFilter: isNumber ? "number" : "input",
                     headerFilterPlaceholder: `Filter ${header}`,
                     formatter: settings.formatter || undefined,
+                    visible: vis,
+                    frozen: frozen,
                 };
             });
 
@@ -247,7 +296,11 @@
             paginationSize: 25,
             paginationSizeSelector: [10, 25, 50, 100],
             paginationCounter: "rows",
-            selectable: 1,
+            selectableRows: 1,
+        });
+
+        table.on("tableBuilt", function() {
+            buildColumnChooser();
         });
 
         // Clear filters
@@ -353,21 +406,29 @@
                 var targetPage = Math.floor(targetIdx / pageSize) + 1;
 
                 function selectAndScroll() {
-                    var rows = table.searchRows("unique_id", "=", targetUniqueId);
-                    if (rows.length > 0) {
-                        rows[0].select();
-                        table.scrollToRow(rows[0], "center", true);
+                    // Search active (rendered) rows for reliable selection
+                    var rows = table.getRows("active");
+                    for (var i = 0; i < rows.length; i++) {
+                        if (rows[i].getData()["unique_id"] === targetUniqueId) {
+                            rows[i].select();
+                            table.scrollToRow(rows[i], "center", true);
+                            return;
+                        }
                     }
                 }
 
+                function selectAfterRender() {
+                    // Small delay ensures DOM is fully updated after page change
+                    setTimeout(selectAndScroll, 50);
+                }
+
                 if (targetPage === table.getPage()) {
-                    // Already on the correct page — select directly
-                    selectAndScroll();
+                    selectAfterRender();
                 } else {
                     table.setPage(targetPage).then(function() {
                         table.on("renderComplete", function scrollHandler() {
                             table.off("renderComplete", scrollHandler);
-                            selectAndScroll();
+                            selectAfterRender();
                         });
                     });
                 }
@@ -377,6 +438,41 @@
             });
         }
     }
+
+    // --- Column chooser ---
+    function buildColumnChooser() {
+        const menu = document.getElementById("columnChooserMenu");
+        menu.innerHTML = "";
+        table.getColumns().forEach(function(col) {
+            const field = col.getField();
+            if (!field || field === "unique_id") return;
+            const label = document.createElement("label");
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.checked = col.isVisible();
+            cb.addEventListener("change", function() {
+                if (cb.checked) col.show(); else col.hide();
+            });
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(col.getDefinition().title || field));
+            menu.appendChild(label);
+        });
+    }
+
+    document.getElementById("toggleColumns").addEventListener("click", function(e) {
+        e.stopPropagation();
+        const menu = document.getElementById("columnChooserMenu");
+        const visible = menu.style.display === "block";
+        menu.style.display = visible ? "none" : "block";
+        if (!visible) buildColumnChooser();
+    });
+
+    document.addEventListener("click", function(e) {
+        const menu = document.getElementById("columnChooserMenu");
+        if (!document.getElementById("columnChooserWrap").contains(e.target)) {
+            menu.style.display = "none";
+        }
+    });
 
     // --- Resizable split panes ---
     function initResizeHandle() {

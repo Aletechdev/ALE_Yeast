@@ -1,0 +1,5 @@
+sample,chrom,pos,ref,alt,type,gene,effect,flags
+Stauro--2Res2a,I,59020,G,A,SNP,PTA1,missense_variant,
+MMV1078458--4R3a,VIII,485367,T,A,SNP,ERG9,missense_variant,
+Meb--1Res2a,III,316617,T,G,SNP,intergenic,intergenic_region,
+GNFpf2740--15_R5a,XII,1071524,TAGGGCTATGTAGAAGTGCTGTAGGGCTAAAGAACAGGGTTTCA,T,INDEL,intergenic,intergenic_region,
