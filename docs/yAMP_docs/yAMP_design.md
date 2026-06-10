@@ -34,7 +34,7 @@ Reference genome: (if the genome is not registered on https://github.com/nf-core
 ALE customized filter:
 Variable allele frequency filter for HaplotypeCaller variants ( --split_haplotypecaller_joint_vcf --hard_filter_haplotypecaller_joint, custom_haplotypecaller_joint_filter.config:26):
 AF>=5% for population samples
-AF>=90% for clonal samples
+AF>=80% for clonal samples (relaxed from 90% in June 2026; see HARD_FILTER_HAPLOTYPECALLER_JOINT.md)
 Enabling population mode for BreSeq (Not released): for population samples run `-p` polymorphism mode.
 
 Next release variant calling candidates (Not fully customized/validated):
