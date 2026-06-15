@@ -100,7 +100,7 @@ This pipeline is built on nf-core-sarek 3.5.1. Modifications are documented in [
 | haplotypecaller | SNP & InDel | Custom ploidy | Preferred method for SNP & InDel |
 | freebayes | SNP & InDel | Custom ploidy | |
 | cnvkit | SV | Diploid baseline | `--ploidy` removed; log2 ratios are reference-relative. See [cnvkit_ploidy_cn_scale.md](docs/variant-calling/cnvkit/cnvkit_ploidy_cn_scale.md) |
-| tiddit | SV | Custom ploidy | |
+| tiddit | SV | Custom ploidy (`-n`) | Affects coverage normalization and DUP/DEL GT thresholds; GT always diploid notation. See [tiddit_ploidy_behavior.md](docs/variant-calling/tiddit/tiddit_ploidy_behavior.md) |
 | manta | SV | Diploid only | Use breakpoints for cross validation |
 | indexcov | CNV | - | Better for QC and coverage map |
 
