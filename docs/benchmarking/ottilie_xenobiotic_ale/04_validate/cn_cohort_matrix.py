@@ -4,7 +4,7 @@ CN Cohort Matrix — enriches bin-level continuous CN matrix with integer
 diploid_cn from segment-level calls.
 
 Reads:
-  - cn_bins_continuous.csv  (wide: chromosome,start,end,{sample}_log2,{sample}_cn)
+  - cn_bins_continuous.csv  (wide: chromosome,start,end,{sample}_log2,{sample}_absolute_cn)
   - cn_segments_sensitive.csv (long: sample,chromosome,start,end,...,diploid_cn)
 
 Outputs a wide CSV with {sample}_diploid_cn columns added for each sample.
@@ -18,11 +18,12 @@ Usage:
         --cn-dir output_ottilie/cn_matrices \
         --csv results/cn_cohort_matrix.csv
 
-    # Collapsed:
+    # Collapsed with chromosome lengths from .fai:
     python cn_cohort_matrix.py \
         --cn-dir output_ottilie/cn_matrices \
         --csv results/cn_cohort_matrix_collapsed.csv \
-        --collapse
+        --collapse \
+        --fai data/ottilie/S288C_reference/S288C_R64.fa.fai
 """
 
 import argparse
@@ -30,6 +31,20 @@ import csv
 import sys
 from bisect import bisect_right
 from pathlib import Path
+
+
+def load_chr_lengths(fai_path):
+    """Load chromosome lengths from a samtools .fai index file.
+
+    Format: chrom\tlength\toffset\tlinebases\tlinewidth
+    Returns: {chrom: length} dict.
+    """
+    lengths = {}
+    with open(fai_path) as f:
+        for line in f:
+            parts = line.strip().split("\t")
+            lengths[parts[0]] = int(parts[1])
+    return lengths
 
 
 def load_segments(segments_path):
@@ -91,6 +106,8 @@ def main():
                         help="Which segment file to use for diploid_cn overlay (default: sensitive)")
     parser.add_argument("--collapse", action="store_true",
                         help="Collapse adjacent bins with identical diploid_cn across all samples")
+    parser.add_argument("--fai", default=None,
+                        help="Reference .fai index file for chromosome lengths (adds chr_length column to collapsed output)")
     args = parser.parse_args()
 
     cn_dir = Path(args.cn_dir)
@@ -157,7 +174,7 @@ def main():
         diploid_cn_cols = [f"{s}_diploid_cn" for s in samples]
         continuous_cols = []
         for s in samples:
-            continuous_cols.extend([f"{s}_log2", f"{s}_cn"])
+            continuous_cols.extend([f"{s}_log2", f"{s}_absolute_cn"])
 
         collapsed = []
         group = [enriched_rows[0]]
@@ -179,6 +196,15 @@ def main():
 
         print(f"Collapsed: {len(enriched_rows)} bins → {len(collapsed)} regions")
         enriched_rows = collapsed
+
+        # Add chr_length column from .fai if provided
+        if args.fai:
+            chr_lengths = load_chr_lengths(args.fai)
+            # Insert chr_length after 'end'
+            end_idx = out_fields.index("end") + 1
+            out_fields.insert(end_idx, "chr_length")
+            for row in enriched_rows:
+                row["chr_length"] = chr_lengths.get(row["chromosome"], "")
 
     # Write output
     with open(out_path, "w", newline="") as fout:

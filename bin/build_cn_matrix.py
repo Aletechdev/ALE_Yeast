@@ -10,8 +10,8 @@ Produces three matrix types:
 Also produces a comparison report showing where sensitive and stringent disagree.
 
 Usage:
-    python bin/build_cn_matrix.py --output-dir output_ottilie --results-dir results/cn_matrices
-    python bin/build_cn_matrix.py --output-dir output_ottilie --ploidy 1  # haploid samples
+    python bin/build_cn_matrix.py --output-dir output_ottilie --fai data/ottilie/S288C_reference/S288C_R64.fa.fai
+    python bin/build_cn_matrix.py --output-dir output_ottilie --fai ref.fa.fai --ploidy 1  # haploid samples
 
 See docs/variant-calling/cnvkit/cnvkit_cn_calculation.md for formula details.
 See docs/variant-calling/cnvkit/cnvkit_sarek_dual_call.md for .call.cns vs .germline.call.cns.
@@ -23,17 +23,21 @@ import math
 import sys
 from pathlib import Path
 
-# S288C R64-1-1 chromosome lengths (Ensembl)
-CHR_LENGTHS = {
-    "I": 230218, "II": 813184, "III": 316620, "IV": 1531933,
-    "V": 576874, "VI": 270161, "VII": 1090940, "VIII": 562643,
-    "IX": 439888, "X": 745751, "XI": 666816, "XII": 1078177,
-    "XIII": 924431, "XIV": 784333, "XV": 1091291, "XVI": 948066,
-}
 
-# Canonical chromosome order
-CHR_ORDER = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII",
-             "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"]
+def load_chr_lengths(fai_path):
+    """Load chromosome lengths and order from a samtools .fai index file.
+
+    Format: chrom\tlength\toffset\tlinebases\tlinewidth
+    Returns: (chr_lengths dict, chr_order list) preserving .fai order.
+    """
+    lengths = {}
+    order = []
+    with open(fai_path) as f:
+        for line in f:
+            parts = line.strip().split("\t")
+            lengths[parts[0]] = int(parts[1])
+            order.append(parts[0])
+    return lengths, order
 
 
 def discover_samples(output_dir):
@@ -111,15 +115,15 @@ def build_segment_matrix(output_dir, samples, cns_suffix, ploidy):
     return segments_by_sample
 
 
-def build_chr_summary(segments_by_sample, samples):
+def build_chr_summary(segments_by_sample, samples, chr_lengths, chr_order):
     """Build chromosome-level summary: one row per chromosome, CN per sample.
 
     For chromosomes with multiple segments, uses the segment covering the
     largest fraction of the chromosome.
     """
     rows = []
-    for chrom in CHR_ORDER:
-        chr_len = CHR_LENGTHS.get(chrom, 0)
+    for chrom in chr_order:
+        chr_len = chr_lengths.get(chrom, 0)
         row = {"chromosome": chrom, "length": chr_len}
         for sample in samples:
             segs = segments_by_sample.get(sample, [])
@@ -209,7 +213,6 @@ def compare_matrices(sensitive, stringent, samples):
         for key, sens_seg in sens_map.items():
             stri_seg = stri_map.get(key)
             if stri_seg and sens_seg["diploid_cn"] != stri_seg["diploid_cn"]:
-                chr_len = CHR_LENGTHS.get(sens_seg["chrom"], 0)
                 span_kb = (sens_seg["end"] - sens_seg["start"]) / 1000
                 disagreements.append({
                     "sample": sample,
@@ -328,11 +331,17 @@ def main():
                         help="Specific samples to include (default: all)")
     parser.add_argument("--skip-cnr", action="store_true",
                         help="Skip bin-level .cnr matrix (faster)")
+    parser.add_argument("--fai", required=True,
+                        help="Reference .fai index file for chromosome lengths and order")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
     results_dir = Path(args.results_dir) if args.results_dir else output_dir / "cn_matrices"
     results_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load chromosome lengths from .fai
+    chr_lengths, chr_order = load_chr_lengths(args.fai)
+    print(f"Reference: {args.fai} ({len(chr_lengths)} chromosomes)")
 
     # Discover samples
     all_samples = discover_samples(output_dir)
@@ -348,7 +357,7 @@ def main():
     sensitive = build_segment_matrix(output_dir, samples, "md.call.cns", args.ploidy)
     write_segment_csv(sensitive, samples,
                       results_dir / "cn_segments_sensitive.csv", has_ptest=True)
-    sens_chr = build_chr_summary(sensitive, samples)
+    sens_chr = build_chr_summary(sensitive, samples, chr_lengths, chr_order)
     write_chr_summary_csv(sens_chr, samples,
                           results_dir / "cn_chr_summary_sensitive.csv")
     print(f"   Wrote {sum(len(v) for v in sensitive.values())} segments across {len(sensitive)} samples")
@@ -358,7 +367,7 @@ def main():
     stringent = build_segment_matrix(output_dir, samples, "md.germline.call.cns", args.ploidy)
     write_segment_csv(stringent, samples,
                       results_dir / "cn_segments_stringent.csv", has_ptest=False)
-    stri_chr = build_chr_summary(stringent, samples)
+    stri_chr = build_chr_summary(stringent, samples, chr_lengths, chr_order)
     write_chr_summary_csv(stri_chr, samples,
                           results_dir / "cn_chr_summary_stringent.csv")
     print(f"   Wrote {sum(len(v) for v in stringent.values())} segments across {len(stringent)} samples")
