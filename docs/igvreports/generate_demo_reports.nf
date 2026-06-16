@@ -80,7 +80,18 @@ process PREPARE_VCF {
     # Step 1: Split multi-allelic sites into biallelic rows
     # --old-rec-tag ORIG_ALT preserves original record info
     # --force needed for HaplotypeCaller PL tag cardinality issues
-    bcftools norm -m- --old-rec-tag ORIG_ALT --force ${vcf} -Oz -o tmp_split.vcf.gz
+    bcftools norm -m- --old-rec-tag ORIG_ALT --force ${vcf} -Oz -o tmp_split_raw.vcf.gz
+    tabix -p vcf tmp_split_raw.vcf.gz
+
+    # Step 1b: For per-sample VCFs, remove rows where GT became ref after splitting
+    # (multi-allelic split creates GT=0 "ghost" rows for ALT alleles the sample doesn't carry)
+    # GT="ref" matches 0, 0/0, 0|0, 0/0/0 etc. — handles any ploidy automatically
+    # Cohort VCFs keep all rows (GT=0 is meaningful when viewing multiple samples)
+    if [ "${meta.id}" != "cohort" ]; then
+        bcftools view -e 'GT="ref"' tmp_split_raw.vcf.gz -Oz -o tmp_split.vcf.gz
+    else
+        mv tmp_split_raw.vcf.gz tmp_split.vcf.gz
+    fi
     tabix -p vcf tmp_split.vcf.gz
 
     # Step 2: Copy FILTER column into INFO/VCF_FILTER
@@ -106,7 +117,7 @@ process PREPARE_VCF {
     bcftools +fill-tags tmp_with_filter.vcf.gz -Oz -o ${meta.id}.prepared.vcf.gz -- -t FORMAT/VAF
     tabix -p vcf ${meta.id}.prepared.vcf.gz
 
-    rm -f tmp_split.vcf.gz tmp_split.vcf.gz.tbi tmp_with_filter.vcf.gz tmp_with_filter.vcf.gz.tbi
+    rm -f tmp_split_raw.vcf.gz tmp_split_raw.vcf.gz.tbi tmp_split.vcf.gz tmp_split.vcf.gz.tbi tmp_with_filter.vcf.gz tmp_with_filter.vcf.gz.tbi
     """
 }
 
@@ -144,6 +155,9 @@ process IGVREPORTS_COHORT {
     # Set VCF download link (file-based, replaces base64 embedding)
     sed -i 's|@VCF_HREF@|vcf/haplotypecaller/cohort_haplotypecaller_annotated.vcf.gz|g' cohort_report.html
     sed -i 's|@VCF_FILENAME@|cohort_haplotypecaller_annotated.vcf.gz|g' cohort_report.html
+
+    # Strip IGV session data (no longer used in table-only cohort report, saves ~700 KB)
+    sed -i 's|const sessionDictionary = .*|const sessionDictionary = {};|' cohort_report.html
     """
 }
 
@@ -163,7 +177,7 @@ process IGVREPORTS_SAMPLE {
     path template
 
     output:
-    path "${meta.id}_report.html"
+    path "${meta.id}_hc_report.html"
 
     script:
     """
@@ -176,12 +190,12 @@ process IGVREPORTS_SAMPLE {
         --sample-columns GT AD DP GQ VAF \\
         --flanking 500 \\
         --title "${meta.id} - HaplotypeCaller (Yeast ALE)" \\
-        --output ${meta.id}_report.html
+        --output ${meta.id}_hc_report.html
 
     # Set VCF download link and report type
-    sed -i 's|@VCF_HREF@|../vcf/haplotypecaller/${meta.id}_haplotypecaller_annotated.vcf.gz|g' ${meta.id}_report.html
-    sed -i 's|@VCF_FILENAME@|${meta.id}_haplotypecaller_annotated.vcf.gz|g' ${meta.id}_report.html
-    sed -i 's|@REPORT_TYPE@|haplotypecaller|g' ${meta.id}_report.html
+    sed -i 's|@VCF_HREF@|../vcf/haplotypecaller/${meta.id}_haplotypecaller_annotated.vcf.gz|g' ${meta.id}_hc_report.html
+    sed -i 's|@VCF_FILENAME@|${meta.id}_haplotypecaller_annotated.vcf.gz|g' ${meta.id}_hc_report.html
+    sed -i 's|@REPORT_TYPE@|haplotypecaller|g' ${meta.id}_hc_report.html
     """
 }
 
@@ -205,20 +219,25 @@ process IGVREPORTS_SV_CNV {
     script:
     def info_cols = meta.caller == 'cnvkit'
         ? "ANN VCF_FILTER SVTYPE SVLEN FOLD_CHANGE FOLD_CHANGE_LOG PROBES"
-        : "ANN VCF_FILTER SVTYPE SVLEN EVENT"
+        : "ANN VCF_FILTER SVTYPE SVLEN"
     def sample_cols = meta.caller == 'cnvkit'
         ? "GT"
+        : meta.caller == 'tiddit'
+        ? "GT DV RV"
         : "GT GQ PR SR"
     """
     create_report ${vcf} \\
         --fasta ${fasta} \\
-        --tracks ${gff3_gz} ${cram} \\
+        --tracks ${gff3_gz} \\
         --template ${template} \\
         --info-columns ${info_cols} \\
         --sample-columns ${sample_cols} \\
         --flanking 500 \\
         --title "${meta.id} - ${meta.caller_label} (Yeast ALE)" \\
         --output ${meta.id}_${meta.caller}_report.html
+
+    # Strip IGV session data (alignment view not informative for large SV/CNV events)
+    sed -i 's|const sessionDictionary = .*|const sessionDictionary = {};|' ${meta.id}_${meta.caller}_report.html
 
     # Set VCF download link and report type
     sed -i 's|@VCF_HREF@|../vcf/${meta.caller}/${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
@@ -462,7 +481,7 @@ workflow {
         .map { sample ->
             def vcf = file("${annotation_root}/tiddit/${sample}/${sample}.tiddit_snpEff.ann.vcf.gz")
             def tbi = file("${annotation_root}/tiddit/${sample}/${sample}.tiddit_snpEff.ann.vcf.gz.tbi")
-            [ vcf, tbi ]
+            [ [id: sample, caller: 'tiddit', caller_label: 'TIDDIT'], vcf, tbi ]
         }
 
     PUBLISH_VCFS(
@@ -470,18 +489,18 @@ workflow {
         ch_hc_annotated.flatMap { vcf, tbi -> [vcf, tbi] }.collect(),
         ch_cnvkit_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect(),
         ch_manta_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect(),
-        ch_tiddit_vcfs.flatMap { vcf, tbi -> [vcf, tbi] }.collect()
+        ch_tiddit_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect()
     )
 
     // Single PREPARE_VCF call with all VCFs mixed
     ch_all_prepared = PREPARE_VCF(
-        ch_joint_vcf.mix(ch_sample_vcfs, ch_cnvkit_vcfs, ch_manta_vcfs)
+        ch_joint_vcf.mix(ch_sample_vcfs, ch_cnvkit_vcfs, ch_manta_vcfs, ch_tiddit_vcfs)
     )
 
     // Branch into cohort, HC sample, and SV/CNV channels
     ch_all_prepared.branch {
         cohort: it[0].id == 'cohort'
-        sv_cnv: it[0].caller in ['cnvkit', 'manta']
+        sv_cnv: it[0].caller in ['cnvkit', 'manta', 'tiddit']
         sample: true
     }.set { ch_branched }
 

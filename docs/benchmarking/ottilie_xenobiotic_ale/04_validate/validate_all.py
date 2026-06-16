@@ -248,6 +248,8 @@ def main():
     parser.add_argument("--skip", nargs="*", default=[],
                         choices=["snv", "cnv", "sv", "matrix", "sv_matrix", "cn_matrix"],
                         help="Skip specific validation steps")
+    parser.add_argument("--fai", default="data/ottilie/S288C_reference/S288C_R64.fa.fai",
+                        help="Reference .fai index file for chromosome lengths")
     args = parser.parse_args()
 
     results_dir = Path(args.results_dir)
@@ -300,6 +302,7 @@ def main():
         success["matrix"] = run_script([
             python, BIN_DIR / "build_cn_matrix.py",
             "--output-dir", args.output_dir,
+            "--fai", args.fai,
             "--ploidy", str(args.ploidy),
             "--skip-cnr",
         ], "CN Matrix Builder")

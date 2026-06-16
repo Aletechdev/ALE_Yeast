@@ -259,7 +259,7 @@
     <p class="meta">
         Generated {{ generated_at }} &middot;
         {{ n_samples }} samples &middot;
-        {{ callers | length }} variant callers
+        {{ callers | length }} mutation callers
         ({{ callers | join(', ') }})
     </p>
     <p class="note">
@@ -277,7 +277,7 @@
     {# Section 2: Report boxes with counts                                 #}
     {# ================================================================== #}
     <div class="section">
-        <h2>Reports</h2>
+        <h2>All Samples Aggregate Summary</h2>
         <div class="cards">
             <div class="card">
                 <div class="value">{{ n_samples }}</div>
@@ -285,31 +285,28 @@
             </div>
             {% if cohort_link %}
             <a class="card card-link" href="{{ cohort_link }}" target="_blank">
-                <div class="value">{% if cohort_pass_count %}{{ cohort_pass_count }} <span class="card-sub">/ {{ cohort_variant_count }}</span>{% elif cohort_variant_count %}{{ cohort_variant_count }}{% else %}&mdash;{% endif %}</div>
-                <div class="label">SNV/InDel Events{% if cohort_pass_count %} (high-confidence / all){% endif %}</div>
-                {% if cohort_prenorm_count and cohort_prenorm_count != cohort_variant_count %}
-                <div class="card-note">{{ cohort_prenorm_count }} pre-normalized sites in downloadable VCF</div>
-                {% endif %}
+                <div class="value">{% if cohort_pass_count %}{{ cohort_pass_count }}{% elif cohort_variant_count %}{{ cohort_variant_count }}{% else %}&mdash;{% endif %}</div>
+                <div class="label">SNV/InDel Events{% if cohort_pass_count %} (quality-filtered){% endif %}</div>
             </a>
             {% endif %}
             {% if sv_pass %}
             <a class="card card-link" href="#sv-section">
-                <div class="value">{{ sv_pass.both_caller_count }} <span class="card-sub">/ {{ sv_pass.row_count }}</span></div>
-                <div class="label">SV Events (high-confidence / all)</div>
+                <div class="value">{{ sv_pass.both_caller_count }}</div>
+                <div class="label">SV Events (detected by Manta + TIDDIT)</div>
             </a>
             {% endif %}
             {% if cn_reg_str or cn_reg_sens %}
             {% set cn_reg_primary = cn_reg_str or cn_reg_sens %}
             <a class="card card-link" href="#cn-regions-section">
-                <div class="value">{{ cn_reg_primary.change_count }} <span class="card-sub">/ {{ cn_reg_primary.row_count }}</span></div>
-                <div class="label">CN Windows (high-confidence / all)</div>
+                <div class="value">{{ cn_reg_primary.change_count }}</div>
+                <div class="label">CN Windows (coverage ratio &lt; 0.76 or &gt; 1.23)</div>
             </a>
             {% endif %}
             {% if cn_chr_str or cn_chr_sens %}
             {% set cn_chr_primary_card = cn_chr_str or cn_chr_sens %}
             <a class="card card-link" href="#cn-section">
-                <div class="value">{{ cn_chr_primary_card.change_count }} <span class="card-sub">/ {{ cn_chr_primary_card.row_count }}</span></div>
-                <div class="label">Aneuploidy (high-confidence / all)</div>
+                <div class="value">{{ cn_chr_primary_card.change_count }}</div>
+                <div class="label">Aneuploidy (coverage ratio &lt; 0.76 or &gt; 1.23)</div>
             </a>
             {% endif %}
             {% if multiqc_report_path %}
@@ -331,13 +328,17 @@
     {# Section 4: Sample Overview (QC + Variants)                          #}
     {# ================================================================== #}
     <div class="section">
-        <h2>Sample Overview</h2>
+        <h2>Per-Sample Overview</h2>
         <p class="note">
             QC metrics from MultiQC (Picard, Samtools, Mosdepth). Variant counts from bcftools stats.
             Click linked counts to open per-sample IGV reports.
-            CNV and SV IGV reports are experimental. SV visualization is harder to standardize than for small mutations.
-            We are following <a href="https://www.youtube.com/watch?v=wuk3Lo_2VlU" target="_blank" rel="noopener">this IGV SV walkthrough</a> to evaluate adaptable solutions for SV viewing.
-            TIDDIT per-mutation IGV reports will be rolled out after evaluation.
+            CNV/SV reports (CNVKit, Manta, TIDDIT) show table-only views — the embedded IGV alignment viewer is disabled because
+            igv-reports can only embed a fixed reference window, which is too small for multi-kilobase structural events
+            (<a href="https://github.com/igvteam/igv-reports/issues/100" target="_blank" rel="noopener">igv-reports #100</a>).
+            To visually inspect interesting SVs, download the VCF and CRAM files and open them in
+            <a href="https://igv.org/doc/desktop/" target="_blank" rel="noopener">IGV desktop</a>,
+            which supports full-genome navigation. See also
+            <a href="https://www.youtube.com/watch?v=wuk3Lo_2VlU" target="_blank" rel="noopener">this IGV SV walkthrough</a>.
         </p>
         <div id="summary-table"></div>
     </div>
@@ -347,8 +348,14 @@
     {# ================================================================== #}
     {% if sv_pass %}
     <div class="section" id="sv-section">
-        <h2>Ensemble SV Events (Manta + TIDDIT)</h2>
-        <p class="note">{{ sv_pass.both_caller_count }} / {{ sv_pass.row_count }} PASS-filtered events detected by both Manta and TIDDIT (high-confidence). Remaining events called by a single caller.</p>
+        <h2>All Samples: Ensemble SV Events (Manta + TIDDIT)</h2>
+        <p class="note">{{ sv_pass.both_caller_count }} / {{ sv_pass.row_count }} PASS-filtered events detected by both Manta and TIDDIT. Remaining events called by a single caller.</p>
+        {% if sv_downloads %}
+        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
+            {% if sv_downloads.pass_csv %}<a href="{{ sv_downloads.pass_csv }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>{% endif %}
+            {% if sv_downloads.pass_vcf %}<a href="{{ sv_downloads.pass_vcf }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; VCF</a>{% endif %}
+        </div>
+        {% endif %}
         {% if show_sensitive and sv_all %}
         <div class="tab-bar" id="sv-tabs">
             <button class="tab-btn active" data-tab="sv-pass-panel">SV High-Quality #{{ sv_pass.row_count }}</button>
@@ -372,8 +379,15 @@
     {% set cn_reg_primary = cn_reg_str if cn_reg_str else cn_reg_sens %}
     {% if cn_reg_primary %}
     <div class="section" id="cn-regions-section">
-        <h2>Collapsed CN Windows</h2>
+        <h2>All Samples: Collapsed CN Windows</h2>
         <p class="note">{{ cn_reg_primary.change_count }} / {{ cn_reg_primary.row_count }} windows with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
+        {% set cn_reg_csv = cn_downloads.regions_stringent if cn_reg_str else cn_downloads.regions_sensitive %}
+        {% if cn_reg_csv or cn_downloads.matrix %}
+        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
+            {% if cn_reg_csv %}<a href="{{ cn_reg_csv }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>{% endif %}
+            {% if cn_downloads.matrix %}<a href="{{ cn_downloads.matrix }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; Uncollapsed Matrix</a>{% endif %}
+        </div>
+        {% endif %}
         <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
             <p class="note" style="margin:0">Collapsed CN windows with genomic coordinates.</p>
             <button class="tab-btn active cn-metric-btn" data-metric="abs">Absolute CN</button>
@@ -403,8 +417,14 @@
     {% set cn_chr_primary_label = "Stringent" if cn_chr_str else "Sensitive" %}
     {% if cn_chr_primary %}
     <div class="section" id="cn-section">
-        <h2>Chromosome Level Copy Number Change (Aneuploidy)</h2>
+        <h2>All Samples: Chromosome Level Copy Number Change (Aneuploidy)</h2>
         <p class="note">{{ cn_chr_primary.change_count }} / {{ cn_chr_primary.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
+        {% set cn_chr_csv = cn_downloads.chr_stringent if cn_chr_str else cn_downloads.chr_sensitive %}
+        {% if cn_chr_csv %}
+        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
+            <a href="{{ cn_chr_csv }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
+        </div>
+        {% endif %}
         <p class="note">
             CN per chromosome. Toggle above switches both tables.
             Chromosomes with mixed CN segments marked with *.
@@ -441,6 +461,12 @@
                     This populates the FILTER column but <strong>retains all variants</strong>.
                     Filters use <code>vc.isSNP()</code> / <code>vc.isIndel()</code> JEXL syntax.
                 </p>
+                <p>
+                    <strong>Note:</strong> These quality filters evaluate metrics computed across <em>all samples combined</em>
+                    (e.g. total read depth, overall strand bias), not on a per-sample basis.
+                    A variant marked PASS means it meets quality thresholds when looking at all samples together,
+                    but individual samples may still have low coverage or quality at that site.
+                </p>
 
                 <h4>Universal filters (SNPs + INDELs)</h4>
                 <table>
@@ -468,6 +494,26 @@
                 <p><em>No SOR, MQ, or MQRankSum filters for INDELs per GATK recommendation.</em></p>
 
                 <p>Config: <code>conf/modules/joint_germline.config</code> &rarr; <code>VARIANTFILTRATION_FALLBACK</code></p>
+            </div>
+        </details>
+
+        <details>
+            <summary>IGV report display VCF preparation</summary>
+            <div class="audit-content">
+                <p>
+                    The cohort and per-sample IGV reports use a post-processed version of the annotated VCFs.
+                    This does <strong>not</strong> alter the downloadable VCFs &mdash; only the interactive table display.
+                </p>
+                <ol>
+                    <li><strong>Multi-allelic splitting</strong>: <code>bcftools norm -m-</code> expands multi-allelic sites
+                        into one row per ALT allele. The original alleles are preserved in <code>INFO/ORIG_ALT</code>.
+                        This is why the report table may show more rows than the joint VCF.</li>
+                    <li><strong>FILTER promotion</strong>: The VCF FILTER column is copied into <code>INFO/VCF_FILTER</code>
+                        (igv-reports only reads INFO fields, not the fixed FILTER column).</li>
+                    <li><strong>VAF calculation</strong>: <code>bcftools +fill-tags FORMAT/VAF</code> adds per-sample
+                        variant allele frequency computed from the AD field.</li>
+                </ol>
+                <p>Source: <code>docs/igvreports/generate_demo_reports.nf</code> &rarr; <code>PREPARE_VCF</code></p>
             </div>
         </details>
 
@@ -513,7 +559,7 @@
                 </p>
                 <pre style="background:#f6f8fa;padding:8px 12px;border-radius:4px;font-size:0.85em;overflow-x:auto"><code>bcftools view -f PASS input.vcf.gz \
   | bcftools filter -i 'FORMAT/GQ>=20 && FORMAT/DP>=8' \
-  | bcftools filter -i 'FORMAT/VAF>=0.90'   # clonal samples
+  | bcftools filter -i 'FORMAT/VAF>=0.80'   # clonal samples
   # or FORMAT/VAF>=0.05 for population samples</code></pre>
                 <p>
                     Adjust thresholds based on your experiment design (ploidy, clonal vs. population,
@@ -546,7 +592,7 @@
                 <h4>Why counts differ</h4>
                 <ul>
                     <li><strong>SV Events card + matrix</strong>: PASS-filtered, deduplicated across callers (<code>sv_cohort_matrix_union_pass.csv</code>)</li>
-                    <li><strong>Sample Overview TIDDIT/Manta columns</strong>: raw unfiltered per-sample VCF counts from bcftools stats</li>
+                    <li><strong>Sample Overview CNVKit/TIDDIT/Manta columns</strong>: raw unfiltered per-sample VCF counts from bcftools stats; reports are table-only (no IGV alignment view)</li>
                 </ul>
                 <p>
                     Per-sample counts are much higher because they include non-PASS calls
@@ -590,6 +636,12 @@
                     <strong>Chromosome Level (Aneuploidy)</strong>: one row per chromosome, dominant segment CN.
                     Mixed-CN chromosomes marked with *.
                 </p>
+                <h4>Missing chromosomes</h4>
+                <p>
+                    Chromosomes shorter than ~150kb may be absent from CN results.
+                    In WGS mode, CNVKit skips the first ~150kb of each chromosome for antitarget bin generation;
+                    chromosomes entirely below this threshold receive no antitarget bins and cannot be normalized.
+                </p>
             </div>
         </details>
         {% endif %}
@@ -603,7 +655,8 @@
                 <ol>
                     <li><strong>Multi-allelic split</strong> &mdash; <code>bcftools norm -m-</code> so each alt allele has its own row</li>
                     <li><strong>FILTER promotion</strong> &mdash; FILTER column copied to <code>INFO/VCF_FILTER</code> (igv-reports only reads INFO)</li>
-                    <li><strong>VAF annotation</strong> &mdash; <code>bcftools +fill-tags -- -t FORMAT/VAF</code></li>
+                    <li><strong>VAF annotation</strong> &mdash; <code>bcftools +fill-tags -- -t FORMAT/VAF</code>
+                        (computed as AD[alt] / sum(AD), not AD[alt] / DP; DP includes reads filtered by the caller)</li>
                     <li><strong>Report creation</strong> &mdash; <code>create_report</code> with &plusmn;500 bp flanking, CRAM tracks, GFF3 gene annotations</li>
                     <li><strong>VCF downloads</strong> &mdash; pre-normalization annotated VCFs published to <code>vcf/</code> folder, organized by variant caller; reports link to these files for download</li>
                 </ol>
@@ -745,7 +798,7 @@
                               var v = cell.getValue();
                               if (v == null) return "";
                               if (row.igv_link) {
-                                  return '<a class="igv-link" href="' + row.igv_link + '">' + v + '</a>';
+                                  return '<a class="igv-link" href="' + row.igv_link + '" target="_blank">' + v + '</a>';
                               }
                               return v;
                           }
@@ -756,13 +809,13 @@
                     title: "CNV",
                     columns: [
                         { title: "CNVKit", field: "cnvkit_events", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'CNVKit<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw cnvcall</span>'; },
+                          titleFormatter: function() { return 'CNVKit<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered, table only</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var v = cell.getValue();
                               if (v == null) return "";
                               if (row.cnvkit_igv_link) {
-                                  return '<a class="igv-link" href="' + row.cnvkit_igv_link + '">' + v + '</a>';
+                                  return '<a class="igv-link" href="' + row.cnvkit_igv_link + '" target="_blank">' + v + '</a>';
                               }
                               return v;
                           }
@@ -773,15 +826,25 @@
                     title: "SV",
                     columns: [
                         { title: "TIDDIT", field: "tiddit_svs", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered</span>'; } },
+                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered, table only</span>'; },
+                          formatter: function(cell) {
+                              var row = cell.getRow().getData();
+                              var v = cell.getValue();
+                              if (v == null) return "";
+                              if (row.tiddit_igv_link) {
+                                  return '<a class="igv-link" href="' + row.tiddit_igv_link + '" target="_blank">' + v + '</a>';
+                              }
+                              return v;
+                          }
+                        },
                         { title: "Manta", field: "manta_svs", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered</span>'; },
+                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered, table only</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var v = cell.getValue();
                               if (v == null) return "";
                               if (row.manta_igv_link) {
-                                  return '<a class="igv-link" href="' + row.manta_igv_link + '">' + v + '</a>';
+                                  return '<a class="igv-link" href="' + row.manta_igv_link + '" target="_blank">' + v + '</a>';
                               }
                               return v;
                           }
@@ -791,6 +854,7 @@
                 { title: "IGV Report", field: "igv_link", visible: false },
                 { title: "CNVKit IGV", field: "cnvkit_igv_link", visible: false },
                 { title: "Manta IGV", field: "manta_igv_link", visible: false },
+                { title: "TIDDIT IGV", field: "tiddit_igv_link", visible: false },
             ],
         });
 
@@ -808,8 +872,17 @@
         // Tabulator formatter — color by log2, display switches with toggle
         function cnCellFormatter(cell) {
             var log2 = cell.getValue();
+            if (log2 == null) return '';
             var cls = log2Class(log2);
-            var display = (cnMetric === "log2") ? log2.toFixed(4) : Math.pow(2, log2).toFixed(2);
+            var display;
+            if (cnMetric === "log2") {
+                display = log2.toFixed(4);
+            } else {
+                var row = cell.getRow().getData();
+                var absField = cell.getField().replace('_log2', '_absolute_cn');
+                var absCn = row[absField];
+                display = (absCn != null) ? absCn.toFixed(2) : Math.pow(2, log2).toFixed(2);
+            }
             return '<span class="' + cls + '" style="display:inline-block;padding:1px 6px;border-radius:3px">' + display + '</span>';
         }
 
@@ -819,6 +892,7 @@
                 { title: "Chr", field: "chromosome", headerFilter: "input", frozen: true, width: 60 },
                 { title: "Start", field: "start", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
                 { title: "End", field: "end", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+                { title: "Chr Length", field: "chr_length", sorter: "number", hozAlign: "right", formatter: function(c) { var v = c.getValue(); return v ? v.toLocaleString() : ""; } },
                 { title: "Span (kb)", field: "span_kb", sorter: "number", hozAlign: "right" },
             ];
             samples.forEach(function(s) {
@@ -859,10 +933,18 @@
             var row = cell.getRow().getData();
             var field = cell.getField();
             var log2 = cell.getValue();
+            if (log2 == null) return '';
             var cls = log2Class(log2);
             var noteField = field.replace('_log2', '_note');
             var note = row[noteField] || '';
-            var display = (cnMetric === "log2") ? log2.toFixed(4) : Math.pow(2, log2).toFixed(2);
+            var display;
+            if (cnMetric === "log2") {
+                display = log2.toFixed(4);
+            } else {
+                var absField = field.replace('_log2', '_absolute_cn');
+                var absCn = row[absField];
+                display = (absCn != null) ? absCn.toFixed(2) : Math.pow(2, log2).toFixed(2);
+            }
             return '<span class="' + cls + '" style="display:inline-block;padding:1px 6px;border-radius:3px">' + display + note + '</span>';
         }
         function buildCnChrColumns(samples) {

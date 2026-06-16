@@ -35,7 +35,22 @@ nextflow run "${REPO_ROOT}/docs/igvreports/generate_demo_reports.nf" \
     --cnv_sv_data_dir "${OUTDIR}/data" \
     --multiqc_report_path "multiqc_report.html" \
     --python_bin "$(which python)" \
+    -work-dir "${REPO_ROOT}/work_igvreports" \
     -resume
+
+echo ""
+echo "Injecting variant counts into cohort_report.html..."
+JOINT_VCF="${REPO_ROOT}/output_ottilie/variant_calling/haplotypecaller/joint_variant_calling/HaplotypeCaller_joint_calling_soft_filtered.vcf.gz"
+PREPARED_VCF="${OUTDIR}/prepare/cohort.prepared.vcf.gz"
+
+PASS_COUNT=$(bcftools view -f PASS -H "${PREPARED_VCF}" | wc -l)
+TOTAL_COUNT=$(bcftools view -H "${PREPARED_VCF}" | wc -l)
+PRENORM_COUNT=$(bcftools view -H "${JOINT_VCF}" | wc -l)
+
+sed -i "s|@PASS_COUNT@|${PASS_COUNT}|g" "${OUTDIR}/cohort_report.html"
+sed -i "s|@TOTAL_COUNT@|${TOTAL_COUNT}|g" "${OUTDIR}/cohort_report.html"
+sed -i "s|@PRENORM_COUNT@|${PRENORM_COUNT}|g" "${OUTDIR}/cohort_report.html"
+echo "  Quality-filtered: ${PASS_COUNT}, Total: ${TOTAL_COUNT}, Pre-normalization: ${PRENORM_COUNT}"
 
 echo ""
 echo "Regenerating index.html (standalone, picks up template changes)..."

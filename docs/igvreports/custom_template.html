@@ -2,14 +2,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ALE Variant Inspector</title>
+    <title>ALE Mutation Inspector</title>
 
     <!-- Tabulator -->
     <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
     <script type="text/javascript" src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
-
-    <!-- igv -->
-    <script src="https://cdn.jsdelivr.net/npm/igv@3.5.2/dist/igv.min.js"></script>
 
     <style>
         * { box-sizing: border-box; }
@@ -134,7 +131,7 @@
             font-size: 12px;
         }
         #columnChooserMenu label:hover { background: #f0f4f8; }
-        /* --- Main content: table + IGV split --- */
+        /* --- Main content: table only --- */
         #content {
             display: flex;
             flex-direction: column;
@@ -142,14 +139,12 @@
             min-height: 0;
         }
 
-        /* Table panel — takes up top 70%, resizable via drag handle */
         #tablePanel {
-            flex: 7;
+            flex: 1;
             min-height: 200px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            border-bottom: 3px solid #d0d7de;
         }
 
         #tableSelectorDiv {
@@ -165,28 +160,6 @@
             border-top: 1px solid #d0d7de;
             z-index: 10;
         }
-
-        /* IGV panel — bottom ~15% */
-        #igvPanel {
-            flex: 1.5;
-            min-height: 150px;
-            overflow: auto;
-        }
-
-        #igvDiv {
-            height: 100%;
-        }
-
-        /* Resize handle between panels */
-        #resizeHandle {
-            height: 6px;
-            background: #d0d7de;
-            cursor: row-resize;
-            flex-shrink: 0;
-        }
-        #resizeHandle:hover {
-            background: #0366d6;
-        }
     </style>
 </head>
 
@@ -195,7 +168,7 @@
 <div id="app">
     <!-- Toolbar -->
     <div id="toolbar">
-        <h1>ALE Variant Inspector</h1>
+        <h1>ALE Mutation Inspector</h1>
         <button id="clearFilters">Clear Filters</button>
         <button id="exportFilters">Export Filters</button>
         <button id="importFilters">Import Filters</button>
@@ -220,25 +193,26 @@
         </div>
     </div>
 
+    <!-- Summary info bar (counts injected by sed; hidden if placeholders not replaced) -->
+    <div id="info-bar" style="display:flex;align-items:center;gap:24px;padding:4px 16px;background:#e8f4fd;border-bottom:1px solid #b3d9f2;font-size:11px;color:#1a5276;flex-shrink:0">
+        <span><strong>Quality-filtered (VCF_FILTER=PASS):</strong> @PASS_COUNT@</span>
+        <span><strong>Total (post-normalization):</strong> @TOTAL_COUNT@</span>
+        <span><strong>Pre-normalization sites (downloadable VCF):</strong> @PRENORM_COUNT@</span>
+        <button onclick="this.parentElement.style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:14px;color:#1a5276;padding:0 2px;line-height:1" title="Close">&times;</button>
+    </div>
+    <script>if(document.getElementById('info-bar').textContent.includes('@'+'PASS_COUNT@'))document.getElementById('info-bar').style.display='none';</script>
+
+    <!-- Per-sample navigation hint -->
+    <div id="sample-hint" style="padding:4px 16px;background:#e8f4fd;border-bottom:1px solid #b3d9f2;font-size:11px;color:#1a5276;flex-shrink:0;display:flex;align-items:center;gap:8px">
+        <span style="flex:1">Cohort-level report. Click any per-sample <strong>GT</strong> or <strong>VAF</strong> cell (non-reference genotypes only, i.e. GT&#8800;0) to open the per-sample IGV report at that locus.</span>
+        <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#1a5276;padding:0 2px;line-height:1" title="Dismiss">&times;</button>
+    </div>
+
     <!-- Main content -->
     <div id="content">
         <!-- Variant table -->
         <div id="tablePanel">
             <div id="tableSelectorDiv"></div>
-        </div>
-
-        <!-- Per-sample navigation hint -->
-        <div id="sample-hint" style="padding:4px 16px;background:#e8f4fd;border-top:1px solid #b3d9f2;border-bottom:1px solid #b3d9f2;font-size:11px;color:#1a5276;flex-shrink:0;display:flex;align-items:center;gap:8px">
-            <span style="flex:1">Cohort-level report. Click any per-sample <strong>GT</strong> or <strong>VAF</strong> cell (non-reference genotypes only, i.e. GT&#8800;0) to open the per-sample IGV report at that locus. Per-sample reports include all non-reference variants from joint calling (soft-filtered, annotated by SnpEff).</span>
-            <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:14px;color:#1a5276;padding:0 2px;line-height:1" title="Dismiss">&times;</button>
-        </div>
-
-        <!-- Drag handle -->
-        <div id="resizeHandle"></div>
-
-        <!-- IGV browser -->
-        <div id="igvPanel">
-            <div id="igvDiv"></div>
         </div>
     </div>
 </div>
@@ -253,29 +227,11 @@
     const vcfHref = "@VCF_HREF@";
     const vcfFilename = "@VCF_FILENAME@";
 
-    let igvBrowser;
     let table;
 
     document.addEventListener("DOMContentLoaded", function () {
-        initIGV();
-        initResizeHandle();
+        initTable();
     });
-
-    function initIGV() {
-        const igvDiv = document.getElementById("igvDiv");
-        const options = {
-            sessionURL: sessionDictionary["0"],
-            showChromosomeWidget: false,
-            showCenterGuide: true,
-            search: false
-        };
-
-        igv.createBrowser(igvDiv, options)
-            .then(function (b) {
-                igvBrowser = b;
-                initTable();
-            });
-    }
 
     // Column config: embedded since --filter-config requires --tabulator (built-in template)
     // Columns with formatter:"html" render <br> as line breaks (SnpEff ANN fields)
@@ -324,6 +280,58 @@
 
     const frozenCount = 4; // freeze first N visible columns (CHROM, POSITION, REF, ALT)
 
+    // Formatter for per-sample GT/VAF cells: render as clickable link style for non-ref genotypes
+    // Ref GT check is ploidy-aware: matches 0, 0/0, 0/0/0, 0|0, 0|0|0, ./., .|., etc.
+    function isRefGenotype(gt) {
+        if (!gt) return true;
+        const s = gt.trim();
+        if (!s) return true;
+        // Split on / or | separators; ref if all alleles are 0 or .
+        const alleles = s.split(/[/|]/);
+        return alleles.every(a => a === "0" || a === ".");
+    }
+    function sampleLinkFormatter(cell, formatterParams, onRendered) {
+        const val = cell.getValue();
+        if (val === null || val === undefined || val === "") return "";
+        const field = cell.getField();
+        const match = field.match(/^(.+):(GT|VAF)$/);
+        if (!match) return String(val);
+        const samplePrefix = match[1];
+        const gt = String(cell.getRow().getData()[samplePrefix + ":GT"] || "");
+        if (isRefGenotype(gt)) return String(val);
+        // For VAF columns, also check if value is 0
+        if (match[2] === "VAF" && (val === 0 || val === "0")) return String(val);
+        const span = document.createElement("span");
+        span.textContent = val;
+        span.style.color = "#0366d6";
+        span.style.textDecoration = "underline";
+        span.style.cursor = "pointer";
+        return span;
+    }
+
+    // Max-width constraints for columns that can contain long values
+    const columnMaxWidths = {
+        "CHROM": 120,
+        "POSITION": 100,
+        "REF": 150,
+        "ALT": 150,
+        "GENE": 200,
+        "EFFECTS": 200,
+        "IMPACT": 150,
+        "TRANSCRIPT": 200,
+        "GENE_ID": 200,
+        "PROTEIN ALTERATION": 200,
+        "DNA ALTERATION": 200,
+    };
+
+    // Columns with <br>-separated lists — scrollable cell
+    const scrollableColumns = new Set(["GENE", "EFFECTS", "IMPACT", "TRANSCRIPT", "GENE_ID", "PROTEIN ALTERATION", "DNA ALTERATION"]);
+    function scrollableFormatter(cell) {
+        var val = cell.getValue();
+        if (val == null || val === "") return "";
+        return '<div style="max-height:100px;overflow-y:auto;line-height:1.3">' + val + '</div>';
+    }
+
     function initTable() {
         let visibleIdx = 0;
         const columnConfig = tableJson.headers
@@ -334,19 +342,31 @@
                 const vis = !isHiddenByDefault(header);
                 const frozen = vis && visibleIdx < frozenCount;
                 if (vis) visibleIdx++;
-                return {
+                const col = {
                     title: header,
                     field: header,
                     sorter: isNumber ? "number" : "string",
                     headerFilter: isNumber ? "number" : "input",
                     headerFilterPlaceholder: `Filter ${header}`,
-                    formatter: settings.formatter || undefined,
+                    formatter: settings.formatter || (header.match(/:(GT|VAF)$/) ? sampleLinkFormatter : undefined),
                     visible: vis,
                     frozen: frozen,
                 };
+                if (columnMaxWidths[header]) {
+                    col.maxWidth = columnMaxWidths[header];
+                    col.tooltip = function(e, cell) {
+                        var val = String(cell.getValue() || "");
+                        return val.replace(/<br\s*\/?>/gi, "\n");
+                    };
+                }
+                if (scrollableColumns.has(header)) {
+                    col.formatter = scrollableFormatter;
+                }
+                return col;
             });
 
         table = new Tabulator("#tableSelectorDiv", {
+            nestedFieldSeparator: false,
             data: tableJson.rows.map(row => {
                 const obj = {};
                 tableJson.headers.forEach((header, i) => {
@@ -356,6 +376,7 @@
             }),
             columns: columnConfig,
             layout: "fitDataTable",
+            height: "100%",
             pagination: true,
             paginationSize: 25,
             paginationSizeSelector: [10, 25, 50, 100],
@@ -444,7 +465,7 @@
             // Check if sample has a variant at this position
             const samplePrefix = match[1];
             const gt = cell.getRow().getData()[samplePrefix + ":GT"];
-            if (!gt || gt === "0/0" || gt === "./." || gt === "0|0" || gt === ".|.") return;
+            if (isRefGenotype(gt)) return;
 
             // Build link to per-sample report
             e.stopPropagation(); // Prevent rowClick from firing
@@ -453,16 +474,7 @@
             // Strip patient prefix (e.g., "ALE_Exp1_A0-F0-I1-R1" → "A0-F0-I1-R1")
             const parts = samplePrefix.split("_");
             const sampleName = parts.length > 2 ? parts.slice(2).join("_") : parts[parts.length - 1];
-            window.open("samples/" + sampleName + "_report.html?locus=" + locus, "_blank");
-        });
-
-        // Row click → load IGV session
-        table.on("rowClick", function(e, row) {
-            const uniqueId = row.getData()["unique_id"];
-            const session = sessionDictionary[uniqueId];
-            if (session) {
-                igvBrowser.loadSession({ url: session });
-            }
+            window.open("samples/" + sampleName + "_hc_report.html?locus=" + locus, "_blank");
         });
     }
 
@@ -509,14 +521,14 @@
         "REF":                ["VCF", "Reference allele at this position"],
         "ALT":                ["VCF", "Alternate allele (after multi-allelic splitting)"],
         "ID":                 ["VCF", "Variant identifier (typically '.' for novel variants)"],
-        "VCF_FILTER":         ["VCF", "Soft-filter status from GATK VariantFiltration (PASS = high confidence; other values indicate which quality filter was triggered)"],
+        "VCF_FILTER":         ["VCF", "Soft-filter status from GATK VariantFiltration, evaluated at the <strong>cohort level</strong> (INFO fields aggregated across all samples in the joint call). PASS = passed all cohort-wide quality thresholds (QD, MQ, FS, SOR). A PASS here does <em>not</em> guarantee high quality in every individual sample — click through to per-sample reports to check sample-specific scores (GQ, DP, VAF)."],
         "ORIG_ALT":           ["VCF", "Original ALT allele(s) before bcftools norm -m- splitting (shows the multi-allelic representation)"],
         // VCF INFO / quality
-        "AC":                 ["Quality", "Allele count — number of ALT alleles across all samples"],
-        "AF":                 ["Quality", "Allele frequency — fraction of ALT alleles across all samples in the cohort"],
-        "DP":                 ["Quality", "Total read depth at this position (summed across all samples)"],
-        "QD":                 ["Quality", "Quality by Depth — QUAL score normalized by unfiltered depth; low QD (<2) flags low-confidence calls"],
-        "MQ":                 ["Quality", "Root mean square mapping quality of reads at this site; low MQ (<40) indicates ambiguous alignments"],
+        "AC":                 ["Quality (cohort)", "Allele count — number of ALT alleles across all samples in the joint call"],
+        "AF":                 ["Quality (cohort)", "Allele frequency — fraction of ALT alleles across all samples in the joint call. For per-sample frequency, click through to individual sample reports and check the VAF column."],
+        "DP":                 ["Quality (cohort)", "Total read depth at this position summed across <strong>all samples</strong> in the joint call (INFO/DP). Check per-sample reports for individual sample depth (FORMAT/DP)."],
+        "QD":                 ["Quality (cohort)", "Quality by Depth — QUAL score normalized by cohort-wide unfiltered depth; low QD (&lt;2) flags low-confidence calls"],
+        "MQ":                 ["Quality (cohort)", "Root mean square mapping quality computed across all samples in the joint call; low MQ (&lt;40) indicates ambiguous alignments"],
         // SnpEff annotation
         "GENE":               ["SnpEff", "Gene symbol affected by this variant"],
         "GENE_ID":            ["SnpEff", "Systematic gene identifier (e.g., SGD ID for yeast)"],
@@ -595,43 +607,6 @@
     document.getElementById("legendOverlay").addEventListener("click", function(e) {
         if (e.target === this) this.classList.remove("open");
     });
-
-    // --- Resizable split panes ---
-    function initResizeHandle() {
-        const handle = document.getElementById("resizeHandle");
-        const tablePanel = document.getElementById("tablePanel");
-        const igvPanel = document.getElementById("igvPanel");
-        const content = document.getElementById("content");
-        let startY, startTableH, startIgvH;
-
-        handle.addEventListener("mousedown", function(e) {
-            e.preventDefault();
-            startY = e.clientY;
-            startTableH = tablePanel.offsetHeight;
-            startIgvH = igvPanel.offsetHeight;
-            document.addEventListener("mousemove", onDrag);
-            document.addEventListener("mouseup", onRelease);
-            document.body.style.cursor = "row-resize";
-            document.body.style.userSelect = "none";
-        });
-
-        function onDrag(e) {
-            const dy = e.clientY - startY;
-            const newTableH = Math.max(150, startTableH + dy);
-            const newIgvH = Math.max(150, startIgvH - dy);
-            tablePanel.style.flex = "none";
-            igvPanel.style.flex = "none";
-            tablePanel.style.height = newTableH + "px";
-            igvPanel.style.height = newIgvH + "px";
-        }
-
-        function onRelease() {
-            document.removeEventListener("mousemove", onDrag);
-            document.removeEventListener("mouseup", onRelease);
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-        }
-    }
 
 </script>
 </body>

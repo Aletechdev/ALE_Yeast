@@ -286,14 +286,25 @@ def load_cn_chr(path: Path) -> dict | None:
     out = []
     for r in rows:
         entry = {"chromosome": r["chromosome"], "length": int(r.get("length", 0))}
+        # Skip rows where all sample values are empty (e.g. Mito)
+        has_data = False
         for s in samples:
-            cn_raw = r.get(f"{s}_diploid_cn", "2")
-            entry[f"{s}_log2"] = round(float(r.get(f"{s}_log2", 0)), 4)
+            cn_raw = r.get(f"{s}_diploid_cn", "")
+            log2_raw = r.get(f"{s}_log2", "")
+            if log2_raw:
+                has_data = True
+                entry[f"{s}_log2"] = round(float(log2_raw), 4)
+            else:
+                entry[f"{s}_log2"] = None
+            abs_cn = r.get(f"{s}_absolute_cn", "")
+            entry[f"{s}_absolute_cn"] = round(float(abs_cn), 2) if abs_cn else None
             entry[f"{s}_note"] = "*" if cn_raw.endswith("*") else ""
+        if not has_data:
+            continue
         out.append(entry)
     change_count = sum(
         1 for r in out
-        if any(_has_cn_change(r.get(f"{s}_log2", 0)) for s in samples)
+        if any(_has_cn_change(r.get(f"{s}_log2", 0) or 0) for s in samples)
     )
     return {"rows": out, "samples": samples, "row_count": len(out),
             "change_count": change_count}
@@ -312,14 +323,18 @@ def load_cn_regions(path: Path) -> dict | None:
     for r in rows:
         start = int(r.get("start", 0))
         end = int(r.get("end", 0))
+        chr_len = r.get("chr_length")
         entry = {
             "chromosome": r["chromosome"],
             "start": start,
             "end": end,
+            "chr_length": int(chr_len) if chr_len else None,
             "span_kb": round((end - start) / 1000, 1),
         }
         for s in samples:
             entry[f"{s}_log2"] = round(float(r.get(f"{s}_log2", 0)), 4)
+            abs_cn = r.get(f"{s}_absolute_cn") or r.get(f"{s}_cn")
+            entry[f"{s}_absolute_cn"] = round(float(abs_cn), 2) if abs_cn else None
         out.append(entry)
     change_count = sum(
         1 for r in out
@@ -394,6 +409,32 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
     if sv_all:
         summary["sv_all_count"] = sv_all["row_count"]
 
+    # Check for downloadable SV files (CSV + VCF)
+    sv_downloads = {}
+    for key, csv_name, vcf_name in [
+        ("pass", "sv_cohort_matrix_union_pass.csv", "sv_cohort_merged_union_pass.vcf.gz"),
+        ("all", "sv_cohort_matrix_union.csv", "sv_cohort_merged_union.vcf.gz"),
+    ]:
+        csv_path = data_dir / csv_name
+        vcf_path = data_dir / vcf_name
+        if csv_path.exists():
+            sv_downloads[f"{key}_csv"] = f"data/{csv_name}"
+        if vcf_path.exists():
+            sv_downloads[f"{key}_vcf"] = f"data/{vcf_name}"
+
+    # Check for downloadable CN files (CSV)
+    cn_downloads = {}
+    for key, csv_name in [
+        ("regions_stringent", "cn_cohort_collapsed_stringent.csv"),
+        ("regions_sensitive", "cn_cohort_collapsed_sensitive.csv"),
+        ("chr_stringent", "cn_chr_summary_stringent.csv"),
+        ("chr_sensitive", "cn_chr_summary_sensitive.csv"),
+        ("matrix", "cn_cohort_matrix.csv"),
+    ]:
+        csv_path = data_dir / csv_name
+        if csv_path.exists():
+            cn_downloads[key] = f"data/{csv_name}"
+
     return {
         "cn_chr_sens": cn_chr_sens,
         "cn_chr_str": cn_chr_str,
@@ -401,6 +442,8 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
         "cn_reg_str": cn_reg_str,
         "sv_pass": sv_pass,
         "sv_all": sv_all,
+        "sv_downloads": sv_downloads,
+        "cn_downloads": cn_downloads,
         "cnv_sv_summary": summary,
     }
 
@@ -417,11 +460,10 @@ def discover_igv_reports(sample_reports_dir: Path | None) -> dict[str, dict[str,
     if sample_reports_dir is None or not sample_reports_dir.is_dir():
         return {}
     links: dict[str, dict[str, str]] = {}
-    caller_suffixes = ["cnvkit", "manta", "tiddit"]
+    caller_suffixes = ["hc", "cnvkit", "manta", "tiddit"]
     for f in sorted(sample_reports_dir.glob("*_report.html")):
         name = f.stem.replace("_report", "")
         rel = f"samples/{f.name}"
-        # Check if name ends with a caller suffix
         matched = False
         for caller in caller_suffixes:
             if name.endswith(f"_{caller}"):
@@ -431,7 +473,7 @@ def discover_igv_reports(sample_reports_dir: Path | None) -> dict[str, dict[str,
                 matched = True
                 break
         if not matched:
-            # Default HC report: {sample}_report.html
+            # Fallback for legacy reports without caller suffix
             links.setdefault(name, {})
             links[name]["hc"] = rel
     return links
@@ -511,6 +553,7 @@ def build_context(
             "igv_link": igv_links.get(sample, {}).get("hc"),
             "cnvkit_igv_link": igv_links.get(sample, {}).get("cnvkit"),
             "manta_igv_link": igv_links.get(sample, {}).get("manta"),
+            "tiddit_igv_link": igv_links.get(sample, {}).get("tiddit"),
         }
         summary_data.append(entry)
 
@@ -543,7 +586,7 @@ def build_context(
         cnv_sv = load_cnv_sv_data(cnv_sv_data_dir)
 
     return {
-        "title": "ALE Multi-Caller Variant Dashboard",
+        "title": "ALE Multi-Caller Mutation Dashboard",
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "n_samples": len(samples),
         "callers": callers,
@@ -560,6 +603,8 @@ def build_context(
         "cn_reg_str": cnv_sv.get("cn_reg_str"),
         "sv_pass": cnv_sv.get("sv_pass"),
         "sv_all": cnv_sv.get("sv_all"),
+        "sv_downloads": cnv_sv.get("sv_downloads", {}),
+        "cn_downloads": cnv_sv.get("cn_downloads", {}),
         "cnv_sv_summary": cnv_sv.get("cnv_sv_summary", {}),
         "show_sensitive": show_sensitive,
     }

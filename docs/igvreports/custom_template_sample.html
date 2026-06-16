@@ -2,7 +2,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ALE Variant Inspector</title>
+    <title>ALE Mutation Inspector</title>
 
     <!-- Tabulator -->
     <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
@@ -104,6 +104,8 @@
         #legendModal td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
         #legendModal td:first-child { font-weight: 600; white-space: nowrap; min-width: 140px; }
         #legendModal .legend-group { color: #555; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 8px 4px; }
+        /* Info note */
+        #infoNote { display: none; font-size: 0.8em; color: #555; background: #f6f8fa; border-bottom: 1px solid #d0d7de; padding: 4px 12px; }
         /* Column chooser */
         #columnChooserWrap { position: relative; }
         #toggleColumns { padding: 4px 10px; color: white; background: #2e7d32; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
@@ -157,6 +159,7 @@
             overflow: auto;
         }
 
+
         /* Override Tabulator's pagination to be sticky at bottom */
         .tabulator .tabulator-footer {
             position: sticky;
@@ -195,7 +198,7 @@
 <div id="app">
     <!-- Toolbar -->
     <div id="toolbar">
-        <h1>ALE Variant Inspector</h1>
+        <h1>ALE Mutation Inspector</h1>
         <button id="clearFilters">Clear Filters</button>
         <button id="exportFilters">Export Filters</button>
         <button id="importFilters">Import Filters</button>
@@ -208,6 +211,8 @@
         <button id="showLegend">Legend</button>
         <input type="file" id="filterFileInput" accept=".json" style="display:none">
     </div>
+    <div id="infoNote">Note: This table shows more rows than the downloadable VCF because multi-allelic sites are split into separate rows for display (<code>bcftools norm -m-</code>).</div>
+    <div id="svNote" style="display:none;padding:8px 16px;background:#fff3cd;border:1px solid #ffc107;margin:4px 12px;font-size:13px;border-radius:4px;">&#9888; <strong>SV/CNV table-only view</strong> &mdash; The IGV alignment view is not included for structural variant and copy number reports because igv-reports embeds a fixed reference window that is too small for multi-kilobase events. To visually inspect interesting SVs, download the VCF and CRAM files and open them in <a href="https://igv.org/doc/desktop/" target="_blank" rel="noopener">IGV desktop</a>, which supports full-genome navigation and dynamic data loading.</div>
 
     <!-- Legend modal -->
     <div id="legendOverlay">
@@ -250,6 +255,15 @@
 
     let igvBrowser;
     let table;
+
+    if (reportType === "haplotypecaller") {
+        document.getElementById("infoNote").style.display = "block";
+    }
+    if (reportType === "sv_cnv") {
+        document.getElementById("svNote").style.display = "block";
+        document.getElementById("igvPanel").style.display = "none";
+        document.getElementById("resizeHandle").style.display = "none";
+    }
 
     document.addEventListener("DOMContentLoaded", function () {
         initIGV();
@@ -308,13 +322,36 @@
     // Columns hidden by default (HaplotypeCaller reports only; SV/CNV reports show all columns)
     const isHC = reportType === "haplotypecaller";
     const hiddenByDefault = isHC ? new Set(["ID", "TRANSCRIPT", "GENE_ID", "AC", "AF", "DP", "QD", "MQ"]) : new Set();
-    const hiddenSuffixes = isHC ? [":GT"] : [];
+    const hiddenSuffixes = [];
     function isHiddenByDefault(header) {
         if (hiddenByDefault.has(header)) return true;
         return hiddenSuffixes.some(s => header.endsWith(s));
     }
 
     const frozenCount = 4; // freeze first N visible columns (CHROM, POSITION, REF, ALT)
+
+    // Max-width constraints for columns that can contain long values
+    const columnMaxWidths = {
+        "CHROM": 120,
+        "POSITION": 100,
+        "REF": 150,
+        "ALT": 150,
+        "GENE": 200,
+        "EFFECTS": 200,
+        "IMPACT": 150,
+        "TRANSCRIPT": 200,
+        "GENE_ID": 200,
+        "PROTEIN ALTERATION": 200,
+        "DNA ALTERATION": 200,
+    };
+
+    // Columns with <br>-separated lists (SV/CNV annotations) — scrollable cell
+    const scrollableColumns = new Set(["GENE", "EFFECTS", "IMPACT", "TRANSCRIPT", "GENE_ID", "PROTEIN ALTERATION", "DNA ALTERATION"]);
+    function scrollableFormatter(cell) {
+        var val = cell.getValue();
+        if (val == null || val === "") return "";
+        return '<div style="max-height:100px;overflow-y:auto;line-height:1.3">' + val + '</div>';
+    }
 
     function initTable() {
         let visibleIdx = 0;
@@ -326,7 +363,7 @@
                 const vis = !isHiddenByDefault(header);
                 const frozen = vis && visibleIdx < frozenCount;
                 if (vis) visibleIdx++;
-                return {
+                const col = {
                     title: header,
                     field: header,
                     sorter: isNumber ? "number" : "string",
@@ -336,9 +373,21 @@
                     visible: vis,
                     frozen: frozen,
                 };
+                if (columnMaxWidths[header]) {
+                    col.maxWidth = columnMaxWidths[header];
+                    col.tooltip = function(e, cell) {
+                        var val = String(cell.getValue() || "");
+                        return val.replace(/<br\s*\/?>/gi, "\n");
+                    };
+                }
+                if (scrollableColumns.has(header)) {
+                    col.formatter = scrollableFormatter;
+                }
+                return col;
             });
 
         table = new Tabulator("#tableSelectorDiv", {
+            nestedFieldSeparator: false,
             data: tableJson.rows.map(row => {
                 const obj = {};
                 tableJson.headers.forEach((header, i) => {
@@ -527,14 +576,14 @@
         "REF":                ["VCF", "Reference allele at this position"],
         "ALT":                ["VCF", "Alternate allele (after multi-allelic splitting)"],
         "ID":                 ["VCF", "Variant identifier (typically '.' for novel variants)"],
-        "VCF_FILTER":         ["VCF", "Soft-filter status from GATK VariantFiltration (PASS = high confidence; other values indicate which quality filter was triggered)"],
+        "VCF_FILTER":         ["VCF", "Soft-filter status from GATK VariantFiltration, evaluated at the <strong>cohort level</strong> (INFO fields aggregated across all samples in the joint call). PASS = passed all cohort-wide quality thresholds (QD, MQ, FS, SOR). A PASS here does <em>not</em> guarantee high quality in this specific sample — always check per-sample columns (GQ, DP, VAF) to assess sample-level confidence."],
         "ORIG_ALT":           ["VCF", "Original ALT allele(s) before bcftools norm -m- splitting (shows the multi-allelic representation)"],
         // VCF INFO / quality
-        "AC":                 ["Quality", "Allele count — number of ALT alleles across all samples"],
-        "AF":                 ["Quality", "Allele frequency — fraction of ALT alleles across all samples in the cohort"],
-        "DP":                 ["Quality", "Total read depth at this position"],
-        "QD":                 ["Quality", "Quality by Depth — QUAL score normalized by unfiltered depth; low QD (<2) flags low-confidence calls"],
-        "MQ":                 ["Quality", "Root mean square mapping quality of reads at this site; low MQ (<40) indicates ambiguous alignments"],
+        "AC":                 ["Quality (cohort)", "Allele count — recalculated by bcftools for this single sample after splitting from the joint VCF (0 = ref-only, 1 = carries ALT allele). For genotype details, check the GT column."],
+        "AF":                 ["Quality (cohort)", "Allele frequency across all samples in the <strong>joint call</strong> (not recalculated after splitting). This is the cohort-wide frequency, <em>not</em> this sample's VAF. Use the <strong>VAF</strong> column for the sample-specific allele frequency."],
+        "DP":                 ["Quality (cohort)", "Total read depth summed across <strong>all samples</strong> in the joint call (INFO/DP). For this sample's depth, use the <strong>" + document.title.split(" - ")[0] + ":DP</strong> column (FORMAT/DP)."],
+        "QD":                 ["Quality (cohort)", "Quality by Depth — QUAL score normalized by <strong>cohort-wide</strong> unfiltered depth from joint calling. Low QD (&lt;2) flags low-confidence calls across the cohort."],
+        "MQ":                 ["Quality (cohort)", "Root mean square mapping quality computed across <strong>all samples</strong> in the joint call. Low MQ (&lt;40) indicates ambiguous alignments at the cohort level."],
         // SnpEff annotation
         "GENE":               ["SnpEff", "Gene symbol affected by this variant"],
         "GENE_ID":            ["SnpEff", "Systematic gene identifier (e.g., SGD ID for yeast)"],
@@ -560,6 +609,16 @@
         "VAF":                ["Sample", "Variant allele frequency — fraction of reads supporting the alt allele (computed by bcftools +fill-tags)"],
     };
 
+    // Sample-level FORMAT field descriptions (used when columns have sample prefix like "Sample_Name:DP")
+    // Separate from columnDescriptions to avoid confusion with INFO-level fields of the same name
+    const sampleFormatDescriptions = {
+        "GT":  ["Sample", "Genotype for this sample (0/0 = ref, 0/1 = het, 1/1 = alt hom)"],
+        "AD":  ["Sample", "Allelic depths for this sample — read counts for ref and alt alleles (e.g., 45,23)"],
+        "DP":  ["Sample", "Read depth for this sample at this position (FORMAT/DP — distinct from INFO/DP which is cohort-wide)"],
+        "GQ":  ["Sample", "Genotype quality for this sample — Phred-scaled confidence that the genotype is correct"],
+        "VAF": ["Sample", "Variant allele frequency for this sample — fraction of reads supporting the alt allele"],
+    };
+
     function buildLegendContent() {
         const body = document.getElementById("legendBody");
         if (!table) { body.innerHTML = "<p>Table not loaded yet.</p>"; return; }
@@ -573,7 +632,7 @@
             let desc = columnDescriptions[h];
             if (!desc) {
                 const match = h.match(/^(.+):(GT|AD|DP|GQ|VAF)$/);
-                if (match) desc = columnDescriptions[match[2]];
+                if (match) desc = sampleFormatDescriptions[match[2]];
             }
             if (desc) {
                 const [group, text] = desc;
@@ -588,6 +647,20 @@
                 html += `<tr><td>${col}</td><td>${desc}</td></tr>`;
             }
         }
+
+        // IGV Alignment Color Guide
+        html += '<tr><td colspan="2" class="legend-group">IGV Alignment Colors</td></tr>';
+        html += '<tr><td style="color:#888">Gray reads</td><td>Normal read pairs — expected insert size and correct orientation</td></tr>';
+        html += '<tr><td style="color:#cc4444">Red reads</td><td>Insert size <strong>larger</strong> than expected (same chromosome) — may indicate a deletion</td></tr>';
+        html += '<tr><td style="color:#4444cc">Blue reads</td><td>Insert size <strong>smaller</strong> than expected (same chromosome) — may indicate an insertion</td></tr>';
+        html += '<tr><td style="color:#44aa44">Teal/green reads</td><td>Aberrant pair orientation (same chromosome) — may indicate inversion or tandem duplication</td></tr>';
+        html += '<tr><td style="color:#cc8800">Other colored reads</td><td>Mate mapped to a <strong>different chromosome</strong> — each chromosome is assigned a unique color. Isolated occurrences are typically mismapping noise; clusters pointing to the same mate chromosome suggest a translocation</td></tr>';
+        html += '<tr><td style="color:#aaa">Lighter shades</td><td>Lower <strong>mapping quality (MQ)</strong> — the aligner found multiple possible locations for this read. Faded/transparent reads (MQ=0) are ambiguously mapped</td></tr>';
+        html += '<tr><td style="color:#8a5ea1">&block; Purple ticks</td><td>Insertions — bases present in the read but absent from the reference</td></tr>';
+        html += '<tr><td>A <span style="color:green">C</span> <span style="color:blue">G</span> <span style="color:#cc9900">T</span> <span style="color:red"></span></td><td>Base mismatches vs reference: <span style="color:green">A=green</span>, <span style="color:blue">C=blue</span>, <span style="color:#cc9900">G=yellow</span>, <span style="color:red">T=red</span></td></tr>';
+        html += '<tr><td colspan="2" class="legend-group" style="color:#c44;font-size:12px">&#9888; Edge Artifact</td></tr>';
+        html += '<tr><td colspan="2" style="font-size:12px">Colorful stripes of base mismatches at the <strong>left and right edges</strong> of the IGV view are a <strong>display artifact</strong>, not real mutations. igv-reports embeds a fixed window of reference sequence around each variant. Reads extending beyond this window have no reference to align against, so every base is shown as a colored "mismatch". Zoom in toward the center (the variant of interest) to see genuine alignments.</td></tr>';
+        html += `<tr><td colspan="2" style="font-size:11px;color:#666;padding-top:8px">Click any read to view its details (mate chromosome, insert size, mapping quality). <a href="https://igv.org/doc/desktop/UserGuide/tracks/alignments/viewing_alignments_basics/" target="_blank" rel="noopener">IGV alignment docs &rarr;</a></td></tr>`;
 
         html += '</table>';
         body.innerHTML = html;
