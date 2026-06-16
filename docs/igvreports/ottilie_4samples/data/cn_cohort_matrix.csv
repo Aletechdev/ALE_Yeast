@@ -1,4 +1,4 @@
-chromosome,start,end,CBR110-15-R3a_log2,CBR110-15-R3a_cn,Carmaphycin-R9-2_log2,Carmaphycin-R9-2_cn,Doxorubicin16-R2b_log2,Doxorubicin16-R2b_cn,NODRUG-GM2_log2,NODRUG-GM2_cn,CBR110-15-R3a_diploid_cn,Carmaphycin-R9-2_diploid_cn,Doxorubicin16-R2b_diploid_cn,NODRUG-GM2_diploid_cn
+chromosome,start,end,CBR110-15-R3a_log2,CBR110-15-R3a_absolute_cn,Carmaphycin-R9-2_log2,Carmaphycin-R9-2_absolute_cn,Doxorubicin16-R2b_log2,Doxorubicin16-R2b_absolute_cn,NODRUG-GM2_log2,NODRUG-GM2_absolute_cn,CBR110-15-R3a_diploid_cn,Carmaphycin-R9-2_diploid_cn,Doxorubicin16-R2b_diploid_cn,NODRUG-GM2_diploid_cn
 X,0,5005,0.2755,1.210,0.3561,1.280,0.1531,1.112,0.1158,1.084,2,2,2,2
 X,5005,10010,0.3917,1.312,0.2078,1.155,0.0870,1.062,0.0188,1.013,2,2,2,2
 X,10010,15015,0.2858,1.219,0.0785,1.056,0.0238,1.017,0.0097,1.007,2,2,2,2
