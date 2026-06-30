@@ -11,7 +11,6 @@ Also produces a comparison report showing where sensitive and stringent disagree
 
 Usage:
     python bin/build_cn_matrix.py --output-dir output_ottilie --fai data/ottilie/S288C_reference/S288C_R64.fa.fai
-    python bin/build_cn_matrix.py --output-dir output_ottilie --fai ref.fa.fai --ploidy 1  # haploid samples
 
 See docs/variant-calling/cnvkit/cnvkit_cn_calculation.md for formula details.
 See docs/variant-calling/cnvkit/cnvkit_sarek_dual_call.md for .call.cns vs .germline.call.cns.
@@ -64,7 +63,6 @@ def load_cns(cns_path):
                 "start": int(d["start"]),
                 "end": int(d["end"]),
                 "log2": float(d["log2"]),
-                "diploid_cn": int(d["cn"]),
                 "depth": float(d["depth"]),
                 "probes": int(d["probes"]),
             }
@@ -92,15 +90,14 @@ def load_cnr(cnr_path):
     return bins
 
 
-def build_segment_matrix(output_dir, samples, cns_suffix, ploidy):
+def build_segment_matrix(output_dir, samples, cns_suffix):
     """Build a segment-level CN matrix.
 
     Since segment boundaries differ per sample, the matrix is organized as
     one row per (sample, segment) with a chr-level summary appended.
 
     Returns:
-        segments_by_sample: dict of sample -> list of segment dicts (with absolute_cn added)
-        chr_summary: list of dicts with per-chromosome CN per sample
+        segments_by_sample: dict of sample -> list of segment dicts (with fold_change added)
     """
     segments_by_sample = {}
     for sample in samples:
@@ -110,7 +107,7 @@ def build_segment_matrix(output_dir, samples, cns_suffix, ploidy):
             continue
         segs = load_cns(cns_path)
         for seg in segs:
-            seg["absolute_cn"] = ploidy * 2 ** seg["log2"]
+            seg["fold_change"] = 2 ** seg["log2"]
         segments_by_sample[sample] = segs
     return segments_by_sample
 
@@ -129,24 +126,18 @@ def build_chr_summary(segments_by_sample, samples, chr_lengths, chr_order):
             segs = segments_by_sample.get(sample, [])
             chr_segs = [s for s in segs if s["chrom"] == chrom]
             if not chr_segs:
-                row[f"{sample}_diploid_cn"] = ""
                 row[f"{sample}_log2"] = ""
-                row[f"{sample}_absolute_cn"] = ""
+                row[f"{sample}_fold_change"] = ""
                 continue
             # Pick the dominant segment (largest span)
             dominant = max(chr_segs, key=lambda s: s["end"] - s["start"])
-            row[f"{sample}_diploid_cn"] = dominant["diploid_cn"]
             row[f"{sample}_log2"] = f"{dominant['log2']:.4f}"
-            row[f"{sample}_absolute_cn"] = f"{dominant['absolute_cn']:.3f}"
-            # Flag if chromosome has multiple segments with different CN
-            cn_values = set(s["diploid_cn"] for s in chr_segs)
-            if len(cn_values) > 1:
-                row[f"{sample}_diploid_cn"] = f"{dominant['diploid_cn']}*"  # * = mixed
+            row[f"{sample}_fold_change"] = f"{dominant['fold_change']:.3f}"
         rows.append(row)
     return rows
 
 
-def build_cnr_matrix(output_dir, samples, ploidy):
+def build_cnr_matrix(output_dir, samples):
     """Build bin-level continuous CN matrix from .cnr files.
 
     All samples share identical bin coordinates, so rows align directly.
@@ -158,7 +149,7 @@ def build_cnr_matrix(output_dir, samples, ploidy):
         return None
     ref_bins = load_cnr(cnr_path)
 
-    # Build matrix: bin coords + per-sample log2 + absolute_cn
+    # Build matrix: bin coords + per-sample log2 + fold_change
     matrix = []
     sample_data = {}
     for sample in samples:
@@ -177,16 +168,16 @@ def build_cnr_matrix(output_dir, samples, ploidy):
         for sample in samples:
             if sample not in sample_data:
                 row[f"{sample}_log2"] = ""
-                row[f"{sample}_absolute_cn"] = ""
+                row[f"{sample}_fold_change"] = ""
                 continue
             bins = sample_data[sample]
             if i < len(bins):
                 b = bins[i]
                 row[f"{sample}_log2"] = f"{b['log2']:.4f}"
-                row[f"{sample}_absolute_cn"] = f"{ploidy * 2 ** b['log2']:.3f}"
+                row[f"{sample}_fold_change"] = f"{2 ** b['log2']:.3f}"
             else:
                 row[f"{sample}_log2"] = ""
-                row[f"{sample}_absolute_cn"] = ""
+                row[f"{sample}_fold_change"] = ""
         matrix.append(row)
     return matrix
 
@@ -212,7 +203,7 @@ def compare_matrices(sensitive, stringent, samples):
         # Compare matching segments (same boundaries)
         for key, sens_seg in sens_map.items():
             stri_seg = stri_map.get(key)
-            if stri_seg and sens_seg["diploid_cn"] != stri_seg["diploid_cn"]:
+            if stri_seg and abs(sens_seg["fold_change"] - stri_seg["fold_change"]) > 0.1:
                 span_kb = (sens_seg["end"] - sens_seg["start"]) / 1000
                 disagreements.append({
                     "sample": sample,
@@ -220,9 +211,9 @@ def compare_matrices(sensitive, stringent, samples):
                     "start": sens_seg["start"],
                     "end": sens_seg["end"],
                     "span_kb": f"{span_kb:.0f}",
-                    "sensitive_cn": sens_seg["diploid_cn"],
+                    "sensitive_fc": f"{sens_seg['fold_change']:.3f}",
                     "sensitive_log2": f"{sens_seg['log2']:.4f}",
-                    "stringent_cn": stri_seg["diploid_cn"],
+                    "stringent_fc": f"{stri_seg['fold_change']:.3f}",
                     "stringent_log2": f"{stri_seg['log2']:.4f}",
                     "p_ttest": f"{sens_seg.get('p_ttest', float('nan')):.2e}",
                     "probes": sens_seg["probes"],
@@ -237,9 +228,9 @@ def compare_matrices(sensitive, stringent, samples):
                 "start": 0,
                 "end": 0,
                 "span_kb": "0",
-                "sensitive_cn": f"{len(sens_segs)} segs",
+                "sensitive_fc": f"{len(sens_segs)} segs",
                 "sensitive_log2": "-",
-                "stringent_cn": f"{len(stri_segs)} segs",
+                "stringent_fc": f"{len(stri_segs)} segs",
                 "stringent_log2": "-",
                 "p_ttest": "-",
                 "probes": "-",
@@ -250,8 +241,8 @@ def compare_matrices(sensitive, stringent, samples):
 
 def write_segment_csv(segments_by_sample, samples, output_path, has_ptest):
     """Write per-segment detail CSV."""
-    fieldnames = ["sample", "chromosome", "start", "end", "log2", "diploid_cn",
-                  "absolute_cn", "depth", "probes"]
+    fieldnames = ["sample", "chromosome", "start", "end", "log2",
+                  "fold_change", "depth", "probes"]
     if has_ptest:
         fieldnames.append("p_ttest")
 
@@ -266,8 +257,7 @@ def write_segment_csv(segments_by_sample, samples, output_path, has_ptest):
                     "start": seg["start"],
                     "end": seg["end"],
                     "log2": f"{seg['log2']:.4f}",
-                    "diploid_cn": seg["diploid_cn"],
-                    "absolute_cn": f"{seg['absolute_cn']:.3f}",
+                    "fold_change": f"{seg['fold_change']:.3f}",
                     "depth": f"{seg['depth']:.1f}",
                     "probes": seg["probes"],
                 }
@@ -280,7 +270,7 @@ def write_chr_summary_csv(chr_summary, samples, output_path):
     """Write chromosome-level summary CSV."""
     fieldnames = ["chromosome", "length"]
     for sample in samples:
-        fieldnames.extend([f"{sample}_diploid_cn", f"{sample}_log2", f"{sample}_absolute_cn"])
+        fieldnames.extend([f"{sample}_log2", f"{sample}_fold_change"])
 
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -293,7 +283,7 @@ def write_cnr_matrix_csv(matrix, samples, output_path):
     """Write bin-level continuous CN matrix CSV."""
     fieldnames = ["chromosome", "start", "end"]
     for sample in samples:
-        fieldnames.extend([f"{sample}_log2", f"{sample}_absolute_cn"])
+        fieldnames.extend([f"{sample}_log2", f"{sample}_fold_change"])
 
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -307,7 +297,7 @@ def write_comparison_csv(disagreements, output_path):
     if not disagreements:
         return
     fieldnames = ["sample", "chromosome", "start", "end", "span_kb",
-                  "sensitive_cn", "sensitive_log2", "stringent_cn",
+                  "sensitive_fc", "sensitive_log2", "stringent_fc",
                   "stringent_log2", "p_ttest", "probes"]
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -325,8 +315,6 @@ def main():
                         help="Pipeline output directory (e.g., output_ottilie)")
     parser.add_argument("--results-dir", default=None,
                         help="Directory for output CSVs (default: <output-dir>/cn_matrices)")
-    parser.add_argument("--ploidy", type=int, default=1,
-                        help="Biological ploidy for absolute CN calculation (default: 1)")
     parser.add_argument("--samples", nargs="+", default=None,
                         help="Specific samples to include (default: all)")
     parser.add_argument("--skip-cnr", action="store_true",
@@ -349,12 +337,11 @@ def main():
     samples = [s for s in samples if s in all_samples]
 
     print(f"Samples: {', '.join(samples)}")
-    print(f"Ploidy: {args.ploidy}")
     print(f"Output: {results_dir}")
 
     # 1. Sensitive matrix (.md.call.cns)
     print("\n1. Building sensitive segment matrix (.md.call.cns)...")
-    sensitive = build_segment_matrix(output_dir, samples, "md.call.cns", args.ploidy)
+    sensitive = build_segment_matrix(output_dir, samples, "md.call.cns")
     write_segment_csv(sensitive, samples,
                       results_dir / "cn_segments_sensitive.csv", has_ptest=True)
     sens_chr = build_chr_summary(sensitive, samples, chr_lengths, chr_order)
@@ -364,7 +351,7 @@ def main():
 
     # 2. Stringent matrix (.md.germline.call.cns)
     print("2. Building stringent segment matrix (.md.germline.call.cns)...")
-    stringent = build_segment_matrix(output_dir, samples, "md.germline.call.cns", args.ploidy)
+    stringent = build_segment_matrix(output_dir, samples, "md.germline.call.cns")
     write_segment_csv(stringent, samples,
                       results_dir / "cn_segments_stringent.csv", has_ptest=False)
     stri_chr = build_chr_summary(stringent, samples, chr_lengths, chr_order)
@@ -381,10 +368,10 @@ def main():
         for d in disagreements:
             if d["chromosome"] == "-":
                 print(f"     {d['sample']}: segment count differs "
-                      f"({d['sensitive_cn']} vs {d['stringent_cn']})")
+                      f"({d['sensitive_fc']} vs {d['stringent_fc']})")
             else:
                 print(f"     {d['sample']} {d['chromosome']}:{d['start']}-{d['end']} "
-                      f"({d['span_kb']}kb): cn={d['sensitive_cn']} vs cn={d['stringent_cn']} "
+                      f"({d['span_kb']}kb): fc={d['sensitive_fc']} vs fc={d['stringent_fc']} "
                       f"(log2={d['sensitive_log2']} vs {d['stringent_log2']}, p={d['p_ttest']})")
     else:
         print("   No CN disagreements between sensitive and stringent matrices")
@@ -392,7 +379,7 @@ def main():
     # 4. Continuous bin matrix (.md.cnr)
     if not args.skip_cnr:
         print("4. Building continuous bin matrix (.md.cnr)...")
-        cnr_matrix = build_cnr_matrix(output_dir, samples, args.ploidy)
+        cnr_matrix = build_cnr_matrix(output_dir, samples)
         if cnr_matrix:
             write_cnr_matrix_csv(cnr_matrix, samples,
                                  results_dir / "cn_bins_continuous.csv")
@@ -408,9 +395,8 @@ def main():
     for f in sorted(results_dir.glob("*.csv")):
         size_kb = f.stat().st_size / 1024
         print(f"  {f.name} ({size_kb:.0f} KB)")
-    print(f"\nNote: diploid_cn uses CNVKit's diploid scale (diploid_cn=2 = baseline).")
-    print(f"  absolute_cn = {args.ploidy} * 2^log2 (continuous, preserves subclonal signal)")
-    print(f"  For integer calls: absolute_cn = diploid_cn - 2 + {args.ploidy}")
+    print(f"\nNote: fold_change = 2^log2 (ploidy-agnostic depth ratio).")
+    print(f"  fold_change=1.0 = same as reference, >1 = gain, <1 = loss")
 
 
 if __name__ == "__main__":

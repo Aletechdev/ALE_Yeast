@@ -1,17 +1,15 @@
 #!/usr/bin/env python
 """
-CN Cohort Matrix — enriches bin-level continuous CN matrix with integer
-diploid_cn from segment-level calls.
+CN Cohort Matrix — reads bin-level continuous CN matrix and optionally
+collapses by removing baseline bins and merging adjacent non-baseline bins.
 
 Reads:
-  - cn_bins_continuous.csv  (wide: chromosome,start,end,{sample}_log2,{sample}_absolute_cn)
-  - cn_segments_sensitive.csv (long: sample,chromosome,start,end,...,diploid_cn)
+  - cn_bins_continuous.csv  (wide: chromosome,start,end,{sample}_log2,{sample}_fold_change)
 
-Outputs a wide CSV with {sample}_diploid_cn columns added for each sample.
-
-With --collapse, adjacent bins on the same chromosome with identical diploid_cn
-across all samples are merged into single rows. Continuous columns (log2, cn)
-are averaged over the merged bins.
+With --collapse, bins where ALL samples are baseline (|log2| < 0.3) are removed,
+then adjacent non-baseline bins on the same chromosome are merged into single rows.
+log2 is averaged; fold_change is re-derived as 2^avg_log2 to avoid Jensen's
+inequality (mean(2^x) != 2^mean(x)).
 
 Usage:
     python cn_cohort_matrix.py \
@@ -29,8 +27,9 @@ Usage:
 import argparse
 import csv
 import sys
-from bisect import bisect_right
 from pathlib import Path
+
+BASELINE_THRESH = 0.3  # |log2| below this is considered baseline (fc 0.81–1.23)
 
 
 def load_chr_lengths(fai_path):
@@ -47,48 +46,36 @@ def load_chr_lengths(fai_path):
     return lengths
 
 
-def load_segments(segments_path):
-    """Load segments and build per-sample lookup: {(sample, chrom): [(start, end, diploid_cn), ...]}."""
-    lookup = {}
-    with open(segments_path) as f:
-        for row in csv.DictReader(f):
-            key = (row["sample"], row["chromosome"])
-            lookup.setdefault(key, []).append((
-                int(row["start"]),
-                int(row["end"]),
-                int(row["diploid_cn"]),
-            ))
-    # Sort each list by start position for bisect
-    for key in lookup:
-        lookup[key].sort()
-    return lookup
+def is_baseline(row, log2_cols):
+    """True if ALL samples have |log2| < threshold (boring bin)."""
+    for col in log2_cols:
+        val = row.get(col, "")
+        if val == "":
+            continue
+        if abs(float(val)) >= BASELINE_THRESH:
+            return False
+    return True
 
 
-def find_diploid_cn(segments, midpoint):
-    """Find the diploid_cn for a bin midpoint using bisect on segment starts."""
-    if not segments:
-        return None
-    starts = [s[0] for s in segments]
-    idx = bisect_right(starts, midpoint) - 1
-    if idx < 0:
-        return None
-    start, end, cn = segments[idx]
-    if start <= midpoint < end:
-        return cn
-    return None
+def merge_group(rows, log2_cols):
+    """Merge a group of adjacent bins into one row.
 
-
-def merge_group(rows, samples, continuous_cols, diploid_cn_cols):
-    """Merge a group of adjacent bins into one row, averaging continuous columns."""
+    log2 columns are averaged; fold_change is re-derived from averaged log2
+    to maintain consistency (fold_change = 2^log2 exactly).
+    """
     merged = dict(rows[0])
     merged["end"] = rows[-1]["end"]
-    n = len(rows)
-    for col in continuous_cols:
+    for col in log2_cols:
         vals = [float(r[col]) for r in rows if r[col] != ""]
-        merged[col] = f"{sum(vals) / len(vals):.4f}" if vals else ""
-    # diploid_cn is identical across group (that's why they were grouped)
-    for col in diploid_cn_cols:
-        merged[col] = rows[0][col]
+        if vals:
+            avg_log2 = sum(vals) / len(vals)
+            merged[col] = f"{avg_log2:.4f}"
+            fc_col = col.replace("_log2", "_fold_change")
+            merged[fc_col] = f"{2 ** avg_log2:.3f}"
+        else:
+            merged[col] = ""
+            fc_col = col.replace("_log2", "_fold_change")
+            merged[fc_col] = ""
     return merged
 
 
@@ -98,26 +85,21 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--cn-dir", required=True,
-                        help="Directory containing cn_bins_continuous.csv and cn_segments_sensitive.csv")
+                        help="Directory containing cn_bins_continuous.csv")
     parser.add_argument("--csv", required=True,
                         help="Output CSV path")
-    parser.add_argument("--segments", default="sensitive",
-                        choices=["sensitive", "stringent"],
-                        help="Which segment file to use for diploid_cn overlay (default: sensitive)")
     parser.add_argument("--collapse", action="store_true",
-                        help="Collapse adjacent bins with identical diploid_cn across all samples")
+                        help="Remove baseline bins (|log2|<0.3 in all samples) and merge adjacent non-baseline bins")
     parser.add_argument("--fai", default=None,
                         help="Reference .fai index file for chromosome lengths (adds chr_length column to collapsed output)")
     args = parser.parse_args()
 
     cn_dir = Path(args.cn_dir)
     bins_path = cn_dir / "cn_bins_continuous.csv"
-    segments_path = cn_dir / f"cn_segments_{args.segments}.csv"
 
-    for p in (bins_path, segments_path):
-        if not p.exists():
-            print(f"ERROR: {p} not found", file=sys.stderr)
-            sys.exit(1)
+    if not bins_path.exists():
+        print(f"ERROR: {bins_path} not found", file=sys.stderr)
+        sys.exit(1)
 
     # Discover sample names from bin header
     with open(bins_path) as f:
@@ -127,90 +109,64 @@ def main():
         if col.endswith("_log2"):
             samples.append(col[:-5])
 
-    print(f"Segments: {args.segments}")
     print(f"Samples: {', '.join(samples)}")
 
-    # Load segment lookup
-    seg_lookup = load_segments(segments_path)
-
-    # Read bins and enrich with diploid_cn
+    # Read all bins
     out_path = Path(args.csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Read and enrich all bins
-    enriched_rows = []
+    rows = []
     with open(bins_path) as fin:
         reader = csv.DictReader(fin)
         out_fields = list(reader.fieldnames)
-        for s in samples:
-            out_fields.append(f"{s}_diploid_cn")
-
-        mapped = 0
-        unmapped = 0
         for row in reader:
-            chrom = row["chromosome"]
-            start = int(row["start"])
-            end = int(row["end"])
-            midpoint = (start + end) // 2
+            rows.append(row)
 
-            for s in samples:
-                segs = seg_lookup.get((s, chrom), [])
-                cn = find_diploid_cn(segs, midpoint)
-                row[f"{s}_diploid_cn"] = cn if cn is not None else ""
-                if cn is not None:
-                    mapped += 1
-                else:
-                    unmapped += 1
+    print(f"Loaded {len(rows)} bins")
 
-            enriched_rows.append(row)
-
-    total = mapped + unmapped
-    print(f"Bins enriched: {mapped}/{total} ({mapped/total*100:.1f}%) mapped to segments")
-    if unmapped:
-        print(f"  {unmapped} bins had no matching segment (gaps between segments)")
-
-    # Collapse adjacent bins with identical diploid_cn across all samples
     if args.collapse:
-        diploid_cn_cols = [f"{s}_diploid_cn" for s in samples]
-        continuous_cols = []
-        for s in samples:
-            continuous_cols.extend([f"{s}_log2", f"{s}_absolute_cn"])
+        log2_cols = [f"{s}_log2" for s in samples]
 
-        collapsed = []
-        group = [enriched_rows[0]]
+        # Step 1: Remove baseline bins
+        non_baseline = [r for r in rows if not is_baseline(r, log2_cols)]
+        n_removed = len(rows) - len(non_baseline)
+        print(f"Baseline removed: {n_removed}/{len(rows)} bins "
+              f"(|log2|<{BASELINE_THRESH} in all samples)")
 
-        def cn_key(row):
-            return (row["chromosome"], tuple(row[c] for c in diploid_cn_cols))
+        # Step 2: Merge adjacent non-baseline bins on same chromosome
+        if non_baseline:
+            collapsed = []
+            group = [non_baseline[0]]
 
-        for row in enriched_rows[1:]:
-            prev = group[-1]
-            # Same chromosome, contiguous, same diploid_cn for all samples
-            if (row["chromosome"] == prev["chromosome"]
-                    and int(row["start"]) == int(prev["end"])
-                    and cn_key(row) == cn_key(prev)):
-                group.append(row)
-            else:
-                collapsed.append(merge_group(group, samples, continuous_cols, diploid_cn_cols))
-                group = [row]
-        collapsed.append(merge_group(group, samples, continuous_cols, diploid_cn_cols))
+            for row in non_baseline[1:]:
+                prev = group[-1]
+                if (row["chromosome"] == prev["chromosome"]
+                        and int(row["start"]) == int(prev["end"])):
+                    group.append(row)
+                else:
+                    collapsed.append(merge_group(group, log2_cols))
+                    group = [row]
+            collapsed.append(merge_group(group, log2_cols))
 
-        print(f"Collapsed: {len(enriched_rows)} bins → {len(collapsed)} regions")
-        enriched_rows = collapsed
+            print(f"Merged: {len(non_baseline)} bins -> {len(collapsed)} regions")
+            rows = collapsed
+        else:
+            rows = []
+            print("No non-baseline bins found")
 
         # Add chr_length column from .fai if provided
         if args.fai:
             chr_lengths = load_chr_lengths(args.fai)
-            # Insert chr_length after 'end'
             end_idx = out_fields.index("end") + 1
             out_fields.insert(end_idx, "chr_length")
-            for row in enriched_rows:
+            for row in rows:
                 row["chr_length"] = chr_lengths.get(row["chromosome"], "")
 
     # Write output
     with open(out_path, "w", newline="") as fout:
         writer = csv.DictWriter(fout, fieldnames=out_fields)
         writer.writeheader()
-        for row in enriched_rows:
+        for row in rows:
             writer.writerow(row)
 
     print(f"Output: {out_path}")
