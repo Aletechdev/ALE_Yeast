@@ -246,7 +246,9 @@ process IGVREPORTS_SV_CNV {
     def flanking = has_bedgraph ? 50000 : 500
     // For CNVKit: set maxlen large enough to show entire CNV in single window (default 10kb splits into two breakpoint views)
     def maxlen_arg = has_bedgraph ? "--maxlen 2000000" : ""
-    def tracks = has_bedgraph ? "${gff3_gz} ${depth_bg} ${log2_bg}" : "${gff3_gz}"
+    def strip_session = !has_bedgraph && meta.caller != 'manta' && meta.caller != 'tiddit'
+    def want_alignment = meta.caller in ['manta', 'tiddit']
+    def tracks = has_bedgraph ? "${gff3_gz} ${depth_bg} ${log2_bg}" : (want_alignment ? "${gff3_gz} ${cram}" : "${gff3_gz}")
     def info_cols = meta.caller == 'cnvkit'
         ? "ANN VCF_FILTER SVTYPE SVLEN FOLD_CHANGE FOLD_CHANGE_LOG PROBES"
         : "ANN VCF_FILTER SVTYPE SVLEN"
@@ -272,9 +274,9 @@ process IGVREPORTS_SV_CNV {
         python3 ${projectDir}/postprocess_cnvkit_report.py ${meta.id}_${meta.caller}_report.html
     fi
 
-    # Strip IGV session data for SV callers (alignment view not informative for large events)
-    # Keep session for CNVKit when coverage BedGraph is available
-    if [ "${has_bedgraph}" = "false" ]; then
+    # Strip IGV session data only for callers without alignment view support
+    # Keep session for: CNVKit (coverage tracks), Manta (all variants), TIDDIT (PASS-only)
+    if [ "${strip_session}" = "true" ]; then
         sed -i 's|const sessionDictionary = .*|const sessionDictionary = {};|' ${meta.id}_${meta.caller}_report.html
     fi
 
@@ -283,9 +285,30 @@ process IGVREPORTS_SV_CNV {
     sed -i 's|@VCF_FILENAME@|${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
     if [ "${has_bedgraph}" = "true" ]; then
         sed -i 's|@REPORT_TYPE@|cnvkit_coverage|g' ${meta.id}_${meta.caller}_report.html
+    elif [ "${want_alignment}" = "true" ]; then
+        sed -i 's|@REPORT_TYPE@|sv_alignment|g' ${meta.id}_${meta.caller}_report.html
     else
         sed -i 's|@REPORT_TYPE@|sv_cnv|g' ${meta.id}_${meta.caller}_report.html
     fi
+    """
+}
+
+process FILTER_PASS_VCF {
+    tag "${meta.id}_${meta.caller}"
+    label 'process_low'
+
+    container 'quay.io/biocontainers/bcftools:1.20--h8b25389_0'
+
+    input:
+    tuple val(meta), path(vcf), path(tbi)
+
+    output:
+    tuple val(meta), path("${meta.id}.${meta.caller}.pass.vcf.gz"), path("${meta.id}.${meta.caller}.pass.vcf.gz.tbi")
+
+    script:
+    """
+    bcftools view -f PASS ${vcf} -Oz -o ${meta.id}.${meta.caller}.pass.vcf.gz
+    bcftools index -t ${meta.id}.${meta.caller}.pass.vcf.gz
     """
 }
 
@@ -534,9 +557,12 @@ workflow {
         ch_tiddit_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect()
     )
 
+    // Filter TIDDIT to PASS-only (high call volume, most are low-confidence)
+    ch_tiddit_pass = FILTER_PASS_VCF(ch_tiddit_vcfs)
+
     // Single PREPARE_VCF call with all VCFs mixed
     ch_all_prepared = PREPARE_VCF(
-        ch_joint_vcf.mix(ch_sample_vcfs, ch_cnvkit_vcfs, ch_manta_vcfs, ch_tiddit_vcfs)
+        ch_joint_vcf.mix(ch_sample_vcfs, ch_cnvkit_vcfs, ch_manta_vcfs, ch_tiddit_pass)
     )
 
     // Branch into cohort, HC sample, and SV/CNV channels
