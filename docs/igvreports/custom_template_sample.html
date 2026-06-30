@@ -213,6 +213,7 @@
     </div>
     <div id="infoNote">Note: This table shows more rows than the downloadable VCF because multi-allelic sites are split into separate rows for display (<code>bcftools norm -m-</code>).</div>
     <div id="svNote" style="display:none;padding:8px 16px;background:#fff3cd;border:1px solid #ffc107;margin:4px 12px;font-size:13px;border-radius:4px;">&#9888; <strong>SV/CNV table-only view</strong> &mdash; The IGV alignment view is not included for structural variant and copy number reports because igv-reports embeds a fixed reference window that is too small for multi-kilobase events. To visually inspect interesting SVs, download the VCF and CRAM files and open them in <a href="https://igv.org/doc/desktop/" target="_blank" rel="noopener">IGV desktop</a>, which supports full-genome navigation and dynamic data loading.</div>
+    <div id="cnvkitNote" style="display:none;padding:8px 16px;background:#d1ecf1;border:1px solid #bee5eb;margin:4px 12px;font-size:13px;border-radius:4px;">&#x1f4ca; <strong>CNVKit coverage view</strong> &mdash; The panel below shows read depth from CNVKit bin-level coverage (~5 kb resolution) with 50 kb flanking context. Click a row to navigate to the CNV region. Gene annotations shown on the top track.</div>
 
     <!-- Legend modal -->
     <div id="legendOverlay">
@@ -263,6 +264,9 @@
         document.getElementById("svNote").style.display = "block";
         document.getElementById("igvPanel").style.display = "none";
         document.getElementById("resizeHandle").style.display = "none";
+    }
+    if (reportType === "cnvkit_coverage") {
+        document.getElementById("cnvkitNote").style.display = "block";
     }
 
     document.addEventListener("DOMContentLoaded", function () {
@@ -595,9 +599,10 @@
         // SV/CNV fields (CNVKit)
         "SVTYPE":             ["SV/CNV", "Structural variant type (DEL = deletion, DUP = duplication, BND = breakend, INV = inversion)"],
         "SVLEN":              ["SV/CNV", "Length of the structural variant in base pairs (negative for deletions)"],
-        "FOLD_CHANGE":        ["CNVKit", "Copy number fold change relative to diploid baseline (1.0 = no change, 0.5 = single-copy loss, 1.5 = single-copy gain)"],
-        "FOLD_CHANGE_LOG":    ["CNVKit", "Log2 of fold change — positive = gain, negative = loss, 0 = neutral"],
-        "PROBES":             ["CNVKit", "Number of bins/probes supporting this CNV call (more probes = higher confidence)"],
+        "FOLD_CHANGE":        ["CNVKit", "Depth ratio vs. flat reference (1.0 = same depth as reference, &gt;1 = gain, &lt;1 = loss). Ploidy-agnostic — matches fold-change values in the CN dashboard tables."],
+        "FOLD_CHANGE_LOG":    ["CNVKit", "Log2 of fold change — positive = gain, negative = loss, 0 = neutral. Raw segmented value from CNVKit."],
+        "PROBES":             ["CNVKit", "Number of bins (coverage windows) in this segment. More bins = more data points = higher confidence. CNVKit calls these 'probes' even in WGS mode, where they are ~5 kb depth windows, not physical capture probes."],
+        "CNQ":                ["CNVKit", "Copy number genotype quality — confidence score for the CN call. Higher = more confident."],
         // SV fields (Manta)
         "EVENT":              ["Manta", "Manta event identifier — groups breakend pairs belonging to the same structural variant"],
         "PR":                 ["Manta", "Spanning paired-read support — read pairs spanning the breakpoint (ref, alt counts)"],
@@ -617,6 +622,16 @@
         "DP":  ["Sample", "Read depth for this sample at this position (FORMAT/DP — distinct from INFO/DP which is cohort-wide)"],
         "GQ":  ["Sample", "Genotype quality for this sample — Phred-scaled confidence that the genotype is correct"],
         "VAF": ["Sample", "Variant allele frequency for this sample — fraction of reads supporting the alt allele"],
+        "CNQ": ["CNVKit", "Copy number genotype quality — confidence score for the CN call. Higher = more confident."],
+        "DV":  ["TIDDIT", "Number of paired-end reads supporting this SV event"],
+        "RV":  ["TIDDIT", "Number of split reads supporting this SV event"],
+        "DR":  ["TIDDIT", "Number of paired-end reads supporting the reference allele (breakpoint A and B)"],
+        "RR":  ["TIDDIT", "Number of split reads supporting the reference allele (breakpoint A and B)"],
+        "COV": ["TIDDIT", "Coverage at breakpoint A, breakpoint B, and between — helps assess local depth context"],
+        "LQ":  ["TIDDIT", "Fraction of low-quality reads at the breakpoints — high values flag unreliable calls"],
+        "PL":  ["Manta", "Phred-scaled genotype likelihoods for 0/0, 0/1, 1/1. The genotype with PL=0 is the called GT; GQ is approximately the second-lowest PL value."],
+        "PR":  ["Manta", "Spanning paired-read support — read pairs spanning the breakpoint (ref, alt counts)"],
+        "SR":  ["Manta", "Split-read support — reads crossing the exact breakpoint (ref, alt counts)"],
     };
 
     function buildLegendContent() {
@@ -631,7 +646,7 @@
             // Match exact or strip sample prefix for FORMAT fields
             let desc = columnDescriptions[h];
             if (!desc) {
-                const match = h.match(/^(.+):(GT|AD|DP|GQ|VAF)$/);
+                const match = h.match(/^(.+):(GT|AD|DP|GQ|VAF|CNQ|DV|RV|DR|RR|COV|LQ|PL|PR|SR)$/);
                 if (match) desc = sampleFormatDescriptions[match[2]];
             }
             if (desc) {

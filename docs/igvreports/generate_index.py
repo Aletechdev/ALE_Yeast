@@ -282,23 +282,21 @@ def load_cn_chr(path: Path) -> dict | None:
         rows = list(csv.DictReader(f))
     if not rows:
         return None
-    samples = _get_sample_columns(list(rows[0].keys()), "_diploid_cn")
+    samples = _get_sample_columns(list(rows[0].keys()), "_log2")
     out = []
     for r in rows:
         entry = {"chromosome": r["chromosome"], "length": int(r.get("length", 0))}
         # Skip rows where all sample values are empty (e.g. Mito)
         has_data = False
         for s in samples:
-            cn_raw = r.get(f"{s}_diploid_cn", "")
             log2_raw = r.get(f"{s}_log2", "")
             if log2_raw:
                 has_data = True
                 entry[f"{s}_log2"] = round(float(log2_raw), 4)
             else:
                 entry[f"{s}_log2"] = None
-            abs_cn = r.get(f"{s}_absolute_cn", "")
-            entry[f"{s}_absolute_cn"] = round(float(abs_cn), 2) if abs_cn else None
-            entry[f"{s}_note"] = "*" if cn_raw.endswith("*") else ""
+            fc = r.get(f"{s}_fold_change", "")
+            entry[f"{s}_fold_change"] = round(float(fc), 2) if fc else None
         if not has_data:
             continue
         out.append(entry)
@@ -318,7 +316,7 @@ def load_cn_regions(path: Path) -> dict | None:
         rows = list(csv.DictReader(f))
     if not rows:
         return None
-    samples = _get_sample_columns(list(rows[0].keys()), "_diploid_cn")
+    samples = _get_sample_columns(list(rows[0].keys()), "_log2")
     out = []
     for r in rows:
         start = int(r.get("start", 0))
@@ -333,15 +331,10 @@ def load_cn_regions(path: Path) -> dict | None:
         }
         for s in samples:
             entry[f"{s}_log2"] = round(float(r.get(f"{s}_log2", 0)), 4)
-            abs_cn = r.get(f"{s}_absolute_cn") or r.get(f"{s}_cn")
-            entry[f"{s}_absolute_cn"] = round(float(abs_cn), 2) if abs_cn else None
+            fc = r.get(f"{s}_fold_change", "")
+            entry[f"{s}_fold_change"] = round(float(fc), 2) if fc else None
         out.append(entry)
-    change_count = sum(
-        1 for r in out
-        if any(_has_cn_change(r.get(f"{s}_log2", 0)) for s in samples)
-    )
-    return {"rows": out, "samples": samples, "row_count": len(out),
-            "change_count": change_count}
+    return {"rows": out, "samples": samples, "row_count": len(out)}
 
 
 def load_sv_matrix(path: Path) -> dict | None:
@@ -384,26 +377,12 @@ def _has_cn_change(log2: float) -> bool:
 
 def load_cnv_sv_data(data_dir: Path) -> dict:
     """Load all CN/SV data from a directory. Returns dict for template context."""
-    cn_chr_sens = load_cn_chr(data_dir / "cn_chr_summary_sensitive.csv")
-    cn_chr_str = load_cn_chr(data_dir / "cn_chr_summary_stringent.csv")
-    cn_reg_sens = load_cn_regions(data_dir / "cn_cohort_collapsed_sensitive.csv")
-    cn_reg_str = load_cn_regions(data_dir / "cn_cohort_collapsed_stringent.csv")
+    cn_chr = load_cn_chr(data_dir / "cn_chr_summary_stringent.csv")
+    cn_reg = load_cn_regions(data_dir / "cn_cohort_collapsed.csv")
     sv_pass = load_sv_matrix(data_dir / "sv_cohort_matrix_union_pass.csv")
     sv_all = load_sv_matrix(data_dir / "sv_cohort_matrix_union.csv")
 
-    # Compute summary stats
     summary = {}
-    if cn_chr_sens and cn_chr_str:
-        samples = cn_chr_sens["samples"]
-        agree = total = 0
-        for rs, rt in zip(cn_chr_sens["rows"], cn_chr_str["rows"]):
-            total += 1
-            sens_changed = any(_has_cn_change(rs.get(f"{s}_log2", 0)) for s in samples)
-            str_changed = any(_has_cn_change(rt.get(f"{s}_log2", 0)) for s in samples)
-            if sens_changed == str_changed:
-                agree += 1
-        summary["cn_agreement_pct"] = round(100 * agree / total, 1) if total else 0
-
     if sv_pass:
         summary["sv_pass_count"] = sv_pass["row_count"]
     if sv_all:
@@ -425,10 +404,8 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
     # Check for downloadable CN files (CSV)
     cn_downloads = {}
     for key, csv_name in [
-        ("regions_stringent", "cn_cohort_collapsed_stringent.csv"),
-        ("regions_sensitive", "cn_cohort_collapsed_sensitive.csv"),
-        ("chr_stringent", "cn_chr_summary_stringent.csv"),
-        ("chr_sensitive", "cn_chr_summary_sensitive.csv"),
+        ("regions", "cn_cohort_collapsed.csv"),
+        ("chr", "cn_chr_summary_stringent.csv"),
         ("matrix", "cn_cohort_matrix.csv"),
     ]:
         csv_path = data_dir / csv_name
@@ -436,10 +413,8 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
             cn_downloads[key] = f"data/{csv_name}"
 
     return {
-        "cn_chr_sens": cn_chr_sens,
-        "cn_chr_str": cn_chr_str,
-        "cn_reg_sens": cn_reg_sens,
-        "cn_reg_str": cn_reg_str,
+        "cn_chr": cn_chr,
+        "cn_reg": cn_reg,
         "sv_pass": sv_pass,
         "sv_all": sv_all,
         "sv_downloads": sv_downloads,
@@ -485,7 +460,6 @@ def build_context(
     sample_reports_dir: Path | None,
     cnv_sv_data_dir: Path | None = None,
     multiqc_report_path: str | None = None,
-    show_sensitive: bool = False,
     joint_vcf: Path | None = None,
     prepared_vcf: Path | None = None,
 ) -> dict:
@@ -597,16 +571,13 @@ def build_context(
         "multiqc_report_path": multiqc_report_path or "../../output_all/multiqc/multiqc_report.html",
         "summary_data_json": json.dumps(summary_data),
         # CN/SV data (None if not provided)
-        "cn_chr_sens": cnv_sv.get("cn_chr_sens"),
-        "cn_chr_str": cnv_sv.get("cn_chr_str"),
-        "cn_reg_sens": cnv_sv.get("cn_reg_sens"),
-        "cn_reg_str": cnv_sv.get("cn_reg_str"),
+        "cn_chr": cnv_sv.get("cn_chr"),
+        "cn_reg": cnv_sv.get("cn_reg"),
         "sv_pass": cnv_sv.get("sv_pass"),
         "sv_all": cnv_sv.get("sv_all"),
         "sv_downloads": cnv_sv.get("sv_downloads", {}),
         "cn_downloads": cnv_sv.get("cn_downloads", {}),
         "cnv_sv_summary": cnv_sv.get("cnv_sv_summary", {}),
-        "show_sensitive": show_sensitive,
     }
 
 
@@ -672,10 +643,6 @@ def main():
         "--prepared-vcf", type=Path, default=None,
         help="Path to prepared (post-norm) cohort VCF for accurate row counting matching cohort report table",
     )
-    parser.add_argument(
-        "--show-sensitive", action="store_true", default=False,
-        help="Show sensitive CN and unfiltered SV tabs alongside stringent/PASS (debug mode)",
-    )
     args = parser.parse_args()
 
     context = build_context(
@@ -684,7 +651,6 @@ def main():
         sample_reports_dir=args.sample_reports_dir,
         cnv_sv_data_dir=args.cnv_sv_data_dir,
         multiqc_report_path=args.multiqc_report_path,
-        show_sensitive=args.show_sensitive,
         joint_vcf=args.joint_vcf,
         prepared_vcf=args.prepared_vcf,
     )

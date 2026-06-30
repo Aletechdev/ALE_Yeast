@@ -295,18 +295,16 @@
                 <div class="label">SV Events (detected by Manta + TIDDIT)</div>
             </a>
             {% endif %}
-            {% if cn_reg_str or cn_reg_sens %}
-            {% set cn_reg_primary = cn_reg_str or cn_reg_sens %}
+            {% if cn_reg %}
             <a class="card card-link" href="#cn-regions-section">
-                <div class="value">{{ cn_reg_primary.change_count }}</div>
-                <div class="label">CN Windows (coverage ratio &lt; 0.76 or &gt; 1.23)</div>
+                <div class="value">{{ cn_reg.row_count }}</div>
+                <div class="label">Collapsed CN Windows</div>
             </a>
             {% endif %}
-            {% if cn_chr_str or cn_chr_sens %}
-            {% set cn_chr_primary_card = cn_chr_str or cn_chr_sens %}
+            {% if cn_chr %}
             <a class="card card-link" href="#cn-section">
-                <div class="value">{{ cn_chr_primary_card.change_count }}</div>
-                <div class="label">Aneuploidy (coverage ratio &lt; 0.76 or &gt; 1.23)</div>
+                <div class="value">{{ cn_chr.change_count }} / {{ cn_chr.row_count }}</div>
+                <div class="label">Aneuploid Chromosomes (fold change &lt; 0.76 or &gt; 1.23)</div>
             </a>
             {% endif %}
             {% if multiqc_report_path %}
@@ -356,93 +354,48 @@
             {% if sv_downloads.pass_vcf %}<a href="{{ sv_downloads.pass_vcf }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; VCF</a>{% endif %}
         </div>
         {% endif %}
-        {% if show_sensitive and sv_all %}
-        <div class="tab-bar" id="sv-tabs">
-            <button class="tab-btn active" data-tab="sv-pass-panel">SV High-Quality #{{ sv_pass.row_count }}</button>
-            <button class="tab-btn" data-tab="sv-all-panel">SV All #{{ sv_all.row_count }}</button>
-        </div>
-        {% endif %}
-        <div class="tab-panel active" id="sv-pass-panel">
-            <div id="sv-pass-table"></div>
-        </div>
-        {% if show_sensitive and sv_all %}
-        <div class="tab-panel" id="sv-all-panel">
-            <div id="sv-all-table"></div>
-        </div>
-        {% endif %}
+        <div id="sv-pass-table"></div>
     </div>
     {% endif %}
 
     {# ================================================================== #}
     {# Section 7: Collapsed CN Windows (conditional)                       #}
     {# ================================================================== #}
-    {% set cn_reg_primary = cn_reg_str if cn_reg_str else cn_reg_sens %}
-    {% if cn_reg_primary %}
+    {% if cn_reg %}
     <div class="section" id="cn-regions-section">
         <h2>All Samples: Collapsed CN Windows</h2>
-        <p class="note">{{ cn_reg_primary.change_count }} / {{ cn_reg_primary.row_count }} windows with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
-        {% set cn_reg_csv = cn_downloads.regions_stringent if cn_reg_str else cn_downloads.regions_sensitive %}
-        {% if cn_reg_csv or cn_downloads.matrix %}
+        <p class="note">{{ cn_reg.row_count }} collapsed windows (adjacent bins with similar log2 merged)</p>
+        {% if cn_downloads.regions or cn_downloads.matrix %}
         <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
-            {% if cn_reg_csv %}<a href="{{ cn_reg_csv }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>{% endif %}
+            {% if cn_downloads.regions %}<a href="{{ cn_downloads.regions }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>{% endif %}
             {% if cn_downloads.matrix %}<a href="{{ cn_downloads.matrix }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; Uncollapsed Matrix</a>{% endif %}
         </div>
         {% endif %}
         <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
             <p class="note" style="margin:0">Collapsed CN windows with genomic coordinates.</p>
-            <button class="tab-btn active cn-metric-btn" data-metric="abs">Absolute CN</button>
+            <button class="tab-btn active cn-metric-btn" data-metric="abs">Fold Change</button>
             <button class="tab-btn cn-metric-btn" data-metric="log2">log2 ratio</button>
         </div>
-        {% if show_sensitive and cn_reg_str and cn_reg_sens %}
-        <div class="tab-bar" id="cn-reg-tabs">
-            <button class="tab-btn active" data-tab="cn-reg-str-panel">CN Regions Stringent #{{ cn_reg_str.row_count }}</button>
-            <button class="tab-btn" data-tab="cn-reg-sens-panel">CN Regions Sensitive #{{ cn_reg_sens.row_count }}</button>
-        </div>
-        {% endif %}
-        <div class="tab-panel active" id="cn-reg-str-panel">
-            <div id="cn-reg-str-table"></div>
-        </div>
-        {% if show_sensitive and cn_reg_str and cn_reg_sens %}
-        <div class="tab-panel" id="cn-reg-sens-panel">
-            <div id="cn-reg-sens-table"></div>
-        </div>
-        {% endif %}
+        <div id="cn-reg-table"></div>
     </div>
     {% endif %}
 
     {# ================================================================== #}
     {# Section 8: Chromosome Level Copy Number (conditional)               #}
     {# ================================================================== #}
-    {% set cn_chr_primary = cn_chr_str if cn_chr_str else cn_chr_sens %}
-    {% set cn_chr_primary_label = "Stringent" if cn_chr_str else "Sensitive" %}
-    {% if cn_chr_primary %}
+    {% if cn_chr %}
     <div class="section" id="cn-section">
         <h2>All Samples: Chromosome Level Copy Number Change (Aneuploidy)</h2>
-        <p class="note">{{ cn_chr_primary.change_count }} / {{ cn_chr_primary.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
-        {% set cn_chr_csv = cn_downloads.chr_stringent if cn_chr_str else cn_downloads.chr_sensitive %}
-        {% if cn_chr_csv %}
+        <p class="note">{{ cn_chr.change_count }} / {{ cn_chr.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
+        {% if cn_downloads.chr %}
         <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
-            <a href="{{ cn_chr_csv }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
+            <a href="{{ cn_downloads.chr }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
         </div>
         {% endif %}
         <p class="note">
             CN per chromosome. Toggle above switches both tables.
-            Chromosomes with mixed CN segments marked with *.
         </p>
-        {% if show_sensitive and cn_chr_str and cn_chr_sens %}
-        <div class="tab-bar" id="cn-chr-tabs">
-            <button class="tab-btn active" data-tab="cn-chr-str-panel">CN Stringent #{{ cn_chr_str.row_count }}</button>
-            <button class="tab-btn" data-tab="cn-chr-sens-panel">CN Sensitive #{{ cn_chr_sens.row_count }}</button>
-        </div>
-        {% endif %}
-        <div class="tab-panel active" id="cn-chr-str-panel">
-            <div id="cn-chr-str-table"></div>
-        </div>
-        {% if show_sensitive and cn_chr_str and cn_chr_sens %}
-        <div class="tab-panel" id="cn-chr-sens-panel">
-            <div id="cn-chr-sens-table"></div>
-        </div>
-        {% endif %}
+        <div id="cn-chr-table"></div>
     </div>
     {% endif %}
 
@@ -602,7 +555,7 @@
         </details>
         {% endif %}
 
-        {% if cn_chr_str or cn_chr_sens or cn_reg_str or cn_reg_sens %}
+        {% if cn_chr or cn_reg %}
         <details>
             <summary>Copy number analysis (CNVKit)</summary>
             <div class="audit-content">
@@ -612,29 +565,29 @@
                 </p>
                 <h4>Card counts</h4>
                 <p>
-                    Cards show <em>changed / total</em> regions. A region counts as changed
-                    when any sample's log2 ratio is &lt; &minus;0.4 (loss) or &gt; 0.3 (gain) &mdash;
-                    same thresholds as heatmap coloring.
+                    <strong>Aneuploidy</strong> card: chromosomes where any sample's log2 ratio
+                    is &lt; &minus;0.4 (loss) or &gt; 0.3 (gain) &mdash; same thresholds as heatmap coloring.
+                    <strong>CN Windows</strong> card: total number of collapsed regions.
                 </p>
                 <h4>Display values</h4>
                 <p>
-                    Default: <strong>absolute CN</strong> = <code>ploidy &times; 2<sup>log2</sup></code>.
+                    Default: <strong>fold change</strong> = <code>2<sup>log2</sup></code> (depth ratio vs. reference; 1.0 = baseline).
                     Toggle to <strong>log2 ratio</strong> (raw segmented depth vs. flat reference).
                     Colors always track log2: 0 = neutral, negative = loss (red),
                     positive = gain (blue), &ge;2.3 = high amplification (dark blue).
                 </p>
-                <h4>CN tiers</h4>
-                <table>
-                    <tr><th>Tier</th><th>Source</th><th>Description</th></tr>
-                    <tr><td><strong>Stringent</strong> (default)</td><td><code>*.germline.call.cns</code></td><td>Germline-mode, stricter segmentation</td></tr>
-                    <tr><td>Sensitive</td><td><code>*.call.cns</code></td><td>Standard calls, more segments</td></tr>
-                </table>
+                <h4>CN source</h4>
+                <p>
+                    Segments from <code>*.germline.call.cns</code> (stringent tier &mdash;
+                    germline-mode, CI-filtered, stricter segmentation).
+                </p>
                 <h4>Table views</h4>
                 <p>
-                    <strong>Collapsed CN Windows</strong>: adjacent bins merged where all samples agree;
-                    breakpoints where any sample differs.<br>
-                    <strong>Chromosome Level (Aneuploidy)</strong>: one row per chromosome, dominant segment CN.
-                    Mixed-CN chromosomes marked with *.
+                    <strong>Collapsed CN Windows</strong>: adjacent bins merged where all samples
+                    share the same rounded log2 value; a new row starts where any sample differs.<br>
+                    <strong>Chromosome Level (Aneuploidy)</strong>: one row per chromosome,
+                    weighted-average log2 across segments. Fold change is derived from the
+                    averaged log2 (<code>2<sup>log2</sup></code>).
                 </p>
                 <h4>Missing chromosomes</h4>
                 <p>
@@ -698,7 +651,7 @@
     {# ================================================================== #}
     <div class="footer">
         Generated from MultiQC summary data (bcftools stats, SnpEff, Mosdepth, Picard).<br>
-        {% if cn_chr_sens %}CN data: CNVKit .call.cns (sensitive) and .germline.call.cns (stringent). SV data: Manta + TIDDIT.<br>{% endif %}
+        {% if cn_chr %}CN data: CNVKit .germline.call.cns (stringent, CI-filtered). SV data: Manta + TIDDIT.<br>{% endif %}
         Per-sample igv-reports include GFF3 gene track + CRAM read pileups + FORMAT/VAF.
     </div>
 
@@ -775,7 +728,7 @@
                     columns: [
                         { title: "Cov", field: "median_coverage", hozAlign: "right",
                           titleFormatter: function() { return 'Cov<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 Mosdepth</span>'; },
-                          headerFilter: "number", headerFilterPlaceholder: "min", headerFilterFunc: ">=" },
+                        },
                         { title: "Dup %", field: "dup_pct", hozAlign: "right",
                           titleFormatter: function() { return 'Dup %<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 Picard</span>'; },
                           formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) + "%" : ""; } },
@@ -792,7 +745,6 @@
                     columns: [
                         { title: "HaplotypeCaller", field: "hc_variants", hozAlign: "right", sorter: "number",
                           titleFormatter: function() { return 'HaplotypeCaller<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 soft-filtered</span>'; },
-                          headerFilter: "number", headerFilterPlaceholder: "min", headerFilterFunc: ">=",
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var v = cell.getValue();
@@ -859,7 +811,7 @@
         });
 
         // --- CN/SV tables (conditional) ---
-        {% if cn_reg_sens %}
+        {% if cn_reg %}
         var cnMetric = "abs"; // "abs" or "log2"
 
         // Color always by log2 — ploidy-independent
@@ -879,17 +831,17 @@
                 display = log2.toFixed(4);
             } else {
                 var row = cell.getRow().getData();
-                var absField = cell.getField().replace('_log2', '_absolute_cn');
-                var absCn = row[absField];
-                display = (absCn != null) ? absCn.toFixed(2) : Math.pow(2, log2).toFixed(2);
+                var fcField = cell.getField().replace('_log2', '_fold_change');
+                var fc = row[fcField];
+                display = (fc != null) ? fc.toFixed(2) : Math.pow(2, log2).toFixed(2);
             }
             return '<span class="' + cls + '" style="display:inline-block;padding:1px 6px;border-radius:3px">' + display + '</span>';
         }
 
-        var cnRegSamples = {{ cn_reg_sens.samples | tojson }};
+        var cnRegSamples = {{ cn_reg.samples | tojson }};
         function buildCnRegColumns(samples) {
             var cols = [
-                { title: "Chr", field: "chromosome", headerFilter: "input", frozen: true, width: 60 },
+                { title: "Chr", field: "chromosome", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, width: 60 },
                 { title: "Start", field: "start", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
                 { title: "End", field: "end", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
                 { title: "Chr Length", field: "chr_length", sorter: "number", hozAlign: "right", formatter: function(c) { var v = c.getValue(); return v ? v.toLocaleString() : ""; } },
@@ -904,94 +856,46 @@
             return cols;
         }
 
-        var cnRegTables = [];
-        {% if cn_reg_str %}
-        cnRegTables.push(new Tabulator("#cn-reg-str-table", {
-            data: {{ cn_reg_str.rows | tojson }},
+        var cnRegTable = new Tabulator("#cn-reg-table", {
+            data: {{ cn_reg.rows | tojson }},
             layout: "fitDataFill", height: 500,
             headerSortTristate: true, columns: buildCnRegColumns(cnRegSamples),
-        }));
-        {% elif cn_reg_sens %}
-        cnRegTables.push(new Tabulator("#cn-reg-str-table", {
-            data: {{ cn_reg_sens.rows | tojson }},
-            layout: "fitDataFill", height: 500,
-            headerSortTristate: true, columns: buildCnRegColumns(cnRegSamples),
-        }));
-        {% endif %}
-        {% if show_sensitive and cn_reg_sens and cn_reg_str %}
-        cnRegTables.push(new Tabulator("#cn-reg-sens-table", {
-            data: {{ cn_reg_sens.rows | tojson }},
-            layout: "fitDataFill", height: 500,
-            headerSortTristate: true, columns: buildCnRegColumns(cnRegSamples),
-        }));
+        });
         {% endif %}
 
-        // --- Chromosome-level CN Tabulator tables ---
-        {% if cn_chr_sens %}
-        var cnChrSamples = {{ cn_chr_sens.samples | tojson }};
-        function cnChrCellFormatter(cell) {
-            var row = cell.getRow().getData();
-            var field = cell.getField();
-            var log2 = cell.getValue();
-            if (log2 == null) return '';
-            var cls = log2Class(log2);
-            var noteField = field.replace('_log2', '_note');
-            var note = row[noteField] || '';
-            var display;
-            if (cnMetric === "log2") {
-                display = log2.toFixed(4);
-            } else {
-                var absField = field.replace('_log2', '_absolute_cn');
-                var absCn = row[absField];
-                display = (absCn != null) ? absCn.toFixed(2) : Math.pow(2, log2).toFixed(2);
-            }
-            return '<span class="' + cls + '" style="display:inline-block;padding:1px 6px;border-radius:3px">' + display + note + '</span>';
-        }
+        {% if cn_chr %}
+        // --- Chromosome-level CN Tabulator table ---
+        var cnChrSamples = {{ cn_chr.samples | tojson }};
         function buildCnChrColumns(samples) {
             var cols = [
-                { title: "Chr", field: "chromosome", headerFilter: "input", frozen: true, width: 60 },
+                { title: "Chr", field: "chromosome", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, width: 60 },
                 { title: "Length", field: "length", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
             ];
             samples.forEach(function(s) {
                 cols.push({
                     title: s.replace(/-/g, '\u2011'), field: s + "_log2", hozAlign: "center",
-                    sorter: "number", formatter: cnChrCellFormatter
+                    sorter: "number", formatter: cnCellFormatter
                 });
             });
             return cols;
         }
 
-        var cnChrTables = [];
-        {% if cn_chr_str %}
-        cnChrTables.push(new Tabulator("#cn-chr-str-table", {
-            data: {{ cn_chr_str.rows | tojson }},
+        var cnChrTable = new Tabulator("#cn-chr-table", {
+            data: {{ cn_chr.rows | tojson }},
             layout: "fitDataFill", height: 500,
             headerSortTristate: true, columns: buildCnChrColumns(cnChrSamples),
-        }));
-        {% elif cn_chr_sens %}
-        cnChrTables.push(new Tabulator("#cn-chr-str-table", {
-            data: {{ cn_chr_sens.rows | tojson }},
-            layout: "fitDataFill", height: 500,
-            headerSortTristate: true, columns: buildCnChrColumns(cnChrSamples),
-        }));
-        {% endif %}
-        {% if show_sensitive and cn_chr_sens and cn_chr_str %}
-        cnChrTables.push(new Tabulator("#cn-chr-sens-table", {
-            data: {{ cn_chr_sens.rows | tojson }},
-            layout: "fitDataFill", height: 500,
-            headerSortTristate: true, columns: buildCnChrColumns(cnChrSamples),
-        }));
-        {% endif %}
+        });
         {% endif %}
 
+        {% if cn_reg or cn_chr %}
         // Toggle: update all CN Tabulator tables (color stays log2-based)
         document.querySelectorAll('.cn-metric-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('.cn-metric-btn').forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 cnMetric = btn.getAttribute('data-metric');
-                cnRegTables.forEach(function(t) { t.redraw(true); });
-                {% if cn_chr_sens %}cnChrTables.forEach(function(t) { t.redraw(true); });{% endif %}
+                {% if cn_reg %}cnRegTable.redraw(true);{% endif %}
+                {% if cn_chr %}cnChrTable.redraw(true);{% endif %}
             });
         });
         {% endif %}
@@ -1012,7 +916,7 @@
         }
         function buildSvColumns(samples) {
             var cols = [
-                { title: "Chr", field: "chrom", headerFilter: "input", frozen: true, width: 60 },
+                { title: "Chr", field: "chrom", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, width: 60 },
                 { title: "Pos", field: "pos", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
                 { title: "Chr2", field: "chrom2", width: 60 },
                 { title: "End", field: "end", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
@@ -1035,14 +939,6 @@
             headerSortTristate: true, columns: buildSvColumns(svSamples),
             initialSort: [{ column: "chrom", dir: "asc" }, { column: "pos", dir: "asc" }],
         });
-        {% if show_sensitive and sv_all %}
-        new Tabulator("#sv-all-table", {
-            data: {{ sv_all.rows | tojson }},
-            layout: "fitDataFill", height: 600,
-            headerSortTristate: true, columns: buildSvColumns(svSamples),
-            initialSort: [{ column: "chrom", dir: "asc" }, { column: "pos", dir: "asc" }],
-        });
-        {% endif %}
         {% endif %}
     </script>
 </body>

@@ -32,6 +32,7 @@ nextflow run "${REPO_ROOT}/docs/igvreports/generate_demo_reports.nf" \
     --samples "${SAMPLES}" \
     --multiqc_data_dir "${REPO_ROOT}/output_ottilie/multiqc/multiqc_data" \
     --generate_index_script "${REPO_ROOT}/docs/igvreports/generate_index.py" \
+    --cnvkit_dir "${REPO_ROOT}/output_ottilie/variant_calling/cnvkit" \
     --cnv_sv_data_dir "${OUTDIR}/data" \
     --multiqc_report_path "multiqc_report.html" \
     --python_bin "$(which python)" \

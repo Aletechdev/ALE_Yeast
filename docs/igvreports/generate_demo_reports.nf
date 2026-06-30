@@ -37,7 +37,7 @@ params.generate_index_script = null // path to generate_index.py
 params.cnv_sv_data_dir     = null   // optional: directory with CN/SV cohort matrix CSVs
 params.multiqc_report_path = null   // optional: relative path to multiqc_report.html from outdir
 params.python_bin          = 'python' // python binary for GENERATE_INDEX (must have pandas, jinja2)
-params.show_sensitive      = false   // show sensitive CN / unfiltered SV tabs (debug mode)
+params.cnvkit_dir          = null   // optional: dir containing {sample}/{sample}.md.cnr (CNVKit bin-level coverage)
 
 // --- Processes ---
 
@@ -199,6 +199,31 @@ process IGVREPORTS_SAMPLE {
     """
 }
 
+process CNR_TO_BEDGRAPH {
+    tag "$meta.id"
+    label 'process_low'
+
+    // Pure awk — no container needed (runs on host)
+
+    input:
+    tuple val(meta), path(cnr)
+
+    output:
+    tuple val(meta), path("${meta.id}.depth.bedgraph"), path("${meta.id}.log2.bedgraph"), emit: bedgraph
+
+    script:
+    """
+    # Convert CNVKit .cnr to BedGraph tracks for igv-reports
+    # Depth track (column 5): absolute read depth per ~5kb bin
+    tail -n +2 ${cnr} | awk -F'\\t' 'BEGIN{OFS="\\t"} {print \$1,\$2,\$3,\$5}' \
+        | sort -k1,1 -k2,2n > ${meta.id}.depth.bedgraph
+
+    # Log2 ratio track (column 6): copy number ratio vs reference (0 = normal, >0 = gain, <0 = loss)
+    tail -n +2 ${cnr} | awk -F'\\t' 'BEGIN{OFS="\\t"} {print \$1,\$2,\$3,\$6}' \
+        | sort -k1,1 -k2,2n > ${meta.id}.log2.bedgraph
+    """
+}
+
 process IGVREPORTS_SV_CNV {
     tag "$meta.id"
     label 'process_low'
@@ -208,7 +233,7 @@ process IGVREPORTS_SV_CNV {
     publishDir "${params.outdir}/samples", mode: 'copy'
 
     input:
-    tuple val(meta), path(vcf), path(tbi), path(cram), path(crai)
+    tuple val(meta), path(vcf), path(tbi), path(cram), path(crai), path(depth_bg), path(log2_bg)
     tuple path(gff3_gz), path(gff3_tbi)
     tuple path(fasta), path(fai)
     path template
@@ -217,32 +242,50 @@ process IGVREPORTS_SV_CNV {
     path "${meta.id}_${meta.caller}_report.html"
 
     script:
+    def has_bedgraph = depth_bg.name != 'NO_DEPTH_BG'
+    def flanking = has_bedgraph ? 50000 : 500
+    // For CNVKit: set maxlen large enough to show entire CNV in single window (default 10kb splits into two breakpoint views)
+    def maxlen_arg = has_bedgraph ? "--maxlen 2000000" : ""
+    def tracks = has_bedgraph ? "${gff3_gz} ${depth_bg} ${log2_bg}" : "${gff3_gz}"
     def info_cols = meta.caller == 'cnvkit'
         ? "ANN VCF_FILTER SVTYPE SVLEN FOLD_CHANGE FOLD_CHANGE_LOG PROBES"
         : "ANN VCF_FILTER SVTYPE SVLEN"
     def sample_cols = meta.caller == 'cnvkit'
-        ? "GT"
+        ? "GT CNQ"
         : meta.caller == 'tiddit'
-        ? "GT DV RV"
-        : "GT GQ PR SR"
+        ? "GT DV RV DR RR COV LQ"
+        : "GT GQ PL PR SR"
     """
     create_report ${vcf} \\
         --fasta ${fasta} \\
-        --tracks ${gff3_gz} \\
+        --tracks ${tracks} \\
         --template ${template} \\
         --info-columns ${info_cols} \\
         --sample-columns ${sample_cols} \\
-        --flanking 500 \\
+        --flanking ${flanking} \\
+        ${maxlen_arg} \\
         --title "${meta.id} - ${meta.caller_label} (Yeast ALE)" \\
         --output ${meta.id}_${meta.caller}_report.html
 
-    # Strip IGV session data (alignment view not informative for large SV/CNV events)
-    sed -i 's|const sessionDictionary = .*|const sessionDictionary = {};|' ${meta.id}_${meta.caller}_report.html
+    # Post-process: set custom height and colors for bedgraph coverage tracks
+    if [ "${has_bedgraph}" = "true" ]; then
+        python3 ${projectDir}/postprocess_cnvkit_report.py ${meta.id}_${meta.caller}_report.html
+    fi
+
+    # Strip IGV session data for SV callers (alignment view not informative for large events)
+    # Keep session for CNVKit when coverage BedGraph is available
+    if [ "${has_bedgraph}" = "false" ]; then
+        sed -i 's|const sessionDictionary = .*|const sessionDictionary = {};|' ${meta.id}_${meta.caller}_report.html
+    fi
 
     # Set VCF download link and report type
     sed -i 's|@VCF_HREF@|../vcf/${meta.caller}/${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
     sed -i 's|@VCF_FILENAME@|${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
-    sed -i 's|@REPORT_TYPE@|sv_cnv|g' ${meta.id}_${meta.caller}_report.html
+    if [ "${has_bedgraph}" = "true" ]; then
+        sed -i 's|@REPORT_TYPE@|cnvkit_coverage|g' ${meta.id}_${meta.caller}_report.html
+    else
+        sed -i 's|@REPORT_TYPE@|sv_cnv|g' ${meta.id}_${meta.caller}_report.html
+    fi
     """
 }
 
@@ -395,7 +438,6 @@ process GENERATE_INDEX {
     script:
     def cnv_sv_arg = cnv_sv_data_dir.name != 'NO_FILE' ? "--cnv-sv-data-dir ${cnv_sv_data_dir}" : ""
     def mqc_path_arg = multiqc_report_path ? "--multiqc-report-path '${multiqc_report_path}'" : ""
-    def sensitive_arg = params.show_sensitive ? "--show-sensitive" : ""
     def prepared_vcf_arg = prepared_cohort_vcf.name != 'NO_FILE' ? "--prepared-vcf ${prepared_cohort_vcf}" : ""
 
     """
@@ -406,7 +448,7 @@ process GENERATE_INDEX {
         --cohort-report ${cohort_report} \\
         --sample-reports-dir samples \\
         --templates-dir ${templates_dir} \\
-        ${cnv_sv_arg} ${mqc_path_arg} ${sensitive_arg} ${prepared_vcf_arg}
+        ${cnv_sv_arg} ${mqc_path_arg} ${prepared_vcf_arg}
 
     # Create samples/ symlink so relative links in index.html work at publish time
     # (sample reports are staged flat by Nextflow, but published into samples/)
@@ -520,7 +562,19 @@ workflow {
 
     IGVREPORTS_SAMPLE(ch_samples_with_cram, ch_gff3_indexed, ch_fasta, ch_filter_config, ch_sample_template)
 
-    // --- CNVKit and Manta per-sample reports ---
+    // --- CNVKit coverage BedGraph tracks (optional) ---
+    // Convert .cnr depth to BedGraph for embedding as coverage track in igv-reports
+    if (params.cnvkit_dir) {
+        ch_cnr_files = Channel.fromList(sample_list)
+            .map { sample ->
+                def cnr = file("${params.cnvkit_dir}/${sample}/${sample}.md.cnr")
+                [ [id: sample], cnr ]
+            }
+        CNR_TO_BEDGRAPH(ch_cnr_files)
+        ch_bedgraph_map = CNR_TO_BEDGRAPH.out.bedgraph.map { meta, depth_bg, log2_bg -> [ meta.id, depth_bg, log2_bg ] }
+    }
+
+    // --- CNVKit and Manta/TIDDIT per-sample reports ---
     ch_sv_cnv_with_cram = ch_branched.sv_cnv
         .map { meta, vcf, tbi ->
             def cram = file("${params.cram_dir}/${meta.id}/${meta.id}.md.cram")
@@ -528,7 +582,29 @@ workflow {
             [ meta, vcf, tbi, cram, crai ]
         }
 
-    IGVREPORTS_SV_CNV(ch_sv_cnv_with_cram, ch_gff3_indexed, ch_fasta, ch_sample_template)
+    if (params.cnvkit_dir) {
+        // Branch into cnvkit (join with bedgraph) vs other (NO_FILE)
+        ch_sv_cnv_with_cram.branch {
+            cnvkit: it[0].caller == 'cnvkit'
+            other: true
+        }.set { ch_sv_cnv_branched }
+
+        ch_cnvkit_with_bg = ch_sv_cnv_branched.cnvkit
+            .map { meta, vcf, tbi, cram, crai -> [ meta.id, meta, vcf, tbi, cram, crai ] }
+            .join(ch_bedgraph_map)
+            .map { id, meta, vcf, tbi, cram, crai, depth_bg, log2_bg -> [ meta, vcf, tbi, cram, crai, depth_bg, log2_bg ] }
+
+        ch_other_sv = ch_sv_cnv_branched.other
+            .map { meta, vcf, tbi, cram, crai -> [ meta, vcf, tbi, cram, crai, file('NO_DEPTH_BG'), file('NO_LOG2_BG') ] }
+
+        ch_sv_cnv_all = ch_cnvkit_with_bg.mix(ch_other_sv)
+    } else {
+        // No cnvkit_dir: all callers get NO_FILE placeholder (table-only)
+        ch_sv_cnv_all = ch_sv_cnv_with_cram
+            .map { meta, vcf, tbi, cram, crai -> [ meta, vcf, tbi, cram, crai, file('NO_DEPTH_BG'), file('NO_LOG2_BG') ] }
+    }
+
+    IGVREPORTS_SV_CNV(ch_sv_cnv_all, ch_gff3_indexed, ch_fasta, ch_sample_template)
 
     // --- Generate index.html (Jinja2-based multi-caller dashboard) ---
     ch_multiqc_data = Channel.value(file(params.multiqc_data_dir))
