@@ -303,7 +303,7 @@
             {% endif %}
             {% if cn_chr %}
             <a class="card card-link" href="#cn-section">
-                <div class="value">{{ cn_chr.change_count }} / {{ cn_chr.row_count }}</div>
+                <div class="value">{{ cn_chr.change_count }}</div>
                 <div class="label">Aneuploid Chromosomes (fold change &lt; 0.76 or &gt; 1.23)</div>
             </a>
             {% endif %}
@@ -330,13 +330,10 @@
         <p class="note">
             QC metrics from MultiQC (Picard, Samtools, Mosdepth). Variant counts from bcftools stats.
             Click linked counts to open per-sample IGV reports.
-            CNV/SV reports (CNVKit, Manta, TIDDIT) show table-only views — the embedded IGV alignment viewer is disabled because
-            igv-reports can only embed a fixed reference window, which is too small for multi-kilobase structural events
-            (<a href="https://github.com/igvteam/igv-reports/issues/100" target="_blank" rel="noopener">igv-reports #100</a>).
-            To visually inspect interesting SVs, download the VCF and CRAM files and open them in
-            <a href="https://igv.org/doc/desktop/" target="_blank" rel="noopener">IGV desktop</a>,
-            which supports full-genome navigation. See also
-            <a href="https://www.youtube.com/watch?v=wuk3Lo_2VlU" target="_blank" rel="noopener">this IGV SV walkthrough</a>.
+            CNVKit reports show read depth and log2 ratio tracks (~5 kb bins, ±50 kb context).
+            Manta and TIDDIT reports include read alignment views at breakpoints (±500 bp).
+            TIDDIT is pre-filtered to PASS variants only (shown as "PASS / raw" in the table);
+            both raw and PASS-filtered VCFs are available for download from each report.
         </p>
         <div id="summary-table"></div>
     </div>
@@ -545,7 +542,7 @@
                 <h4>Why counts differ</h4>
                 <ul>
                     <li><strong>SV Events card + matrix</strong>: PASS-filtered, deduplicated across callers (<code>sv_cohort_matrix_union_pass.csv</code>)</li>
-                    <li><strong>Sample Overview CNVKit/TIDDIT/Manta columns</strong>: raw unfiltered per-sample VCF counts from bcftools stats; reports are table-only (no IGV alignment view)</li>
+                    <li><strong>Sample Overview CNVKit/TIDDIT/Manta columns</strong>: raw unfiltered per-sample VCF counts from bcftools stats. TIDDIT shows "PASS / raw" when PASS stats are available. CNVKit IGV reports show read depth and log2 ratio tracks (~5 kb bins, ±50 kb context); Manta and TIDDIT IGV reports include read alignment views at breakpoints (±500 bp)</li>
                 </ul>
                 <p>
                     Per-sample counts are much higher because they include non-PASS calls
@@ -638,7 +635,7 @@
                     <tr><td>Map % / Mapped (M)</td><td>Samtools flagstat</td><td>&mdash;</td></tr>
                     <tr><td>HaplotypeCaller</td><td>bcftools stats (<code>*_snpEff.ann</code>)</td><td>Soft-filtered, annotated (all non-ref variants)</td></tr>
                     <tr><td>CNVKit</td><td>bcftools stats (<code>*.cnvcall</code>)</td><td>Raw (unfiltered)</td></tr>
-                    <tr><td>TIDDIT</td><td>bcftools stats (<code>*.tiddit</code>)</td><td>Raw (unfiltered)</td></tr>
+                    <tr><td>TIDDIT</td><td>bcftools stats (<code>*.tiddit</code>)</td><td>Table shows "PASS / raw"; IGV report uses PASS-only</td></tr>
                     <tr><td>Manta</td><td>bcftools stats (<code>*.manta.diploid_sv</code>)</td><td>Raw (unfiltered)</td></tr>
                 </table>
                 <p>All parsed from <code>multiqc_data/</code> (<code>multiqc_general_stats.txt</code> + <code>multiqc_bcftools_stats.txt</code>).</p>
@@ -761,7 +758,7 @@
                     title: "CNV",
                     columns: [
                         { title: "CNVKit", field: "cnvkit_events", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'CNVKit<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered, table only</span>'; },
+                          titleFormatter: function() { return 'CNVKit<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered, depth + log2 ratio</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var v = cell.getValue();
@@ -778,19 +775,22 @@
                     title: "SV",
                     columns: [
                         { title: "TIDDIT", field: "tiddit_svs", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered, table only</span>'; },
+                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 PASS / raw</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
-                              var v = cell.getValue();
-                              if (v == null) return "";
+                              var total = cell.getValue();
+                              if (total == null) return "";
+                              var pass = row.tiddit_pass;
+                              var label = (pass != null) ? pass + ' / ' + total : '' + total;
                               if (row.tiddit_igv_link) {
-                                  return '<a class="igv-link" href="' + row.tiddit_igv_link + '" target="_blank">' + v + '</a>';
+                                  return '<a class="igv-link" href="' + row.tiddit_igv_link + '" target="_blank" title="PASS-filtered variants shown in IGV report. Download raw VCF from the report toolbar.">' + label + '</a>';
                               }
-                              return v;
+                              return label;
                           }
                         },
+                        { title: "TIDDIT PASS", field: "tiddit_pass", visible: false },
                         { title: "Manta", field: "manta_svs", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered, table only</span>'; },
+                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 all variants</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var v = cell.getValue();

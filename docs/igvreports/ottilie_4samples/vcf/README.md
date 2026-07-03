@@ -28,7 +28,8 @@ These are the canonical variant calls suitable for sharing and downstream analys
 
 ## tiddit/
 
-- **{sample}_tiddit.vcf.gz**: TIDDIT structural variant calls, SnpEff annotated.
+- **{sample}_tiddit.vcf.gz**: TIDDIT structural variant calls (all), SnpEff annotated.
+- **{sample}_tiddit_pass.vcf.gz**: PASS-filtered subset used in IGV reports.
 
 ## IGV Report Display VCFs
 
