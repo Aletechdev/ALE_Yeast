@@ -204,6 +204,7 @@
         <button id="importFilters">Import Filters</button>
         <button id="exportCsv">Export CSV</button>
         <button id="downloadVcf">Download VCF</button>
+        <button id="downloadRawVcf" style="display:none">Download Raw VCF</button>
         <div id="columnChooserWrap">
             <button id="toggleColumns">Columns</button>
             <div id="columnChooserMenu"></div>
@@ -212,8 +213,9 @@
         <input type="file" id="filterFileInput" accept=".json" style="display:none">
     </div>
     <div id="infoNote">Note: This table shows more rows than the downloadable VCF because multi-allelic sites are split into separate rows for display (<code>bcftools norm -m-</code>).</div>
-    <div id="svNote" style="display:none;padding:8px 16px;background:#fff3cd;border:1px solid #ffc107;margin:4px 12px;font-size:13px;border-radius:4px;">&#9888; <strong>SV/CNV table-only view</strong> &mdash; The IGV alignment view is not included for structural variant and copy number reports because igv-reports embeds a fixed reference window that is too small for multi-kilobase events. To visually inspect interesting SVs, download the VCF and CRAM files and open them in <a href="https://igv.org/doc/desktop/" target="_blank" rel="noopener">IGV desktop</a>, which supports full-genome navigation and dynamic data loading.</div>
-    <div id="cnvkitNote" style="display:none;padding:8px 16px;background:#d1ecf1;border:1px solid #bee5eb;margin:4px 12px;font-size:13px;border-radius:4px;">&#x1f4ca; <strong>CNVKit coverage view</strong> &mdash; The panel below shows read depth from CNVKit bin-level coverage (~5 kb resolution) with 50 kb flanking context. Click a row to navigate to the CNV region. Gene annotations shown on the top track.</div>
+    <div id="svNote" style="display:none;padding:8px 16px;background:#d1ecf1;border:1px solid #bee5eb;margin:4px 12px;font-size:13px;border-radius:4px;position:relative;"><button onclick="this.parentElement.style.display='none'" style="position:absolute;top:4px;right:8px;border:none;background:none;font-size:16px;cursor:pointer;color:#0c5460;line-height:1">&times;</button><strong>SV alignment view</strong> &mdash; The IGV panel below shows read alignments at each breakpoint (&plusmn;500 bp). Click a row to navigate. For full-genome context or multi-kilobase events, download the VCF and CRAM files and open them in <a href="https://igv.org/doc/desktop/" target="_blank" rel="noopener">IGV desktop</a>.</div>
+    <div id="svCnvNote" style="display:none;padding:8px 16px;background:#fff3cd;border:1px solid #ffc107;margin:4px 12px;font-size:13px;border-radius:4px;position:relative;"><button onclick="this.parentElement.style.display='none'" style="position:absolute;top:4px;right:8px;border:none;background:none;font-size:16px;cursor:pointer;color:#856404;line-height:1">&times;</button><strong>SV/CNV table-only view</strong> &mdash; No IGV alignment view for this report. To inspect SVs visually, download the VCF and CRAM files and open them in <a href="https://igv.org/doc/desktop/" target="_blank" rel="noopener">IGV desktop</a>.</div>
+    <div id="cnvkitNote" style="display:none;padding:8px 16px;background:#d1ecf1;border:1px solid #bee5eb;margin:4px 12px;font-size:13px;border-radius:4px;position:relative;"><button onclick="this.parentElement.style.display='none'" style="position:absolute;top:4px;right:8px;border:none;background:none;font-size:16px;cursor:pointer;color:#0c5460;line-height:1">&times;</button><strong>CNVKit coverage view</strong> &mdash; Read depth and log2 ratio tracks (~5 kb bins, &plusmn;50 kb context). Click a row to navigate to the CNV region. Gene annotations shown on the top track.</div>
 
     <!-- Legend modal -->
     <div id="legendOverlay">
@@ -252,6 +254,8 @@
     // VCF download link (file-based) — injected by build script
     const vcfHref = "@VCF_HREF@";
     const vcfFilename = "@VCF_FILENAME@";
+    const vcfRawHref = "@VCF_RAW_HREF@";
+    const vcfRawFilename = "@VCF_RAW_FILENAME@";
     const reportType = "@REPORT_TYPE@";
 
     let igvBrowser;
@@ -261,12 +265,17 @@
         document.getElementById("infoNote").style.display = "block";
     }
     if (reportType === "sv_cnv") {
-        document.getElementById("svNote").style.display = "block";
+        document.getElementById("svCnvNote").style.display = "block";
         document.getElementById("igvPanel").style.display = "none";
         document.getElementById("resizeHandle").style.display = "none";
     }
     if (reportType === "sv_alignment") {
         document.getElementById("svNote").style.display = "block";
+        // Show raw VCF download button if a raw VCF link is available
+        if (vcfRawHref && vcfRawHref !== "@" + "VCF_RAW_HREF@") {
+            document.getElementById("downloadVcf").textContent = "Download PASS VCF";
+            document.getElementById("downloadRawVcf").style.display = "";
+        }
     }
     if (reportType === "cnvkit_coverage") {
         document.getElementById("cnvkitNote").style.display = "block";
@@ -310,7 +319,15 @@
         return items.length ? items.join("<br>") : "";
     }
 
+    // Display SV ALT tags: &lt;DEL&gt; → <DEL>, &lt;DUP:TANDEM&gt; → <DUP:TANDEM>
+    function svAltFormatter(cell) {
+        var v = cell.getValue();
+        if (v == null) return "";
+        return String(v).replace(/&lt;([\w:]+)&gt;/g, '&langle;$1&rangle;');
+    }
+
     const columnSettings = {
+        "ALT":                { type: "string", filter: "contains", formatter: svAltFormatter },
         "GENE":               { type: "string", filter: "contains", formatter: "html" },
         "EFFECTS":            { type: "string", filter: "list",     formatter: "html" },
         "IMPACT":             { type: "string", filter: "list",     formatter: "html" },
@@ -476,6 +493,18 @@
             const a = document.createElement("a");
             a.href = vcfHref;
             a.download = vcfFilename || "variants.vcf.gz";
+            a.click();
+        });
+
+        // Download raw (unfiltered) VCF
+        document.getElementById("downloadRawVcf").addEventListener("click", function() {
+            if (!vcfRawHref || vcfRawHref === "@" + "VCF_RAW_HREF@") {
+                alert("Raw VCF download not available for this report.");
+                return;
+            }
+            const a = document.createElement("a");
+            a.href = vcfRawHref;
+            a.download = vcfRawFilename || "variants_raw.vcf.gz";
             a.click();
         });
 

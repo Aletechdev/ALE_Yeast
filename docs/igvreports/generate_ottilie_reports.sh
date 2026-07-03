@@ -55,6 +55,12 @@ echo "  Quality-filtered: ${PASS_COUNT}, Total: ${TOTAL_COUNT}, Pre-normalizatio
 
 echo ""
 echo "Regenerating index.html (standalone, picks up template changes)..."
+PASS_STATS_FILES=(${OUTDIR}/data/*.pass_stats.tsv)
+PASS_STATS_ARG=""
+if [ -f "${PASS_STATS_FILES[0]}" ]; then
+    PASS_STATS_ARG="--pass-stats ${PASS_STATS_FILES[*]}"
+fi
+
 python "${REPO_ROOT}/docs/igvreports/generate_index.py" \
     --multiqc-dir "${REPO_ROOT}/output_ottilie/multiqc/multiqc_data" \
     --output "${OUTDIR}/index.html" \
@@ -64,7 +70,8 @@ python "${REPO_ROOT}/docs/igvreports/generate_index.py" \
     --cnv-sv-data-dir "${OUTDIR}/data" \
     --multiqc-report-path "multiqc_report.html" \
     --joint-vcf "${REPO_ROOT}/output_ottilie/variant_calling/haplotypecaller/joint_variant_calling/HaplotypeCaller_joint_calling_soft_filtered.vcf.gz" \
-    --prepared-vcf "${OUTDIR}/prepare/cohort.prepared.vcf.gz"
+    --prepared-vcf "${OUTDIR}/prepare/cohort.prepared.vcf.gz" \
+    ${PASS_STATS_ARG}
 
 echo ""
 echo "Done! Open docs/igvreports/ottilie_4samples/index.html"

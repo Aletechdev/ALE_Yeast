@@ -281,8 +281,19 @@ process IGVREPORTS_SV_CNV {
     fi
 
     # Set VCF download link and report type
-    sed -i 's|@VCF_HREF@|../vcf/${meta.caller}/${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
-    sed -i 's|@VCF_FILENAME@|${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
+    if [ "${meta.caller}" = "tiddit" ]; then
+        # TIDDIT: primary download = PASS-filtered, raw download = all variants
+        sed -i 's|@VCF_HREF@|../vcf/tiddit/${meta.id}_tiddit_pass.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
+        sed -i 's|@VCF_FILENAME@|${meta.id}_tiddit_pass.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
+        sed -i 's|@VCF_RAW_HREF@|../vcf/tiddit/${meta.id}_tiddit.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
+        sed -i 's|@VCF_RAW_FILENAME@|${meta.id}_tiddit.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
+    else
+        sed -i 's|@VCF_HREF@|../vcf/${meta.caller}/${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
+        sed -i 's|@VCF_FILENAME@|${meta.id}_${meta.caller}.vcf.gz|g' ${meta.id}_${meta.caller}_report.html
+        # Clear raw VCF placeholders for non-TIDDIT callers
+        sed -i 's|@VCF_RAW_HREF@||g' ${meta.id}_${meta.caller}_report.html
+        sed -i 's|@VCF_RAW_FILENAME@||g' ${meta.id}_${meta.caller}_report.html
+    fi
     if [ "${has_bedgraph}" = "true" ]; then
         sed -i 's|@REPORT_TYPE@|cnvkit_coverage|g' ${meta.id}_${meta.caller}_report.html
     elif [ "${want_alignment}" = "true" ]; then
@@ -299,16 +310,23 @@ process FILTER_PASS_VCF {
 
     container 'quay.io/biocontainers/bcftools:1.20--h8b25389_0'
 
+    publishDir "${params.outdir}/data", mode: 'copy', pattern: '*.pass_stats.tsv'
+
     input:
     tuple val(meta), path(vcf), path(tbi)
 
     output:
-    tuple val(meta), path("${meta.id}.${meta.caller}.pass.vcf.gz"), path("${meta.id}.${meta.caller}.pass.vcf.gz.tbi")
+    tuple val(meta), path("${meta.id}.${meta.caller}.pass.vcf.gz"), path("${meta.id}.${meta.caller}.pass.vcf.gz.tbi"), emit: vcf
+    path "${meta.id}.${meta.caller}.pass_stats.tsv", emit: stats
 
     script:
     """
     bcftools view -f PASS ${vcf} -Oz -o ${meta.id}.${meta.caller}.pass.vcf.gz
     bcftools index -t ${meta.id}.${meta.caller}.pass.vcf.gz
+
+    TOTAL=\$(bcftools view -H ${vcf} | wc -l)
+    PASS=\$(bcftools view -H ${meta.id}.${meta.caller}.pass.vcf.gz | wc -l)
+    printf "sample\\tcaller\\ttotal\\tpass\\n%s\\t%s\\t%d\\t%d\\n" "${meta.id}" "${meta.caller}" "\$TOTAL" "\$PASS" > ${meta.id}.${meta.caller}.pass_stats.tsv
     """
 }
 
@@ -326,6 +344,7 @@ process PUBLISH_VCFS {
     path cnvkit_vcfs   // flattened list
     path manta_vcfs    // flattened list
     path tiddit_vcfs   // flattened list
+    path tiddit_pass_vcfs  // flattened list: PASS-filtered TIDDIT VCFs
 
     output:
     path "haplotypecaller/*",  emit: hc
@@ -379,7 +398,7 @@ process PUBLISH_VCFS {
         fi
     done
 
-    # Per-sample TIDDIT VCFs
+    # Per-sample TIDDIT VCFs (raw)
     for f in ${tiddit_vcfs}; do
         [ ! -f "\$f" ] && continue
         base=\$(basename "\$f")
@@ -388,6 +407,19 @@ process PUBLISH_VCFS {
             cp "\$f" "tiddit/\${sample}_tiddit.vcf.gz.tbi"
         elif echo "\$base" | grep -q '.vcf.gz\$'; then
             cp "\$f" "tiddit/\${sample}_tiddit.vcf.gz"
+        fi
+    done
+
+    # Per-sample TIDDIT PASS-filtered VCFs
+    for f in ${tiddit_pass_vcfs}; do
+        [ ! -f "\$f" ] && continue
+        base=\$(basename "\$f")
+        # Input: {sample}.tiddit.pass.vcf.gz -> Output: {sample}_tiddit_pass.vcf.gz
+        sample=\$(echo "\$base" | sed 's/.tiddit.pass.vcf.gz\$//' | sed 's/.tiddit.pass.vcf.gz.tbi\$//')
+        if echo "\$base" | grep -q '.tbi\$'; then
+            cp "\$f" "tiddit/\${sample}_tiddit_pass.vcf.gz.tbi"
+        elif echo "\$base" | grep -q '.vcf.gz\$'; then
+            cp "\$f" "tiddit/\${sample}_tiddit_pass.vcf.gz"
         fi
     done
 
@@ -422,7 +454,8 @@ These are the canonical variant calls suitable for sharing and downstream analys
 
 ## tiddit/
 
-- **{sample}_tiddit.vcf.gz**: TIDDIT structural variant calls, SnpEff annotated.
+- **{sample}_tiddit.vcf.gz**: TIDDIT structural variant calls (all), SnpEff annotated.
+- **{sample}_tiddit_pass.vcf.gz**: PASS-filtered subset used in IGV reports.
 
 ## IGV Report Display VCFs
 
@@ -454,6 +487,7 @@ process GENERATE_INDEX {
     path cnv_sv_data_dir  // optional: CN/SV cohort matrix CSVs (use [] for none)
     val multiqc_report_path  // optional: relative path to multiqc_report.html
     path prepared_cohort_vcf  // post-norm prepared VCF for accurate row counting
+    path pass_stats  // optional: PASS filter stats TSVs from FILTER_PASS_VCF
 
     output:
     path "index.html"
@@ -462,8 +496,17 @@ process GENERATE_INDEX {
     def cnv_sv_arg = cnv_sv_data_dir.name != 'NO_FILE' ? "--cnv-sv-data-dir ${cnv_sv_data_dir}" : ""
     def mqc_path_arg = multiqc_report_path ? "--multiqc-report-path '${multiqc_report_path}'" : ""
     def prepared_vcf_arg = prepared_cohort_vcf.name != 'NO_FILE' ? "--prepared-vcf ${prepared_cohort_vcf}" : ""
+    def stats_list = pass_stats instanceof List ? pass_stats : [pass_stats]
+    def pass_stats_arg = stats_list.any { it.name != 'NO_FILE' } ? "--pass-stats ${stats_list.join(' ')}" : ""
 
     """
+    # Create samples/ symlinks so discover_igv_reports() can find reports
+    # (sample reports are staged flat by Nextflow, but index.html links via samples/)
+    mkdir -p samples
+    for f in *_report.html; do
+        [ -f "\$f" ] && [ "\$f" != "cohort_report.html" ] && ln -sf "../\$f" "samples/\$f" || true
+    done
+
     # Run the Jinja2-based index generator
     ${params.python_bin ?: 'python'} ${generate_index_script} \\
         --multiqc-dir ${multiqc_data_dir} \\
@@ -471,14 +514,7 @@ process GENERATE_INDEX {
         --cohort-report ${cohort_report} \\
         --sample-reports-dir samples \\
         --templates-dir ${templates_dir} \\
-        ${cnv_sv_arg} ${mqc_path_arg} ${prepared_vcf_arg}
-
-    # Create samples/ symlink so relative links in index.html work at publish time
-    # (sample reports are staged flat by Nextflow, but published into samples/)
-    mkdir -p samples
-    for f in *_report.html; do
-        [ -f "\$f" ] && [ "\$f" != "cohort_report.html" ] && ln -sf "../\$f" "samples/\$f" || true
-    done
+        ${cnv_sv_arg} ${mqc_path_arg} ${prepared_vcf_arg} ${pass_stats_arg}
     """
 }
 
@@ -549,16 +585,18 @@ workflow {
             [ [id: sample, caller: 'tiddit', caller_label: 'TIDDIT'], vcf, tbi ]
         }
 
+    // Filter TIDDIT to PASS-only (high call volume, most are low-confidence)
+    FILTER_PASS_VCF(ch_tiddit_vcfs)
+    ch_tiddit_pass = FILTER_PASS_VCF.out.vcf
+
     PUBLISH_VCFS(
         ch_joint_vcf,
         ch_hc_annotated.flatMap { vcf, tbi -> [vcf, tbi] }.collect(),
         ch_cnvkit_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect(),
         ch_manta_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect(),
-        ch_tiddit_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect()
+        ch_tiddit_vcfs.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect(),
+        ch_tiddit_pass.flatMap { meta, vcf, tbi -> [vcf, tbi] }.collect()
     )
-
-    // Filter TIDDIT to PASS-only (high call volume, most are low-confidence)
-    ch_tiddit_pass = FILTER_PASS_VCF(ch_tiddit_vcfs)
 
     // Single PREPARE_VCF call with all VCFs mixed
     ch_all_prepared = PREPARE_VCF(
@@ -652,6 +690,11 @@ workflow {
         .mix(IGVREPORTS_SV_CNV.out)
         .collect()
 
+    // Collect PASS filter stats (or NO_FILE placeholder if none)
+    ch_pass_stats = FILTER_PASS_VCF.out.stats
+        .collect()
+        .ifEmpty(file("NO_FILE"))
+
     GENERATE_INDEX(
         IGVREPORTS_COHORT.out.collect(),
         ch_all_sample_reports,
@@ -660,6 +703,7 @@ workflow {
         ch_templates,
         ch_cnv_sv_data,
         ch_mqc_report_path,
-        ch_prepared_cohort_vcf.collect()
+        ch_prepared_cohort_vcf.collect(),
+        ch_pass_stats
     )
 }

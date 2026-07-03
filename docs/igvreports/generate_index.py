@@ -175,6 +175,26 @@ def get_prepared_vcf_counts(prepared_vcf: Path | None) -> tuple[int | None, int 
         return None, None
 
 
+def load_pass_stats(pass_stats_files: list[Path] | None) -> dict[tuple[str, str], dict]:
+    """Load PASS filter stats TSVs into a lookup dict.
+
+    Returns {(sample, caller): {"total": int, "pass": int}}
+    """
+    if not pass_stats_files:
+        return {}
+    import csv
+    lookup = {}
+    for path in pass_stats_files:
+        if not path.exists():
+            continue
+        with open(path) as f:
+            reader = csv.DictReader(f, delimiter="\t")
+            for row in reader:
+                key = (row["sample"], row["caller"])
+                lookup[key] = {"total": int(row["total"]), "pass": int(row["pass"])}
+    return lookup
+
+
 def load_snpeff_stats(multiqc_dir: Path) -> pd.DataFrame:
     """Load and parse multiqc_snpeff.txt.
 
@@ -462,6 +482,7 @@ def build_context(
     multiqc_report_path: str | None = None,
     joint_vcf: Path | None = None,
     prepared_vcf: Path | None = None,
+    pass_stats_files: list[Path] | None = None,
 ) -> dict:
     """Build the full template context dictionary."""
 
@@ -502,6 +523,9 @@ def build_context(
             "mapped_reads_m": round(row.get("mapped_reads", 0), 1) if pd.notna(row.get("mapped_reads")) else None,
         }
 
+    # Load PASS filter stats (from FILTER_PASS_VCF)
+    pass_stats = load_pass_stats(pass_stats_files)
+
     summary_data = []
     for sample in samples:
         info = classify_sample(sample)
@@ -510,6 +534,11 @@ def build_context(
 
         # HC variant count from MultiQC bcftools_stats (soft-filtered, all non-ref)
         hc_variants = counts.get("HaplotypeCaller", 0)
+
+        # TIDDIT: use PASS stats if available, otherwise fall back to raw count
+        tiddit_ps = pass_stats.get((sample, "tiddit"), {})
+        tiddit_total = tiddit_ps.get("total", counts.get("TIDDIT", 0))
+        tiddit_pass = tiddit_ps.get("pass")  # None if no pass stats
 
         entry = {
             "sample": sample,
@@ -522,7 +551,8 @@ def build_context(
             # Variant fields
             "hc_variants": hc_variants,
             "cnvkit_events": counts.get("CNVKit", 0),
-            "tiddit_svs": counts.get("TIDDIT", 0),
+            "tiddit_svs": tiddit_total,
+            "tiddit_pass": tiddit_pass,
             "manta_svs": counts.get("Manta", 0),
             "igv_link": igv_links.get(sample, {}).get("hc"),
             "cnvkit_igv_link": igv_links.get(sample, {}).get("cnvkit"),
@@ -643,6 +673,10 @@ def main():
         "--prepared-vcf", type=Path, default=None,
         help="Path to prepared (post-norm) cohort VCF for accurate row counting matching cohort report table",
     )
+    parser.add_argument(
+        "--pass-stats", type=Path, nargs="*", default=None,
+        help="PASS filter stats TSV files from FILTER_PASS_VCF (sample, caller, total, pass)",
+    )
     args = parser.parse_args()
 
     context = build_context(
@@ -653,6 +687,7 @@ def main():
         multiqc_report_path=args.multiqc_report_path,
         joint_vcf=args.joint_vcf,
         prepared_vcf=args.prepared_vcf,
+        pass_stats_files=args.pass_stats,
     )
 
     # Template directory: explicit arg or relative to this script
