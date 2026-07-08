@@ -21,10 +21,13 @@ process BUILD_CN_MATRIX {
     script:
     """
     # build_cn_matrix.py discovers .cns/.cnr from variant_calling/cnvkit/{sample}/
-    # Create expected directory structure for the script
-    mkdir -p variant_calling/cnvkit/${meta.id}
-    ln -s \$(readlink -f ${cnvkit_dir})/*.cns variant_calling/cnvkit/${meta.id}/ 2>/dev/null || true
-    ln -s \$(readlink -f ${cnvkit_dir})/*.cnr variant_calling/cnvkit/${meta.id}/ 2>/dev/null || true
+    # Symlink per-sample subdirectories to recreate expected structure
+    mkdir -p variant_calling/cnvkit
+    for sample_dir in \$(readlink -f ${cnvkit_dir})/*/; do
+        if [ -d "\${sample_dir}" ]; then
+            ln -s "\${sample_dir}" variant_calling/cnvkit/
+        fi
+    done
 
     build_cn_matrix.py --output-dir . --fai ${fai}
 

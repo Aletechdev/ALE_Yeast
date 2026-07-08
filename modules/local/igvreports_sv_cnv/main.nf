@@ -49,7 +49,7 @@ process IGVREPORTS_SV_CNV {
 
     # Post-process: set custom height and colors for bedgraph coverage tracks
     if [ "${has_bedgraph}" = "true" ]; then
-        python3 ${projectDir}/postprocess_cnvkit_report.py ${meta.id}_${meta.caller}_report.html
+        postprocess_cnvkit_report.py ${meta.id}_${meta.caller}_report.html
     fi
 
     # Strip IGV session data only for callers without alignment view support

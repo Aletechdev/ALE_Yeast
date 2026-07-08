@@ -21,8 +21,8 @@ include { PUBLISH_VCFS       } from '../../../modules/local/publish_vcfs/main'
 include { GENERATE_INDEX     } from '../../../modules/local/generate_index/main'
 include { BUILD_CN_MATRIX    } from '../../../modules/local/build_cn_matrix/main'
 include { BUILD_CN_COHORT    } from '../../../modules/local/build_cn_cohort/main'
-include { FILTER_SV_VCF as FILTER_SV_VCF_MANTA  } from '../../../modules/local/filter_sv_vcf/main'
-include { FILTER_SV_VCF as FILTER_SV_VCF_TIDDIT } from '../../../modules/local/filter_sv_vcf/main'
+include { BCFTOOLS_VIEW as FILTER_SV_VCF_MANTA  } from '../../../modules/nf-core/bcftools/view/main'
+include { BCFTOOLS_VIEW as FILTER_SV_VCF_TIDDIT } from '../../../modules/nf-core/bcftools/view/main'
 include { SURVIVOR_SV_MERGE  } from '../../../modules/local/survivor_sv_merge/main'
 include { BUILD_SV_COHORT    } from '../../../modules/local/build_sv_cohort/main'
 
@@ -312,9 +312,9 @@ workflow MUTATION_REPORT {
                 }
             }
 
-        // PASS-filter both callers
-        FILTER_SV_VCF_MANTA(ch_sv_manta_raw)
-        FILTER_SV_VCF_TIDDIT(ch_sv_tiddit_raw)
+        // PASS-filter both callers (nf-core bcftools/view with ext.args)
+        FILTER_SV_VCF_MANTA(ch_sv_manta_raw, [], [], [])
+        FILTER_SV_VCF_TIDDIT(ch_sv_tiddit_raw, [], [], [])
         versions = versions.mix(FILTER_SV_VCF_MANTA.out.versions.first())
 
         // Also run without PASS filter (union mode)
@@ -477,9 +477,10 @@ workflow MUTATION_REPORT {
 
         ch_multiqc_data = Channel.value(file(multiqc_dir))
 
-        // Collect CN/SV data into a single directory for generate_index.py
+        // Collect CN/SV data + pass_stats into a single channel for data/ staging
         ch_cnv_sv_data = ch_cn_data
             .mix(ch_sv_data)
+            .mix(ch_pass_stats)
             .collect()
             .ifEmpty(file("NO_FILE"))
 
@@ -499,8 +500,7 @@ workflow MUTATION_REPORT {
             ch_templates_dir,
             ch_cnv_sv_data,
             ch_mqc_report_path,
-            ch_prepared_cohort_vcf.collect(),
-            ch_pass_stats
+            ch_prepared_cohort_vcf.collect()
         )
         versions = versions.mix(GENERATE_INDEX.out.versions)
 

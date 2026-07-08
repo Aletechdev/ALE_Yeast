@@ -120,3 +120,6 @@ docs/igvreports/**/*.png
 # macOS .DS_Store in tracked subdirectories (overrides !data/dicarboxylic_acids/**)
 data/dicarboxylic_acids/.DS_Store
 .env
+
+# v2 report output (generated, not tracked)
+docs/igvreports/ottilie_4samples_v2/

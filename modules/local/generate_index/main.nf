@@ -11,10 +11,9 @@ process GENERATE_INDEX {
     path multiqc_data_dir
     path generate_index_script
     path templates_dir
-    path cnv_sv_data_dir
+    path cnv_sv_data, stageAs: "data/*"   // CN/SV CSVs + pass_stats staged into data/ subdir
     val multiqc_report_path
     path prepared_cohort_vcf
-    path pass_stats
 
     output:
     path "index.html",    emit: index
@@ -24,11 +23,14 @@ process GENERATE_INDEX {
     task.ext.when == null || task.ext.when
 
     script:
-    def cnv_sv_arg = cnv_sv_data_dir.name != 'NO_FILE' ? "--cnv-sv-data-dir ${cnv_sv_data_dir}" : ""
+    def has_cnv_sv = cnv_sv_data instanceof List ? cnv_sv_data.any { it.name != 'NO_FILE' } : cnv_sv_data.name != 'NO_FILE'
+    def cnv_sv_arg = has_cnv_sv ? "--cnv-sv-data-dir data" : ""
     def mqc_path_arg = multiqc_report_path ? "--multiqc-report-path '${multiqc_report_path}'" : ""
     def prepared_vcf_arg = prepared_cohort_vcf.name != 'NO_FILE' ? "--prepared-vcf ${prepared_cohort_vcf}" : ""
-    def stats_list = pass_stats instanceof List ? pass_stats : [pass_stats]
-    def pass_stats_arg = stats_list.any { it.name != 'NO_FILE' } ? "--pass-stats ${stats_list.join(' ')}" : ""
+    // Discover pass_stats TSVs from the staged data/ directory
+    def data_files = cnv_sv_data instanceof List ? cnv_sv_data : [cnv_sv_data]
+    def stats_files = data_files.findAll { it.name.endsWith('.pass_stats.tsv') && it.name != 'NO_FILE' }
+    def pass_stats_arg = stats_files ? "--pass-stats ${stats_files.collect { 'data/' + it.name }.join(' ')}" : ""
     def python_bin = task.ext.python_bin ?: 'python'
 
     """
