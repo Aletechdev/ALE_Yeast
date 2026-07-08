@@ -314,7 +314,7 @@ def main():
         sv_merged_dir = Path(args.output_dir) / "sv_merged"
         if sv_merged_dir.exists():
             success["sv_matrix"] = run_script([
-                python, SCRIPT_DIR / "sv_cohort_matrix.py",
+                python, BIN_DIR / "sv_cohort_matrix.py",
                 "--output-dir", args.output_dir,
                 "--csv", results_dir / "sv_cohort_matrix.csv",
             ], "SV Cohort Matrix")
@@ -328,7 +328,7 @@ def main():
         cn_matrix_dir = Path(args.output_dir) / "cn_matrices"
         if cn_matrix_dir.exists():
             success["cn_matrix"] = run_script([
-                python, SCRIPT_DIR / "cn_cohort_matrix.py",
+                python, BIN_DIR / "cn_cohort_matrix.py",
                 "--cn-dir", str(cn_matrix_dir),
                 "--csv", results_dir / "cn_cohort_matrix.csv",
             ], "CN Cohort Matrix")

@@ -2,6 +2,11 @@
 """
 SV Characterization — Manta + TIDDIT via SURVIVOR merge.
 
+Note: The core SURVIVOR merge logic (run_survivor_merge, find_survivor,
+save_merged_vcf) has been extracted to bin/survivor_sv_merge.py for use
+as a standalone Nextflow process. This script retains its own inline copy
+for validation use (it calls merge 4x per sample with intermediate parsing).
+
 No truth set for SVs — this script characterizes all SVs across samples,
 merges Manta+TIDDIT calls per sample via SURVIVOR, and subtracts parent SVs
 to identify evolved-unique events.

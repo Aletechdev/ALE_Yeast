@@ -3,11 +3,19 @@
 Build dual CN matrices from CNVKit output for multi-sample ALE analysis.
 
 Produces three matrix types:
-  1. Sensitive segment matrix  — from .md.call.cns (re-centered log2, has p_ttest)
-  2. Stringent segment matrix  — from .md.germline.call.cns (CI-filtered, no re-centering)
+  1. "call" segment matrix     — from .md.call.cns (re-centered log2, has p_ttest)
+  2. "germline" segment matrix — from .md.germline.call.cns (CI-filtered, no re-centering)
   3. Continuous bin matrix      — from .md.cnr (bin-level, uniform ~5kb bins)
 
-Also produces a comparison report showing where sensitive and stringent disagree.
+Also produces a comparison report showing where "call" and "germline" disagree.
+
+Output files:
+  cn_segments_call.csv       — per-segment detail from .md.call.cns (sensitive, has p_ttest)
+  cn_segments_germline.csv   — per-segment detail from .md.germline.call.cns (CI-filtered)
+  cn_chr_summary_call.csv    — one row per chromosome, dominant segment from .md.call.cns
+  cn_chr_summary_germline.csv— one row per chromosome, dominant segment from .md.germline.call.cns
+  cn_call_vs_germline.csv    — rows where call and germline fold_change disagree by >0.1
+  cn_bins_continuous.csv     — bin-level log2/fold_change from .md.cnr (all samples aligned)
 
 Usage:
     python bin/build_cn_matrix.py --output-dir output_ottilie --fai data/ottilie/S288C_reference/S288C_R64.fa.fai
@@ -182,12 +190,16 @@ def build_cnr_matrix(output_dir, samples):
     return matrix
 
 
-def compare_matrices(sensitive, stringent, samples):
-    """Compare sensitive vs stringent CN calls, report disagreements."""
+def compare_matrices(call_segs, germline_segs, samples):
+    """Compare call vs germline CN calls, report disagreements.
+
+    "call" = .md.call.cns (re-centered, sensitive)
+    "germline" = .md.germline.call.cns (CI-filtered, stringent)
+    """
     disagreements = []
     for sample in samples:
-        sens_segs = sensitive.get(sample, [])
-        stri_segs = stringent.get(sample, [])
+        sens_segs = call_segs.get(sample, [])
+        stri_segs = germline_segs.get(sample, [])
 
         # Build per-chromosome CN lookup for each
         def chr_cn_map(segs):
@@ -211,10 +223,10 @@ def compare_matrices(sensitive, stringent, samples):
                     "start": sens_seg["start"],
                     "end": sens_seg["end"],
                     "span_kb": f"{span_kb:.0f}",
-                    "sensitive_fc": f"{sens_seg['fold_change']:.3f}",
-                    "sensitive_log2": f"{sens_seg['log2']:.4f}",
-                    "stringent_fc": f"{stri_seg['fold_change']:.3f}",
-                    "stringent_log2": f"{stri_seg['log2']:.4f}",
+                    "call_fc": f"{sens_seg['fold_change']:.3f}",
+                    "call_log2": f"{sens_seg['log2']:.4f}",
+                    "germline_fc": f"{stri_seg['fold_change']:.3f}",
+                    "germline_log2": f"{stri_seg['log2']:.4f}",
                     "p_ttest": f"{sens_seg.get('p_ttest', float('nan')):.2e}",
                     "probes": sens_seg["probes"],
                 })
@@ -228,10 +240,10 @@ def compare_matrices(sensitive, stringent, samples):
                 "start": 0,
                 "end": 0,
                 "span_kb": "0",
-                "sensitive_fc": f"{len(sens_segs)} segs",
-                "sensitive_log2": "-",
-                "stringent_fc": f"{len(stri_segs)} segs",
-                "stringent_log2": "-",
+                "call_fc": f"{len(sens_segs)} segs",
+                "call_log2": "-",
+                "germline_fc": f"{len(stri_segs)} segs",
+                "germline_log2": "-",
                 "p_ttest": "-",
                 "probes": "-",
             })
@@ -293,12 +305,12 @@ def write_cnr_matrix_csv(matrix, samples, output_path):
 
 
 def write_comparison_csv(disagreements, output_path):
-    """Write sensitive vs stringent comparison CSV."""
+    """Write call vs germline comparison CSV."""
     if not disagreements:
         return
     fieldnames = ["sample", "chromosome", "start", "end", "span_kb",
-                  "sensitive_fc", "sensitive_log2", "stringent_fc",
-                  "stringent_log2", "p_ttest", "probes"]
+                  "call_fc", "call_log2", "germline_fc",
+                  "germline_log2", "p_ttest", "probes"]
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -339,42 +351,50 @@ def main():
     print(f"Samples: {', '.join(samples)}")
     print(f"Output: {results_dir}")
 
-    # 1. Sensitive matrix (.md.call.cns)
-    print("\n1. Building sensitive segment matrix (.md.call.cns)...")
-    sensitive = build_segment_matrix(output_dir, samples, "md.call.cns")
-    write_segment_csv(sensitive, samples,
-                      results_dir / "cn_segments_sensitive.csv", has_ptest=True)
-    sens_chr = build_chr_summary(sensitive, samples, chr_lengths, chr_order)
-    write_chr_summary_csv(sens_chr, samples,
-                          results_dir / "cn_chr_summary_sensitive.csv")
-    print(f"   Wrote {sum(len(v) for v in sensitive.values())} segments across {len(sensitive)} samples")
+    # 1. "call" matrix — from {sample}.md.call.cns
+    #    Source: cnvkit.py call → re-centered log2, includes p_ttest column.
+    #    More sensitive: reports all segments with shifted log2, even marginal ones.
+    #    CNVKit docs call this the "call" step (applies thresholds to assign CN states).
+    print("\n1. Building 'call' segment matrix (.md.call.cns)...")
+    call_segs = build_segment_matrix(output_dir, samples, "md.call.cns")
+    write_segment_csv(call_segs, samples,
+                      results_dir / "cn_segments_call.csv", has_ptest=True)
+    call_chr = build_chr_summary(call_segs, samples, chr_lengths, chr_order)
+    write_chr_summary_csv(call_chr, samples,
+                          results_dir / "cn_chr_summary_call.csv")
+    print(f"   Wrote {sum(len(v) for v in call_segs.values())} segments across {len(call_segs)} samples")
 
-    # 2. Stringent matrix (.md.germline.call.cns)
-    print("2. Building stringent segment matrix (.md.germline.call.cns)...")
-    stringent = build_segment_matrix(output_dir, samples, "md.germline.call.cns")
-    write_segment_csv(stringent, samples,
-                      results_dir / "cn_segments_stringent.csv", has_ptest=False)
-    stri_chr = build_chr_summary(stringent, samples, chr_lengths, chr_order)
-    write_chr_summary_csv(stri_chr, samples,
-                          results_dir / "cn_chr_summary_stringent.csv")
-    print(f"   Wrote {sum(len(v) for v in stringent.values())} segments across {len(stringent)} samples")
+    # 2. "germline" matrix — from {sample}.md.germline.call.cns
+    #    Source: cnvkit.py call --filter germline → CI-filtered, no re-centering.
+    #    More stringent: drops segments where the confidence interval overlaps neutral.
+    #    Fewer segments but higher confidence; used by the dashboard for display.
+    print("2. Building 'germline' segment matrix (.md.germline.call.cns)...")
+    germline_segs = build_segment_matrix(output_dir, samples, "md.germline.call.cns")
+    write_segment_csv(germline_segs, samples,
+                      results_dir / "cn_segments_germline.csv", has_ptest=False)
+    germline_chr = build_chr_summary(germline_segs, samples, chr_lengths, chr_order)
+    write_chr_summary_csv(germline_chr, samples,
+                          results_dir / "cn_chr_summary_germline.csv")
+    print(f"   Wrote {sum(len(v) for v in germline_segs.values())} segments across {len(germline_segs)} samples")
 
-    # 3. Comparison
-    print("3. Comparing sensitive vs stringent...")
-    disagreements = compare_matrices(sensitive, stringent, samples)
-    write_comparison_csv(disagreements, results_dir / "cn_sensitive_vs_stringent.csv")
+    # 3. Comparison — where call vs germline CN calls disagree
+    #    Useful for debugging: shows segments present in "call" but filtered out by
+    #    germline CI filter, or where re-centering shifted log2 values significantly.
+    print("3. Comparing call vs germline...")
+    disagreements = compare_matrices(call_segs, germline_segs, samples)
+    write_comparison_csv(disagreements, results_dir / "cn_call_vs_germline.csv")
     if disagreements:
         print(f"   {len(disagreements)} disagreement(s):")
         for d in disagreements:
             if d["chromosome"] == "-":
                 print(f"     {d['sample']}: segment count differs "
-                      f"({d['sensitive_fc']} vs {d['stringent_fc']})")
+                      f"({d['call_fc']} vs {d['germline_fc']})")
             else:
                 print(f"     {d['sample']} {d['chromosome']}:{d['start']}-{d['end']} "
-                      f"({d['span_kb']}kb): fc={d['sensitive_fc']} vs fc={d['stringent_fc']} "
-                      f"(log2={d['sensitive_log2']} vs {d['stringent_log2']}, p={d['p_ttest']})")
+                      f"({d['span_kb']}kb): fc={d['call_fc']} vs fc={d['germline_fc']} "
+                      f"(log2={d['call_log2']} vs {d['germline_log2']}, p={d['p_ttest']})")
     else:
-        print("   No CN disagreements between sensitive and stringent matrices")
+        print("   No CN disagreements between call and germline matrices")
 
     # 4. Continuous bin matrix (.md.cnr)
     if not args.skip_cnr:

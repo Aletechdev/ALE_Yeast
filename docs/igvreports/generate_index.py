@@ -397,7 +397,7 @@ def _has_cn_change(log2: float) -> bool:
 
 def load_cnv_sv_data(data_dir: Path) -> dict:
     """Load all CN/SV data from a directory. Returns dict for template context."""
-    cn_chr = load_cn_chr(data_dir / "cn_chr_summary_stringent.csv")
+    cn_chr = load_cn_chr(data_dir / "cn_chr_summary_germline.csv")
     cn_reg = load_cn_regions(data_dir / "cn_cohort_collapsed.csv")
     sv_pass = load_sv_matrix(data_dir / "sv_cohort_matrix_union_pass.csv")
     sv_all = load_sv_matrix(data_dir / "sv_cohort_matrix_union.csv")
@@ -425,7 +425,7 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
     cn_downloads = {}
     for key, csv_name in [
         ("regions", "cn_cohort_collapsed.csv"),
-        ("chr", "cn_chr_summary_stringent.csv"),
+        ("chr", "cn_chr_summary_germline.csv"),
         ("matrix", "cn_cohort_matrix.csv"),
     ]:
         csv_path = data_dir / csv_name
