@@ -23,7 +23,10 @@ include { BUILD_CN_MATRIX    } from '../../../modules/local/build_cn_matrix/main
 include { BUILD_CN_COHORT    } from '../../../modules/local/build_cn_cohort/main'
 include { BCFTOOLS_VIEW as FILTER_SV_VCF_MANTA  } from '../../../modules/nf-core/bcftools/view/main'
 include { BCFTOOLS_VIEW as FILTER_SV_VCF_TIDDIT } from '../../../modules/nf-core/bcftools/view/main'
-include { SURVIVOR_SV_MERGE  } from '../../../modules/local/survivor_sv_merge/main'
+include { BCFTOOLS_VIEW as DECOMPRESS_SV_MANTA  } from '../../../modules/nf-core/bcftools/view/main'
+include { BCFTOOLS_VIEW as DECOMPRESS_SV_TIDDIT } from '../../../modules/nf-core/bcftools/view/main'
+include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_PASS  } from '../../../modules/local/survivor_sv_merge/main'
+include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_UNION } from '../../../modules/local/survivor_sv_merge/main'
 include { BUILD_SV_COHORT    } from '../../../modules/local/build_sv_cohort/main'
 
 workflow MUTATION_REPORT {
@@ -317,9 +320,9 @@ workflow MUTATION_REPORT {
         FILTER_SV_VCF_TIDDIT(ch_sv_tiddit_raw, [], [], [])
         versions = versions.mix(FILTER_SV_VCF_MANTA.out.versions.first())
 
-        // Also run without PASS filter (union mode)
-        // For union_pass, we use the PASS-filtered outputs
-        // For union, we need unfiltered — use the raw VCFs directly
+        // Decompress raw VCFs (no PASS filter) for unfiltered union merge
+        DECOMPRESS_SV_MANTA(ch_sv_manta_raw, [], [], [])
+        DECOMPRESS_SV_TIDDIT(ch_sv_tiddit_raw, [], [], [])
 
         // Pair Manta + TIDDIT per sample for SURVIVOR merge (PASS-filtered)
         ch_manta_filtered = FILTER_SV_VCF_MANTA.out.vcf
@@ -327,22 +330,37 @@ workflow MUTATION_REPORT {
         ch_tiddit_filtered = FILTER_SV_VCF_TIDDIT.out.vcf
             .map { meta, vcf -> [ meta.id, vcf ] }
 
-        ch_sv_paired = ch_manta_filtered
+        ch_sv_paired_pass = ch_manta_filtered
             .join(ch_tiddit_filtered)
             .map { id, manta_vcf, tiddit_vcf ->
                 [ [id: id, merge_mode: 'union_pass'], manta_vcf, tiddit_vcf ]
             }
 
-        SURVIVOR_SV_MERGE(ch_sv_paired)
-        versions = versions.mix(SURVIVOR_SV_MERGE.out.versions.first())
+        // Pair raw (unfiltered) for union merge
+        ch_manta_raw_vcf = DECOMPRESS_SV_MANTA.out.vcf
+            .map { meta, vcf -> [ meta.id, vcf ] }
+        ch_tiddit_raw_vcf = DECOMPRESS_SV_TIDDIT.out.vcf
+            .map { meta, vcf -> [ meta.id, vcf ] }
+
+        ch_sv_paired_union = ch_manta_raw_vcf
+            .join(ch_tiddit_raw_vcf)
+            .map { id, manta_vcf, tiddit_vcf ->
+                [ [id: id, merge_mode: 'union'], manta_vcf, tiddit_vcf ]
+            }
+
+        SURVIVOR_SV_MERGE_PASS(ch_sv_paired_pass)
+        SURVIVOR_SV_MERGE_UNION(ch_sv_paired_union)
+        versions = versions.mix(SURVIVOR_SV_MERGE_PASS.out.versions.first())
 
         // Collect merged VCFs as flat list for BUILD_SV_COHORT
-        // The process reconstructs the {sample}/ directory structure internally
-        BUILD_SV_COHORT(
-            SURVIVOR_SV_MERGE.out.vcf
-                .flatMap { meta, vcf, tbi -> [ vcf, tbi ] }
-                .collect()
-        )
+        ch_pass_vcfs = SURVIVOR_SV_MERGE_PASS.out.vcf
+            .flatMap { meta, vcf, tbi -> [ vcf, tbi ] }
+            .collect()
+        ch_union_vcfs = SURVIVOR_SV_MERGE_UNION.out.vcf
+            .flatMap { meta, vcf, tbi -> [ vcf, tbi ] }
+            .collect()
+
+        BUILD_SV_COHORT(ch_pass_vcfs, ch_union_vcfs)
         versions = versions.mix(BUILD_SV_COHORT.out.versions)
 
         ch_sv_data = BUILD_SV_COHORT.out.union_csv

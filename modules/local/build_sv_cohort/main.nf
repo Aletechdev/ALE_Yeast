@@ -2,8 +2,8 @@
 // Wraps bin/sv_cohort_matrix.py — runs cohort-level SURVIVOR merge
 // and maps events back to per-sample callers
 //
-// sv_cohort_matrix.py expects: sv_merged_dir/{sample}/{sample}.survivor.union_pass.vcf.gz
-// This process stages flat VCFs into that directory structure before running.
+// Takes two sets of VCFs: PASS-filtered (union_pass) and unfiltered (union)
+// Produces separate cohort matrices for each.
 process BUILD_SV_COHORT {
     tag 'sv_cohort'
     label 'process_low'
@@ -12,7 +12,8 @@ process BUILD_SV_COHORT {
     container null  // No single biocontainer has all three; use conda
 
     input:
-    path vcf_files   // flat list of per-sample merged VCFs + TBIs
+    path pass_vcf_files    // flat list of PASS-filtered per-sample merged VCFs + TBIs
+    path union_vcf_files   // flat list of unfiltered per-sample merged VCFs + TBIs
 
     output:
     path "sv_cohort_matrix_union.csv",      emit: union_csv
@@ -24,29 +25,41 @@ process BUILD_SV_COHORT {
 
     script:
     """
-    # Stage flat VCFs into sv_merged/{sample}/ directory structure
-    # Expected filenames: {sample}.survivor.union_pass.vcf.gz + .tbi
-    mkdir -p sv_merged
-    for f in *.vcf.gz; do
+    # Stage PASS-filtered VCFs into sv_merged_pass/{sample}/
+    mkdir -p sv_merged_pass
+    for f in ${pass_vcf_files}; do
         [ ! -f "\$f" ] && continue
-        # Extract sample name: {sample}.survivor.union_pass.vcf.gz -> {sample}
-        sample=\$(echo "\$f" | sed 's/.survivor.union_pass.vcf.gz\$//')
-        mkdir -p "sv_merged/\${sample}"
-        ln -s "../../\$f" "sv_merged/\${sample}/\$f"
-        if [ -f "\${f}.tbi" ]; then
-            ln -s "../../\${f}.tbi" "sv_merged/\${sample}/\${f}.tbi"
-        fi
+        [[ "\$f" != *.vcf.gz ]] && [[ "\$f" != *.vcf.gz.tbi ]] && continue
+        base=\$(basename "\$f")
+        sample=\$(echo "\$base" | sed 's/.survivor.union_pass.vcf.gz\$//' | sed 's/.survivor.union_pass.vcf.gz.tbi\$//')
+        mkdir -p "sv_merged_pass/\${sample}"
+        ln -sf "\$(readlink -f \$f)" "sv_merged_pass/\${sample}/\${base}"
     done
 
-    # Run for union (all calls, using union_pass VCFs as source — they're what we have)
+    # Stage unfiltered VCFs into sv_merged_union/{sample}/
+    mkdir -p sv_merged_union
+    for f in ${union_vcf_files}; do
+        [ ! -f "\$f" ] && continue
+        [[ "\$f" != *.vcf.gz ]] && [[ "\$f" != *.vcf.gz.tbi ]] && continue
+        base=\$(basename "\$f")
+        sample=\$(echo "\$base" | sed 's/.survivor.union.vcf.gz\$//' | sed 's/.survivor.union.vcf.gz.tbi\$//')
+        mkdir -p "sv_merged_union/\${sample}"
+        ln -sf "\$(readlink -f \$f)" "sv_merged_union/\${sample}/\${base}"
+    done
+
+    # PASS-filtered cohort matrix
     sv_cohort_matrix.py \\
         --output-dir . \\
-        --sv-merged-dir sv_merged \\
+        --sv-merged-dir sv_merged_pass \\
         --source union_pass \\
         --csv sv_cohort_matrix_union_pass.csv
 
-    # Also produce union CSV (same source, different label for dashboard)
-    cp sv_cohort_matrix_union_pass.csv sv_cohort_matrix_union.csv
+    # Unfiltered cohort matrix
+    sv_cohort_matrix.py \\
+        --output-dir . \\
+        --sv-merged-dir sv_merged_union \\
+        --source union \\
+        --csv sv_cohort_matrix_union.csv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

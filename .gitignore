@@ -123,3 +123,6 @@ data/dicarboxylic_acids/.DS_Store
 
 # v2 report output (generated, not tracked)
 docs/igvreports/ottilie_4samples_v2/
+
+# Nextflow pipeline_info when outdir is unset (resolves to literal "null")
+null/
