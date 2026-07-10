@@ -426,7 +426,7 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
     for key, csv_name in [
         ("regions", "cn_cohort_collapsed.csv"),
         ("chr", "cn_chr_summary_germline.csv"),
-        ("matrix", "cn_cohort_matrix.csv"),
+        ("matrix", "cn_cohort_full.csv"),
     ]:
         csv_path = data_dir / csv_name
         if csv_path.exists():

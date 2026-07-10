@@ -16,9 +16,13 @@ process BUILD_SV_COHORT {
     path union_vcf_files   // flat list of unfiltered per-sample merged VCFs + TBIs
 
     output:
-    path "sv_cohort_matrix_union.csv",      emit: union_csv
-    path "sv_cohort_matrix_union_pass.csv", emit: union_pass_csv
-    path "versions.yml",                    emit: versions
+    path "sv_cohort_matrix_union.csv",              emit: union_csv
+    path "sv_cohort_matrix_union_pass.csv",         emit: union_pass_csv
+    path "sv_cohort_merged_union.vcf.gz",           emit: union_vcf
+    path "sv_cohort_merged_union.vcf.gz.tbi",       emit: union_vcf_tbi
+    path "sv_cohort_merged_union_pass.vcf.gz",      emit: union_pass_vcf
+    path "sv_cohort_merged_union_pass.vcf.gz.tbi",  emit: union_pass_vcf_tbi
+    path "versions.yml",                            emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -47,19 +51,21 @@ process BUILD_SV_COHORT {
         ln -sf "\$(readlink -f \$f)" "sv_merged_union/\${sample}/\${base}"
     done
 
-    # PASS-filtered cohort matrix
+    # PASS-filtered cohort matrix + merged VCF
     sv_cohort_matrix.py \\
         --output-dir . \\
         --sv-merged-dir sv_merged_pass \\
         --source union_pass \\
-        --csv sv_cohort_matrix_union_pass.csv
+        --csv sv_cohort_matrix_union_pass.csv \\
+        --vcf sv_cohort_merged_union_pass.vcf.gz
 
-    # Unfiltered cohort matrix
+    # Unfiltered cohort matrix + merged VCF
     sv_cohort_matrix.py \\
         --output-dir . \\
         --sv-merged-dir sv_merged_union \\
         --source union \\
-        --csv sv_cohort_matrix_union.csv
+        --csv sv_cohort_matrix_union.csv \\
+        --vcf sv_cohort_merged_union.vcf.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

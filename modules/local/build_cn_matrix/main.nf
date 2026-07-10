@@ -12,8 +12,9 @@ process BUILD_CN_MATRIX {
     path fai                           // reference .fai for chromosome lengths
 
     output:
-    tuple val(meta), path("cn_matrices"), emit: cn_matrices
-    path "versions.yml",                  emit: versions
+    tuple val(meta), path("cn_matrices"),               emit: cn_matrices
+    path "cn_matrices/cn_chr_summary_germline.csv",     emit: chr_summary
+    path "versions.yml",                                emit: versions
 
     when:
     task.ext.when == null || task.ext.when

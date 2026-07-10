@@ -287,6 +287,7 @@ workflow MUTATION_REPORT {
 
         ch_cn_data = BUILD_CN_COHORT.out.collapsed
             .mix(BUILD_CN_COHORT.out.full)
+            .mix(BUILD_CN_MATRIX.out.chr_summary)
             .collect()
     } else {
         ch_cn_data = Channel.empty()
@@ -372,6 +373,10 @@ workflow MUTATION_REPORT {
 
         ch_sv_data = BUILD_SV_COHORT.out.union_csv
             .mix(BUILD_SV_COHORT.out.union_pass_csv)
+            .mix(BUILD_SV_COHORT.out.union_vcf)
+            .mix(BUILD_SV_COHORT.out.union_vcf_tbi)
+            .mix(BUILD_SV_COHORT.out.union_pass_vcf)
+            .mix(BUILD_SV_COHORT.out.union_pass_vcf_tbi)
             .collect()
     } else {
         ch_sv_data = Channel.empty()
