@@ -8,4 +8,5 @@ nextflow run ${pipeline_folder}/main.nf -profile ottilie_test,azureD4as,docker \
     -c ${pipeline_folder}/bin/nextflow.config \
     -w ${pipeline_folder}/work_ottilie_test \
     --outdir ${pipeline_folder}/output_ottilie_test \
+    --generate_reports \
     -resume

@@ -27,6 +27,8 @@ include { BCFTOOLS_VIEW as DECOMPRESS_SV_MANTA  } from '../../../modules/nf-core
 include { BCFTOOLS_VIEW as DECOMPRESS_SV_TIDDIT } from '../../../modules/nf-core/bcftools/view/main'
 include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_PASS  } from '../../../modules/local/survivor_sv_merge/main'
 include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_UNION } from '../../../modules/local/survivor_sv_merge/main'
+include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_PASS  } from '../../../modules/nf-core/tabix/bgziptabix/main'
+include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_UNION } from '../../../modules/nf-core/tabix/bgziptabix/main'
 include { BUILD_SV_COHORT    } from '../../../modules/local/build_sv_cohort/main'
 
 workflow MUTATION_REPORT {
@@ -352,11 +354,16 @@ workflow MUTATION_REPORT {
         SURVIVOR_SV_MERGE_UNION(ch_sv_paired_union)
         versions = versions.mix(SURVIVOR_SV_MERGE_PASS.out.versions.first())
 
-        // Collect merged VCFs as flat list for BUILD_SV_COHORT
-        ch_pass_vcfs = SURVIVOR_SV_MERGE_PASS.out.vcf
+        // Compress + index merged VCFs (bgzip + tabix, htslib container)
+        BGZIPTABIX_SV_PASS(SURVIVOR_SV_MERGE_PASS.out.vcf)
+        BGZIPTABIX_SV_UNION(SURVIVOR_SV_MERGE_UNION.out.vcf)
+        versions = versions.mix(BGZIPTABIX_SV_PASS.out.versions.first())
+
+        // Collect compressed VCFs as flat list for BUILD_SV_COHORT
+        ch_pass_vcfs = BGZIPTABIX_SV_PASS.out.gz_tbi
             .flatMap { meta, vcf, tbi -> [ vcf, tbi ] }
             .collect()
-        ch_union_vcfs = SURVIVOR_SV_MERGE_UNION.out.vcf
+        ch_union_vcfs = BGZIPTABIX_SV_UNION.out.gz_tbi
             .flatMap { meta, vcf, tbi -> [ vcf, tbi ] }
             .collect()
 
