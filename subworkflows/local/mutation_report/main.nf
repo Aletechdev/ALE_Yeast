@@ -29,7 +29,10 @@ include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_PASS  } from '../../../modules/
 include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_UNION } from '../../../modules/local/survivor_sv_merge/main'
 include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_PASS  } from '../../../modules/nf-core/tabix/bgziptabix/main'
 include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_UNION } from '../../../modules/nf-core/tabix/bgziptabix/main'
-include { BUILD_SV_COHORT    } from '../../../modules/local/build_sv_cohort/main'
+include { SURVIVOR_COHORT_MERGE as SURVIVOR_COHORT_MERGE_PASS  } from '../../../modules/local/survivor_cohort_merge/main'
+include { SURVIVOR_COHORT_MERGE as SURVIVOR_COHORT_MERGE_UNION } from '../../../modules/local/survivor_cohort_merge/main'
+include { BUILD_SV_MATRIX as BUILD_SV_MATRIX_PASS  } from '../../../modules/local/build_sv_matrix/main'
+include { BUILD_SV_MATRIX as BUILD_SV_MATRIX_UNION } from '../../../modules/local/build_sv_matrix/main'
 
 workflow MUTATION_REPORT {
     take:
@@ -355,28 +358,26 @@ workflow MUTATION_REPORT {
         SURVIVOR_SV_MERGE_UNION(ch_sv_paired_union)
         versions = versions.mix(SURVIVOR_SV_MERGE_PASS.out.versions.first())
 
-        // Compress + index merged VCFs (bgzip + tabix, htslib container)
+        // Compress + index per-sample merged VCFs for publishing
         BGZIPTABIX_SV_PASS(SURVIVOR_SV_MERGE_PASS.out.vcf)
         BGZIPTABIX_SV_UNION(SURVIVOR_SV_MERGE_UNION.out.vcf)
         versions = versions.mix(BGZIPTABIX_SV_PASS.out.versions.first())
 
-        // Collect compressed VCFs as flat list for BUILD_SV_COHORT
-        ch_pass_vcfs = BGZIPTABIX_SV_PASS.out.gz_tbi
-            .flatMap { meta, vcf, tbi -> [ vcf, tbi ] }
-            .collect()
-        ch_union_vcfs = BGZIPTABIX_SV_UNION.out.gz_tbi
-            .flatMap { meta, vcf, tbi -> [ vcf, tbi ] }
-            .collect()
+        // Cohort merge: collect plain per-sample VCFs for SURVIVOR cross-sample merge
+        ch_pass_plain = SURVIVOR_SV_MERGE_PASS.out.vcf.map { meta, vcf -> vcf }.collect()
+        ch_union_plain = SURVIVOR_SV_MERGE_UNION.out.vcf.map { meta, vcf -> vcf }.collect()
 
-        BUILD_SV_COHORT(ch_pass_vcfs, ch_union_vcfs)
-        versions = versions.mix(BUILD_SV_COHORT.out.versions)
+        SURVIVOR_COHORT_MERGE_PASS(ch_pass_plain, 'union_pass')
+        SURVIVOR_COHORT_MERGE_UNION(ch_union_plain, 'union')
+        versions = versions.mix(SURVIVOR_COHORT_MERGE_PASS.out.versions.first())
 
-        ch_sv_data = BUILD_SV_COHORT.out.union_csv
-            .mix(BUILD_SV_COHORT.out.union_pass_csv)
-            .mix(BUILD_SV_COHORT.out.union_vcf)
-            .mix(BUILD_SV_COHORT.out.union_vcf_tbi)
-            .mix(BUILD_SV_COHORT.out.union_pass_vcf)
-            .mix(BUILD_SV_COHORT.out.union_pass_vcf_tbi)
+        // Build CSV matrices: cohort VCF + per-sample VCFs → wide-format table
+        BUILD_SV_MATRIX_PASS(SURVIVOR_COHORT_MERGE_PASS.out.vcf, ch_pass_plain, 'union_pass')
+        BUILD_SV_MATRIX_UNION(SURVIVOR_COHORT_MERGE_UNION.out.vcf, ch_union_plain, 'union')
+        versions = versions.mix(BUILD_SV_MATRIX_PASS.out.versions.first())
+
+        ch_sv_data = BUILD_SV_MATRIX_PASS.out.csv
+            .mix(BUILD_SV_MATRIX_UNION.out.csv)
             .collect()
     } else {
         ch_sv_data = Channel.empty()
