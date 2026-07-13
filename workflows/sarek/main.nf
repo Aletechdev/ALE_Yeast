@@ -93,14 +93,10 @@ include { VCF_FILTER_MUTECT2                                 } from '../../subwo
 include { FASTQ_VARIANT_CALLING_BRESEQ                       } from '../../subworkflows/local/fastq_variant_calling_breseq/main'
 
 // MULTIQC
-include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main' // change this to custom multiqc module if needed
-// include { MULTIQC                                           } from '../../../../custom/sarek-extensions/modules/local/multiqc/main' // change this to custom multiqc module if needed, for Apple Silicon
+include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main'
 
-
-// // Basic VCF filtering
-// include {BCFTOOLS_FILTER                                    } from '../../modules/nf-core/bcftools/filter/main'
-include {TABIX_TABIX                    } from '../../modules/nf-core/tabix/tabix/main'
-// include { VCF_FILTER_BASIC                                  } from '../../subworkflows/local/vcf_filter_basic/main
+// TABIX — index VCFs before custom AF filtering
+include { TABIX_TABIX                                       } from '../../modules/nf-core/tabix/tabix/main'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -837,11 +833,7 @@ workflow SAREK {
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_TUMOR_ONLY_ALL.out.vcf_all)
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all)
 
-        //debug view mutect2 somatic vcf:
-        // vcf_to_annotate.view { meta, vcf ->
-        //     "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}"
-        // }
-        // Index VCFs for filtering (BCFTOOLS_FILTER requires indexed VCFs)
+        // Index VCFs for custom AF filtering (requires indexed VCFs)
         TABIX_TABIX(vcf_to_annotate)
         // Combine VCF and TBI for filtering input
         // Use a more specific key including variantcaller to avoid duplicates
@@ -850,10 +842,8 @@ workflow SAREK {
             .join(TABIX_TABIX.out.tbi.map { meta, tbi -> [[meta.id, meta.variantcaller], meta, tbi] })
             .map { key, meta1, vcf, meta2, tbi -> [meta1, vcf, tbi] }
 
-        // // move filter FreeBayses here:
         VCF_FILTER_FREEBAYES(vcf_with_tbi)
         versions = versions.mix(VCF_FILTER_FREEBAYES.out.versions)
-
 
         // update vcf_to_annotate
         vcf_to_annotate = vcf_to_annotate.mix(VCF_FILTER_FREEBAYES.out.vcf_filtered.map{ meta, vcf, tbi ->
@@ -892,8 +882,6 @@ workflow SAREK {
         versions = versions.mix(BAM_VARIANT_CALLING_TUMOR_ONLY_ALL.out.versions)
         versions = versions.mix(POST_VARIANTCALLING.out.versions)
         versions = versions.mix(VCF_QC_BCFTOOLS_VCFTOOLS.out.versions)
-        // versions = versions.mix(TABIX_VCF_FILTER.out.versions)
-        // versions = versions.mix(BCFTOOLS_FILTER.out.versions)
 
         // ANNOTATE
         if (params.step == 'annotate') vcf_to_annotate = input_sample
@@ -916,20 +904,10 @@ workflow SAREK {
                 bcftools_annotations,
                 bcftools_annotations_tbi,
                 bcftools_header_lines)
-            // view VCF_ANNOTATE_ALL
-            // VCF_ANNOTATE_ALL.out.vcf_ann.view()
-            // VCF_ANNOTATE_ALL.out.vcf_ann.view { meta, vcf, tbi -> 
-            //     "meta: ${meta.id}, normal: ${meta.normal_id} tumor: ${meta.tumor_id} variantcaller: ${meta.variantcaller}, vcf: ${vcf.getName()}, tbi: ${tbi.getName()}"
-            // }
-            
-            
 
-            // processs mutect2 output:
             // Gather used softwares versions
             versions = versions.mix(VCF_ANNOTATE_ALL.out.versions)
             reports = reports.mix(VCF_ANNOTATE_ALL.out.reports)
-
-            // merge germline VCFs, and then subtract tumor-only VCFs
         }
     }
     

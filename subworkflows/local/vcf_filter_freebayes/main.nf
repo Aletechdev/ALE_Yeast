@@ -36,36 +36,7 @@ workflow VCF_FILTER_FREEBAYES {
         failOnDuplicate: true,
         failOnMismatch: true
     )
-    // // Extract high-impact variants for separate analysis
-    // ch_filtered_vcfs.map{ meta, vcf, tbi ->
-    //     [meta + [id: "${meta.id}.high_impact"], vcf, tbi]
-    // }.set{ ch_for_high_impact_filter }
-    
-    // BCFTOOLS_FILTER_HIGH_IMPACT(
-    //     ch_for_high_impact_filter,
-    //     []  // no regions file
-    // )
-    
-    // TABIX_HIGH_IMPACT(BCFTOOLS_FILTER_HIGH_IMPACT.out.vcf)
-    
-    // ch_high_impact_vcfs = BCFTOOLS_FILTER_HIGH_IMPACT.out.vcf.join(
-    //     TABIX_HIGH_IMPACT.out.tbi,
-    //     failOnDuplicate: true,
-    //     failOnMismatch: true
-    // )
-    
-    // // Extract variant summaries using bcftools query
-    // ch_filtered_vcfs.map{ meta, vcf, tbi ->
-    //     [meta + [id: "${meta.id}.summary"], vcf]
-    // }.set{ ch_for_query }
-    
-    // BCFTOOLS_QUERY(
-    //     ch_for_query,
-    //     [],  // no regions file
-    //     [],  // no targets file  
-    //     []   // no samples file
-    // )
-    
+
     emit:
     vcf_filtered     = ch_filtered_vcfs           // channel: [ val(meta), path(vcf), path(tbi) ]
     versions         = ch_versions                // channel: [ path(versions.yml) ]

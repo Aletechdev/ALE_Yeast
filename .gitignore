@@ -87,7 +87,8 @@ output_test_001/
 work_CENPK/
 work_NCYC495/
 work_CENPK_subset/
-bin/investigate_filter/
+# Archived investigation artifacts (kept locally, not committed)
+docs/archive/investigate_filter/
 
 # Output and work directories at any level
 **/output_*/
@@ -103,7 +104,6 @@ quality_control/*/comparison/
 !quality_control/**/*.R
 !quality_control/**/*.sh
 !quality_control/**/README.md
-bin/multiqc/
 
 # BUSCO output and downloaded lineage databases
 assets/references/busco_output/
