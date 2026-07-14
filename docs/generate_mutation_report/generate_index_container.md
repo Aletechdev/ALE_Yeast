@@ -39,6 +39,16 @@ self-owned image above. Kept as a fallback recipe:
 
 ## How it is built and published
 
+### Registry accounts
+
+- **Docker Hub** (canonical): namespace `aledbucsd`, accessed by signing in with the
+  Google account **aledbsoftware@gmail.com** (Google SSO). This is the account that owns
+  the `ale-reports` repo and issues the `DOCKERHUB_TOKEN` used by CI.
+- **ghcr** (mirror): the `Aletechdev` GitHub org. CI pushes via the repo's built-in
+  `GITHUB_TOKEN` — the `ALE_Yeast` repo must have Write access to the `ale-reports`
+  package (Package settings → Manage Actions access) since the package was pre-created
+  manually.
+
 **GitHub Action (preferred, automated):**
 `.github/workflows/build-generate-index-container.yml` builds the Dockerfile and pushes
 to **both** Docker Hub (canonical) and ghcr (mirror). ghcr uses the built-in
