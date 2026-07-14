@@ -3,7 +3,14 @@ process GENERATE_INDEX {
     tag 'index'
     label 'process_low'
 
-    // No container — runs on host Python (nf-env has jinja2 + pandas)
+    // generate_index.py needs only pandas + jinja2. No slim biocontainer bundles both,
+    // so we ship a self-owned image built from containers/generate_index/Dockerfile.
+    // Canonical: public Docker Hub. Backup/mirror: ghcr.io/aletechdev/ale-reports:1.0.0
+    // (private). Both are published by .github/workflows/build-generate-index-container.yml.
+    // On -profile conda/wave the conda directive drives the build instead.
+    // See docs/generate_mutation_report/generate_index_container.md.
+    conda 'conda-forge::pandas conda-forge::jinja2'
+    container 'docker.io/aledbucsd/ale-reports:1.0.0'
 
     input:
     path cohort_report
@@ -12,12 +19,13 @@ process GENERATE_INDEX {
     path generate_index_script
     path templates_dir
     path cnv_sv_data, stageAs: "data/*"   // CN/SV CSVs + pass_stats staged into data/ subdir
-    val multiqc_report_path
+    path multiqc_report                   // real multiqc_report.html file (or NO_FILE sentinel)
     path prepared_cohort_vcf
 
     output:
-    path "index.html",    emit: index
-    path "versions.yml",  emit: versions
+    path "index.html",          emit: index
+    path "multiqc_report.html", emit: multiqc, optional: true
+    path "versions.yml",        emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -25,19 +33,24 @@ process GENERATE_INDEX {
     script:
     def has_cnv_sv = cnv_sv_data instanceof List ? cnv_sv_data.any { it.name != 'NO_FILE' } : cnv_sv_data.name != 'NO_FILE'
     def cnv_sv_arg = has_cnv_sv ? "--cnv-sv-data-dir data" : ""
-    def mqc_path_arg = multiqc_report_path ? "--multiqc-report-path '${multiqc_report_path}'" : ""
+    // Link to the co-published multiqc_report.html when the real file is provided.
+    def has_multiqc = multiqc_report.name != 'NO_FILE'
+    def mqc_path_arg = has_multiqc ? "--multiqc-report-path '${multiqc_report.name}'" : ""
     def prepared_vcf_arg = prepared_cohort_vcf.name != 'NO_FILE' ? "--prepared-vcf ${prepared_cohort_vcf}" : ""
-    // Discover pass_stats TSVs from the staged data/ directory
+    // Discover pass_stats TSVs from the staged data/ directory.
     def data_files = cnv_sv_data instanceof List ? cnv_sv_data : [cnv_sv_data]
     def stats_files = data_files.findAll { it.name.endsWith('.pass_stats.tsv') && it.name != 'NO_FILE' }
-    def pass_stats_arg = stats_files ? "--pass-stats ${stats_files.collect { 'data/' + it.name }.join(' ')}" : ""
+    // Files are staged via `stageAs: "data/*"`, so it.name already includes the `data/` prefix.
+    def pass_stats_arg = stats_files ? "--pass-stats ${stats_files.collect { it.name }.join(' ')}" : ""
     def python_bin = task.ext.python_bin ?: 'python'
 
     """
-    # Create samples/ symlinks so discover_igv_reports() can find reports
+    # Create samples/ symlinks so discover_igv_reports() can find reports.
+    # Exclude cohort and multiqc reports (they are not per-sample reports).
     mkdir -p samples
     for f in *_report.html; do
-        [ -f "\$f" ] && [ "\$f" != "cohort_report.html" ] && ln -sf "../\$f" "samples/\$f" || true
+        [ -f "\$f" ] && [ "\$f" != "cohort_report.html" ] && [ "\$f" != "multiqc_report.html" ] \\
+            && ln -sf "../\$f" "samples/\$f" || true
     done
 
     ${python_bin} ${generate_index_script} \\

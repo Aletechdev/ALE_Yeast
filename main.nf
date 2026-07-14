@@ -347,7 +347,8 @@ workflow {
             params.outdir,
             params.input,
             [ report_fasta, report_fai ],
-            file(params.report_gff3)
+            file(params.report_gff3),
+            NFCORE_SAREK.out.multiqc_report
         )
     }
 

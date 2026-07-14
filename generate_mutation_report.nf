@@ -32,10 +32,17 @@ workflow {
     def report_fasta = file(params.fasta)
     def report_fai   = file(params.fasta_fai)
 
+    // Standalone mode: the pipeline is not re-run, so read the MultiQC report from
+    // the existing output dir. `file().exists()` is cloud-aware (works on az://,
+    // s3://, etc.); fall back to a NO_FILE sentinel when absent.
+    def mqc_file = file("${params.outdir}/multiqc/multiqc_report.html")
+    def ch_multiqc_report = Channel.value(mqc_file.exists() ? mqc_file : file("NO_FILE"))
+
     MUTATION_REPORT(
         params.outdir,
         params.input,
         [ report_fasta, report_fai ],
-        file(params.report_gff3)
+        file(params.report_gff3),
+        ch_multiqc_report
     )
 }

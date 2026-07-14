@@ -40,6 +40,8 @@ workflow MUTATION_REPORT {
     samplesheet       // path: CSV with sample metadata (params.input)
     fasta             // tuple: [path(fasta), path(fai)]
     gff3              // path: gene annotation GFF3
+    multiqc_report    // channel: MultiQC report file(s) from NFCORE_SAREK (creates the
+                      //          dependency edge so this runs after MultiQC completes)
 
     main:
     versions = Channel.empty()
@@ -521,7 +523,15 @@ workflow MUTATION_REPORT {
 
         ch_prepared_cohort_vcf = ch_branched.cohort.map { meta, vcf, tbi -> vcf }
 
-        ch_mqc_report_path = Channel.value(params.report_multiqc_path ?: "")
+        // Resolve the actual MultiQC report file (published + linked from index.html).
+        // NFCORE_SAREK emits MULTIQC.out.report.toList(), so each emission is a list:
+        // [] when MultiQC was skipped, or [report.html] otherwise.
+        ch_multiqc_report = multiqc_report
+            .map { rep ->
+                def r = rep instanceof List ? rep : [rep]
+                r ? file(r[0]) : file("NO_FILE")
+            }
+            .ifEmpty(file("NO_FILE"))
 
         GENERATE_INDEX(
             IGVREPORTS_COHORT.out.report.collect(),
@@ -530,7 +540,7 @@ workflow MUTATION_REPORT {
             ch_index_script,
             ch_templates_dir,
             ch_cnv_sv_data,
-            ch_mqc_report_path,
+            ch_multiqc_report,
             ch_prepared_cohort_vcf.collect()
         )
         versions = versions.mix(GENERATE_INDEX.out.versions)
