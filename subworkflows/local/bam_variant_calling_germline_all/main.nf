@@ -65,6 +65,9 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
 
     out_indexcov             = Channel.empty()
     vcf_cnvkit               = Channel.empty()
+    cnvkit_cnr               = Channel.empty()
+    cnvkit_cns_batch         = Channel.empty()
+    cnvkit_cns_germline      = Channel.empty()
     vcf_deepvariant          = Channel.empty()
     vcf_freebayes            = Channel.empty()
     vcf_haplotypecaller      = Channel.empty()
@@ -117,6 +120,10 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
             params.cnvkit_reference ? cnvkit_reference.map{ it -> [[id:it[0].baseName], it] } : [[:],[]]
         )
         vcf_cnvkit = BAM_VARIANT_CALLING_CNVKIT.out.vcf
+        // CN-matrix + bedgraph inputs (channels, not params.outdir reads) for MUTATION_REPORT
+        cnvkit_cnr          = BAM_VARIANT_CALLING_CNVKIT.out.cnr          // [meta, .md.cnr]
+        cnvkit_cns_batch    = BAM_VARIANT_CALLING_CNVKIT.out.cns_batch    // [meta, [*.cns]] incl .md.call.cns
+        cnvkit_cns_germline = BAM_VARIANT_CALLING_CNVKIT.out.cnv_calls_raw // [meta, .md.germline.call.cns]
         versions = versions.mix(BAM_VARIANT_CALLING_CNVKIT.out.versions)
     }
 
@@ -182,7 +189,10 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
                 known_sites_snps_tbi,
                 known_snps_vqsr)
 
+            // Tag the joint (cohort) VCF lineage so MUTATION_REPORT can branch on channel
+            // metadata instead of filename inference. hc_kind: 'joint' | 'sample_soft' | 'sample_hard'.
             vcf_haplotypecaller = BAM_JOINT_CALLING_GERMLINE_GATK.out.genotype_vcf
+                .map{ meta, vcf -> [ meta + [ hc_kind: 'joint' ], vcf ] }
             versions = versions.mix(BAM_JOINT_CALLING_GERMLINE_GATK.out.versions)
 
             // Optional: Split HaplotypeCaller joint VCF into individual sample VCFs
@@ -195,7 +205,9 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
 
                 // Add split individual VCFs to vcf_haplotypecaller channel
                 // This will make them available for annotation alongside the joint VCF
-                vcf_haplotypecaller = vcf_haplotypecaller.mix(SPLIT_JOINT_VCF.out.vcf)
+                vcf_haplotypecaller = vcf_haplotypecaller.mix(
+                    SPLIT_JOINT_VCF.out.vcf.map{ meta, vcf -> [ meta + [ hc_kind: 'sample_soft' ], vcf ] }
+                )
 
                 versions = versions.mix(SPLIT_JOINT_VCF.out.versions)
 
@@ -211,7 +223,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
 
                     // Add filtered VCFs to vcf_haplotypecaller channel for annotation
                     vcf_haplotypecaller = vcf_haplotypecaller.mix(
-                        VCF_FILTER_HAPLOTYPECALLER_JOINT.out.vcf_filtered.map{ meta, vcf, tbi -> [meta, vcf] }
+                        VCF_FILTER_HAPLOTYPECALLER_JOINT.out.vcf_filtered.map{ meta, vcf, tbi -> [meta + [ hc_kind: 'sample_hard' ], vcf] }
                     )
 
                     versions = versions.mix(VCF_FILTER_HAPLOTYPECALLER_JOINT.out.versions)
@@ -235,6 +247,12 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
 
                 versions = versions.mix(VCF_VARIANT_FILTERING_GATK.out.versions)
             }
+
+            // Non-joint single-sample lineage (4th HC type). Tag so the HaplotypeCaller
+            // channel ALWAYS carries meta.hc_kind (covers both the filtered and the
+            // skip_haplotypecaller_filter=raw sub-cases). MUTATION_REPORT treats
+            // 'sample_single' as a per-sample report (no cohort exists without joint calling).
+            vcf_haplotypecaller = vcf_haplotypecaller.map{ meta, vcf -> [ meta + [ hc_kind: 'sample_single' ], vcf ] }
         }
     }
 
@@ -432,6 +450,9 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     out_indexcov
     vcf_all
     vcf_cnvkit
+    cnvkit_cnr                // channel: [ meta, .md.cnr ]                for bedgraph + CN matrix
+    cnvkit_cns_batch          // channel: [ meta, [*.cns] ]                incl .md.call.cns for CN matrix
+    cnvkit_cns_germline       // channel: [ meta, .md.germline.call.cns ]  for CN matrix
     vcf_deepvariant
     vcf_freebayes
     vcf_haplotypecaller

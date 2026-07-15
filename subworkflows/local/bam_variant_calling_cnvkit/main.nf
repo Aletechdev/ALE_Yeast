@@ -50,8 +50,10 @@ workflow BAM_VARIANT_CALLING_CNVKIT {
     versions = versions.mix(CNVKIT_EXPORT.out.versions)
     versions = versions.mix(TABIX_BGZIP_CNVKIT.out.versions)
     emit:
-    cnv_calls_raw    = CNVKIT_CALL.out.cns      // channel: [ meta, cns ]
+    cnv_calls_raw    = CNVKIT_CALL.out.cns      // channel: [ meta, cns ]  (.md.germline.call.cns, --filter ci)
     cnv_calls_export = CNVKIT_EXPORT.out.output // channel: [ meta, export_format ]
     vcf              = vcf_cnvkit               // channel: [ meta, vcf ] with variantcaller metadata
+    cnr              = CNVKIT_BATCH.out.cnr     // channel: [ meta, .md.cnr ]  bin-level coverage (bedgraph + CN matrix)
+    cns_batch        = CNVKIT_BATCH.out.cns     // channel: [ meta, [*.cns] ]  batch segments incl .md.call.cns (CN matrix)
     versions                                    // channel: [ versions.yml ]
 }

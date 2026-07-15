@@ -76,7 +76,6 @@ include { PIPELINE_INITIALISATION          } from './subworkflows/local/utils_nf
 include { PREPARE_GENOME                   } from './subworkflows/local/prepare_genome'
 include { PREPARE_INTERVALS                } from './subworkflows/local/prepare_intervals'
 include { PREPARE_REFERENCE_CNVKIT         } from './subworkflows/local/prepare_reference_cnvkit'
-include { MUTATION_REPORT                 } from './subworkflows/local/mutation_report/main'
 
 // Initialize fasta file with meta map:
 fasta = params.fasta ? Channel.fromPath(params.fasta).map{ it -> [ [id:it.baseName], it ] }.collect() : Channel.empty()
@@ -337,20 +336,9 @@ workflow {
     //
     NFCORE_SAREK(PIPELINE_INITIALISATION.out.samplesheet)
 
-    //
-    // SUBWORKFLOW: Generate mutation report dashboard (opt-in)
-    //
-    if (params.generate_reports) {
-        def report_fasta = file(params.fasta)
-        def report_fai   = file(params.fasta_fai)
-        MUTATION_REPORT(
-            params.outdir,
-            params.input,
-            [ report_fasta, report_fai ],
-            file(params.report_gff3),
-            NFCORE_SAREK.out.multiqc_report
-        )
-    }
+    // NOTE: MUTATION_REPORT (--generate_reports) is now called INLINE at the end of
+    // workflows/sarek/main.nf (WP5, Option ii) so it consumes live pipeline channels
+    // (clean-run correct). The old path-discovery outer call was removed here.
 
     //
     // SUBWORKFLOW: Run completion tasks

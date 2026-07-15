@@ -8,8 +8,8 @@ process BUILD_CN_MATRIX {
     container 'quay.io/biocontainers/pandas:2.2.1'
 
     input:
-    tuple val(meta), path(cnvkit_dir)  // sample cnvkit output dir with .cns/.cnr files
-    path fai                           // reference .fai for chromosome lengths
+    tuple val(meta), path(cnvkit_files, stageAs: 'cnvkit_in/*')  // flat list: .md.cnr, .md.call.cns, .md.germline.call.cns (all samples)
+    path fai                                                     // reference .fai for chromosome lengths
 
     output:
     tuple val(meta), path("cn_matrices"),               emit: cn_matrices
@@ -21,13 +21,15 @@ process BUILD_CN_MATRIX {
 
     script:
     """
-    # build_cn_matrix.py discovers .cns/.cnr from variant_calling/cnvkit/{sample}/
-    # Symlink per-sample subdirectories to recreate expected structure
+    # build_cn_matrix.py discovers .cns/.cnr from variant_calling/cnvkit/{sample}/.
+    # Reconstruct that layout from a flat collected filelist (channel-based, no params.outdir read).
+    # Sample name = filename up to the first '.md.' token (e.g. CBR110-15-R3a.md.cnr → CBR110-15-R3a).
     mkdir -p variant_calling/cnvkit
-    for sample_dir in \$(readlink -f ${cnvkit_dir})/*/; do
-        if [ -d "\${sample_dir}" ]; then
-            ln -s "\${sample_dir}" variant_calling/cnvkit/
-        fi
+    for f in cnvkit_in/*; do
+        fname=\$(basename "\$f")
+        sample="\${fname%%.md.*}"
+        mkdir -p "variant_calling/cnvkit/\${sample}"
+        ln -sf "\$(readlink -f "\$f")" "variant_calling/cnvkit/\${sample}/\${fname}"
     done
 
     build_cn_matrix.py --output-dir . --fai ${fai}
