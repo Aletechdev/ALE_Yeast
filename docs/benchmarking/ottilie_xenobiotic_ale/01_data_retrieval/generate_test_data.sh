@@ -42,7 +42,7 @@ CRAM_DIR="$REPO_ROOT/output_ottilie/preprocessing/markduplicates"
 FASTQ_DIR="$REPO_ROOT/data/ottilie/fastq"
 
 # Output directories
-OUT_FASTQ="$REPO_ROOT/data/ottilie/fastq_test"
+OUT_FASTQ="$REPO_ROOT/data/ottilie/fastq_test"   # chr-subset test FASTQs → referenced by samplesheet (pipeline input)
 OUT_REF="$REPO_ROOT/data/ottilie/S288C_reference_test"
 
 # Target chromosomes and samples
@@ -307,7 +307,22 @@ for fq in "$OUT_FASTQ/"*.fastq.gz; do
 done
 echo ""
 
+# Write the ottilie test samplesheet with portable, machine-correct absolute paths.
+# fastq_1/fastq_2 derive from $OUT_FASTQ (== $REPO_ROOT/data/ottilie/fastq_test), which is
+# computed from THIS script's location — so regenerating on any machine (e.g. a new deploy)
+# produces a samplesheet valid for that machine, with no hardcoded /home/<user>/... paths.
+# Absolute (not relative) so it resolves regardless of launch dir, including nf-test's workdir.
+# NOTE: local-FS paths only. For Seqera Cloud / GitHub Actions, generate a separate samplesheet
+# with Azure Blob URL paths (see the CI/cloud portability task).
+SAMPLESHEET="$REPO_ROOT/data/ottilie/samplesheet_test.csv"
+cat > "$SAMPLESHEET" <<CSV
+experiment,sample,status,clonal_or_population,ploidy,sex,lane,fastq_1,fastq_2
+Ottilie_test,NODRUG-GM2,0,clonal,1,XX,L001,$OUT_FASTQ/NODRUG-GM2_chrI_IV_VII_XV_R1.fastq.gz,$OUT_FASTQ/NODRUG-GM2_chrI_IV_VII_XV_R2.fastq.gz
+Ottilie_test,CBR110-15-R3a,0,clonal,1,XX,L001,$OUT_FASTQ/CBR110-15-R3a_chrI_IV_VII_XV_R1.fastq.gz,$OUT_FASTQ/CBR110-15-R3a_chrI_IV_VII_XV_R2.fastq.gz
+CSV
+echo "Wrote samplesheet: $SAMPLESHEET"
+echo ""
+
 echo "Next steps:"
-echo "  1. Create samplesheet: data/ottilie/samplesheet_test.csv"
-echo "  2. Run pipeline:  nextflow run main.nf -profile ottilie_test,docker"
+echo "  Run pipeline (from repo root):  nextflow run main.nf -profile ottilie_test,docker"
 echo "============================================"

@@ -126,3 +126,6 @@ docs/igvreports/ottilie_4samples_v2/
 
 # Nextflow pipeline_info when outdir is unset (resolves to literal "null")
 null/
+
+# nf-test working directory
+.nf-test/
