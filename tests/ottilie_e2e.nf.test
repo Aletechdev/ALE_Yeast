@@ -1,0 +1,64 @@
+nextflow_pipeline {
+
+    name "Ottilie ALE end-to-end"
+    script "../main.nf"
+    tag "ottilie"
+    tag "pipeline"
+
+    // Run with:  nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test
+    // Profile (ottilie_test,docker) + resourceLimits come from tests/nf-test-ottilie.config.
+    // Tools exercised (from ottilie_test.config): snpeff, cnvkit, tiddit, manta, haplotypecaller
+    //   + joint germline, split joint VCF, hard filter, and the MUTATION_REPORT dashboard.
+    //
+    // This is the ALE end-to-end contract test: a clean single run with inline --generate_reports
+    // (WP5, committed 246dd7b) must complete and produce the CN/SV cohort deliverables. The 4 cohort
+    // CSVs are asserted byte-for-byte; HTML/gz content is not snapshotted (igv-reports
+    // sessionDictionary + gzip are non-deterministic — see MEMORY.md), only the file NAMES.
+
+    test("ottilie 2-sample: full ALE workflow + mutation report") {
+
+        when {
+            params {
+                outdir           = "$outputDir"
+                generate_reports = true   // opt-in: run the MUTATION_REPORT subworkflow
+            }
+        }
+
+        then {
+            // --- Structure: all output file/dir NAMES (deterministic), relative paths.
+            //     Ignore pipeline_info/ (timestamped filenames). HTML report NAMES are stable
+            //     and kept here; only their non-deterministic CONTENT is excluded from snapshots.
+            def stable_name = getAllFilesFromDir(
+                params.outdir,
+                relative: true,
+                includeDir: true,
+                ignore: ['pipeline_info/**']
+            )
+
+            // --- Content: the CN/SV cohort matrices — plain-text, deterministic, and the core
+            //     ALE deliverable. (HTML/gz are intentionally NOT content-snapshotted: igv-reports
+            //     sessionDictionary + gzip are non-deterministic — see MEMORY.md.)
+            def data = "$outputDir/mutation_reports/data"
+            def cn_full      = path("$data/cn_cohort_full.csv")
+            def cn_collapsed = path("$data/cn_cohort_collapsed.csv")
+            def sv_union     = path("$data/sv_cohort_matrix_union.csv")
+            def sv_pass      = path("$data/sv_cohort_matrix_union_pass.csv")
+
+            assertAll(
+                { assert workflow.success },
+
+                // Regression on task count + the software-versions manifest (Nextflow version
+                // stripped so the snapshot is portable across Nextflow releases).
+                { assert snapshot(
+                    workflow.trace.succeeded().size(),
+                    removeNextflowVersion("$outputDir/pipeline_info/nf_core_sarek_software_mqc_versions.yml"),
+                    stable_name,
+                    cn_full,
+                    cn_collapsed,
+                    sv_union,
+                    sv_pass
+                ).match() }
+            )
+        }
+    }
+}
