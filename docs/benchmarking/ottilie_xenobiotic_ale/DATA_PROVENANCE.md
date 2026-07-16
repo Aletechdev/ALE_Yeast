@@ -74,7 +74,7 @@ nextflow run main.nf -profile azureD4as,docker \
   --tools snpeff,cnvkit,tiddit,manta,controlfreec,haplotypecaller \
   --split_fastq 0 --joint_germline --save_mapped \
   --split_haplotypecaller_joint_vcf --hard_filter_haplotypecaller_joint \
-  -c bin/nextflow.config -resume
+  -resume
 ```
 - Output: `output_ottilie/preprocessing/markduplicates/{CBR110-15-R3a,Carmaphycin-R9-2,Doxorubicin16-R2b,NODRUG-GM2}/*.md.cram` — gitignored.
 - The 2 test samples' CRAMs (CBR110-15-R3a ~245 MB, NODRUG-GM2 ~218 MB) are the fast-path input for stage [3].

@@ -293,7 +293,6 @@ output_joint/reports/
 
 ```bash
 nextflow run ${ale_nextflow_folder}/nf-core-sarek_3.5.1/3_5_1/main.nf \
-    -c ${ale_nextflow_folder}/bin/nextflow.config \
     -profile azureD4as,docker \
     -w ${project_folder}/work_joint \
     --input ${project_folder}/samplesheet.csv \
@@ -326,7 +325,6 @@ nextflow run ${ale_nextflow_folder}/nf-core-sarek_3.5.1/3_5_1/main.nf \
 
 ```bash
 nextflow run ${ale_nextflow_folder}/nf-core-sarek_3.5.1/3_5_1/main.nf \
-    -c ${ale_nextflow_folder}/bin/nextflow.config \
     -profile azureD4as,docker \
     -w ${project_folder}/work_inde \
     --input ${project_folder}/samplesheet.csv \

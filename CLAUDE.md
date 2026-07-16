@@ -32,7 +32,7 @@
 
 - **Test Data**: https://aledata.blob.core.windows.net/aledata/Yeast/dicarboxylic_acids_all_clones/REDACTED-CUSTOMER-ID/ANP_Dev_2025Q3/data/
 - **Main Execution Script**: `bin/CENPK_run_sarek_351.sh`
-- **Pipeline Config**: `bin/nextflow.config` (D4as profile for VM resources)
+- **Pipeline Config**: `conf/azured4as.config` (the `azureD4as` local-VM resources profile; use `-profile azureD4as`, no `-c` needed). See `docs/dev-practices/compute_resources.md`
 - **Cache Generation**: `bin/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`
 - **Forked nf-core**: `nf-core-sarek_3.5.1` (use version 3.5.1 docs)
 

@@ -23,7 +23,6 @@ nextflow run ${run_folder}/main.nf \
     --igenomes_ignore \
     --fasta ${run_folder}/data/marko_SV/reference/genbank_processed/escherichia_coli_str_k_12_substr_mg1655.fasta \
     --skip_tools baserecalibrator \
-    -c ${run_folder}/bin/nextflow.config \
     --tools snpeff,cnvkit,tiddit,manta,controlfreec,haplotypecaller,breseq \
     --genbank ${run_folder}/data/marko_SV/reference/U00096.3.gbk \
     --split_fastq 0 \

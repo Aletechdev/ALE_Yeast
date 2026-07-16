@@ -14,7 +14,6 @@ FASTA="${ref_genome_folder}/draft_ref52.fasta"
 # Run Sarek pipeline
 # IMPORTANT: -c (config) must come BEFORE -profile for custom profiles to be recognized
 nextflow run ${ale_nextflow_folder}/nf-core-sarek_3.5.1/3_5_1/main.nf \
-    -c ${ale_nextflow_folder}/bin/nextflow.config \
     -profile azureD4as,docker \
     -w ${project_folder}/work_joint \
     --input ${project_folder}/samplesheet.csv \

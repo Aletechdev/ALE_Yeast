@@ -11,7 +11,7 @@ has different sample counts, and whether joint calling still runs with a single 
 | `run_joint.sh` | `samplesheet.csv` | Joint germline calling, multi-sample cohort |
 | `run_joint_onesample.sh` | `samplesheet_onesample.csv` | Joint germline calling with a **single** sample |
 
-All use `-c ../../bin/nextflow.config` (the `azureD4as` local profile).
+All use `-profile azureD4as` (the local resources profile; `conf/azured4as.config`).
 
 ## Finding
 

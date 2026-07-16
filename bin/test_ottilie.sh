@@ -5,7 +5,6 @@
 # Source: Ottilie et al., Commun Biol 5:128 (2022)
 pipeline_folder="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 nextflow run ${pipeline_folder}/main.nf -profile ottilie_test,azureD4as,docker \
-    -c ${pipeline_folder}/bin/nextflow.config \
     -w ${pipeline_folder}/work_ottilie_test \
     --outdir ${pipeline_folder}/output_ottilie_test \
     --generate_reports \
