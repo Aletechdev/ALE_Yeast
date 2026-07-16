@@ -1,5 +1,62 @@
 # ALE Yeast pipeline: change log
 
+## v1.0.0 — first production release (on nf-core/sarek 3.5.1)
+
+Yeast ALE (Adaptive Laboratory Evolution) variant-calling pipeline: HaplotypeCaller joint germline
+calling with variable ploidy, structural/copy-number calling, custom SnpEff annotation, and an
+integrated multi-caller mutation-report dashboard. Full change inventory vs. upstream sarek:
+[`docs/dev-practices/SAREK_MODIFICATIONS.md`](docs/dev-practices/SAREK_MODIFICATIONS.md).
+
+### Tool support tiers
+
+- **Tier 1 (tested — exercised by the ALE contract test):** HaplotypeCaller (joint + split +
+  hard-filter), CNVKit, Manta, TIDDIT, SnpEff.
+- **Tier 2 (functional, not release-tested):** Control-FREEC, breseq, and the FreeBayes/Mutect2
+  AF-filter subworkflows (retained for dev/troubleshooting; not on the Tier-1 path).
+
+### Added
+
+- **MUTATION_REPORT dashboard** — per-sample + cohort igv-reports, CN cohort matrices (CNVKit),
+  SV cohort matrices (SURVIVOR merge of Manta+TIDDIT), and an index.html linking MultiQC.
+  Opt-in via `--generate_reports`.
+- **ALE end-to-end nf-test** (`tests/ottilie_e2e.nf.test`) — pipeline-level contract test on the
+  2-sample ottilie dataset; asserts the 4 cohort CSVs byte-for-byte + output structure + versions.
+  Determinism proven across runs. Kept separate from the upstream sarek suite.
+- **Split + hard-filter of joint HC VCFs** (`--split_haplotypecaller_joint_vcf`,
+  `--hard_filter_haplotypecaller_joint`); `VARIANTFILTRATION_FALLBACK` when VQSR can't run.
+- Variable-ploidy support threaded to HaplotypeCaller, CNVKit, Control-FREEC, FreeBayes, TIDDIT.
+- Portable test-data provenance + samplesheet generation; container images pinned for cloud.
+
+### Changed
+
+- **MUTATION_REPORT is now channel-based and runs inline** in `workflows/sarek/main.nf` — consumes
+  live pipeline output channels instead of re-reading `params.outdir`.
+- BUILD_SV_COHORT split into single-container processes for cloud portability.
+- Dead code / stale artifacts removed for release (WP2).
+
+### Fixed
+
+- **`--generate_reports` failed on a clean run** — the report raced `publishDir` reading published
+  files from `params.outdir`. Now correct-by-construction on a fresh outdir (cloud/Seqera). (`246dd7b`)
+- Per-sample SV/CNV reports were dropped by a one-to-one channel `join`; fixed with `combine(by:0)`.
+- FilterMutectCalls now runs without a germline resource / panel-of-normals (placeholder channels).
+
+### Known limitations
+
+- **Nextflow:** run on **25.10.x** (manifest floor `!>=24.04.2`). **26.04+ fails to parse
+  `nextflow.config`** (`def trace_timestamp` mixed with config statements) — deferred to a
+  post-1.0 sarek-4.x rebase.
+- **CNVKit CN scale:** `cn` is always diploid-baseline regardless of `--ploidy`; use `log2`/depth
+  ratio (`fold_change`) for true signal on haploid/polyploid strains. See `docs/variant-calling/cnvkit/`.
+- **VCFtools** conditionally skipped for ploidy>2, Mutect2 phased GT, and joint-calling VCFs.
+- **Custom genomes:** no dbSNP / known-sites → BQSR and VQSR disabled (hard-filter fallback);
+  Mutect2 runs without germline-resource / panel-of-normals; Control-FREEC has no BAF.
+
+### Testing
+
+- ALE contract test (nf-test) gates the deliverables; Tier-2 biological validation against the
+  ottilie truth set (4 SNVs + chr I duplication, Ottilie et al. 2022) validates call correctness.
+
 ## v0.1.0-alpha:
 
 Adapted from nf-core sarek 3-5-1, the main feature is HaplotypeCaller joint variant calling
