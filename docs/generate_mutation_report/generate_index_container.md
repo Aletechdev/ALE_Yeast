@@ -20,11 +20,32 @@ published to two registries:
 
 ```
 conda 'conda-forge::pandas conda-forge::jinja2'
-container 'docker.io/aledbucsd/ale-reports:1.0.0'
+container "${ params.report_container }"    // reads the single source below; no fixed tag here
 ```
 
 On `-profile conda` / `-profile wave` the conda directive drives the build instead of
-the pinned container. This replaced the previous "no container — runs on host Python
+the pinned container.
+
+### Single bump point: `params.report_container`
+
+The image tag lives in exactly **one** place — `params.report_container` in `nextflow.config`:
+```groovy
+report_container = 'docker.io/aledbucsd/ale-reports:1.0.0'
+```
+The module's `container` directive reads it directly (no hardcoded literal, no config override),
+so there is no second copy to drift. Only `ale-reports` is ours; every other module uses public
+biocontainers (leave them). Under `-profile conda` the param is simply ignored (conda drives).
+
+**Release step when the image changes:**
+1. Edit the Dockerfile; pick a new immutable tag (the *container's* own version — it need not
+   equal the pipeline version). Never `:latest` in the pin.
+2. Publish it: push a **`v*` git tag** so the GHA's `semver` rule mints `ale-reports:X.Y.Z`
+   (a plain push to `main` only yields `:latest`/`:sha-…`, not a clean semver).
+3. In the **same** commit, bump `params.report_container` in `nextflow.config` to `:X.Y.Z`.
+4. Let the Action go green (image pushed) **before** running/announcing the release.
+
+You do **not** bump it on every pipeline release — only when the image contents change. A
+release that doesn't touch `containers/generate_index/` keeps the existing pin. This replaced the previous "no container — runs on host Python
 (nf-env)" approach, which fails on cloud executors (no host conda env on compute nodes).
 
 A Seqera **Wave community container** (`community.wave.seqera.io/library/pandas_jinja2:...`)

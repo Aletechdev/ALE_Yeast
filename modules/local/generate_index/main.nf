@@ -7,10 +7,14 @@ process GENERATE_INDEX {
     // so we ship a self-owned image built from containers/generate_index/Dockerfile.
     // Canonical: public Docker Hub. Backup/mirror: ghcr.io/aletechdev/ale-reports:1.0.0
     // (private). Both are published by .github/workflows/build-generate-index-container.yml.
-    // On -profile conda/wave the conda directive drives the build instead.
-    // See docs/generate_mutation_report/generate_index_container.md.
+    // On -profile conda/wave the conda directive drives the build; the container is ignored.
+    // On -profile docker/singularity the container is used. See
+    // docs/generate_mutation_report/generate_index_container.md.
+    //
+    // SINGLE source of truth for the image tag = params.report_container (nextflow.config).
+    // Bump the release tag THERE, not here — this directive just reads it (no hidden override).
     conda 'conda-forge::pandas conda-forge::jinja2'
-    container 'docker.io/aledbucsd/ale-reports:1.0.0'
+    container "${ params.report_container }"
 
     input:
     path cohort_report
