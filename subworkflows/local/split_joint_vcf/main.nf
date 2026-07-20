@@ -22,20 +22,17 @@ workflow SPLIT_JOINT_VCF {
     // Use cross product (combine without 'by') then filter to match patient
     samples_for_split = joint_vcf_tbi
         .combine(cram)  // Create all combinations
-        .view { meta_joint, vcf, tbi, meta_sample, cram_file, crai_file ->
-            "SPLIT_JOINT_VCF combine: joint=${meta_joint.id}, sample=${meta_sample.sample}, joint_patient=${meta_joint.patient}, sample_patient=${meta_sample.patient}"
-        }
         .filter { meta_joint, vcf, tbi, meta_sample, cram_file, crai_file ->
             // For joint calling, joint VCF has patient="all_samples"
             // Just accept all combinations since joint VCF contains all samples
             def joint_patient = meta_joint.patient ?: meta_joint.id
             def sample_patient = meta_sample.patient ?: (meta_sample.experiment ?: meta_sample.id)
+            log.debug "SPLIT_JOINT_VCF combine: joint=${meta_joint.id}, sample=${meta_sample.sample}, joint_patient=${meta_joint.patient}, sample_patient=${meta_sample.patient}"
 
             // If joint_patient is "all_samples", accept all samples
             def match = (joint_patient == "all_samples" || joint_patient == sample_patient)
-
             if (match) {
-                log.info "SPLIT_JOINT_VCF: Matched ${meta_sample.sample} to joint VCF ${meta_joint.id}"
+                log.debug "SPLIT_JOINT_VCF: Matched ${meta_sample.sample} to joint VCF ${meta_joint.id}"
             }
             match
         }
@@ -44,8 +41,7 @@ workflow SPLIT_JOINT_VCF {
             // Use meta_sample.patient (e.g., "ALE_Exp1"), NOT meta_joint.patient (which is "all_samples")
             def patient = meta_sample.patient ?: meta_sample.id
             def bcftools_sample_name = "${patient}_${meta_sample.sample}"
-
-            log.info "SPLIT_JOINT_VCF DEBUG: sample=${meta_sample.sample}, meta_sample.patient=${meta_sample.patient}, bcftools_sample=${bcftools_sample_name}"
+            log.debug "SPLIT_JOINT_VCF: sample=${meta_sample.sample}, meta_sample.patient=${meta_sample.patient}, bcftools_sample=${bcftools_sample_name}"
 
             [
                 meta_joint + meta_sample + [
