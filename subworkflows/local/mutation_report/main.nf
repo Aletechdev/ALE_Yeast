@@ -184,7 +184,7 @@ workflow MUTATION_REPORT {
         // PASS-filter both callers
         FILTER_SV_VCF_MANTA(ch_sv_manta_raw, [], [], [])
         FILTER_SV_VCF_TIDDIT(ch_sv_tiddit_raw, [], [], [])
-        versions = versions.mix(FILTER_SV_VCF_MANTA.out.versions.first())
+        versions = versions.mix(FILTER_SV_VCF_MANTA.out.versions)
 
         // Decompress raw VCFs (no PASS filter) for unfiltered union merge
         DECOMPRESS_SV_MANTA(ch_sv_manta_raw, [], [], [])
@@ -208,22 +208,22 @@ workflow MUTATION_REPORT {
 
         SURVIVOR_SV_MERGE_PASS(ch_sv_paired_pass)
         SURVIVOR_SV_MERGE_UNION(ch_sv_paired_union)
-        versions = versions.mix(SURVIVOR_SV_MERGE_PASS.out.versions.first())
+        versions = versions.mix(SURVIVOR_SV_MERGE_PASS.out.versions)
 
         BGZIPTABIX_SV_PASS(SURVIVOR_SV_MERGE_PASS.out.vcf)
         BGZIPTABIX_SV_UNION(SURVIVOR_SV_MERGE_UNION.out.vcf)
-        versions = versions.mix(BGZIPTABIX_SV_PASS.out.versions.first())
+        versions = versions.mix(BGZIPTABIX_SV_PASS.out.versions)
 
         ch_pass_plain  = SURVIVOR_SV_MERGE_PASS.out.vcf.map  { meta, vcf -> vcf }.collect()
         ch_union_plain = SURVIVOR_SV_MERGE_UNION.out.vcf.map { meta, vcf -> vcf }.collect()
 
         SURVIVOR_COHORT_MERGE_PASS(ch_pass_plain, 'union_pass')
         SURVIVOR_COHORT_MERGE_UNION(ch_union_plain, 'union')
-        versions = versions.mix(SURVIVOR_COHORT_MERGE_PASS.out.versions.first())
+        versions = versions.mix(SURVIVOR_COHORT_MERGE_PASS.out.versions)
 
         BUILD_SV_MATRIX_PASS(SURVIVOR_COHORT_MERGE_PASS.out.vcf, ch_pass_plain, 'union_pass')
         BUILD_SV_MATRIX_UNION(SURVIVOR_COHORT_MERGE_UNION.out.vcf, ch_union_plain, 'union')
-        versions = versions.mix(BUILD_SV_MATRIX_PASS.out.versions.first())
+        versions = versions.mix(BUILD_SV_MATRIX_PASS.out.versions)
 
         ch_sv_data = BUILD_SV_MATRIX_PASS.out.csv
             .mix(BUILD_SV_MATRIX_UNION.out.csv)
@@ -240,7 +240,7 @@ workflow MUTATION_REPORT {
         FILTER_PASS_VCF(ch_tiddit_vcfs)
         ch_tiddit_pass = FILTER_PASS_VCF.out.vcf
         ch_pass_stats  = FILTER_PASS_VCF.out.stats.collect().ifEmpty(file("NO_FILE"))
-        versions = versions.mix(FILTER_PASS_VCF.out.versions.first())
+        versions = versions.mix(FILTER_PASS_VCF.out.versions)
     } else {
         ch_tiddit_pass = Channel.empty()
         ch_pass_stats  = Channel.value(file("NO_FILE"))
@@ -274,7 +274,7 @@ workflow MUTATION_REPORT {
             .mix(has_tiddit ? ch_tiddit_pass : Channel.empty())
 
         ch_all_prepared = PREPARE_VCF(ch_all_vcfs)
-        versions = versions.mix(PREPARE_VCF.out.versions.first())
+        versions = versions.mix(PREPARE_VCF.out.versions)
 
         // Branch into cohort, HC sample, and SV/CNV channels
         ch_all_prepared.vcf.branch {
@@ -303,7 +303,7 @@ workflow MUTATION_REPORT {
             .map { id, meta, vcf, tbi, c, crai -> [ meta, vcf, tbi, c, crai ] }
 
         IGVREPORTS_SAMPLE(ch_samples_with_cram, ch_gff3_indexed, ch_fasta, ch_filter_config, ch_sample_template)
-        versions = versions.mix(IGVREPORTS_SAMPLE.out.versions.first())
+        versions = versions.mix(IGVREPORTS_SAMPLE.out.versions)
 
         // ---------------------------------------------------------------------
         // 11. CNVKit BedGraph + SV/CNV per-sample reports
@@ -313,7 +313,7 @@ workflow MUTATION_REPORT {
             CNR_TO_BEDGRAPH(cnvkit_cnr)
             ch_bedgraph_map = CNR_TO_BEDGRAPH.out.bedgraph
                 .map { meta, depth_bg, log2_bg -> [ meta.id, depth_bg, log2_bg ] }
-            versions = versions.mix(CNR_TO_BEDGRAPH.out.versions.first())
+            versions = versions.mix(CNR_TO_BEDGRAPH.out.versions)
         }
 
         // combine(by:0), NOT join: sv_cnv carries cnvkit + manta + tiddit per sample (same meta.id).
@@ -351,7 +351,7 @@ workflow MUTATION_REPORT {
         }
 
         IGVREPORTS_SV_CNV(ch_sv_cnv_all, ch_gff3_indexed, ch_fasta, ch_sample_template)
-        versions = versions.mix(IGVREPORTS_SV_CNV.out.versions.first())
+        versions = versions.mix(IGVREPORTS_SV_CNV.out.versions)
 
         // ---------------------------------------------------------------------
         // 12. Generate index.html dashboard

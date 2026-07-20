@@ -26,3 +26,29 @@ reports/snpeff/*/snpEff_summary.html
 reports/vcftools/**/*.TsTv.qual
 variant_calling/**/*.vcf.{gz,gz.tbi}
 variant_calling/controlfreec/*/config.txt
+# --- ALE fork additions (surgical; each verified via a controlled getAllFilesFromDir probe) ---
+# Our test runs more tools (snpeff/cnvkit/manta/tiddit/hc) and fork-specific features than upstream's
+# default test, producing non-deterministic files upstream's patterns don't cover. Excluded from CONTENT
+# (stable_path) only — every file still appears as a NAME in stable_name. Deterministic ALE deliverables
+# (cn_matrices CSVs, cnvkit .cnr/.cns/.bed, tiddit stats TSVs, README) are KEPT.
+# cnvkit plain VCF (##fileDate) + diagram PDF (creation timestamp):
+variant_calling/**/*.cnvcall.vcf
+variant_calling/**/*.md-diagram.pdf
+# fork-only hard-filtered split VCFs + index:
+variant_calling_filtered/**/*.vcf.{gz,gz.tbi}
+# snpeff QC stats (embed a Date stamp) — our reports/snpeff/<tool>/<sample>/ is one level deeper
+# than upstream's reports/snpeff/*/ pattern:
+reports/snpeff/**/*_snpEff.csv
+reports/snpeff/**/snpEff_summary.html
+# samtools stats (embeds the cram path / command line):
+reports/samtools/**/*.stats
+# igv-reports dashboard HTML (non-deterministic sessionDictionary) — nested AND top-level
+# (** matches subdirs but not direct children of mutation_reports/):
+mutation_reports/**/*.html
+mutation_reports/*.html
+# bundled VCFs + index (gzip framing):
+mutation_reports/**/*.vcf.{gz,gz.tbi}
+# fork-only TABIX publish dir (bgzipped VCF + index):
+tabix/**
+# snpeff MultiQC tables (SnpEff version-dependent):
+multiqc/multiqc_data/*snpeff*.txt

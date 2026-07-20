@@ -30,7 +30,7 @@ workflow VCF_FILTER_HAPLOTYPECALLER_JOINT {
     // Removes variants entirely (no --set-GTs) for clean counts
     BCFTOOLS_HARD_FILTER_JOINT(ch_for_hard_filter)
 
-    ch_versions = ch_versions.mix(BCFTOOLS_HARD_FILTER_JOINT.out.versions.first())
+    ch_versions = ch_versions.mix(BCFTOOLS_HARD_FILTER_JOINT.out.versions)
 
     // Create channel with filtered VCFs and their indices
     ch_filtered_vcfs = BCFTOOLS_HARD_FILTER_JOINT.out.vcf.join(

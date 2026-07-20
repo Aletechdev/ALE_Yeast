@@ -71,8 +71,8 @@ workflow SPLIT_JOINT_VCF {
 
     BCFTOOLS_FILTER(vcf_for_filter)
 
-    versions = versions.mix(BCFTOOLS_VIEW.out.versions.first())
-    versions = versions.mix(BCFTOOLS_FILTER.out.versions.first())
+    versions = versions.mix(BCFTOOLS_VIEW.out.versions)
+    versions = versions.mix(BCFTOOLS_FILTER.out.versions)
 
     emit:
     vcf      = BCFTOOLS_FILTER.out.vcf  // channel: [ meta, vcf ] - filtered, ready for annotation
