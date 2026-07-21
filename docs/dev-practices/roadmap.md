@@ -1,0 +1,94 @@
+# ALE pipeline roadmap (post-v1.0.0 future work)
+
+Ad-hoc future-work items migrated from the old `TODO.md` at v1.0.0. Priorities are `[high|med|low]`.
+Full project history lives in `git log` and `CHANGELOG.md`; resolved items are summarized at the bottom.
+
+> For the **test-coverage** roadmap (ploidy 1/2/3 scenarios, per-custom-module nf-tests), see WP6 in the
+> release plan — not duplicated here.
+
+---
+
+## Variant calling — HaplotypeCaller
+
+- **[low] Rename `SPLIT_JOINT_VCF` → `SPLIT_HAPLOTYPECALLER_JOINT_VCF`** (cosmetic). The subworkflow
+  (`subworkflows/local/split_joint_vcf/`, workflow `SPLIT_JOINT_VCF`) is HaplotypeCaller-specific but
+  named generically. A rename touches the dir, the workflow name, the imports in
+  `bam_variant_calling_germline_all/main.nf`, and the schema doc — defer unless already editing the area.
+- **[med] Joint-germline filter strategy + flag fixed / convergent mutations.** Refine the soft-filter
+  thresholds on the joint HC VCF (`VARIANTFILTRATION_FALLBACK`, `conf/modules/joint_germline.config`) and
+  add flags for *fixed* (≈100% AF) and *convergent* (recurrent across independent lineages) mutations —
+  the key selective signals in an ALE experiment.
+
+## Variant calling — Mutect2
+
+- **[med] Rename filtered VCF → `filter_annotated`.** `conf/modules/mutect2.config:48` uses
+  `ext.prefix = {"${meta.id}.mutect2.filtered"}`; rename to `…mutect2.filter_annotated` for consistency
+  with HaplotypeCaller's `…_soft_filtered` (both are soft filters that annotate FILTER, not remove).
+  Check downstream refs + docs after renaming.
+- **[med] Yeast-tuned Mutect2 params.** With no germline resource (custom yeast genome), consider adding
+  to `conf/modules/mutect2.config`: `--max-population-af 1.0` (allow any AF — important for evolution),
+  `--af-of-alleles-not-in-resource 1/(ploidy·N)`, `--initial-tumor-lod 0.5–1.0` (catch low-freq early),
+  `--downsampling-stride 1` (small genome). See the GATK Mutect2 docs. Investigation-heavy — validate on
+  the benchmark set.
+- **[low] More stringent Mutect2 filtering options.** Mutect2 yields ~30% more variants than FreeBayes;
+  TLOD/AF-difference/depth thresholds could tighten. Deprioritized — the ALE strategy keeps more calls
+  and ranks for fixed/convergent rather than hard-pruning.
+
+## Variant calling — FreeBayes (Tier 2)
+
+- **[med] Joint FreeBayes population calling.** Add a `--joint_freebayes` param + a
+  `subworkflows/local/bam_joint_calling_freebayes/` (bcftools merge of individual germline VCFs), mirroring
+  the HaplotypeCaller joint pattern in `bam_variant_calling_germline_all/main.nf`. Filter individuals
+  first, then merge, so allele frequencies are population-correct.
+- **[med] FreeBayes AF miscalculation for multi-allelic sites (real bug).** After `bcftools norm -m-`
+  splits a multi-allelic record, `AO` is split per row but `RO` is not, so `AF = AO/(AO+RO)` uses a wrong
+  denominator. Fix: compute `AF = sum(AO)/(sum(AO)+RO)` **before** splitting, then split. See
+  `subworkflows/local/vcf_filter_freebayes/`.
+- **[low] FreeBayes population table / single-VCF report.** Aggregate all samples' FreeBayes output into
+  one population VCF/table for cross-sample comparison.
+
+## CNV — Control-FREEC / CNVKit
+
+- **[low] Control-FREEC yeast `cf_window` tuning.** `nextflow.config` sets `cf_window = null` (auto). Tune
+  `window` / `breakpointthreshold` for small yeast chromosomes. Coupled with the ploidy=1 item below.
+- **[low] Investigate ASSESS_SIGNIFICANCE skip for ploidy=1.** `conf/modules/controlfreec.config:19` skips
+  it for haploid samples (Control-FREEC emits empty `*_CNVs`, R script fails). Determine whether this is
+  inherent (no gain/loss relative to a haploid baseline) or a window/config issue that yeast-tuned
+  parameters would resolve.
+- **[low] Collapse CNVKit results into a MultiQC row.** `assets/multiqc_config.yml` only has filename
+  cleaning for `.cnvkit`; there's no dedicated collapsed module row. Partly superseded by the CN
+  integration in the MUTATION_REPORT dashboard — scope before doing.
+
+## Robustness / infrastructure
+
+- **[med] Better exception handling in `samplesheet_to_channel`.** The bare
+  `input_sample.filter{…}.ifEmpty{ error(…) }` at
+  `subworkflows/local/samplesheet_to_channel/main.nf:146-166` surfaces a misleading "sample-sheet only
+  contains normal-samples" error when the *real* cause is an upstream schema/config failure. Wrap with a
+  contextual error (Option 3 in the diagnostic guide). **The debugging guide is preserved at
+  [`troubleshooting.md`](troubleshooting.md).**
+- **[low] Sample-table "starting strain" column.** Add a column naming the ancestral strain per sample;
+  test that one ancestral name (e.g. `A0-F0-I1-R1`) can map to multiple samples across different
+  experiments.
+- **[low] Seqera launchpad schema polish.** Drop `cf_ploidy` from `params_seqera_test.yml` (schema default
+  is 2 and it's ignored at runtime — ploidy comes from the sample table); set `"hidden": true` in
+  `nextflow_schema.json` for `ascat_ploidy`, `ascat_purity`, `cf_window` (not used for yeast).
+
+---
+
+## Resolved (folded into v1.0.0)
+
+One-liners for traceability; full detail in `git log` / `CHANGELOG.md`.
+
+- **SPLIT_JOINT_VCF debug logging** → `log.debug` (commit `80a5a04`).
+- **SPLIT_JOINT_VCF TBI emit** — emits `tbi`, consumer uses a proper channel join (dropped the
+  `file("${vcf}.tbi")` workaround).
+- **`hard_filter_/split_haplotypecaller_joint_vcf` param init** — both default `= false` in `nextflow.config`.
+- **FilterMutectCalls channel join** without germline-resource/PoN (commit `8319ef9`).
+- **Control-FREEC germline mode** — `bam_variant_calling_germline_controlfreec/` added + wired in (Apr 2026).
+- **YAML `load()` ambiguity** — explicit `FileInputStream` in `utils_nfcore_pipeline`.
+- **v0.1.0-alpha release prep** — tag + `README`/`CHANGELOG`/`LICENSE` present; superseded by the v1.0.0 CHANGELOG.
+- **Variant Analysis Dashboard as a NF process** — *obsolete*: the `bin/` dashboard scripts were removed
+  (commit `c06e7f4`); superseded by `subworkflows/local/mutation_report/` + `modules/local/generate_index/`.
+- **`cram_variant_calling_status_normal` "smarter fix"** — *obsolete*: decision to keep the hard-coded
+  all-samples-as-normal approach (confirmed optimal for ALE).

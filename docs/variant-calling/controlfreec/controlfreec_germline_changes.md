@@ -161,9 +161,9 @@ Added `controlfreec` to the `--tools` list:
 
 ---
 
-### 7. EDITED: `TODO.md`
+### 7. Follow-up: `ASSESS_SIGNIFICANCE` ploidy=1 investigation
 
-Added investigation TODO for `ASSESS_SIGNIFICANCE` ploidy=1 skip behavior — why does Control-FREEC produce empty `*.gz_CNVs` files for haploid samples?
+Tracked in [`docs/dev-practices/roadmap.md`](../../dev-practices/roadmap.md) (CNV section) — why does Control-FREEC produce empty `*.gz_CNVs` files for haploid samples?
 
 ---
 
