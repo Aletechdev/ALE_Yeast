@@ -55,9 +55,6 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   it for haploid samples (Control-FREEC emits empty `*_CNVs`, R script fails). Determine whether this is
   inherent (no gain/loss relative to a haploid baseline) or a window/config issue that yeast-tuned
   parameters would resolve.
-- **[low] Collapse CNVKit results into a MultiQC row.** `assets/multiqc_config.yml` only has filename
-  cleaning for `.cnvkit`; there's no dedicated collapsed module row. Partly superseded by the CN
-  integration in the MUTATION_REPORT dashboard — scope before doing.
 
 ## Robustness / infrastructure
 
@@ -92,3 +89,11 @@ One-liners for traceability; full detail in `git log` / `CHANGELOG.md`.
   (commit `c06e7f4`); superseded by `subworkflows/local/mutation_report/` + `modules/local/generate_index/`.
 - **`cram_variant_calling_status_normal` "smarter fix"** — *obsolete*: decision to keep the hard-coded
   all-samples-as-normal approach (confirmed optimal for ALE).
+- **SV/CN caller ploidy support** — Tiddit (`-n ${meta.ploidy}`, `tiddit.config`), CNVKit (call+export),
+  Control-FREEC; documented under `docs/variant-calling/{tiddit,cnvkit}/*_ploidy_behavior.md`. Manta has
+  no ploidy CLI param (SV detection is ploidy-agnostic) — N/A, not a gap.
+- **Population SV + CN cohort tables** — `build_sv_matrix`+`survivor_cohort_merge` →
+  `sv_cohort_matrix_union{,_pass}.csv`; `build_cn_matrix`+`build_cn_cohort` → `cn_cohort_{full,collapsed}.csv`
+  (MUTATION_REPORT deliverables). Feature done; dedicated docs = WP4 Step 6 (SV-merge guide) / Step 7b (CN).
+- **CNVKit results in MultiQC** — documented in `docs/variant-calling/cnvkit/CNVKIT_MULTIQC_INTEGRATION.md`
+  (resolved; slated for archive in the docs-consolidation step).
