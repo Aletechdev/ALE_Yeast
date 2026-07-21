@@ -70,6 +70,19 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 - **[low] Seqera launchpad schema polish.** Drop `cf_ploidy` from `params_seqera_test.yml` (schema default
   is 2 and it's ignored at runtime — ploidy comes from the sample table); set `"hidden": true` in
   `nextflow_schema.json` for `ascat_ploidy`, `ascat_purity`, `cf_window` (not used for yeast).
+- **[low] SURVIVOR SV-merge input-sort guard.** `modules/local/survivor_sv_merge` and
+  `survivor_cohort_merge` assume coordinate-sorted Manta/TIDDIT input but don't enforce it — the POSIX
+  `sort` runs *after* `SURVIVOR merge`, so an unsorted input could silently produce a bad merge. Add a
+  sort/validation before the merge. (Found in the SV-merge code audit.)
+
+## Documentation
+
+- **[low] Single-source the report Methodology + SV maintainer doc (option B).** The user-facing
+  methodology lives in `docs/igvreports/templates/index.html.j2` (§ "SV event matrix"); a separate
+  maintainer mechanics doc for the SURVIVOR internals is planned under `docs/variant-calling/`. The two
+  will be kept in **sync by hand** (a "keep in sync" note in each). Future: factor the methodology into a
+  shared Jinja `{% include %}` partial so GENERATE_INDEX can render both the report section **and** a
+  `mutation_reports/README.md` from one source.
 
 ---
 
