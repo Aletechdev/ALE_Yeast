@@ -1,0 +1,107 @@
+nextflow_workflow {
+
+    name "SPLIT_JOINT_VCF unit"
+    script "../subworkflows/local/split_joint_vcf/main.nf"
+    workflow "SPLIT_JOINT_VCF"
+    tag "ottilie"
+    tag "subworkflow"
+
+    // Run with: nf-test test -c tests/nf-test-ottilie.config tests/split_joint_vcf.nf.test
+    //
+    // Unit test for our own SPLIT_JOINT_VCF. Fixtures are the REAL subworkflow input:
+    // the un-annotated soft-filtered joint VCF (BAM_JOINT_CALLING_GERMLINE_GATK.out.genotype_vcf),
+    // committed under tests/fixtures/. The cram file slots are ignored by the subworkflow (it reads
+    // only meta_sample), so no real CRAMs are needed. ploidy:1 = the ottilie samples are HAPLOID
+    // (GTs are single-allele 0/1); the non-ref filter is ploidy-dependent, so this must match.
+    //
+    // Requires the joint_germline.config selector fix (`.*SPLIT_JOINT_VCF:...`, no leading colon) so
+    // the ext.args (--samples, non-ref filter) apply to the bare process name in unit isolation.
+
+    // Parse a split VCF via nf-test's built-in linesGzip (no host bcftools dependency).
+    // Returns the sample column(s), the record count, and how many records are still reference/missing.
+    def probe = { vcfPath ->
+        def lines   = path(vcfPath).linesGzip
+        def chrom   = lines.find { it.startsWith('#CHROM') }
+        def samples = chrom.split('\t')[9..-1]
+        def records = lines.findAll { !it.startsWith('#') }
+        def refGts  = records.count { def gt = it.split('\t')[9].split(':')[0]
+                                      gt in ['0', '.', '0/0', '0|0', './.', '.|.'] }
+        [ samples: samples, count: records.size(), refGts: refGts ]
+    }
+
+    test("2-sample joint VCF splits into per-sample non-ref VCFs (69 / 89)") {
+
+        when {
+            workflow {
+                """
+                // take: joint_vcf_tbi = [ meta_joint, vcf, tbi ]
+                input[0] = Channel.of([
+                    [ id:'joint_variant_calling', patient:'all_samples', variantcaller:'haplotypecaller' ],
+                    file("\$projectDir/tests/fixtures/joint_soft_filtered.vcf.gz"),
+                    file("\$projectDir/tests/fixtures/joint_soft_filtered.vcf.gz.tbi")
+                ])
+                // take: cram = [ meta_sample, cram, crai ] — file slots ignored (metadata-only).
+                input[1] = Channel.of(
+                    [ [ patient:'Ottilie_test', sample:'CBR110-15-R3a', ploidy:1, status:0 ], [], [] ],
+                    [ [ patient:'Ottilie_test', sample:'NODRUG-GM2',    ploidy:1, status:0 ], [], [] ]
+                )
+                """
+            }
+        }
+
+        then {
+            def byId = workflow.out.vcf.collectEntries { meta, vcf -> [ (meta.id): probe(vcf) ] }
+
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.out.vcf.size() == 2 },
+                { assert workflow.out.tbi.size() == 2 },
+
+                // Each output holds exactly its own sample column (patient-prefixed, from the joint VCF).
+                { assert byId['CBR110-15-R3a'].samples == ['Ottilie_test_CBR110-15-R3a'] },
+                { assert byId['NODRUG-GM2'].samples   == ['Ottilie_test_NODRUG-GM2'] },
+
+                // Known non-ref split counts (69 / 89 of the cohort's 100).
+                { assert byId['CBR110-15-R3a'].count == 69 },
+                { assert byId['NODRUG-GM2'].count   == 89 },
+
+                // Non-ref filter actually applied: no reference/missing genotypes survive.
+                { assert byId['CBR110-15-R3a'].refGts == 0 },
+                { assert byId['NODRUG-GM2'].refGts   == 0 },
+
+                // versions.yml emitted and reports bcftools.
+                { assert workflow.out.versions.size() >= 1 },
+                { assert workflow.out.versions.any { path(it).text.contains('bcftools') } },
+            )
+        }
+    }
+
+    test("single-sample joint VCF produces one valid per-sample VCF (69)") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'joint_variant_calling', patient:'all_samples', variantcaller:'haplotypecaller' ],
+                    file("\$projectDir/tests/fixtures/joint_soft_filtered_single_sample.vcf.gz"),
+                    file("\$projectDir/tests/fixtures/joint_soft_filtered_single_sample.vcf.gz.tbi")
+                ])
+                input[1] = Channel.of(
+                    [ [ patient:'Ottilie_test', sample:'CBR110-15-R3a', ploidy:1, status:0 ], [], [] ]
+                )
+                """
+            }
+        }
+
+        then {
+            def out = probe(workflow.out.vcf[0][1])
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.out.vcf.size() == 1 },
+                { assert out.samples == ['Ottilie_test_CBR110-15-R3a'] },
+                { assert out.count == 69 },
+                { assert out.refGts == 0 },
+            )
+        }
+    }
+}
