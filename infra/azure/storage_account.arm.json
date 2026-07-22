@@ -1,0 +1,155 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Dedicated Azure Storage account + public container for hosting release / test-data artifacts behind stable PUBLIC (no-SAS) URLs. Isolated from the 'aledata' account so enabling anonymous blob access does not widen the exposure of real research data. Content is public-derived (e.g. PRJNA590203 SRA + public S288C reference), so world-readable is acceptable; public access is for zero-credential fetch, not necessity. The ottilie test-data lives under the 'ottilie/v1/' prefix; consumed by docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/publish_test_data.sh."
+  },
+  "parameters": {
+    "storageAccountName": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 24,
+      "metadata": {
+        "description": "Globally unique name using 3-24 lowercase letters and numbers. Must match ACCOUNT= passed to publish_test_data.sh."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "denmarkeast",
+      "metadata": {
+        "description": "Azure region for the storage account. Co-locate with your Seqera/Batch region for same-region staging speed."
+      }
+    },
+    "containerName": {
+      "type": "string",
+      "defaultValue": "releases",
+      "minLength": 3,
+      "maxLength": 63,
+      "metadata": {
+        "description": "Public-read blob container for stable release and test-data URLs. Must match CONTAINER= in publish_test_data.sh."
+      }
+    },
+    "skuName": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": ["Standard_LRS", "Standard_ZRS", "Standard_GRS", "Standard_GZRS"],
+      "metadata": {
+        "description": "Redundancy. Standard_LRS is sufficient for regenerable test data (data comes from public SRA + generate_test_data.sh). Note: ZRS/GZRS need availability zones, which a new region may not support."
+      }
+    },
+    "containerPublicAccess": {
+      "type": "string",
+      "defaultValue": "Blob",
+      "allowedValues": ["Blob", "Container", "None"],
+      "metadata": {
+        "description": "Anonymous access level. 'Blob' = read-only per-object (no listing) — sufficient for tarball + per-file URL consumption, most locked-down. 'Container' = read + LIST (enables azcopy --recursive / directory staging). 'None' = private (SAS fallback)."
+      }
+    },
+    "allowSharedKeyAccess": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Temporarily allow account-key / service-SAS access (needed by az upload with shared key). Set to false after moving publishers to OIDC / AAD-only."
+      }
+    },
+    "defaultToOAuthAuthentication": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Which auth method tools/portal default to. false = default to Access key (matches the sibling 'aledata' account; browsing works with control-plane roles, no data-plane RBAC needed). true = default to Microsoft Entra (stricter; requires a Storage Blob Data* role to read/list blobs)."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2025-06-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "[parameters('skuName')]"
+      },
+      "properties": {
+        "accessTier": "Hot",
+        "allowBlobPublicAccess": true,
+        "allowCrossTenantReplication": false,
+        "allowSharedKeyAccess": "[parameters('allowSharedKeyAccess')]",
+        "defaultToOAuthAuthentication": "[parameters('defaultToOAuthAuthentication')]",
+        "isHnsEnabled": false,
+        "minimumTlsVersion": "TLS1_2",
+        "publicNetworkAccess": "Enabled",
+        "supportsHttpsTrafficOnly": true,
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Allow"
+        },
+        "encryption": {
+          "keySource": "Microsoft.Storage",
+          "services": {
+            "blob": {
+              "enabled": true,
+              "keyType": "Account"
+            },
+            "file": {
+              "enabled": true,
+              "keyType": "Account"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/default', parameters('storageAccountName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ],
+      "properties": {
+        "deleteRetentionPolicy": {
+          "enabled": true,
+          "days": 7
+        },
+        "containerDeleteRetentionPolicy": {
+          "enabled": true,
+          "days": 7
+        },
+        "isVersioningEnabled": false
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/default/{1}', parameters('storageAccountName'), parameters('containerName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
+      ],
+      "properties": {
+        "publicAccess": "[parameters('containerPublicAccess')]"
+      }
+    }
+  ],
+  "outputs": {
+    "storageAccountName": {
+      "type": "string",
+      "value": "[parameters('storageAccountName')]"
+    },
+    "containerName": {
+      "type": "string",
+      "value": "[parameters('containerName')]"
+    },
+    "blobEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2025-06-01').primaryEndpoints.blob]"
+    },
+    "publicContainerUrl": {
+      "type": "string",
+      "value": "[format('{0}{1}/', reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2025-06-01').primaryEndpoints.blob, parameters('containerName'))]"
+    },
+    "ottilieTestDataBaseUrl": {
+      "type": "string",
+      "value": "[format('{0}{1}/ottilie/v1', reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2025-06-01').primaryEndpoints.blob, parameters('containerName'))]"
+    }
+  }
+}
