@@ -528,6 +528,10 @@
             </div>
         </details>
 
+        {# Keep in sync with the maintainer doc docs/variant-calling/sv_merge.md
+           (SURVIVOR merge mechanics). This section is the user-facing "how to read"
+           view; sv_merge.md is "how it is built". Separate sources for now — a shared
+           Jinja include is deferred (see docs/dev-practices/roadmap.md). #}
         {% if sv_pass %}
         <details>
             <summary>SV event matrix (Manta + TIDDIT)</summary>

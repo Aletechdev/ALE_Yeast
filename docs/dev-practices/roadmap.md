@@ -78,9 +78,9 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 ## Documentation
 
 - **[low] Single-source the report Methodology + SV maintainer doc (option B).** The user-facing
-  methodology lives in `docs/igvreports/templates/index.html.j2` (§ "SV event matrix"); a separate
-  maintainer mechanics doc for the SURVIVOR internals is planned under `docs/variant-calling/`. The two
-  will be kept in **sync by hand** (a "keep in sync" note in each). Future: factor the methodology into a
+  methodology lives in `docs/igvreports/templates/index.html.j2` (§ "SV event matrix"); the
+  maintainer mechanics doc for the SURVIVOR internals is `docs/variant-calling/sv_merge.md`. The two
+  are kept in **sync by hand** (a "keep in sync" note in each). Future: factor the methodology into a
   shared Jinja `{% include %}` partial so GENERATE_INDEX can render both the report section **and** a
   `mutation_reports/README.md` from one source.
 
