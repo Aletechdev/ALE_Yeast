@@ -4,6 +4,8 @@
 # Data lives in the main repo; pipeline code is resolved from script location
 data_folder="/home/azureuser/Docs/ALE_nextflow"
 pipeline_folder="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Pin the Nextflow runtime: 25.10.x is the validated line; 26.x can't parse this config.
+export NXF_VER=25.10.4
 # Run from bin/ so relative paths in samplesheet (../data/...) resolve correctly
 cd ${data_folder}/bin
 nextflow run ${pipeline_folder}/main.nf -profile azureD4as,docker \
