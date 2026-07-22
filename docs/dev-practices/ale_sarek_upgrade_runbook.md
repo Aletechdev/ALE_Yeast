@@ -91,6 +91,44 @@ git tag ale-sarek-3.9.0-v1
 git push origin main --tags
 ```
 
+## Known Blocker: Nextflow 26.x (couples with a future rebase)
+
+**The pipeline is pinned to the Nextflow 25.10.x line** (`manifest.nextflowVersion = '!>=24.04.2, <26.0.0'`).
+A move to Nextflow 26.x / Seqera 26.1.x is **not a runtime bump — it is an nf-core template
+migration** and should be done together with a nf-core/sarek 4.x rebase, not on its own.
+
+Why: Nextflow 26's stricter config DSL cannot parse the current `nextflow.config` (inherited
+nf-core 3.5.1 template boilerplate). This was investigated on 26.04.6 (2026-07-13, re-verified
+2026-07-22) and is an **iceberg** — fixing the first error only exposes the next layer. All four
+blockers below must be resolved before the pipeline launches on 26.x.
+
+> ⚠️ The `<26.0.0` version guard is a **secondary** net. On 26.x the parse error (blocker 1) occurs
+> *before* Nextflow can read the manifest, so the guard never fires — you get
+> `Cannot read project manifest -- Config parsing failed`, not a clean version message. The
+> **primary** defense is pinning the runtime: `export NXF_VER=25.10.4` (already set in the launch
+> scripts `bin/CENPK_run_sarek_351_all.sh` + `bin/test_ottilie.sh`; pin the Seqera CE the same way).
+
+**The four blockers (26.04.6 strict config DSL), verified against the current `nextflow.config`:**
+
+1. **Top-level `def` mixed with config statements** — `def trace_timestamp = new java.util.Date()...`
+   (~L386) is rejected: *"Variable declarations cannot be mixed with config statements."* Inlining the
+   date into each consuming GString clears this one but exposes the layers below.
+2. **`Invalid include source`** — 26.x validates `includeConfig` paths at parse time. The
+   `markduplicates_bam` / `markduplicates_cram` / `prepare_recalibration_bam` /
+   `prepare_recalibration_cram` profiles (~L317-322) `includeConfig` `conf/test/*.config` files that
+   **do not exist** in this fork. (Same latent bug the roadmap flags for removal; these are upstream
+   restart-test profiles ALE doesn't use — deleting them is the preferred fix.)
+3. **`manifest is not defined` (×6)** — `${manifest.name/version/doi}` GStrings in the help/completion
+   blocks (~L437, L454, L457, L462) are not resolvable under strict config.
+4. **`validation is not defined` (×2)** — `validation.help.beforeText` / `afterText` (~L466-467),
+   from the nf-schema plugin, not resolvable under strict config.
+
+**Seqera compatibility (verified 2026-07-13):** Seqera Platform 25.3.x → Nextflow 25.10.2 (same line,
+works); Seqera 26.1.x → Nextflow 26.04 (breaks on the above). So the pipeline runs on Seqera **only**
+on a 25.3.x compute environment until the 26.x migration is done.
+
+Line numbers drift as the config changes — match on the construct, not the number.
+
 ## Current Patches (maintain this list)
 
 | Patch | Modifies | Purpose | Spec |

@@ -43,9 +43,11 @@ integrated multi-caller mutation-report dashboard. Full change inventory vs. ups
 
 ### Known limitations
 
-- **Nextflow:** run on **25.10.x** (manifest floor `!>=24.04.2`). **26.04+ fails to parse
-  `nextflow.config`** (`def trace_timestamp` mixed with config statements) — deferred to a
-  post-1.0 sarek-4.x rebase.
+- **Nextflow:** run on **25.10.x** (manifest range `!>=24.04.2, <26.0.0`; launch scripts pin
+  `NXF_VER=25.10.4`). **26.04+ fails to parse `nextflow.config`** (strict config DSL — starting with
+  `def trace_timestamp` mixed with config statements) — a 26.x move is an nf-core template migration
+  deferred to a post-1.0 sarek-4.x rebase. Full blocker inventory + Seqera notes in
+  `docs/dev-practices/ale_sarek_upgrade_runbook.md`.
 - **CNVKit CN scale:** `cn` is always diploid-baseline regardless of `--ploidy`; use `log2`/depth
   ratio (`fold_change`) for true signal on haploid/polyploid strains. See `docs/variant-calling/cnvkit/`.
 - **VCFtools** conditionally skipped for ploidy>2, Mutect2 phased GT, and joint-calling VCFs.
