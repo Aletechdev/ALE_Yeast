@@ -96,11 +96,21 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
 "show hidden fields" toggle), they're just out of the default view. Ties to
 [[prefer-isolated-config-over-shared]].
 
-- **[v1.0.0 — before release] Add the 3 ALE params missing from the schema.** `generate_reports`,
-  `report_container`, `report_gff3` are defined in `nextflow.config` but **absent** from
+- **[v1.0.0 — before release] Add the missing mutation-report params to the schema.** All ~9 live
+  `report_*`/`generate_reports` params (not just 3) are defined in `nextflow.config` but **absent** from
   `nextflow_schema.json`, so they don't appear in the Seqera launch form and can trip nf-schema
-  validation. Add them to an appropriate group with sensible defaults; validate with
-  `nf-core pipelines schema lint`. (Tracked as a WP4 pre-release step in the release plan.)
+  validation. Plan (decided 2026-07-23):
+  - **`report_gff3` → `reference_genome_options` group, SHOWN.** It's a per-genome annotation *file* (the
+    igv-reports gene track); UI-wise it belongs with the reference inputs (precedent: `genbank` — a
+    tool-specific input also filed under reference). Note in help_text that it feeds the report gene track.
+  - **`generate_reports` → SHOWN, default `true`** (in a new `mutation_report_options` group).
+  - **The static report-machinery params HIDDEN** (`report_outdir`, `report_filter_config`,
+    `report_cohort_template`, `report_sample_template`, `report_index_script`, `report_templates_dir`,
+    `report_container`) — repo-internal paths; give them real `${projectDir}/docs/igvreports/…` defaults
+    in `nextflow.config` so `generate_reports=true` works out-of-the-box.
+  - **`genbank` → flip to `hidden: true`** — used only by breseq (Tier-2), so keep it out of the Tier-1 form.
+  - **Remove `report_multiqc_path`** (dead param, no code usage).
+  - Validate with `nf-core pipelines schema lint`. (Tracked as WP4 Step 2d in the release plan.)
 - **[med, post-1.0.0] Full launch-form curation.** `hidden: true` on the advanced/Tier-2 tool params
   (ascat_*, sentieon_*, mutect2/controlfreec extras, tumor-only knobs); set Tier-1 defaults
   (`--tools snpeff,cnvkit,tiddit,manta,haplotypecaller`, joint-germline + report flags on) so a user
