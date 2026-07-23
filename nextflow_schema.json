@@ -362,6 +362,13 @@
                     "description": "Apply hard filtering to individual VCFs from HaplotypeCaller joint calling (requires --split_haplotypecaller_joint_vcf)",
                     "help_text": "When enabled, applies sample-specific quality filters (FORMAT/GQ>=20, FORMAT/DP>=8, FILTER=PASS) to individual VCFs extracted from joint calling. Removes failing variants entirely (no missing genotypes) for clean MultiQC reporting and variant count tracking. Output suffix: `.haplotypecaller.from_joint_calling_hard_filtered.vcf.gz`. Designed for ALE experiments to ensure per-sample quality."
                 },
+                "generate_reports": {
+                    "type": "boolean",
+                    "default": true,
+                    "fa_icon": "fas fa-chart-bar",
+                    "description": "Generate the ALE mutation-report dashboard (igv-reports) after variant calling.",
+                    "help_text": "Builds per-sample and cohort igv-reports dashboards from the HaplotypeCaller, Manta, TIDDIT and CNVKit outputs. Sections degrade gracefully if a tool was not run. The reference index is auto-generated if `--fasta_fai` is not supplied."
+                },
                 "joint_mutect2": {
                     "type": "boolean",
                     "fa_icon": "fas fa-angle-double-right",
@@ -869,7 +876,15 @@
                     "format": "file-path",
                     "fa_icon": "fas fa-dna",
                     "description": "Reference file for breseq (GenBank, GFF3, or FASTA format).",
-                    "help_text": "Path to a reference file used by breseq for variant calling. breseq accepts GenBank (.gb/.gbk), GFF3 (.gff3), or FASTA (.fasta) format. GenBank or GFF3 is recommended for annotation support."
+                    "help_text": "Path to a reference file used by breseq for variant calling. breseq accepts GenBank (.gb/.gbk), GFF3 (.gff3), or FASTA (.fasta) format. GenBank or GFF3 is recommended for annotation support.",
+                    "hidden": true
+                },
+                "report_gff3": {
+                    "type": "string",
+                    "format": "file-path",
+                    "fa_icon": "fas fa-dna",
+                    "description": "Gene-annotation GFF3 for the mutation-report gene track (used when --generate_reports).",
+                    "help_text": "Per-genome GFF3 providing the gene track shown in the igv-reports dashboards. Optional — if omitted, reports are still generated without the gene annotation track."
                 },
                 "breseq_args": {
                     "type": "string",

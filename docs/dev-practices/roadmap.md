@@ -96,21 +96,32 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
 "show hidden fields" toggle), they're just out of the default view. Ties to
 [[prefer-isolated-config-over-shared]].
 
-- **[v1.0.0 — before release] Add the missing mutation-report params to the schema.** All ~9 live
-  `report_*`/`generate_reports` params (not just 3) are defined in `nextflow.config` but **absent** from
-  `nextflow_schema.json`, so they don't appear in the Seqera launch form and can trip nf-schema
-  validation. Plan (decided 2026-07-23):
-  - **`report_gff3` → `reference_genome_options` group, SHOWN.** It's a per-genome annotation *file* (the
-    igv-reports gene track); UI-wise it belongs with the reference inputs (precedent: `genbank` — a
-    tool-specific input also filed under reference). Note in help_text that it feeds the report gene track.
-  - **`generate_reports` → SHOWN, default `true`** (in a new `mutation_report_options` group).
-  - **The static report-machinery params HIDDEN** (`report_outdir`, `report_filter_config`,
-    `report_cohort_template`, `report_sample_template`, `report_index_script`, `report_templates_dir`,
-    `report_container`) — repo-internal paths; give them real `${projectDir}/docs/igvreports/…` defaults
-    in `nextflow.config` so `generate_reports=true` works out-of-the-box.
-  - **`genbank` → flip to `hidden: true`** — used only by breseq (Tier-2), so keep it out of the Tier-1 form.
-  - **Remove `report_multiqc_path`** (dead param, no code usage).
-  - Validate with `nf-core pipelines schema lint`. (Tracked as WP4 Step 2d in the release plan.)
+- **[v1.0.0 — before release] Mutation-report params: schema + defaults (rescoped 2026-07-23).** Only
+  the 2 params a user actually sets get **schema** entries; the fixed-default machinery params are kept
+  out of the UI via the **ignore list** (a config param absent from the schema still WARNs even with a
+  default — so the ignore list, not omission, is what keeps it clean). Plan:
+  - **SHOWN in schema:** `generate_reports` (in `variant_calling`, next to the other ALE toggles;
+    default `true`); `report_gff3` (in `reference_genome_options`, next to `genbank` — per-genome
+    annotation *file* for the report gene track; help_text notes the report purpose).
+  - **`genbank` → flip `hidden: true`** — breseq-only (Tier-2), keep out of the Tier-1 form.
+  - **`validation.defaultIgnoreParams` +=** `report_container`, `report_outdir`, `report_filter_config`,
+    `report_cohort_template`, `report_sample_template`, `report_index_script`, `report_templates_dir`
+    (out of UI, no WARN).
+  - **`nextflow.config`:** `generate_reports` false→true; real `${projectDir}/docs/igvreports/…` defaults
+    on the 5 static file params (read via `file(params.X)` with no null guard → would `file(null)`-break
+    at `generate_reports=true`; assets git-tracked → resolve on Seqera); remove dead `report_multiqc_path`.
+  - **`ottilie_test.config`:** remove `report_multiqc_path`; drop the 5 static overrides (now == defaults).
+  - Validate with `nf-core pipelines schema lint` + e2e re-run. (Tracked as WP4 Step 2d in the release plan.)
+- **[low, post-1.0.0] Fix the pre-existing `split_fastq` schema-lint error.** `nf-core pipelines schema
+  lint` fails with *"Default parameters are invalid: 50000000 is valid under each of {'type':'integer'},
+  {'type':'integer','minimum':250}"*. This is **upstream sarek 3.5.1 boilerplate** (confirmed identical on
+  the pristine schema — not introduced by ALE): `split_fastq` carries both a top-level `"type":"integer"`
+  and a `oneOf` (`{minimum:250}` / `{minimum:0,maximum:0}`), and the default `50000000` matches more than
+  one, which nf-core's stricter lint rejects. **Lint-only — runtime nf-schema validation passes** (the
+  pipeline runs fine), so it does not block v1.0.0. Fix = restructure the `split_fastq` schema (drop the
+  redundant top-level type or re-model the "≥250 or exactly 0" constraint). Best done as part of a
+  template/schema refresh (couples with the nf-core 4.x / sarek-4.x migration — see
+  `ale_sarek_upgrade_runbook.md`), not a standalone patch.
 - **[med, post-1.0.0] Full launch-form curation.** `hidden: true` on the advanced/Tier-2 tool params
   (ascat_*, sentieon_*, mutect2/controlfreec extras, tumor-only knobs); set Tier-1 defaults
   (`--tools snpeff,cnvkit,tiddit,manta,haplotypecaller`, joint-germline + report flags on) so a user
