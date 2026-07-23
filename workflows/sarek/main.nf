@@ -965,6 +965,15 @@ workflow SAREK {
         // pipeline output channels (workdir files, DAG-ordered) — clean-run correct, no publishDir race.
         //
         if (params.generate_reports) {
+            // Resolve [fasta, fai] from the pipeline's provided-or-generated reference channels,
+            // so the report does NOT require an explicit --fasta_fai: PREPARE_GENOME's
+            // SAMTOOLS_FAIDX supplies the index when the param is absent (same as the rest of Sarek).
+            // .first() makes this a VALUE channel so it broadcasts to every per-sample IGV report
+            // (combine() yields a queue channel, which would be consumed by only the first sample).
+            ch_report_fasta = fasta.map { meta, f -> f }
+                .combine( fasta_fai.map { meta, fai -> fai } )
+                .first()
+
             MUTATION_REPORT(
                 ch_report_vcfs,                                              // [meta, vcf, tbi] annotated-or-raw
                 cram_variant_calling,                                        // [meta, cram, crai] per sample
@@ -975,7 +984,7 @@ workflow SAREK {
                 BAM_VARIANT_CALLING_GERMLINE_ALL.out.cnvkit_cns_germline,    // .md.germline.call.cns
                 MULTIQC.out.data,                                           // MultiQC *_data dir
                 multiqc_report,                                            // ordering edge + linked
-                [ file(params.fasta), file(params.fasta_fai) ],
+                ch_report_fasta,                                            // value: [ fasta, fai ] (fai auto-generated if absent)
                 file(params.report_gff3)
             )
         }

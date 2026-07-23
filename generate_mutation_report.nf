@@ -148,7 +148,9 @@ workflow {
         cnvkit_cns_germline,
         multiqc_data,
         multiqc_report,
-        [ file(params.fasta), file(params.fasta_fai) ],
+        // Standalone regenerates from an existing outdir (no PREPARE_GENOME), so --fasta_fai
+        // is still required here; wrapped in a value channel to match MUTATION_REPORT's input.
+        Channel.value([ file(params.fasta), file(params.fasta_fai) ]),
         file(params.report_gff3)
     )
 }

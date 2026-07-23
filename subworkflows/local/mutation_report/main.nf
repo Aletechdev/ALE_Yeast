@@ -48,7 +48,7 @@ workflow MUTATION_REPORT {
     cnvkit_cns_germline // channel: [ meta, .md.germline.call.cns ]  CI-filtered segments (CN matrix)
     multiqc_data        // channel: MultiQC *_data dir (GENERATE_INDEX metrics)
     multiqc_report      // channel: MultiQC report file(s) — ordering edge + linked from index.html
-    fasta               // value:   [ path(fasta), path(fai) ]
+    fasta               // channel: value [ path(fasta), path(fai) ]
     gff3                // path:     gene annotation GFF3
 
     main:
@@ -85,7 +85,8 @@ workflow MUTATION_REPORT {
     ch_gff3_indexed = PREPARE_GFF3.out.gff3
     versions = versions.mix(PREPARE_GFF3.out.versions)
 
-    ch_fasta = Channel.value(fasta)
+    ch_fasta = fasta                        // value channel: [ path(fasta), path(fai) ]
+    ch_fai   = fasta.map { it[1] }           // value channel: path(fai)
 
     ch_filter_config   = Channel.value(file(params.report_filter_config))
     ch_template        = Channel.value(file(params.report_cohort_template))
@@ -158,10 +159,10 @@ workflow MUTATION_REPORT {
             .collect()
             .map { files -> [ [ id: 'all_samples' ], files ] }
 
-        BUILD_CN_MATRIX(ch_cn_files, file(fasta[1]))   // fasta[1] = .fai
+        BUILD_CN_MATRIX(ch_cn_files, ch_fai)
         versions = versions.mix(BUILD_CN_MATRIX.out.versions)
 
-        BUILD_CN_COHORT(BUILD_CN_MATRIX.out.cn_matrices.map { meta, dir -> dir }, file(fasta[1]))
+        BUILD_CN_COHORT(BUILD_CN_MATRIX.out.cn_matrices.map { meta, dir -> dir }, ch_fai)
         versions = versions.mix(BUILD_CN_COHORT.out.versions)
 
         ch_cn_data = BUILD_CN_COHORT.out.collapsed
