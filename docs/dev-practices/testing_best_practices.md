@@ -138,8 +138,32 @@ These cover the most likely breakage points when updating or refactoring.
 ## 10. Existing Test Infrastructure
 
 See also:
-- `test/test.sh` — existing test script
-- `bin/CENPK_run_sarek_351.sh` — main execution script (reference for params)
+- `bin/test_ottilie.sh` — ALE end-to-end test launcher (ottilie 2-sample dataset)
+- `bin/CENPK_run_sarek_351_all.sh` — production execution script (reference for params)
+
+### nf-test file categories (what we own vs. what stays untouched)
+
+Two categories of `*.nf.test` files exist in the repo; only the first is ours to curate:
+
+| Category | Location | Tests | Policy |
+|----------|----------|-------|--------|
+| **Pipeline-level** | `tests/*.nf.test` | whole-pipeline scenarios | our ALE tests (`ottilie_e2e`, `split_joint_vcf`) are maintained; inapplicable upstream ones are triaged out |
+| **Component-level** | `modules/nf-core/*/tests/`, `subworkflows/*/tests/` | one module/subworkflow in isolation | **leave untouched** — co-located with upstream code; deleting them creates a rebase patch per upgrade, and they don't fail from our fork changes |
+
+### Upstream pipeline-test triage — one-time cleanup (WP4 Step 3b)
+
+The `tests/` dir inherited ~20 pristine upstream sarek pipeline-level tests (`sentieon`,
+`aligner-dragmap`, `tumor-normal-pair`, `save_output_as_bam`, `start_from_*`, …), all 0-diff vs
+upstream and **never adapted for this fork**. They test features ALE doesn't use or that the fork
+*changed* (e.g. all-normal mode breaks `tumor-normal-pair`), so most fail/error → negative value.
+They are deleted (with their orphaned `.snap`) as a **one-time cleanup**, keeping only our ALE
+contract tests.
+
+> ⚠️ **This is not a permanent state.** A future full re-fork / sarek migration copies clean upstream
+> back, so the same triage must be redone then. The planned migration would obsolete these tests
+> anyway, so we do **not** invest in adapting them — the minimal ALE suite (ottilie e2e +
+> split_joint_vcf) is what survives a migration. The 93 module + 6 subworkflow component tests are
+> **not** part of this triage (see the table above).
 
 ---
 

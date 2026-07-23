@@ -84,6 +84,31 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   shared Jinja `{% include %}` partial so GENERATE_INDEX can render both the report section **and** a
   `mutation_reports/README.md` from one source.
 
+## Deployment — Seqera launch UI / schema
+
+**Policy (decided 2026-07-22): curate the surface, not the code.** Upstream sarek ships many tools
+and ~141 params ALE doesn't use. Do **NOT** delete upstream calling paths or params to simplify —
+that edits upstream files and creates a rebase patch that conflicts on every future sarek upgrade
+(see `ale_sarek_upgrade_runbook.md`). Leave the code **inert** (a tool runs only if `--tools` names
+it) and control what the user *sees* via `nextflow_schema.json` — which is exactly what the Seqera
+launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done for 22/141 —
+`institutional_config_options` + `generic_options`); hidden params still work (CLI / params-file /
+"show hidden fields" toggle), they're just out of the default view. Ties to
+[[prefer-isolated-config-over-shared]].
+
+- **[v1.0.0 — before release] Add the 3 ALE params missing from the schema.** `generate_reports`,
+  `report_container`, `report_gff3` are defined in `nextflow.config` but **absent** from
+  `nextflow_schema.json`, so they don't appear in the Seqera launch form and can trip nf-schema
+  validation. Add them to an appropriate group with sensible defaults; validate with
+  `nf-core pipelines schema lint`. (Tracked as a WP4 pre-release step in the release plan.)
+- **[med, post-1.0.0] Full launch-form curation.** `hidden: true` on the advanced/Tier-2 tool params
+  (ascat_*, sentieon_*, mutect2/controlfreec extras, tumor-only knobs); set Tier-1 defaults
+  (`--tools snpeff,cnvkit,tiddit,manta,haplotypecaller`, joint-germline + report flags on) so a user
+  can launch with minimal edits; tidy `$defs` groups. Validate with a Seqera launch preview. **Keep
+  `--tools` free-text (do NOT add an `enum`)** — an enum must be re-applied on every rebase and can
+  reject valid upstream tool combos; default it to Tier-1 and document Tier-2 as advanced/unvalidated
+  instead of hard-blocking it.
+
 ---
 
 ## Resolved (folded into v1.0.0)
