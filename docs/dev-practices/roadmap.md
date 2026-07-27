@@ -74,6 +74,12 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `survivor_cohort_merge` assume coordinate-sorted Manta/TIDDIT input but don't enforce it — the POSIX
   `sort` runs *after* `SURVIVOR merge`, so an unsorted input could silently produce a bad merge. Add a
   sort/validation before the merge. (Found in the SV-merge code audit.)
+- **[low, post-1.0.0] Adopt incremental nf-test (`--changed-since`) in CI.** The `triggers` change-detection
+  deps are already declared on `tests/nf-test-ottilie.config` (2026-07-24), so the ottilie suite re-runs
+  when `nextflow.config` / `conf/test/ottilie_test.config` / `tests/.nftignore` / the ottilie configs change.
+  Wiring `nf-test test --changed-since <ref>` into CI is deferred to the post-1.0.0 CI/cloud-portability work
+  (WP3 "Level 2" — same bucket as the blob-URL `ottilie_test_ci` profile + GitHub Actions). Until then a plain
+  full `nf-test test` is the gate and `triggers` is inert.
 
 ## Documentation
 
@@ -129,6 +135,10 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
   `--tools` free-text (do NOT add an `enum`)** — an enum must be re-applied on every rebase and can
   reject valid upstream tool combos; default it to Tier-1 and document Tier-2 as advanced/unvalidated
   instead of hard-blocking it.
+- **[post-1.0.0] Cherry-pick `worktree-seqera-cloud` into `main`** once the Seqera cloud run is
+  validated. Not a strict/clean merge — cherry-pick the cloud-specific changes as needed. The branch
+  lives on `Aletechdev/ALE_Yeast`; don't merge before cloud validation (avoids pulling unvalidated
+  cloud-path changes into `main`). Ported from the superseded `v1_release_plan.md` out-of-scope list.
 
 ---
 

@@ -1,13 +1,33 @@
 # NF_ALE Project Notes
 
 ## Table of Contents
-1. [Environment Setup](#environment-setup)
-2. [Input Configuration](#input-configuration)
-3. [Variant Calling Strategy](#variant-calling-strategy)
-4. [Implementation Details](#implementation-details)
-5. [Tool-Specific Notes](#tool-specific-notes)
-6. [Analysis Dashboard](#analysis-dashboard)
-7. [Future Development](#future-development)
+1. [Pipeline Identity & Naming](#pipeline-identity--naming)
+2. [Environment Setup](#environment-setup)
+3. [Input Configuration](#input-configuration)
+4. [Variant Calling Strategy](#variant-calling-strategy)
+5. [Implementation Details](#implementation-details)
+6. [Tool-Specific Notes](#tool-specific-notes)
+7. [Analysis Dashboard](#analysis-dashboard)
+8. [Future Development](#future-development)
+
+---
+
+## Pipeline Identity & Naming
+
+Three names refer to the same thing — kept distinct on purpose:
+
+| What | Value | Notes |
+|------|-------|-------|
+| **Brand** (this version) | **yAMP** — *yeast Automated Mutation Pipeline* | Product name; future majors → AMPv3, … Lives in `manifest.description`. |
+| **`manifest.name`** | **`Aletechdev/AMP`** | Stable `org/repo`-form pipeline identity (drives the console banner, MultiQC header, versions `id:`, Seqera launch title). `org/repo` form keeps `nextflow run <name>` viable if ever open-sourced. |
+| **GitHub repo (handle/URL)** | **`Aletechdev/ALE_Yeast`** → https://github.com/Aletechdev/ALE_Yeast | The real repo; `worktree-seqera-cloud` lives here. Also `manifest.homePage`. |
+
+**`manifest.name` (`Aletechdev/AMP`) intentionally ≠ the repo handle (`Aletechdev/ALE_Yeast`)** — the
+brand stays clean while the repo keeps its existing name. Both may be reconciled/renamed later. The
+`description` (brand) evolves per version; `manifest.name` (identity) stays stable so it isn't churned.
+
+> **Status:** the manifest edit is **not yet applied** — `manifest.name` is still `nf-core/sarek` until
+> WP4 **Step 2e** runs (see `.claude/plans/dynamic-brewing-lightning.md`). This table is the decided target.
 
 ---
 
