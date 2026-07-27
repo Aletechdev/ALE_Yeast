@@ -26,7 +26,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   should be dropped or re-tied to `stand-call-conf` rather than retuned. Per-filter counts and the
   RankSum annotation-coverage gap: `docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`.
 
-## Variant calling — Mutect2
+## Variant calling — Mutect2 (Tier 2)
 
 - **[med] Rename filtered VCF → `filter_annotated`.** `conf/modules/mutect2.config:48` uses
   `ext.prefix = {"${meta.id}.mutect2.filtered"}`; rename to `…mutect2.filter_annotated` for consistency
@@ -54,7 +54,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 - **[low] FreeBayes population table / single-VCF report.** Aggregate all samples' FreeBayes output into
   one population VCF/table for cross-sample comparison.
 
-## CNV — Control-FREEC / CNVKit
+## CNV — Control-FREEC (Tier 2) / CNVKit
 
 - **[low] Control-FREEC yeast `cf_window` tuning.** `nextflow.config` sets `cf_window = null` (auto). Tune
   `window` / `breakpointthreshold` for small yeast chromosomes. Coupled with the ploidy=1 item below.
@@ -154,7 +154,7 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
 - **[post-1.0.0] Cherry-pick `worktree-seqera-cloud` into `main`** once the Seqera cloud run is
   validated. Not a strict/clean merge — cherry-pick the cloud-specific changes as needed. The branch
   lives on `Aletechdev/ALE_Yeast`; don't merge before cloud validation (avoids pulling unvalidated
-  cloud-path changes into `main`). Ported from the superseded `v1_release_plan.md` out-of-scope list.
+  cloud-path changes into `main`). Carried over from the now-removed pre-WP release plan's out-of-scope list.
 
 ---
 
