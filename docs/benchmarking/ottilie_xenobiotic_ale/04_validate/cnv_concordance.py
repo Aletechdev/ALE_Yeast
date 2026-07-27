@@ -11,7 +11,7 @@ samples with known CNVs and characterizes all non-diploid segments for
 all samples.
 
 CNVKit CN scale note: cn=2 is always baseline regardless of ploidy.
-  cn>2 = gain, cn<2 = loss. See cnvkit_ploidy_cn_scale.md.
+  cn>2 = gain, cn<2 = loss. See cnvkit_ploidy_behavior.md.
 
 Usage:
     python 04_validate/cnv_concordance.py \\

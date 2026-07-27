@@ -275,7 +275,7 @@ In the Ottilie pilot validation (4 samples, all haploid/ploidy=1), Control-FREEC
 | **Control-FREEC** (_CNVs) | Not listed | **Missed** |
 | **Control-FREEC** (.bed) | chrI segments at CN≈2.4–2.8 | Signal present but not called |
 
-CNVKit's `.call.cns` reports chr I as cn=3 regardless of the `--ploidy` parameter (1, 2, or 3), since CN integer assignment uses fixed diploid-scale thresholds. For production, CNVKit `--ploidy` is being set to 2 (default) so that the VCF export correctly emits chr I as a DUP record (cn=3 ≠ ploidy=2). Post-VCF configuration change is in progress (see `docs/variant-calling/cnvkit/cnvkit_ploidy_cn_scale.md`).
+CNVKit's `.call.cns` reports chr I as cn=3 regardless of the `--ploidy` parameter (1, 2, or 3), since CN integer assignment uses fixed diploid-scale thresholds. For production, CNVKit `--ploidy` is being set to 2 (default) so that the VCF export correctly emits chr I as a DUP record (cn=3 ≠ ploidy=2). Post-VCF configuration change is in progress (see `docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`).
 
 ### Action Items
 

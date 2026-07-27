@@ -128,7 +128,7 @@ All chromosomes at `Ploidy_rounded = 1` (including Mito) → 0 variants with
 |------|-------------------|-------------|-----------|
 | TIDDIT | `-n` (default=2) | Yes (DUP/DEL thresholds) | Always diploid |
 | Manta | None | N/A | Always diploid |
-| CNVKit | `--ploidy` removed (see [cnvkit_ploidy_cn_scale.md](../cnvkit/cnvkit_ploidy_cn_scale.md)) | N/A | Always diploid |
+| CNVKit | `--ploidy` removed (see [cnvkit_ploidy_behavior.md](../cnvkit/cnvkit_ploidy_behavior.md)) | N/A | Always diploid |
 
 ## References
 

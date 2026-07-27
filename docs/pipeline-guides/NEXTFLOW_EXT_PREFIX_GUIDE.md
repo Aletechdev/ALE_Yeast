@@ -349,7 +349,7 @@ When adding a new tool to a pipeline:
 
 - [nf-core modules guidelines](https://nf-co.re/docs/contributing/modules)
 - [Nextflow process directives](https://www.nextflow.io/docs/latest/process.html#directives)
-- CNVkit MultiQC Integration: `docs/CNVKIT_MULTIQC_INTEGRATION.md`
+- CNVkit MultiQC Integration: `docs/archive/cnvkit/CNVKIT_MULTIQC_INTEGRATION.md`
 
 ## Key Takeaway
 

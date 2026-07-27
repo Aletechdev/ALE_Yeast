@@ -180,5 +180,5 @@ One-liners for traceability; full detail in `git log` / `CHANGELOG.md`.
 - **Population SV + CN cohort tables** — `build_sv_matrix`+`survivor_cohort_merge` →
   `sv_cohort_matrix_union{,_pass}.csv`; `build_cn_matrix`+`build_cn_cohort` → `cn_cohort_{full,collapsed}.csv`
   (MUTATION_REPORT deliverables). Feature done; dedicated docs = WP4 Step 6 (SV-merge guide) / Step 7b (CN).
-- **CNVKit results in MultiQC** — documented in `docs/variant-calling/cnvkit/CNVKIT_MULTIQC_INTEGRATION.md`
+- **CNVKit results in MultiQC** — documented in `docs/archive/cnvkit/CNVKIT_MULTIQC_INTEGRATION.md`
   (resolved; slated for archive in the docs-consolidation step).

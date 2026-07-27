@@ -1,155 +1,114 @@
-# CNVKit Absolute Copy Number Calculation
+# CNVKit CN Matrices — `fold_change` reference
 
-**Date**: 2026-05-23
-**Context**: Multi-sample CN analysis for ALE experiments with non-diploid organisms
+**Canonical reference** for the multi-sample copy-number matrices built from CNVKit output for ALE
+analysis. Describes what the matrix scripts actually emit; grounded in
+[`bin/build_cn_matrix.py`](../../../bin/build_cn_matrix.py) and
+[`bin/cn_cohort_matrix.py`](../../../bin/cn_cohort_matrix.py).
 
-## Problem
+> **History:** earlier revisions of this doc recommended `absolute_cn = ploidy × 2^log2` and an integer
+> `cn − 2 + ploidy`. Both are **gone from the code** — the matrices now emit a single ploidy-agnostic
+> `fold_change`. Rationale below; the old ploidy-scale investigation is archived at
+> [`docs/archive/cnvkit/cnvkit_ploidy_cn_scale.md`](../../archive/cnvkit/cnvkit_ploidy_cn_scale.md).
 
-CNVKit's integer CN values (`.call.cns`) use a **diploid scale** regardless of sample ploidy:
-- cn=2 always means "baseline" (same as reference)
-- `--ploidy` flag does not change the threshold-to-CN mapping (see `cnvkit_ploidy_cn_scale.md`)
-- Rounding on a haploid scale loses subclonal/mosaic signals
+## The metric: `fold_change = 2^log2`
 
-### Example: CBR110-15-R3a Chr I whole-chromosome duplication
-
-| Method | Value | `round(cn - 2 + ploidy)` | `round(ploidy × 2^log2)` |
-|--------|-------|---------------------------|---------------------------|
-| `.call.cns` | cn=3, log2=0.329 | **2** (correct) | — |
-| `.cnr` bin-level | log2=0.329 | — | **round(1.26) = 1** (missed!) |
-
-The duplication shows log2=0.33 (not the expected 1.0 for a clean 2×), likely due to population mosaicism (~30% of cells). On CNVKit's diploid scale, 2×2^0.33 = 2.51 → rounds to 3 (detected). On a haploid scale, 1×2^0.33 = 1.26 → rounds to 1 (missed).
-
-## Recommended Formula
-
-### For continuous CN (preferred for analysis)
+Every matrix column is derived from CNVKit's `log2` (the GC-corrected, centered
+`log2(sample_depth / reference_depth)` — see *Derivation* below):
 
 ```python
-absolute_cn = ploidy * 2**log2
+fold_change = 2 ** log2          # bin- or segment-level, continuous (never rounded)
 ```
 
-This is mathematically: `ploidy × (sample_depth / median_depth)`, which is the definition of absolute copy number.
+| `fold_change` | Meaning |
+|---------------|---------|
+| `1.0` | same depth as the reference baseline |
+| `> 1` | copy-number **gain** |
+| `< 1` | copy-number **loss** |
 
-**Keep values continuous** — do not round. Fractional CN reflects real biology:
-- 1.26 copies = elevated signal, likely subclonal duplication
-- 1.0 copies = normal haploid baseline
-- 0.5 copies = partial deletion or mosaic loss
+**Why `fold_change`, not `absolute_cn`:** it is the direct depth ratio — ploidy-agnostic, so it is
+comparable across samples of *different* ploidy, and it needs no assumption CNVKit doesn't make.
+CNVKit's integer `cn` always uses **`cn = 2` as baseline regardless of `--ploidy`** (its flat reference
+and default thresholds are ploidy-agnostic — see
+[`cnvkit_ploidy_behavior.md`](cnvkit_ploidy_behavior.md)), so an `absolute_cn = ploidy × 2^log2`
+column implied a precision the tool doesn't provide and misled on haploid samples. Keeping the raw
+`log2` **and** its `fold_change` means CN can always be re-interpreted downstream without re-running
+CNVKit.
 
-### For integer CN calls (when needed)
+Each matrix therefore carries **two paired columns per sample**: `{sample}_log2` (raw signal) and
+`{sample}_fold_change` (`2^log2`).
 
-Use CNVKit's diploid-scale `cn` from `.call.cns` with post-hoc adjustment:
+## Source files and the three matrix types
 
-```python
-absolute_cn = cn - 2 + ploidy
+`build_cn_matrix.py` reads three CNVKit outputs per sample and produces:
+
+| Output CSV | Source | Notes |
+|------------|--------|-------|
+| `cn_segments_call.csv` | `.md.call.cns` | per-segment; re-centered log2; has `p_ttest` (sensitive) |
+| `cn_segments_germline.csv` | `.md.germline.call.cns` | per-segment; CI-filtered; no `p_ttest` (stringent) |
+| `cn_chr_summary_call.csv` | `.md.call.cns` | one row per chromosome (dominant = largest-span segment) |
+| `cn_chr_summary_germline.csv` | `.md.germline.call.cns` | one row per chromosome |
+| `cn_call_vs_germline.csv` | both | rows where call vs germline `fold_change` differ by > 0.1 (only written if any) |
+| `cn_bins_continuous.csv` | `.md.cnr` | bin-level (~5 kb), all samples share identical bin coords → directly stackable |
+
+Segment CSV columns: `sample, chromosome, start, end, log2, fold_change, depth, probes[, p_ttest]`.
+Chr-summary / bins CSV columns: coords + `{sample}_log2, {sample}_fold_change` per sample.
+
+### Dual "call" vs "germline" matrices
+
+The two segment sources come from CNVKit being called twice (a sarek design point — full detail in
+[`cnvkit_sarek_dual_call.md`](cnvkit_sarek_dual_call.md)):
+
+- **`.md.call.cns`** (sensitive): `cnvkit.py batch`'s internal call — re-centered log2, retains all
+  segments, includes `p_ttest` for user-controlled filtering. Best for mixed-population/mosaic ALE
+  samples where weak subclonal signals matter.
+- **`.md.germline.call.cns`** (stringent): the separate `CNVKIT_CALL --filter ci` step — CI-filtered
+  (ambiguous segments reset to baseline), matches the exported VCF. Best for clonal samples with strong
+  signal.
+
+`cn_call_vs_germline.csv` reports where they disagree so you can pick empirically against a truth set.
+
+### Bin-level `.cnr` matrix
+
+`.md.cnr` bins are uniform (~5 kb) and identical across samples, so they stack into a samples × bins
+matrix with no breakpoint merging. Continuous `fold_change` preserves fractional (subclonal/mosaic)
+signal — best for heatmaps and clustering.
+
+## Cohort collapse (`cn_cohort_matrix.py --collapse`)
+
+The bin matrix is large and mostly baseline. `cn_cohort_matrix.py` optionally collapses it:
+
+1. **Drop baseline bins** — a bin is baseline if **all** samples have `|log2| < 0.3` (`fold_change`
+   ≈ 0.81–1.23); such bins are removed.
+2. **Merge adjacent survivors** — consecutive non-baseline bins on the same chromosome
+   (`row.start == prev.end`) merge into one region.
+
+**Jensen's-inequality fix (important):** on merge, `log2` is averaged and `fold_change` is
+**re-derived** as `2^avg_log2` — *not* averaged directly, because `mean(2^x) ≠ 2^mean(x)`
+([`cn_cohort_matrix.py:74`](../../../bin/cn_cohort_matrix.py)). Averaging `fold_change` would bias the
+merged value upward.
+
+With `--fai`, a `chr_length` column is added for genomic context.
+
+## Derivation (why `2^log2` is the depth ratio)
+
+CNVKit's per-sample pipeline:
+
+```
+coverage → fix() [log2(sample/reference), GC-correct] → center_all() [median autosome log2 → 0]
+         → segment() [CBS] → call() [threshold log2 → integer cn]
 ```
 
-This preserves CNVKit's tuned thresholds (which catch noisy signals like log2=0.33 → cn=3) and shifts to the correct ploidy baseline.
-
-**Do not use** `round(ploidy × 2^log2)` for integer calls — the rounding on a haploid scale is too aggressive for mosaic/subclonal events.
-
-## Derivation
-
-CNVKit's internal pipeline:
-
-```
-1. coverage(sample) → raw depth per ~5kb bin
-2. fix() → log2(sample_depth / reference_depth), GC correction
-3. center_all() → shift so median autosome log2 = 0
-4. segment() → CBS segmentation → .cns
-5. call() → threshold log2 → integer CN → .call.cns
-```
-
-After step 3, `log2 = 0` means "same depth as median autosome". The median autosome represents the baseline ploidy. Therefore:
-
-```
-2^log2 = sample_depth / median_depth = relative copy ratio
-ploidy × 2^log2 = absolute copy number
-```
-
-### Why `cn - 2 + ploidy` works for integers
-
-CNVKit maps log2≈0 → cn=2 (diploid baseline). The shift `- 2 + ploidy` converts from diploid baseline to true ploidy baseline:
-
-| `.call.cns` cn | Diploid meaning | Haploid absolute (`cn - 2 + 1`) | Diploid absolute (`cn - 2 + 2`) |
-|----------------|-----------------|----------------------------------|----------------------------------|
-| 0 | Deep deletion | -1 → 0 (clamp) | 0 |
-| 1 | Loss | 0 | 1 |
-| 2 | Baseline | 1 | 2 |
-| 3 | Gain | 2 | 3 |
-| 4 | Amplification | 3 | 4 |
-
-**Note**: cn=0 with ploidy=1 gives -1, which should be clamped to 0 (biological minimum).
-
-## Multi-Sample CN Matrix
-
-For comparing CN across samples, use `.cnr` files (bin-level, ~5kb resolution):
-
-- **Bins are uniform and identical** across all samples — no breakpoint merging needed
-- **Continuous signal** — `log2` per bin, not thresholded to integers
-- **Directly stackable** into a samples × bins matrix
-
-### Building the matrix
-
-```python
-# Per sample, per bin:
-absolute_cn = ploidy * 2**log2  # continuous, keeps fractional signal
-
-# Output: two paired columns per sample — log2 (raw signal) + absolute CN (interpreted)
-# chrom, start, end, sample1_log2, sample1_cn, sample2_log2, sample2_cn, ...
-```
-
-### Why include both log2 and absolute CN
-
-| Column | What it captures | Use case |
-|--------|-----------------|----------|
-| `log2` | Raw depth ratio, ploidy-agnostic | Comparable across ploidies, heatmaps, clustering, QC |
-| `absolute_cn` | Biological copy number (`ploidy × 2^log2`) | Interpretation, reporting, CNV calling |
-
-The `log2` ratio is the ground truth — it's the direct measurement before any ploidy assumption is applied. Keeping it in the output means:
-- You can re-derive CN with a different ploidy without re-running CNVKit
-- Cross-sample comparisons are valid even if samples have different ploidies
-- Standard for CNV visualization tools (IGV, heatmaps use log2 scale)
-
-### Comparison of source files
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| `.cnr` + `ploidy × 2^log2` | Uniform bins, continuous signal, no merging | Noisy (bin-level), no integer calls |
-| `.md.call.cns` (batch internal) | Re-centered log2, has `p_ttest`, all segments retained | Different boundaries per sample, requires breakpoint merging |
-| `.md.germline.call.cns` (sarek CNVKIT_CALL) | CI-filtered (cleaner), matches VCF output | No `p_ttest`, no re-centering, may silently drop weak-but-real signals |
-| `.call.cns` `export seg` | Multi-sample in one file, IGV-compatible | Only log2 (no CN column), no ploidy adjustment |
-
-### Dual-Matrix Strategy
-
-Generate **two** segment-level CN matrices and compare empirically before choosing:
-
-1. **Sensitive matrix** (from `.md.call.cns`):
-   - Re-centered log2 (more accurate cross-sample baseline)
-   - `p_ttest` included — filter at your own threshold
-   - All segments retained — no silent CI-based resets
-   - Retains weak signals from subclonal or mosaic events common in mixed-population ALE
-   - Columns per sample: `log2`, `cn`, `absolute_cn` (`ploidy × 2^log2`), `p_ttest`
-
-2. **Stringent matrix** (from `.md.germline.call.cns`):
-   - CI-filtered — low-confidence segments reset to baseline CN
-   - Matches what the VCF export uses
-   - Better for clonal ALE samples where real CNVs produce strong, unambiguous signal
-   - Columns per sample: `log2`, `cn`, `absolute_cn` (`ploidy × 2^log2`)
-
-**Compare**: Where do the two matrices agree on known CNVs (e.g., chr I dup)? Where do they disagree? Check disagreements against truth set to determine which mode is better for ALE.
-
-**Decision criteria**: Clonal samples (strong signal) should agree in both — if so, either works. Mixed-population/mosaic samples are where differences matter: the sensitive matrix preserves weak signals, the stringent matrix may miss them but has fewer false positives.
-
-### Additional visualizations
-
-- **For heatmaps/clustering**: Use `.cnr` continuous CN matrix (fractional values show subclonal events)
-- **For IGV visualization**: Use `cnvkit.py export seg` (multi-sample, but log2 only)
-
-See `docs/variant-calling/cnvkit/cnvkit_sarek_dual_call.md` for full comparison of the two call files with data from all 4 pilot samples.
+After centering, `log2 = 0` means "same depth as the median autosome" (the baseline), so
+`2^log2 = sample_depth / median_depth` — the copy ratio relative to the reference. That ratio *is*
+`fold_change`; multiplying by a ploidy to get "absolute CN" only holds under a clean-diploid assumption
+CNVKit's flat reference doesn't encode.
 
 ## Files
 
-- Ploidy CN scale investigation: `docs/variant-calling/cnvkit/cnvkit_ploidy_cn_scale.md`
-- Ploidy VCF export behavior: `docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`
-- Sarek dual call design (`.call.cns` vs `.germline.call.cns`): `docs/variant-calling/cnvkit/cnvkit_sarek_dual_call.md`
-- Ploidy experiment results: `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/cnvkit_ploidy_experiment/`
-- Pipeline config: `conf/modules/cnvkit.config`
+- Scripts: [`bin/build_cn_matrix.py`](../../../bin/build_cn_matrix.py),
+  [`bin/cn_cohort_matrix.py`](../../../bin/cn_cohort_matrix.py)
+- Pipeline config: [`conf/modules/cnvkit.config`](../../../conf/modules/cnvkit.config)
+- Dual call design: [`cnvkit_sarek_dual_call.md`](cnvkit_sarek_dual_call.md)
+- Ploidy & VCF export: [`cnvkit_ploidy_behavior.md`](cnvkit_ploidy_behavior.md)
+- Small-chromosome exclusion: [`cnvkit_small_chr_exclusion.md`](cnvkit_small_chr_exclusion.md)
+- Archived ploidy-scale investigation: [`docs/archive/cnvkit/cnvkit_ploidy_cn_scale.md`](../../archive/cnvkit/cnvkit_ploidy_cn_scale.md)

@@ -27,7 +27,7 @@ Changes:
 - Add `--csv` output for machine-readable results
 - `--all-samples` characterizes all non-truth-set samples too (report non-diploid segments)
 
-**CNVKit diploid-scale caveat** (from `docs/variant-calling/cnvkit/cnvkit_ploidy_cn_scale.md`):
+**CNVKit diploid-scale caveat** (from `docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`):
 - CNVKit always reports cn=2 as baseline regardless of `--ploidy` flag
 - Default thresholds: log2 ≤ -1.1 → cn=0, ≤ -0.25 → cn=1, ≤ 0.2 → cn=2 (baseline), ≤ 0.7 → cn=3
 - For haploid samples: cn=2 = normal, cn=3 = gain, cn=1 = loss
@@ -86,7 +86,7 @@ Functions (reuse patterns from `docs/benchmarking/marko_sv/sv_comparison/generat
 
 1. ✅ **Revert CNVKit `--ploidy` to nf-core/sarek 3.5.1 defaults** in `conf/modules/cnvkit.config` (completed 2026-05-26):
    - Reverted to original upstream (commit `3c155ab`) — removed all `--ploidy ${meta.ploidy}` additions. cnvkit defaults to `--ploidy 2`.
-   - Updated docs: `cnvkit_ploidy_behavior.md`, `cnvkit_ploidy_cn_scale.md`, `cnvkit_sarek_dual_call.md`
+   - Updated docs: `cnvkit_ploidy_behavior.md`, `cnvkit_ploidy_cn_scale.md (archived: docs/archive/cnvkit/)`, `cnvkit_sarek_dual_call.md`
    - ✅ Pilot re-run completed. Verified `cns[2]` index (alphabetical: `.bintest.cns`[0], `.call.cns`[1], `.cns`[2] — correct). Updated `cnvkit_sarek_dual_call.md` with actual post-revert data: Carmaphycin chr XII now cn=13/cn=4 in both files (was cn=7/cn=2 with ploidy=1). Only remaining difference: CBR110 chr VI (cn=2 vs cn=3 from re-centering).
    - **Original plan notes** (retained for context):
    - Change `--ploidy ${meta.ploidy}` → `--ploidy 2` in `CNVKIT_CALL` (line 38), germline override (line 47), and `CNVKIT_EXPORT` (line 57)
