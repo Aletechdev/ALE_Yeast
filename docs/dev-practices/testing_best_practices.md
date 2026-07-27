@@ -152,12 +152,62 @@ Two categories of `*.nf.test` files exist in the repo; only the first is ours to
 
 ### Upstream pipeline-test triage — one-time cleanup (WP4 Step 3b)
 
-The `tests/` dir inherited ~20 pristine upstream sarek pipeline-level tests (`sentieon`,
-`aligner-dragmap`, `tumor-normal-pair`, `save_output_as_bam`, `start_from_*`, …), all 0-diff vs
-upstream and **never adapted for this fork**. They test features ALE doesn't use or that the fork
-*changed* (e.g. all-normal mode breaks `tumor-normal-pair`), so most fail/error → negative value.
-They are deleted (with their orphaned `.snap`) as a **one-time cleanup**, keeping only our ALE
-contract tests.
+The `tests/` dir inherited 20 pristine upstream sarek pipeline-level tests, all 0-diff vs upstream
+and **never adapted for this fork**. Each was written against a scenario/toolset ALE does not run:
+
+- **Cancer / paired modes** we don't use — `tumor-normal-pair` (needs a tumor sample; the fork's
+  all-normal mode breaks it), `variant_calling_strelka`/`_bp`, `variant_calling_controlfreec`.
+- **Aligners / tools we don't use** — `sentieon`, `aligner-dragmap` (we run bwa-mem), the VEP/bcfann
+  annotation variants (`annotation_vep`, `annotation_bcfann`, `annotation_merge`).
+- **Steps / output modes we don't use** — `save_output_as_bam`, `saved_mapped`, and the restart-entry
+  tests `start_from_markduplicates` / `start_from_preparerecalibration` / `start_from_recalibration`,
+  plus `alignment_from_everything` / `alignment_to_fastq`.
+- **Generic upstream defaults** on human test data — `default`, `aligner-bwa-mem`(`2`),
+  `annotation_snpeff`.
+
+They all target human test data and fork-incompatible assumptions, so most fail/error → negative
+value. Everything reusable in them (the `stable_name` / `stable_path` / `.nftignore` snapshot idiom)
+was already copied into `ottilie_e2e.nf.test`. They are deleted (with their orphaned `.snap`) as a
+**one-time cleanup**, keeping only our ALE contract tests.
+
+**`ottilie_e2e.nf.test` is the end-to-end case for the v1.0.0 release** (the full ALE workflow on the
+ottilie 2-sample dataset via the `ottilie_test` profile); `split_joint_vcf.nf.test` is the one
+subworkflow unit test. Those two are what we maintain.
+
+**Legacy pytest-workflow stack removed in the same triage.** The `tests/` dir also inherited the
+upstream **pytest-workflow** apparatus — nf-core's *older* test framework (`- name:` / `command:` /
+`files: md5sum:`, run by `pytest --tag`), which **nf-test superseded**. It is a set of interlocking
+files, all removed together:
+
+| File(s) | Role |
+|---------|------|
+| `tests/test_*.yml` (29) | the test definitions |
+| `tests/tags.yml` | tag → source-file globs |
+| `tests/config/pytesttags.yml` | tag → test-file map (CI change filter) |
+| `tests/requirements.txt` | Python deps (`pytest-workflow`, `cryptography`) |
+
+Three independent reasons this is correct, not a divergence:
+
+1. **The runner never came with the fork.** The harness that runs these — upstream's
+   `.github/workflows/pytest.yml` (`pip install -r tests/requirements.txt` → `pytest --tag …`, using
+   `tests/config/pytesttags.yml` + `tests/csv/`) — **does not exist in our `.github/workflows/`** (we
+   have only the container build). So these YAMLs were inert scaffolding here with nothing to run them.
+2. **Deprecated framework, zero reuse value** — unlike the `.nf.test` files (whose idioms we copied
+   into `ottilie_e2e`), we'd never author a pytest-workflow test. They're also unrelated to the
+   `.nf.test` files (no cross-reference) and cover inapplicable upstream scenarios (sentieon,
+   deepvariant, mutect2, umi, msisensorpro, lofreq, …) on human data.
+3. **Upstream is retiring them too.** The sarek CHANGELOG documents a systematic pytest→nf-test
+   migration — PRs **1677** (aligner/default), **1708** (alignment/annotation), **1711** (strelka),
+   **1731** (controlfreec) all *"Migrate pipeline pytest … tests to nf-test"* — and **3.8.1 ships just
+   1** pytest YAML (vs 3.5.1's 29) alongside 62 `.nf.test`. Deleting them **tracks** where upstream is
+   heading, so the "0-diff, redone on migration" caveat barely applies (the version we rebase onto will
+   have removed them).
+
+**Kept — not pytest-only:** `tests/csv/` and `tests/config/bcfann_test_header.txt` stay, because the
+still-present, 0-diff `conf/test.config` (+ 18 upstream extra-CI profiles) reference them for the
+**nf-test** default path too — they are not pytest scaffolding, and removing them would break that
+pristine upstream config. (Our own bcftools-norm investigation under `tests/test/` was archived to
+`docs/archive/test_bcftools/`.)
 
 > ⚠️ **This is not a permanent state.** A future full re-fork / sarek migration copies clean upstream
 > back, so the same triage must be redone then. The planned migration would obsolete these tests

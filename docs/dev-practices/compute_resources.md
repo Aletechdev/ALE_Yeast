@@ -97,6 +97,31 @@ For the full cloud step-by-step (compute environment setup, Batch Forge, launch)
 [`docs/seqera_cloud/seqera_cloud_deployment_checklist.md`](../seqera_cloud/seqera_cloud_deployment_checklist.md)
 and [`docs/seqera_cloud/azure_batch_recommendations.md`](../seqera_cloud/azure_batch_recommendations.md).
 
+## nf-test resources — clamp only (no pool)
+
+Running the suite through **nf-test** is a fourth context, and it fits the machine differently from a
+`nextflow run`. The ALE tests launch with `-c tests/nf-test-ottilie.config`, which sets
+`profile "ottilie_test,docker"` — **deliberately without `azureD4as`**. So of the two layers above,
+only the **clamp** applies:
+
+- **`resourceLimits`** comes from `tests/ottilie_nftest_resources.config` (the nf-test config's
+  `configFile`): `[cpus:4, memory:'14.GB', time:'24.h']`. This is the whole resource story for a test run.
+- **No `executor` pool** and **no per-task tuning** — those live in `conf/azured4as.config`, which the
+  test path doesn't load. Concurrency falls back to Nextflow's **default local executor** (it
+  auto-detects the host's CPUs/RAM). For the 2-sample ottilie run that's plenty; the clamp is what
+  guarantees every task stays schedulable.
+
+Why a separate clamp-only file instead of reusing `azureD4as`? Its `executor='local'` pool is
+full-run machinery the test doesn't want, and a **params-bearing `-c` would clobber** the
+`ottilie_test` profile's input/tools (`-c` outranks profiles — the WP3 config-precedence finding). A
+`resourceLimits`-only config caps resources without touching params.
+
+**Porting a test run to another machine:** same idea as porting a VM profile, but edit the two numbers
+in `tests/ottilie_nftest_resources.config` (the [porting table](#porting-to-another-vm) applies
+directly). For a CI box that differs from the dev VM, add a second
+`tests/ottilie_nftest_resources_ci.config` and a matching `tests/nf-test-ottilie-ci.config` whose
+`configFile` points at it — keeping the dev-VM config untouched.
+
 ## Summary — the three orthogonal axes
 
 A run = **dataset** × **resources** × **engine**, each an independent profile:
