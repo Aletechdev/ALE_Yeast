@@ -1,2 +1,0 @@
-sample,truth_n,pipeline_total,evolved_unique,tp_sensitivity,fn_sensitivity,sensitivity_pct,tp_precision,fp_precision,precision_pct
-CBR110-15-R3a,4,267,44,4,0,100.0,4,40,9.1

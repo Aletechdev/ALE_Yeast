@@ -1,5 +1,0 @@
-sample,is_parent,manta_total,manta_pass,tiddit_total,tiddit_pass,union_total,consensus_total,union_pass_total,consensus_pass_total,supp_both,supp_manta_only,supp_tiddit_only,evolved_unique,evolved_unique_pass,union_svtypes
-CBR110-15-R3a,False,22,15,170,30,136,17,37,5,17,4,115,80,31,"{""INV"": 26, ""DUP"": 25, ""TRA"": 80, ""DEL"": 4, ""INS"": 1}"
-Carmaphycin-R9-2,False,35,24,378,17,269,27,30,7,27,8,234,202,23,"{""TRA"": 132, ""DEL"": 9, ""INV"": 120, ""DUP"": 7, ""INS"": 1}"
-Doxorubicin16-R2b,False,21,15,116,9,97,18,18,5,18,3,76,49,12,"{""INV"": 21, ""TRA"": 66, ""DUP"": 5, ""DEL"": 3, ""INS"": 2}"
-NODRUG-GM2,True,8,8,170,58,148,5,51,5,5,3,140,,,"{""TRA"": 84, ""INV"": 16, ""DEL"": 33, ""DUP"": 13, ""INS"": 2}"

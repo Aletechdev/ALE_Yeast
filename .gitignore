@@ -129,3 +129,5 @@ null/
 
 # nf-test working directory
 .nf-test/
+docs/igvreports/ottilie_4samples/
+docs/igvreports/demo/

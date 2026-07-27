@@ -248,7 +248,7 @@ Last valid variant: chr3:297387
 
 ### Similar Timeout Issues
 
-- MultiQC mosdepth processing (see `MULTIQC_MOSDEPTH_MEAN_COVERAGE_ISSUE.md`)
+- MultiQC mosdepth processing (see `../../qc-reporting/multiqc_mosdepth_coverage.md`)
 - Long-running annotation jobs (future consideration)
 
 ### Related Configuration
