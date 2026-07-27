@@ -3,8 +3,10 @@
 Ad-hoc future-work items migrated from the old `TODO.md` at v1.0.0. Priorities are `[high|med|low]`.
 Full project history lives in `git log` and `CHANGELOG.md`; resolved items are summarized at the bottom.
 
-> For the **test-coverage** roadmap (ploidy 1/2/3 scenarios, per-custom-module nf-tests), see WP6 in the
-> release plan — not duplicated here.
+> For the **test-coverage** target (the four nf-test layers over our custom code, ploidy 1/2/3
+> scenarios, per-custom-module tests), see `testing_best_practices.md` §11 — the target lives there
+> and is not duplicated here. This file carries only the prioritized *scheduling* item for it
+> (under Robustness / infrastructure).
 
 ---
 
@@ -17,7 +19,12 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 - **[med] Joint-germline filter strategy + flag fixed / convergent mutations.** Refine the soft-filter
   thresholds on the joint HC VCF (`VARIANTFILTRATION_FALLBACK`, `conf/modules/joint_germline.config`) and
   add flags for *fixed* (≈100% AF) and *convergent* (recurrent across independent lineages) mutations —
-  the key selective signals in an ALE experiment.
+  the key selective signals in an ALE experiment. Evidence now exists for the retune: on Ottilie Tier 2
+  only **4 of the 9 declared filters ever fire** (MQ/SOR/QD/FS); the other five tag nothing. Handle
+  `QUAL_filter` separately — it is redundant *by construction*, not by threshold (GenotypeGVCFs'
+  default `-stand-call-conf 30` already removes everything it targets; observed min QUAL 30.14), so it
+  should be dropped or re-tied to `stand-call-conf` rather than retuned. Per-filter counts and the
+  RankSum annotation-coverage gap: `docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`.
 
 ## Variant calling — Mutect2
 
@@ -74,6 +81,15 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `survivor_cohort_merge` assume coordinate-sorted Manta/TIDDIT input but don't enforce it — the POSIX
   `sort` runs *after* `SURVIVOR merge`, so an unsorted input could silently produce a bad merge. Add a
   sort/validation before the merge. (Found in the SV-merge code audit.)
+- **[med, post-1.0.0] Build out nf-test coverage over custom code (all four layers).** v1.0.0 ships two
+  owned tests (`ottilie_e2e` pipeline + `split_joint_vcf` subworkflow); the 19 `modules/local/` and the
+  other custom subworkflows have no isolated coverage, so a regression only surfaces as a diff in the e2e
+  snapshot. Target, priorities and per-layer candidates are in `testing_best_practices.md` §11 — start
+  with the VQSR-fallback pair (`VARIANTFILTRATION_FALLBACK` ext.args + the three-tier output selection in
+  `bam_joint_calling_germline_gatk`), whose failure modes are silent and unreachable by the e2e snapshot;
+  then the rest of the process layer, then subworkflow, then ploidy 1/2/3 pipeline scenarios (these want
+  the CI item below to land first). Also decide the fixtures convention (committed-small vs. Azure Blob)
+  before `tests/fixtures/` grows.
 - **[low, post-1.0.0] Adopt incremental nf-test (`--changed-since`) in CI.** The `triggers` change-detection
   deps are already declared on `tests/nf-test-ottilie.config` (2026-07-24), so the ottilie suite re-runs
   when `nextflow.config` / `conf/test/ottilie_test.config` / `tests/.nftignore` / the ottilie configs change.

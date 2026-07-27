@@ -143,12 +143,47 @@ See also:
 
 ### nf-test file categories (what we own vs. what stays untouched)
 
-Two categories of `*.nf.test` files exist in the repo; only the first is ours to curate:
+Three categories of `*.nf.test` files exist in the repo; only the first is ours to curate:
 
 | Category | Location | Tests | Policy |
 |----------|----------|-------|--------|
-| **Pipeline-level** | `tests/*.nf.test` | whole-pipeline scenarios | our ALE tests (`ottilie_e2e`, `split_joint_vcf`) are maintained; inapplicable upstream ones are triaged out |
-| **Component-level** | `modules/nf-core/*/tests/`, `subworkflows/*/tests/` | one module/subworkflow in isolation | **leave untouched** — co-located with upstream code; deleting them creates a rebase patch per upgrade, and they don't fail from our fork changes |
+| **ALE suite (ours)** | `tests/*.nf.test` | the fork's own tests, at *any* nf-test layer — currently `ottilie_e2e` (`nextflow_pipeline`) and `split_joint_vcf` (`nextflow_workflow`) | **maintained.** All of ours live here regardless of layer — including component-level ones — see [Why our component tests live in `tests/`](#why-our-component-tests-live-in-tests-not-co-located) below |
+| **Upstream pipeline-level** | `tests/*.nf.test` (inherited) | whole-pipeline scenarios on human test data | triaged out — see the next section |
+| **Upstream component-level** | `modules/nf-core/*/tests/`, `subworkflows/*/tests/` | one module/subworkflow in isolation | **leave untouched** — co-located with upstream code; deleting them creates a rebase patch per upgrade, and they don't fail from our fork changes |
+
+### Why our component tests live in `tests/`, not co-located
+
+nf-core convention puts a component test next to its component
+(`subworkflows/local/<name>/tests/main.nf.test`), and the upstream category above follows exactly
+that. Our own component tests deliberately do **not**: `split_joint_vcf.nf.test` sits in `tests/`
+even though it tests `subworkflows/local/split_joint_vcf/`. Reasons, strongest first:
+
+1. **Test discovery is scoped to `tests/`.** `tests/nf-test-ottilie.config` sets `testsDir "tests"`,
+   deliberately, so the ALE suite isn't polluted by the 99 upstream component tests (and their
+   duplicates under `.claude/worktrees/`). A co-located test falls outside that scope and silently
+   drops out of a bare `nf-test test -c tests/nf-test-ottilie.config` — it would still run if named
+   explicitly on the command line (verified: paths outside `testsDir` are honoured), but it would no
+   longer be part of the default gate. Restoring it costs either `testsDir "."` (which pulls in all
+   the upstream tests) or a multi-path invocation that must be re-edited for every new test and
+   threaded into CI.
+2. **`tests/` is now the fork-owned suite.** With the inherited upstream pipeline tests triaged out,
+   what remains is a coherent ALE unit sharing one config (`nf-test-ottilie.config`: profile,
+   `resourceLimits`, plugins, `triggers`). Splitting it across two trees buys nothing at this size.
+3. **Fixtures live there.** `tests/fixtures/` holds the committed joint VCFs (+ README) that
+   `split_joint_vcf.nf.test` consumes. Co-locating the test would either separate it from its data
+   or require moving the fixtures too.
+
+**Counter-argument, for the record:** `subworkflows/local/split_joint_vcf/` is 100% ours and would
+survive a future re-fork / sarek migration intact, whereas `tests/` receives upstream content again
+and needs re-triage. Co-location would let the test travel with its code. That is a real benefit —
+it is just outweighed today by (1).
+
+> ⚠️ **Not a fixed decision.** `tests/` is an upstream directory too, so this is a judgement call
+> about *this* fork at *this* size, not a principle. Revisit if any of these change: our component
+> tests outgrow a handful of files; a re-fork makes `tests/` re-triage expensive enough to dominate;
+> CI moves to `--changed-since`/`--related-tests` (where co-location gives better change detection);
+> or we adopt a discovery setup that can scope to `tests/` *and* `*/local/**/tests/` at once. If it
+> flips, move the fixtures with the tests and update `testsDir` in `tests/nf-test-ottilie.config`.
 
 ### Upstream pipeline-test triage — one-time cleanup (WP4 Step 3b)
 
@@ -217,10 +252,137 @@ pristine upstream config. (Our own bcftools-norm investigation under `tests/test
 
 ---
 
+## 11. Target coverage: the four nf-test layers (post-1.0.0)
+
+v1.0.0 ships two owned tests — `ottilie_e2e` (`nextflow_pipeline`) and `split_joint_vcf`
+(`nextflow_workflow`). The long-term target is coverage of **our own modifications** at all four
+nf-test layers. This section is the durable target; the *scheduling* of it lives as a single
+prioritized item in `roadmap.md` (Robustness / infrastructure).
+
+nf-test's four test types, and what each maps to in this fork:
+
+| Layer | nf-test type | Our surface | Status |
+|-------|--------------|-------------|--------|
+| Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
+| Process | `nextflow_process` | the 19 `modules/local/` | **0 owned** |
+| Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **1** (`split_joint_vcf`) |
+| Pipeline | `nextflow_pipeline` | supported end-to-end routes | **1** (`ottilie_e2e`) |
+
+The 99 upstream component tests do **not** count as coverage here — they test unmodified nf-core
+code (see the category table in §10). Only tests over fork-specific code do.
+
+### Priority theme: the "no known-variants resource" modifications
+
+The custom yeast genome has no curated known-sites VCF (no dbSNP/gnomAD equivalent), so several GATK
+best-practice steps that *assume* one had to be reworked. This is the fork's most consequential
+divergence from upstream and its least-covered code:
+
+| Step | What we did | Where |
+|------|-------------|-------|
+| **VQSR** (joint germline) | added `VARIANTFILTRATION_FALLBACK` — a hard-filter step that soft-flags the FILTER column when VQSR can't run, plus three-tier output selection | `subworkflows/local/bam_joint_calling_germline_gatk/main.nf`, `conf/modules/joint_germline.config:87` |
+| **BaseRecalibrator** | *skipped*, not replaced — `skip_tools = 'baserecalibrator'`. Not auto-skipped: drop the flag and the run **aborts** — not from GATK (it never launches; its known-sites channel is empty) but from `failOnMismatch` on the `ch_table_bqsr` join at `workflows/sarek/main.nf:567` | `conf/test/ottilie_test.config:41` and the run scripts |
+| **CNNScoreVariants / FilterVariantTranches** | nothing — structurally bypassed, it's in the `else` of `if (joint_germline)` and we run joint | `bam_variant_calling_germline_all/main.nf:232` |
+| **Mutect2** | `--germline-resource` / `--panel-of-normals` omitted; `FilterMutectCalls` fed placeholder contamination channels | `bam_variant_calling_somatic_mutect2/main.nf` |
+
+Note the asymmetry: BQSR is a **config-level skip** (nothing to unit-test beyond "the skip takes
+effect"), whereas the VQSR fallback is **real added logic** and is the highest-value test target in
+the repo. It gets specific entries at layers 2 and 3 below.
+
+### Layer 1 — `nextflow_function`
+
+Deliberately the smallest layer: nearly all our logic lives in bash/Python *inside* processes, not
+in Groovy. The one genuine candidate is **`processVersionsFromYAML`**
+(`subworkflows/nf-core/utils_nfcore_pipeline/main.nf:95`) — we rewrote it (explicit
+`FileInputStream` + null/empty guards) to fix the method-resolution ambiguity that broke the custom
+VCF filters, and the co-located upstream `tests/main.function.nf.test` has **no case for it**. Since
+that file is upstream-co-located, adding a case there conflicts with the "leave untouched" policy —
+prefer a case in our own `tests/` file (see §10 rationale).
+
+> Not this layer: the Python in `bin/` (`build_cn_matrix.py`, `cn_cohort_matrix.py`,
+> `generate_index.py`, the dashboard scripts). Those need **pytest**, not nf-test — a separate track,
+> and arguably the higher-value one given how much report logic sits there.
+
+### Layer 2 — `nextflow_process` (biggest gap)
+
+All 19 `modules/local/` are untested in isolation, as is the one upstream module whose *behaviour we
+own via config* (`VARIANTFILTRATION_FALLBACK`). Today they're only exercised transitively through the
+e2e snapshot, which tells you *that* something changed, not *what* broke. Priority order by logic
+density:
+
+1. **`VARIANTFILTRATION_FALLBACK`** — highest value in the repo, because its failure mode is
+   **silent**. `conf/modules/joint_germline.config:92` records that JEXL `TYPE==SNP` / `TYPE==INDEL`
+   *matches nothing* rather than erroring (hence `vc.isSNP()` / `vc.isIndel()`); a regression back to
+   the intuitive syntax produces a well-formed VCF with every record marked `PASS` and no visible
+   failure anywhere in the run. The e2e snapshot can't catch it either — the VCFs are `.nftignore`-
+   excluded as non-deterministic. A process test pins it directly: feed a fixture with SNP and INDEL
+   records straddling each threshold, assert the exact FILTER strings per record, assert the SNP-only
+   filters never fire on INDELs (and vice versa), and assert the record count is **unchanged** (this
+   is a soft filter — flags, never removes). The contract in one line: **without this step every
+   record's FILTER is `.`**, so `bcftools view -f PASS` returns zero and the downstream hard filter
+   has nothing to act on — see `docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`.
+   Cheap and fully deterministic.
+   *Caveat:* the module itself is stock nf-core — **our** logic is the `ext.args` JEXL, so the test
+   only means anything if the config selector resolves in unit isolation. Same trap
+   `split_joint_vcf.nf.test` hit (it needed the `.*SPLIT_JOINT_VCF:…` selector, no leading colon);
+   `VARIANTFILTRATION_FALLBACK` uses a bare `withName:` so it should already apply — verify first.
+2. **Matrix/cohort builders** — `build_cn_matrix`, `build_cn_cohort`, `build_sv_matrix`. Real
+   transformation logic with known edge cases (the Jensen's-inequality collapse bug, `fold_change`
+   re-derivation). Pure table-in/table-out — cheap, deterministic fixtures.
+3. **SV merge** — `survivor_sv_merge`, `survivor_cohort_merge` (incl. the input-sort guard already
+   on the roadmap).
+4. **VCF manipulation** — `filter_pass_vcf`, `add_info_to_vcf`, `prepare_vcf`. Small fixtures,
+   assertable record counts — same idiom as `split_joint_vcf.nf.test`.
+5. **Report/format** — `generate_index`, `igvreports_*`, `cnr_to_bedgraph`, `prepare_gff3`. Watch
+   determinism: igv-report HTML varies run-to-run; assert the `tableJson` blob, not the file hash.
+
+### Layer 3 — `nextflow_workflow`
+
+Channel wiring and metadata propagation — where this fork's real risk lives.
+
+**First: `bam_joint_calling_germline_gatk` — the three-tier output selection.** The subworkflow picks
+`recal_vcf ?: fallback_vcf ?: joint_vcf` (VQSR > filter-annotated > unfiltered) via two chained joins
+on remapped keys. Two reasons it needs a test:
+
+- **Only one branch is ever exercised.** No `known_snps_vqsr` / `known_indels_vqsr` / `dbsnp_vqsr` is
+  set anywhere in our configs, so VQSR never runs and the fallback branch is always taken. The
+  VQSR-wins branch is effectively dead code in ALE — untested, and it would only ever activate on the
+  day someone supplies known sites, i.e. the worst moment to discover it's broken.
+- **The joins are asymmetric.** The VQSR join uses `remainder: true`; the fallback join does not. That
+  is correct *today* only because `VARIANTFILTRATION_FALLBACK` is unconditional — give it an
+  `ext.when` and `genotype_vcf` goes silently empty rather than failing. Worth pinning as a contract.
+
+A workflow test covers both by feeding the three inputs directly and asserting which VCF comes out —
+no GATK run needed for the selection logic itself.
+
+**Then**, all `subworkflows/local/`: `vcf_filter_mutect2`, `vcf_filter_freebayes`,
+`vcf_filter_haplotypecaller_joint`, `mutation_report` (tool-presence branching on `params.tools`),
+`fastq_variant_calling_breseq` (the `subMap` regrouping), `bam_variant_calling_germline_controlfreec`,
+`prepare_reference_cnvkit`. Assert what §3 calls out: ploidy/status/sex surviving the joins, and the
+conditional skips (VCFtools for Mutect2/ploidy>2, `ASSESS_SIGNIFICANCE` for ploidy=1) actually firing.
+
+### Layer 4 — `nextflow_pipeline`
+
+`ottilie_e2e` covers one route (haploid, joint germline, snpeff/cnvkit/tiddit/manta). The gap is
+**scenario** coverage, not more assertions: **ploidy 1 / 2 / 3** variants (each hits different
+conditional logic) and any additional supported route we commit to. Cost is wall-clock, so these
+want the CI/`--changed-since` work to land first.
+
+### Sequencing
+
+Start with the VQSR-fallback pair — the `VARIANTFILTRATION_FALLBACK` process test *and* the
+`bam_joint_calling_germline_gatk` selection test. They're two halves of one modification, both have
+silent failure modes, and neither is reachable by the e2e snapshot. Then the rest of layer 2 (largest
+gap, cheapest fixtures, fastest feedback), then 3, then the ploidy scenarios at layer 4; layer 1 is
+opportunistic. Prerequisite for all of it: a fixtures convention beyond the
+current hand-committed `tests/fixtures/` — decide committed-small vs. Azure Blob before the file
+count grows.
+
+---
+
 ## TODO
 
 - [ ] Create downsampled test FASTQs and upload to Azure Blob
-- [ ] Write nf-test cases for `vcf_filter_mutect2`, `vcf_filter_freebayes`, `split_joint_vcf`
+- [ ] Build out nf-test layers 1–4 over custom code — target and priorities in §11
 - [ ] Create `test` profile in nextflow.config
 - [ ] Establish truth set from current validated run
 - [ ] Set up CI (GitHub Actions or Azure DevOps)

@@ -6,6 +6,44 @@ GATK VariantFiltration is applied as a **soft filter** (also called "filter anno
 
 This was implemented as a fallback because VQSR (Variant Quality Score Recalibration) requires known variant resources (e.g., dbSNP, HapMap) that don't exist for our custom yeast genome.
 
+### Why a fallback is necessary (not cosmetic)
+
+Without it, the joint VCF reaches downstream analysis with **the FILTER column unset on every record**. VQSR is what would normally populate it (plus a `VQSLOD` score); with no VQSR and no replacement, nothing does. Verified on the Ottilie Tier 2 output:
+
+```console
+$ bcftools query -f '%FILTER\n' joint_germline.vcf.gz | sort | uniq -c
+   1521 .                          # ← pre-fallback: every record unset
+
+$ bcftools query -f '%FILTER\n' HaplotypeCaller_joint_calling_soft_filtered.vcf.gz | sort | uniq -c
+   1256 PASS
+     99 MQ_filter
+     70 SOR_filter
+     45 MQ_filter;SOR_filter
+     25 QD_filter
+      ...                          # ← post-fallback: 1521 records, all flagged
+```
+
+Consequences of the unset column: `bcftools view -f PASS` returns **zero** records (`.` is not `PASS`), so any downstream step that selects on PASS silently yields an empty set rather than erroring. Nothing distinguishes a well-supported call from a low-quality one. The [hard filter](HARD_FILTER_HAPLOTYPECALLER_JOINT.md) also requires `FILTER=PASS` as its prerequisite, so it has nothing to act on.
+
+Note that `QUAL` and the annotation fields (`QD`, `FS`, `SOR`, `MQ`, …) *are* present regardless — they come from HaplotypeCaller, not VQSR. That is precisely why hard-filtering on them is possible as a substitute.
+
+### What triggers the fallback
+
+The fallback is selected whenever `VARIANTRECALIBRATOR_*` fails to run, which happens when **either** of VQSR's two resource inputs is unsatisfied:
+
+| VariantRecalibrator input | Supplied by | Params |
+|---------------------------|-------------|--------|
+| `resource_vcf` / `resource_tbi` | the resource **VCF files** | `--dbsnp`, `--known_snps`, `--known_indels` |
+| `labels` | the `--resource:...` **argument strings** | `--dbsnp_vqsr`, `--known_snps_vqsr`, `--known_indels_vqsr` |
+
+Both families are required. Supplying only the files, or only the labels, still leaves the recalibrator starved and still lands on this fallback.
+
+Mechanism: an unset param becomes an empty channel, both input channels are built with `.collect()`, and `collect()` — which defaults to `flat: true` — **emits nothing** when the flattened result is empty. A process whose input never emits never launches, so `VARIANTRECALIBRATOR_*` and then `APPLYVQSR` are skipped; `.ifEmpty([[:], []])` yields `[]`, falsy in `recal_vcf ?: fallback_vcf`, and the fallback wins. There is no `ext.when` anywhere in the chain — the gating is purely this empty-channel propagation.
+
+For this pipeline **all six params are null** (custom genome, no `igenomes.config` entry for `getGenomeAttribute`, nothing set in our configs), so the fallback is the only path ever taken.
+
+> **This same starvation pattern gates BQSR and `FilterVariantTranches` too**, and `--dbsnp` behaves differently depending on which consumer receives it — it gates BaseRecalibrator and VariantRecalibrator, but *not* GenotypeGVCFs. Full explanation, including why a missing known-sites resource makes the BQSR run fail with a Nextflow join error rather than a GATK error: [haplotypecaller_workflow_analysis.md → The known-sites starvation pattern](haplotypecaller_workflow_analysis.md#4-the-known-sites-starvation-pattern-custom-genomes).
+
 ## Output File
 
 ```
@@ -105,6 +143,33 @@ From 1,521 total variants (823 SNPs, 698 INDELs):
 | INDELs wrongly filtered by SNP thresholds | 163 | 0 |
 | Truth set sensitivity (PASS only) | 332/343 (96.8%) | 333/343 (97.1%) |
 
+### Which filters actually fire (Ottilie Tier 2, 86 samples / 1,521 records)
+
+Nine filters are declared, and the header of the output VCF confirms all nine were passed to VariantFiltration. **Only four ever fire:**
+
+| Filter | Records tagged |
+|--------|---------------|
+| `MQ_filter` | 152 |
+| `SOR_filter` | 135 |
+| `QD_filter` | 26 |
+| `FS_filter` | 25 |
+
+1,256 / 1,521 records (82.6%) are `PASS`. The remaining five filters tag **nothing**, and the reasons differ — this matters, because one of them can never fire at all:
+
+| Filter | Candidates | Why |
+|--------|-----------|-----|
+| **`QUAL_filter` (QUAL < 30)** | 0 | **Structurally redundant.** GenotypeGVCFs' default `-stand-call-conf 30` means no record below QUAL 30 is ever emitted — observed minimum is **30.14**. This filter cannot fire on any dataset unless `stand-call-conf` is lowered. |
+| `MQRankSum_filter` (< −12.5) | 0 | observed minimum **−6.97** — the human-derived threshold is far from the data |
+| `ReadPosRankSum_filter` (< −8.0) | 0 | observed minimum **−4.73** |
+| `FS_INDEL_filter` (FS > 200) | 0 | INDELs are present in quantity, but none approach FS 200 |
+| `ReadPosRankSum_INDEL_filter` (< −20) | 0 | same |
+
+**Annotation coverage gap.** `MQRankSum` is absent on 575 / 1,521 records and `ReadPosRankSum` on 590 / 1,521 — the RankSum statistics require both REF and ALT reads at a site, so they are undefined at sites where every sample is hom-var (common with haploid ALE strains). GATK's default treats an undefined annotation as *not failing*, so on those records the RankSum filters are silently skipped. On roughly 38% of records the effective filter set is just QD / FS / SOR / MQ.
+
+**Net:** the working filter set is **four filters, not nine**, and the INDEL-specific half of the config contributes nothing on this dataset. This is evidence for — not against — the threshold review in [Considerations for Yeast ALE](#considerations-for-yeast-ale) below; note that `QUAL_filter` is redundant *by construction* rather than by threshold, so it needs removing or re-tying to `stand-call-conf` rather than retuning.
+
+> Caveat when interpreting these thresholds: BQSR is skipped on custom genomes, so `QUAL`, `QD` and `MQ` are raw caller estimates rather than recalibrated ones. The GATK human thresholds were derived against recalibrated scores.
+
 ## Pipeline Position
 
 ```
@@ -125,7 +190,13 @@ GenomicsDBImport → GenotypeGVCFs → MergeVCFs (joint_germline.vcf.gz)
 **Three-tier priority logic** (in workflow):
 1. VQSR recalibrated VCF (when known sites available — e.g., human)
 2. Filter-annotated VCF (fallback for custom genomes — our case)
-3. Unfiltered VCF (should not happen)
+3. Unfiltered VCF (should not happen — this is the all-`.` FILTER column described above)
+
+## Sibling steps that also need known variants
+
+VQSR is not the only GATK step that assumes a known-variants resource — BQSR and `FilterVariantTranches` are gated by the same mechanism, but only VQSR has a fallback. The other two either abort the run or are bypassed. Comparison table and failure modes: [haplotypecaller_workflow_analysis.md → The known-sites starvation pattern](haplotypecaller_workflow_analysis.md#4-the-known-sites-starvation-pattern-custom-genomes).
+
+The one operational point worth repeating here: **BQSR is a manual opt-out**, not an automatic one. `skip_tools = 'baserecalibrator'` (`conf/test/ottilie_test.config`, and the run scripts) must be set — drop it and the run aborts.
 
 ## Configuration
 
@@ -165,6 +236,31 @@ The current filter thresholds are based on **GATK best practices for human data*
 
 These thresholds should be validated against known ALE mutation types before relaxation.
 
-## Verification Script
+## Verifying a filter change
 
-After changing filter expressions, run `docs/variant-calling/haplotypecaller/verify_soft_filter_fix.sh` to spot-check that INDELs are recovered and SNPs remain correctly filtered.
+After changing filter expressions, re-run the pipeline and check that each filter behaves as intended — SNP-only filters must not tag INDELs, and every declared filter should either fire or be explainable as having no candidates (see [Which filters actually fire](#which-filters-actually-fire-ottilie-tier-2-86-samples--1521-records)).
+
+```bash
+JV=output_.../joint_variant_calling/HaplotypeCaller_joint_calling_soft_filtered.vcf.gz
+
+# 1. Which filters fire, and how often
+bcftools query -f '%FILTER\n' "$JV" | tr ';' '\n' | sort | uniq -c | sort -rn
+
+# 2. Every declared filter (compare against 1 — anything absent never fired)
+bcftools view -h "$JV" | grep '^##FILTER' | sed 's/,Description.*//'
+
+# 3. PASS rate by variant type
+for t in snps indels; do
+  tot=$(bcftools view -H -v $t "$JV" | wc -l)
+  pas=$(bcftools view -H -v $t -f PASS "$JV" | wc -l)
+  awk -v t=$t -v a=$tot -v p=$pas 'BEGIN{printf "%-7s %d/%d PASS (%.1f%%)\n", t, p, a, 100*p/a}'
+done
+
+# 4. Leakage check: INDELs must never carry a SNP-only filter
+bcftools view -H -v indels -i 'FILTER~"SOR_filter" || FILTER~"MQ_filter" || FILTER~"FS_filter"' "$JV" | wc -l   # expect 0
+
+# 5. Is an annotation even present? (a filter on a missing field silently never fires)
+bcftools query -f '%INFO/MQRankSum\n' "$JV" | grep -vc '^\.$'
+```
+
+Check 4 is the regression guard for the `TYPE==` class of bug: a JEXL expression that silently matches nothing produces an all-PASS result that looks healthy. Check 5 covers the complementary case — GATK treats an undefined annotation as *not failing*, so a filter on an absent field is inert rather than erroring.

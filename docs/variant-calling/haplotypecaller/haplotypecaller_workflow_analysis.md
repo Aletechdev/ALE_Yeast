@@ -211,6 +211,57 @@ These outputs are collected into MultiQC reports.
 
 ---
 
+#### 4. The known-sites starvation pattern (custom genomes)
+
+[Issue 1](#issue-1-cnn-filtering-without-known-sites) below documents one instance of this — `FilterVariantTranches` "created but NEVER submitted tasks". That is not specific to CNN filtering: it is a **general pattern affecting every GATK step that consumes a known-variants resource**, and on a custom genome (no dbSNP) it is the normal state of affairs. Worth understanding once, because the symptom is always "the process silently never runs".
+
+**The rule.** Nextflow's `collect()` defaults to `flat: true`, so it flattens its items and **emits nothing when the flattened result is empty**. An unset resource param becomes `Channel.value([])`, and collecting empty lists yields nothing at all — not an empty list. Verified:
+
+```groovy
+Channel.value([]).collect()                              // -> emits NOTHING
+Channel.value([]).concat(Channel.value([])).collect()    // -> emits NOTHING
+Channel.value(['x']).concat(Channel.value([])).collect() // -> ['x']
+Channel.of(1,2).collect()                                // -> [1, 2]
+```
+
+A process whose input channel never emits simply never launches. No error, no log, no task.
+
+**`--dbsnp` has three consumers, and the wiring style decides whether it gates.** This is the part that surprises: the same param is harmless in one place and load-bearing in two others.
+
+| Consumer | How `dbsnp` is passed | Gates? |
+|----------|----------------------|--------|
+| **GenotypeGVCFs** | directly, `dbsnp.map{ [[:], it] }` — a **tuple** | ❌ No. `[[:], []]` emits regardless; you just get no `--dbsnp` arg and no rsIDs |
+| **BaseRecalibrator** | `known_sites_indels = dbsnp.concat(known_indels).collect()` (`main.nf:188`) | ✅ **Yes** |
+| **VariantRecalibrator** | `resource_vcf` = `known_sites_snps`/`_indels` (same `.collect()`) | ✅ **Yes** |
+
+**VQSR needs two *separate* param families**, and each starves it independently:
+
+| Input | Built from | Unset → |
+|-------|-----------|---------|
+| `resource_vcf` / `resource_tbi` | `--dbsnp`, `--known_snps`, `--known_indels` (**files**) | emits nothing |
+| `labels` | `--dbsnp_vqsr`, `--known_snps_vqsr`, `--known_indels_vqsr` (**`--resource:` strings**) | emits nothing |
+
+So supplying only the files, or only the labels, still leaves `VARIANTRECALIBRATOR_*` starved and the pipeline falls back to [soft filtering](SOFT_FILTER_HAPLOTYPECALLER_JOINT.md). Both families are required for VQSR to run at all.
+
+**Where each affected step ends up on a custom genome:**
+
+| Step | Behaviour with no known sites |
+|------|-------------------------------|
+| **VQSR** (`VARIANTRECALIBRATOR` → `APPLYVQSR`) | never runs; **auto-falls back** to `VARIANTFILTRATION_FALLBACK`, which takes no resource inputs. The only step with a real fallback. |
+| **BQSR** (`BaseRecalibrator` → `ApplyBQSR`) | never runs, then **the run fails** — see below |
+| **`FilterVariantTranches`** (individual mode) | never runs → `vcf_haplotypecaller` empty → VCF QC skipped ([Issue 1](#issue-1-cnn-filtering-without-known-sites)) |
+
+**BQSR's failure is a Nextflow join, not a GATK error.** `GATK4_BASERECALIBRATOR` never launches, so `ch_table_bqsr` stays empty, and the next line trips:
+
+```groovy
+// workflows/sarek/main.nf:567
+cram_applybqsr = ch_cram_for_bam_baserecalibrator.join(ch_table_bqsr, failOnDuplicate: true, failOnMismatch: true)
+```
+
+`failOnMismatch` against an empty channel aborts the run with `Join mismatch for the following entries:` (verified, exit 1). Good news: it fails loudly rather than silently dropping samples. Bad news for debugging: **there is no GATK log to inspect** — the tool never ran. This is why `--skip_tools baserecalibrator` is mandatory for custom genomes (`conf/test/ottilie_test.config`); it is a deliberate opt-out, not an automatic one.
+
+---
+
 ## Critical Issues with Individual Mode
 
 ### Issue 1: CNN Filtering Without Known Sites
