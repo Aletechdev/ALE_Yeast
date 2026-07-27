@@ -26,8 +26,9 @@ Three names refer to the same thing — kept distinct on purpose:
 brand stays clean while the repo keeps its existing name. Both may be reconciled/renamed later. The
 `description` (brand) evolves per version; `manifest.name` (identity) stays stable so it isn't churned.
 
-> **Status:** the manifest edit is **not yet applied** — `manifest.name` is still `nf-core/sarek` until
-> WP4 **Step 2e** runs (see `.claude/plans/dynamic-brewing-lightning.md`). This table is the decided target.
+> **Status:** ✅ applied 2026-07-27 (WP4 Step 2e). `manifest.name`, `version = '1.0.0'`, `description`,
+> `homePage`, and `doi = ''` set in `nextflow.config`; ottilie e2e re-snapshotted — the only output delta
+> was the `versions.yml` Workflow line (`nf-core/sarek: v3.5.1` → `Aletechdev/AMP: v1.0.0`).
 
 ---
 
