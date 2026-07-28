@@ -20,7 +20,7 @@ nf-core/Sarek generates MultiQC reports summarizing raw read quality, alignment 
 
 ## Three-Tier Variant Review Strategy
 
-Tiers are ordered by barrier to entry — biologists start with the simplest tool and only move to more complex tools when needed. See [check_mutations.md](../check_mutations.md) for full technical details.
+Tiers are ordered by barrier to entry — biologists start with the simplest tool and only move to more complex tools when needed. See [check_mutations.md](../../igvreports/check_mutations.md) for full technical details.
 
 ### Tier 1: igv-reports HTML — Zero-Code Variant Review [DONE]
 

@@ -402,6 +402,6 @@ All inputs needed by the report workflow are already produced by Sarek:
 
 ## Related Documentation
 - [igvreports/README.md](../igvreports/README.md) — Current report system docs
-- [igvreports/REPORTING_PLAN.md](../igvreports/REPORTING_PLAN.md) — Phase-based roadmap
+- [igvreports/REPORTING_PLAN.md](../archive/igvreports/REPORTING_PLAN.md) — Phase-based roadmap (archived)
 - [igvreports/check_mutations.md](../igvreports/check_mutations.md) — Detailed architecture and three-tier strategy
 - [CLAUDE.md](../../CLAUDE.md) — Pipeline overview and variant calling strategy

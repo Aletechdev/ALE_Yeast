@@ -106,6 +106,50 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   shared Jinja `{% include %}` partial so GENERATE_INDEX can render both the report section **and** a
   `mutation_reports/README.md` from one source.
 
+### igvreports follow-ups (migrated from `docs/igvreports/README.md` TODO, 2026-07)
+
+- **[low] (igvreports) Upgrade to igv-reports >= 1.15.0 for the Tabulator template.** The nf-core module
+  ships v1.12.0, which lacks the `--tabulator` flag; v1.15.0+ adds a filterable/sortable Tabulator template
+  (closest UX to BreSeq's mutation table). Override the module container to >= 1.15.0 (or a custom image),
+  then add `--tabulator --filter-config filter_config.yaml` to `ext.args`. (Largely superseded by the custom
+  templates in `generate_demo_reports.nf`; revisit only if reverting to the built-in template.)
+- **[low] (igvreports) Add per-sample allele frequency.** HaplotypeCaller emits `FORMAT/AD` but not AF.
+  Pre-process the VCF with `bcftools +fill-tags -- -t FORMAT/AF` (adds `AF = AD[alt]/(AD[ref]+AD[alt])`)
+  before igvreports and expose it via `--sample-columns … AF`. Alternatives: SnpSift or dashboard-side compute.
+- **[low] (igvreports) Review INFO columns for ALE relevance.** Current: `FILTER AC AF AN DP FS MQ QD SOR`.
+  Consider adding `ExcessHet BaseQRankSum MQRankSum ReadPosRankSum` (QC), dropping `AN` (constant for joint
+  calling) and `AC` (redundant with per-sample GT), and deciding INFO-level vs per-sample `AF`.
+- **[low] (igvreports) Demo reports missing soft-filter INFO columns.** `generate_demo_reports.nf` uses
+  `--info-columns ANN VCF_FILTER ORIG_ALT AC AF DP QD MQ`, but the joint-germline soft filter
+  (`VARIANTFILTRATION_FALLBACK`, `conf/modules/joint_germline.config`) also evaluates `FS SOR MQRankSum
+  ReadPosRankSum` — without these columns reviewers can't see *why* a variant was flagged. Add them to
+  `--info-columns` in both `IGVREPORTS_COHORT`/`IGVREPORTS_SAMPLE` and to the filter config YAML.
+- **[low] (igvreports) Review and deliver SV IGVReports.** A pilot SV report exists for the Marko benchmark
+  (`docs/benchmarking/marko_sv/generate_igvreport.sh`): SNP/InDel from HaplotypeCaller + SV from the SURVIVOR
+  union VCF. Review output, refine columns/flanking, and integrate SV IGVReports into the main pipeline.
+- **[low] (igvreports) CRAM-track feasibility on D4as (16 GB).** Full-cohort CRAM embedding OOMs; to make
+  with-CRAM runs viable, pre-filter to PASS-only (`bcftools view -f PASS`), limit to 2–3 key samples
+  (ancestral + 1–2 evolved), and use `--subsample 0.5 --flanking 200`.
+
+### igvreports dashboard follow-ups (migrated from the igvreports reporting plan, 2026-07)
+
+- **[low] (igvreports reporting plan) Shared template extraction.** Factor shared CSS/JS (theme system,
+  Tabulator config, badge definitions) out of the IGV dashboard and Marko SV report into a reusable partial
+  (Jinja `{% include %}` or a standalone `dashboard_base.css`/`.js`). Only worthwhile if a third dashboard
+  is planned.
+- **[low] (igvreports reporting plan) CSV/VCF download links over `file://`.** The SV Ensemble table's
+  download buttons only trigger a save dialog over HTTP; via `file://` a click opens the file in a new tab.
+  Fix via a local HTTP server, JS Blob-based download, or accept current behavior for local use.
+- **[low] (igvreports reporting plan) Benchmarking re-run.** Update the adipic-acid benchmarking scripts from
+  the AF 90% → 80% threshold (see `docs/benchmarking/adipic_acid_ale/README.md` TODO).
+- **[low] (igvreports reporting plan) `COUNT_VARIANTS` cleanup.** Remove the dead `COUNT_VARIANTS` process and
+  the `--variant-counts-json` parameter from `generate_demo_reports.nf` (replaced by the MultiQC source).
+- **[med] (igvreports reporting plan) Fix GENERATE_INDEX race condition.** In `generate_demo_reports.nf`,
+  `GENERATE_INDEX` runs `generate_index.py` before the `samples/` symlinks exist, so the NF-generated index
+  has null `igv_link` values (broken sample click-through). Currently worked around by a standalone
+  `generate_index.py` call at the end of `generate_ottilie_reports.sh`. Fix: create symlinks before the
+  Python call inside the process, or pass sample-report paths as explicit process inputs.
+
 ## Deployment — Seqera launch UI / schema
 
 **Policy (decided 2026-07-22): curate the surface, not the code.** Upstream sarek ships many tools
