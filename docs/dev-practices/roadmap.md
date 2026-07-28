@@ -94,7 +94,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   deps are already declared on `tests/nf-test-ottilie.config` (2026-07-24), so the ottilie suite re-runs
   when `nextflow.config` / `conf/test/ottilie_test.config` / `tests/.nftignore` / the ottilie configs change.
   Wiring `nf-test test --changed-since <ref>` into CI is deferred to the post-1.0.0 CI/cloud-portability work
-  (WP3 "Level 2" — same bucket as the blob-URL `ottilie_test_ci` profile + GitHub Actions). Until then a plain
+  (same bucket as the blob-URL `ottilie_test_ci` profile + GitHub Actions). Until then a plain
   full `nf-test test` is the gate and `triggers` is inert.
 
 ## Documentation
@@ -177,7 +177,7 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
     on the 5 static file params (read via `file(params.X)` with no null guard → would `file(null)`-break
     at `generate_reports=true`; assets git-tracked → resolve on Seqera); remove dead `report_multiqc_path`.
   - **`ottilie_test.config`:** remove `report_multiqc_path`; drop the 5 static overrides (now == defaults).
-  - Validate with `nf-core pipelines schema lint` + e2e re-run. (Tracked as WP4 Step 2d in the release plan.)
+  - Validate with `nf-core pipelines schema lint` + e2e re-run.
 - **[low, post-1.0.0] Fix the pre-existing `split_fastq` schema-lint error.** `nf-core pipelines schema
   lint` fails with *"Default parameters are invalid: 50000000 is valid under each of {'type':'integer'},
   {'type':'integer','minimum':250}"*. This is **upstream sarek 3.5.1 boilerplate** (confirmed identical on
@@ -198,7 +198,7 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
 - **[post-1.0.0] Cherry-pick `worktree-seqera-cloud` into `main`** once the Seqera cloud run is
   validated. Not a strict/clean merge — cherry-pick the cloud-specific changes as needed. The branch
   lives on `Aletechdev/ALE_Yeast`; don't merge before cloud validation (avoids pulling unvalidated
-  cloud-path changes into `main`). Carried over from the now-removed pre-WP release plan's out-of-scope list.
+  cloud-path changes into `main`). Carried over from an earlier, now-removed release-planning doc.
 
 ---
 
@@ -223,6 +223,7 @@ One-liners for traceability; full detail in `git log` / `CHANGELOG.md`.
   no ploidy CLI param (SV detection is ploidy-agnostic) — N/A, not a gap.
 - **Population SV + CN cohort tables** — `build_sv_matrix`+`survivor_cohort_merge` →
   `sv_cohort_matrix_union{,_pass}.csv`; `build_cn_matrix`+`build_cn_cohort` → `cn_cohort_{full,collapsed}.csv`
-  (MUTATION_REPORT deliverables). Feature done; dedicated docs = WP4 Step 6 (SV-merge guide) / Step 7b (CN).
+  (MUTATION_REPORT deliverables). Feature done; dedicated docs = `docs/variant-calling/sv_merge.md` (SV merge) and
+  `docs/variant-calling/cnvkit/cnvkit_cn_calculation.md` (CN matrices).
 - **CNVKit results in MultiQC** — documented in `docs/archive/cnvkit/CNVKIT_MULTIQC_INTEGRATION.md`
   (resolved; slated for archive in the docs-consolidation step).

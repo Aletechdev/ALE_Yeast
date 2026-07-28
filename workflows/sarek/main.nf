@@ -98,7 +98,7 @@ include { MULTIQC                                           } from '../../module
 // TABIX — index VCFs before custom AF filtering
 include { TABIX_TABIX                                       } from '../../modules/nf-core/tabix/tabix/main'
 
-// MUTATION_REPORT — multi-caller dashboard (opt-in, --generate_reports); channel-based (WP5)
+// MUTATION_REPORT — multi-caller dashboard (opt-in, --generate_reports); channel-based
 include { MUTATION_REPORT                                   } from '../../subworkflows/local/mutation_report/main'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -913,8 +913,8 @@ workflow SAREK {
             reports = reports.mix(VCF_ANNOTATE_ALL.out.reports)
         }
 
-        // MUTATION_REPORT input VCFs (D1b): annotated when annotation ran, else raw pre-annotation.
-        // Consumed by the inline MUTATION_REPORT call at the end of this workflow (WP5, Option ii).
+        // MUTATION_REPORT input VCFs: annotated when annotation ran, else raw pre-annotation.
+        // Consumed by the inline MUTATION_REPORT call at the end of this workflow.
         if (params.tools.split(',').contains('merge') || params.tools.split(',').contains('snpeff') || params.tools.split(',').contains('vep') || params.tools.split(',').contains('bcfann')) {
             ch_report_vcfs = VCF_ANNOTATE_ALL.out.vcf_ann
         } else {
@@ -960,7 +960,7 @@ workflow SAREK {
         multiqc_report = MULTIQC.out.report.toList()
 
         //
-        // SUBWORKFLOW: Mutation report dashboard (opt-in) — INLINE, channel-based (WP5, Option ii).
+        // SUBWORKFLOW: Mutation report dashboard (opt-in) — INLINE, channel-based.
         // Placed inside the MultiQC block so MULTIQC.out is guaranteed defined. Consumes live
         // pipeline output channels (workdir files, DAG-ordered) — clean-run correct, no publishDir race.
         //

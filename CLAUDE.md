@@ -69,7 +69,9 @@ brand stays clean while the repo keeps its existing name. Both may be reconciled
 - **Resources config**: [`conf/azured4as.config`](conf/azured4as.config) (the `azureD4as` local-VM profile;
   use `-profile azureD4as`, no `-c` needed). See [`docs/dev-practices/compute_resources.md`](docs/dev-practices/compute_resources.md).
 - **SnpEff cache generation**: `docs/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`.
-- **Fork base**: nf-core/sarek 3.5.1 (`nf-core-sarek_3.5.1/`) — consult the upstream 3.5.1 docs for base behavior.
+- **Fork base**: nf-core/sarek 3.5.1 — the fork tree lives at the **repo root** (`main.nf`, `conf/`,
+  `workflows/`, `modules/`, `subworkflows/`); consult the upstream 3.5.1 docs for base behavior.
+  A pristine copy for diffing sits in the `sarek-compare` worktree (see `docs/dev-practices/SAREK_MODIFICATIONS.md`).
 - **Production/example data (CENPK, dicarboxylic acids)** — real-experiment dataset, not the test set:
   `https://aledata.blob.core.windows.net/aledata/Yeast/dicarboxylic_acids_all_clones/REDACTED-CUSTOMER-ID/ANP_Dev_2025Q3/data/`
 
@@ -142,7 +144,7 @@ filtering, FreeBayes-somatic disabled, and the FilterMutectCalls channel-join fi
 #### ✅ YAML Processing Error (Custom VCF Filters)
 
 Groovy method-resolution ambiguity in `processVersionsFromYAML()`
-(`nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf`) fixed via
+(`subworkflows/nf-core/utils_nfcore_pipeline/main.nf`) fixed via
 explicit `java.io.FileInputStream(path.toFile())` + null/empty validation, so
 `VCF_FILTER_FREEBAYES` / `VCF_FILTER_MUTECT2` work correctly.
 

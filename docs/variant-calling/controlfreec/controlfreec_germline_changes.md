@@ -15,7 +15,7 @@ Control-FREEC previously only ran in somatic (tumor/normal pair) and tumor-only 
 
 ## Files Changed
 
-### 1. NEW: `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/bam_variant_calling_germline_controlfreec/main.nf`
+### 1. NEW: `subworkflows/local/bam_variant_calling_germline_controlfreec/main.nf`
 
 New subworkflow copied from the tumor-only template. Key differences:
 - Workflow name: `BAM_VARIANT_CALLING_GERMLINE_CONTROLFREEC`
@@ -45,7 +45,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_CONTROLFREEC {
 
 ---
 
-### 2. EDITED: `nf-core-sarek_3.5.1/3_5_1/conf/modules/controlfreec.config`
+### 2. EDITED: `conf/modules/controlfreec.config`
 
 Added `FREEC_GERMLINE` config block between `FREEC_TUMORONLY` and `FREEC_SOMATIC`. Parameters are identical to `FREEC_TUMORONLY` (single-sample, no `[control]` section):
 
@@ -71,7 +71,7 @@ Added `FREEC_GERMLINE` config block between `FREEC_TUMORONLY` and `FREEC_SOMATIC
 
 ---
 
-### 3. EDITED: `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/bam_variant_calling_germline_all/main.nf`
+### 3. EDITED: `subworkflows/local/bam_variant_calling_germline_all/main.nf`
 
 Three changes:
 
@@ -124,7 +124,7 @@ cram [meta, cram, crai]
 
 ---
 
-### 4. EDITED: `nf-core-sarek_3.5.1/3_5_1/workflows/sarek/main.nf`
+### 4. EDITED: `workflows/sarek/main.nf`
 
 Added 3 new arguments to `BAM_VARIANT_CALLING_GERMLINE_ALL` invocation (line 760):
 
@@ -139,7 +139,7 @@ These channels were already available in the SAREK workflow scope (used by somat
 
 ---
 
-### 5. EDITED: `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/samplesheet_to_channel/main.nf`
+### 5. EDITED: `subworkflows/local/samplesheet_to_channel/main.nf`
 
 Removed `controlfreec` from the `tools_tumor` validation list. Previously, the pipeline would error out if `controlfreec` was requested but no tumor samples existed in the samplesheet. Since controlfreec now supports germline mode, this check is no longer appropriate.
 
@@ -150,7 +150,7 @@ Removed `controlfreec` from the `tools_tumor` validation list. Previously, the p
 
 ---
 
-### 6. EDITED: `bin/test_nf.sh`
+### 6. EDITED: `bin/test_ottilie.sh`
 
 Added `controlfreec` to the `--tools` list:
 
@@ -209,7 +209,7 @@ output/variant_calling/controlfreec/
 ## Verification Steps
 
 1. **Syntax check**: `nextflow run ... -preview` to validate channel wiring without executing
-2. **Full test run**: `bash bin/test_nf.sh` with the updated tools list
+2. **Full test run**: `bash bin/test_ottilie.sh` with the updated tools list
 3. **Check outputs**: Verify `variant_calling/controlfreec/<sample>/` directories created
 4. **Ploidy=1**: Confirm ASSESS_SIGNIFICANCE skipped, other outputs present
 5. **Ploidy=2**: Confirm ASSESS_SIGNIFICANCE runs, `*.p.value.txt` generated

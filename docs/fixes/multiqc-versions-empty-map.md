@@ -38,7 +38,7 @@ When MAKEGRAPH2 doesn't run (no BAF files because no SNP database), `.ifEmpty([]
 
 **Why no BAF files**: Control-FREEC requires a SNP database (e.g., dbSNP) to generate B-Allele Frequency files. Custom yeast genomes have no such database, so BAF is never produced, MAKEGRAPH2 never runs, and the `.ifEmpty([])` triggers.
 
-**Why the test run passed**: `bin/test_nf.sh` doesn't include `controlfreec` in `--tools`, so this code path never executes.
+**Why the test run passed**: the old `bin/test_nf.sh` launcher (removed; superseded by `bin/test_ottilie.sh`) did not include `controlfreec` in `--tools`, so this code path never executes.
 
 ## Fixes Applied
 

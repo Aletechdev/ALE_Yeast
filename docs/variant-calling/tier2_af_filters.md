@@ -81,7 +81,7 @@ Raw: 45,139 → Quality filters → Strand bias (-52.8%) → AF filters → Fina
 ## FreeBayes somatic mode disabled
 
 The `BAM_VARIANT_CALLING_FREEBAYES` channel is disabled in the workflow
-`nf-core-sarek_3.5.1/3_5_1/subworkflows/local/bam_variant_calling_somatic_all/main.nf`.
+`subworkflows/local/bam_variant_calling_somatic_all/main.nf`.
 
 **Rationale**: FreeBayes somatic mode is designed for cancer genomics, inappropriate for ALE.
 
@@ -159,7 +159,7 @@ Available workflows:
 **Solution**: Used explicit `java.io.FileInputStream(path.toFile())`; added null/empty file
 validation and existence checks; maintained backward compatibility.
 
-**File**: `nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf`
+**File**: `subworkflows/nf-core/utils_nfcore_pipeline/main.nf`
 
 **Impact**: `VCF_FILTER_FREEBAYES` and `VCF_FILTER_MUTECT2` processes now work correctly.
 </content>

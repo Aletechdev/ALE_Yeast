@@ -32,7 +32,7 @@ integrated multi-caller mutation-report dashboard. Full change inventory vs. ups
 - **MUTATION_REPORT is now channel-based and runs inline** in `workflows/sarek/main.nf` — consumes
   live pipeline output channels instead of re-reading `params.outdir`.
 - BUILD_SV_COHORT split into single-container processes for cloud portability.
-- Dead code / stale artifacts removed for release (WP2).
+- Dead code / stale artifacts removed for release.
 
 ### Fixed
 

@@ -1,8 +1,18 @@
 # ALE-Sarek Upgrade Runbook
 
-## Architecture
+> ⚠️ **The "Architecture", "Repo Layout", "Upgrade Steps", and "Current Patches" sections below
+> describe a PROPOSED patch-and-rebuild workflow for a future sarek rebase. It is NOT how the repo is
+> built today.** As of v1.0.0 the fork is a **direct, in-place fork** of sarek 3.5.1 at the repo root —
+> there is no `_upstream/` directory, no `patches/`, no `rebuild.sh`, and no `conf/ale.config`. The
+> actual, as-built change inventory is [`SAREK_MODIFICATIONS.md`](SAREK_MODIFICATIONS.md).
+>
+> The parts of this document that describe **current reality** are
+> [Known Blocker: Nextflow 26.x](#known-blocker-nextflow-26x-couples-with-a-future-rebase),
+> "Current Additive Files", and "Key Principles".
 
-We maintain a **single repo** (`ale-sarek/`) that Seqera Cloud launches directly. `main.nf` must be at repo root. Customizations are managed via:
+## Architecture (proposed)
+
+The proposal: maintain a **single repo** that Seqera Cloud launches directly. `main.nf` must be at repo root. Customizations would be managed via:
 
 - **Patches** (`_upstream/patches/*.patch`): minimal unified diffs that modify upstream Sarek files (main.nf wiring, schema, samplesheet parsing). These are disposable — regenerate when they break.
 - **Additive files** (`modules/local/`, `subworkflows/local/`, `conf/ale.config`): our own code that never conflicts with upstream.
@@ -137,11 +147,26 @@ Line numbers drift as the config changes — match on the construct, not the num
 | `002-main-nf-fallback-wiring.patch` | main.nf | Wire VARIANTFILTRATION_FALLBACK after joint genotyping | `specs/variant_filtering.md` |
 | `003-schema-ale-params.patch` | nextflow_schema.json | Add ALE-specific params to Seqera launch UI | `specs/samplesheet_extensions.md` |
 
-## Current Additive Files (these never conflict)
+## Current Additive Files (these never conflict) — as built
 
-- `modules/local/variantfiltration_fallback/` — hard filtering for non-model organisms
-- `subworkflows/local/ale_post_calling/` — ALE-specific post-variant-calling logic
-- `conf/ale.config` — ext.args overrides, Azure Batch tuning, FastP config
+Purely additive, so a rebase carries them over untouched. Full list and per-file rationale in
+[`SAREK_MODIFICATIONS.md`](SAREK_MODIFICATIONS.md).
+
+- **`modules/local/`** (16 added) — `breseq/`, `gdtools/`, `build_cn_matrix/`, `build_cn_cohort/`,
+  `build_sv_matrix/`, `survivor_sv_merge/`, `survivor_cohort_merge/`, `igvreports_cohort/`,
+  `igvreports_sample/`, `igvreports_sv_cnv/`, `prepare_gff3/`, `prepare_vcf/`, `generate_index/`,
+  `cnr_to_bedgraph/`, `filter_pass_vcf/`, `publish_vcfs/`.
+- **`subworkflows/local/`** (6 added) — `mutation_report/`, `fastq_variant_calling_breseq/`,
+  `split_joint_vcf/`, `vcf_filter_haplotypecaller_joint/`, `vcf_filter_mutect2/`, `vcf_filter_freebayes/`.
+- **`conf/`** (added) — `conf/modules/mutation_report.config`, `conf/modules/breseq.config`,
+  `conf/modules/custom_haplotypecaller_joint_filter.config`, `conf/modules/custom_mutect2_filter.config`,
+  `conf/modules/custom_freebayes_filter.config`, `conf/test/ottilie_test.config`,
+  `conf/azured4as.config`, `conf/seqera_azure.config`.
+
+The hard-filter fallback is **not** a local module: it reuses the nf-core module
+`modules/nf-core/gatk4/variantfiltration/`, aliased as `VARIANTFILTRATION_FALLBACK` inside
+`subworkflows/local/bam_joint_calling_germline_gatk/` (a *modified* upstream subworkflow, so it does
+carry rebase cost).
 
 ## Key Principles
 

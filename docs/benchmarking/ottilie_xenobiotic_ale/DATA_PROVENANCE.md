@@ -86,7 +86,7 @@ S288C reference to match. Two modes:
 - `--from-sra`: fully reproducible — download from SRA → align → extract (no local deps).
 - Fallback: if the CRAMs are gone but the full FASTQs (`data/ottilie/fastq/`) are present, it realigns from those.
 - **Also writes** `data/ottilie/samplesheet_test.csv` with `$REPO_ROOT`-based absolute paths
-  (machine-portable; regenerate on any machine — see [WP3 test-data portability]).
+  (machine-portable; regenerate on any machine — never copy the CSV between machines).
 - Outputs (gitignored): `data/ottilie/fastq_test/` (~356 MB), `data/ottilie/S288C_reference_test/`, `data/ottilie/samplesheet_test.csv`.
 
 ### [4] nf-test — `conf/test/ottilie_test.config` + `tests/ottilie_e2e.nf.test`

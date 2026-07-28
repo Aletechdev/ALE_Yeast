@@ -130,7 +130,7 @@ docker {
 
 Already updated with `seq_platform: "ILLUMINA"` in previous step.
 
-### 5. `docs/seqera_cloud_deployment_checklist.md` — Update with new VM target
+### 5. `docs/seqera_cloud/seqera_cloud_deployment_checklist.md` — Update with new VM target
 
 Update Fix 5 section and Step 6 to reflect E4ds_v5 target and base.config approach.
 
@@ -142,7 +142,7 @@ Update Fix 5 section and Step 6 to reflect E4ds_v5 target and base.config approa
 | `modules/local/breseq/main.nf` | Change label from `process_medium` to `process_high` |
 | `conf/base.config` | Add `resourceLimits`, adjust labels/processes for E4ds_v5, bump maxRetries |
 | `conf/seqera_azure.config` | Strip to docker + custom_config_base only |
-| `docs/seqera_cloud_deployment_checklist.md` | Update VM target from D4s_v3 to E4ds_v5 |
+| `docs/seqera_cloud/seqera_cloud_deployment_checklist.md` | Update VM target from D4s_v3 to E4ds_v5 |
 
 ## Seqera Azure Batch pool behavior and VM sizing rationale
 
@@ -183,11 +183,11 @@ If a larger genome or dataset causes breseq to OOM at 28 GB:
 ## Local compatibility
 
 `base.config` sets `resourceLimits` to 28 GB (E4ds_v5), but local D4as VM has only 16 GB.
-**No conflict**: local runs use `-profile azureD4as,docker` which loads `bin/nextflow.config` with its own `resourceLimits { memory = '14 GB' }`. Profile-level `resourceLimits` override `base.config` — so local runs stay capped at 14 GB.
+**No conflict**: local runs use `-profile azureD4as,docker` which loads `conf/azured4as.config` with its own `resourceLimits { memory = '14 GB' }`. Profile-level `resourceLimits` override `base.config` — so local runs stay capped at 14 GB.
 
 ## Verification
 
-1. **Grep for resourceLimits** — confirm definitions exist in both `base.config` (28 GB) and `bin/nextflow.config` (14 GB)
+1. **Grep for resourceLimits** — confirm definitions exist in both `base.config` (28 GB) and `conf/azured4as.config` (14 GB)
 2. **Check config resolution** — `nextflow config -profile docker` should show 4 CPU / 28 GB limits (Seqera path)
 3. **Check local resolution** — `nextflow config -profile azureD4as,docker` should show 4 CPU / 14 GB limits (local path)
 4. **Seqera launch** — run without pasting any Nextflow config; base.config should handle everything

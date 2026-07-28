@@ -5,8 +5,8 @@
  * Regenerates the mutation dashboard from an EXISTING pipeline output directory,
  * without re-running Sarek. Because there is no live run here, this launcher rebuilds
  * the channels MUTATION_REPORT expects by discovering published files under params.outdir
- * (the path-discovery logic that used to live inside the subworkflow — WP5 moved it here so
- * the subworkflow itself stays clean/channel-based for the inline, clean-run path).
+ * (the path-discovery logic used to live inside the subworkflow; it was moved here so the
+ * subworkflow itself stays clean/channel-based for the inline, clean-run path).
  *
  * The inline one-shot path is workflows/sarek/main.nf (--generate_reports); use THIS launcher
  * only to re-run reports against an already-populated outdir.

@@ -67,7 +67,7 @@ Total: 17 samples
 **Root cause discovered:** The 8-hour timeout comes from `conf/base.config` **label-based limits**:
 
 ```groovy
-// In nf-core-sarek_3.5.1/3_5_1/conf/base.config
+// In conf/base.config
 withLabel:process_medium {
     cpus   = { 6     * task.attempt }
     memory = { 36.GB * task.attempt }
@@ -77,7 +77,8 @@ withLabel:process_medium {
 
 **Mutect2 module declares:** `label 'process_medium'` (in `modules/nf-core/gatk4/mutect2/main.nf`)
 
-**File modified:** `bin/nextflow.config`
+**File modified:** the local resources profile — `conf/azured4as.config` (this was `bin/nextflow.config`
+when the issue was investigated; it was relocated to a proper profile before v1.0.0)
 
 **CORRECT FIX (Override label limits):**
 
@@ -155,7 +156,7 @@ profiles {
 **Edit `bin/CENPK_run_sarek_351_all.sh`** - Remove `--joint_mutect2`:
 
 ```bash
-nextflow run ../nf-core-sarek_3.5.1/3_5_1/main.nf -profile azureD4as,docker \
+nextflow run main.nf -profile azureD4as,docker \
     -w ${run_folder}/work_CENPK \
     --input ${run_folder}/data/data_a_paper/samplesheet_gen2.csv \
     --outdir ${run_folder}/output_all  --genome null --igenomes_ignore  \
@@ -274,5 +275,5 @@ Last valid variant: chr3:297387
 
 - GATK Mutect2 documentation: https://gatk.broadinstitute.org/hc/en-us/articles/5358911630107-Mutect2
 - Nextflow time limits: https://www.nextflow.io/docs/latest/process.html#time
-- Sarek interval splitting: `nf-core-sarek_3.5.1/3_5_1/nextflow_schema.json` line 90
+- Sarek interval splitting: `nextflow_schema.json` line 90
 - Related notes: `CLAUDE.md` - Mutect2 configuration section

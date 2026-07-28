@@ -7,9 +7,8 @@
  * Gated behind --generate_reports in workflows/sarek/main.nf (inline, clean-run correct)
  * or launched standalone via generate_mutation_report.nf (rebuilds channels from disk).
  *
- * CHANNEL-BASED (WP5): consumes pipeline OUTPUT CHANNELS (workdir files, DAG-ordered)
+ * CHANNEL-BASED: consumes pipeline OUTPUT CHANNELS (workdir files, DAG-ordered)
  * instead of re-reading published files from params.outdir — no publishDir race.
- * See .claude/plans/mutation-report-channel-refactor.md.
  */
 
 include { PREPARE_GFF3       } from '../../../modules/local/prepare_gff3/main'

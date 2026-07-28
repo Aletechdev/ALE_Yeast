@@ -16,8 +16,8 @@
 | Azure Nextflow config | `conf/seqera_azure.config` | Minimal: docker + custom_config_base null (resources now in base.config for E4ds_v5) |
 | Launch parameters | `conf/params_seqera_test.yml` | All `az://aletest/` paths, tool selection, SnpEff config |
 | Azure samplesheet | `assets/reads/samplesheet_azure.csv` | 5 samples × 4 lanes with `az://aletest/` blob paths |
-| Upload script | `bin/upload_test_data_azure.sh` | azcopy-based upload to `aletest` container |
-| Forked Sarek pipeline | `nf-core-sarek_3.5.1/3_5_1/` | All custom ALE modifications (ploidy, filtering, etc.) |
+| Upload script | `docs/usage/upload_test_data_azure.sh` | azcopy-based upload to `aletest` container |
+| Forked Sarek pipeline | repo root (`main.nf`, `conf/`, `workflows/`, …) | All custom ALE modifications (ploidy, filtering, etc.) |
 | Azure credentials | `aledev4test` in zhlia-wsp | Batch: `aledev4test`, Storage: `aledata` |
 | Compute environment | `aledev4test` in zhlia-wsp | Azure Batch, region: northeurope, status: AVAILABLE |
 
@@ -70,7 +70,7 @@ git push origin worktree-seqera-cloud
 Pipeline reference for Seqera:
 - **Repository**: `https://github.com/Aletechdev/ALE_Yeast`
 - **Revision**: `worktree-seqera-cloud`
-- **Main script**: `nf-core-sarek_3.5.1/3_5_1/main.nf`
+- **Main script**: `main.nf` (repo root)
 
 ---
 
@@ -202,7 +202,7 @@ ERROR ~ Config file does not exist: .../configs/nfcore_custom.config
 custom_config_base = null  // was: "${projectDir}/../configs/"
 ```
 
-The `params.custom_config_base = null` in `conf/seqera_azure.config` and `NXF_OFFLINE=true` in `bin/test_nf.sh` have been removed as they are no longer needed.
+The `params.custom_config_base = null` in `conf/seqera_azure.config` and `NXF_OFFLINE=true` in the old `bin/test_nf.sh` launcher have been removed (that launcher is itself gone — see `bin/test_ottilie.sh`) as they are no longer needed.
 
 ---
 
@@ -417,7 +417,7 @@ process {
 2. Use a separate `conf/seqera_azure.config` with `withLabel` overrides (preferred — keeps `base.config` generic)
 3. Accept over-provisioning cost for simplicity (single VM type per pool means resource requests don't affect VM selection anyway)
 
-**Reference**: `bin/nextflow.config` azureD4as profile — working example of label overrides.
+**Reference**: `conf/azured4as.config` (the `azureD4as` profile) — working example of label overrides.
 
 ---
 

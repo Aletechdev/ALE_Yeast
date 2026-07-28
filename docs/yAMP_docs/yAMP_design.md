@@ -48,7 +48,7 @@ Control-FREEC (CNV): lacks standard VCF output, thus no functional annotation by
     - `MMV306025--R1-2`
     - Work dirs: `work_ottilie_tier2/{94,a3,76}/` (BMS983970), `26/` (CBR868), `f5/` (DDD01027), `c6/` (MMV306025)
     - Root cause: excessive breakpoint density triggers C++ vector overflow (e.g., mitochondrial chr)
-    - Pipeline stopped after retry (global `errorStrategy = 'retry'`, `maxRetries = 1` in `bin/nextflow.config`)
+    - Pipeline stopped after retry (global `errorStrategy = 'retry'`, `maxRetries = 1` in the local resources profile, now `conf/azured4as.config`)
     - TODO: set `errorStrategy = { task.exitStatus == 134 ? 'ignore' : 'retry' }` for `FREEC_.*` in `conf/modules/controlfreec.config` so pipeline continues past deterministic crashes
 Always diploid: DeepVariant (SNP + InDel), Manta (SV), Mutect2 (SNP + InDel, too sensitive compared to HaplotypeCaller)
 Always haploid: BreSeq (SNP, InDel, SV; docker build for only internal usage, not sub-processes optimized nor released)

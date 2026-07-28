@@ -28,6 +28,7 @@ Mnemonic: **pool** = don't run too many at once; **clamp** = don't let one ask f
 |------|------|-----------|
 | `conf/base.config` | Per-tool requests (labels + names) **and** the default `resourceLimits` — sized for **Azure Batch E4ds_v5 (4 vCPU / 32 GB)**, the cloud pool. | everywhere (the base) |
 | `conf/azured4as.config` → `-profile azureD4as` | Local **dev-VM** override: executor pool + `resourceLimits` **14 GB** (16 GB VM − 2 GB headroom) + per-task tuning. | local dev VM only |
+| `conf/mymachine.config` | **Template** to copy for any other machine — clamp only, params-free. A `-c` file, **not** a registered profile. | any local machine |
 | `conf/seqera_azure.config` | Seqera supplement (disables institutional-config fetch; docker safety net). Pasted into the Seqera "Nextflow config" field. **Not** a profile. | cloud |
 
 Profiles are registered in the main `nextflow.config` `profiles {}` block (e.g.
@@ -51,9 +52,89 @@ retry with more, clamped to the ceiling), and 8 GB swap on the dev VM.
 config fixes insufficient RAM. That's the signal to use a bigger machine / cloud. This VM is sized
 for the yeast test data.
 
-## Porting to another VM
+## Config precedence — what overrides what
 
-The per-VM config is isolated in a profile — **`base.config` (the cloud default) is never touched**.
+Two separate precedence chains matter here. Rows marked ✅ were verified on this repo with
+Nextflow 25.10.4; the rest is Nextflow's documented order.
+
+### 1. Where a setting comes from (highest wins)
+
+| # | Source | Notes |
+|---|--------|-------|
+| 1 | CLI `--param value` | ✅ beats everything below. Pipeline **params only** — not process directives. |
+| 2 | `-params-file` | params only. |
+| 3 | **`-c my.config`** | ✅ **outranks `-profile`.** Loaded after the project config, so a params-bearing `-c` will silently clobber a profile's `input`/`tools`. Keep resource `-c` files **params-free**. |
+| 4 | `nextflow.config` in the launch dir | |
+| 5 | `nextflow.config` in the project dir — **this is where `profiles {}` lives** | Within `-profile a,b`, **later profiles win** on conflicts. |
+| 6 | `$HOME/.nextflow/config` | |
+| 7 | Directives written in the process body (`main.nf`, modules) | See the twist below. |
+
+### 2. How a process directive is resolved (independent of the above)
+
+Not everything that sets `memory` behaves the same way — verified with a probe process declaring
+`memory 16.GB` / `cpus 8` in its body:
+
+| Mechanism | Effect on a script-body directive | Result |
+|-----------|-----------------------------------|--------|
+| `process { withName: 'X' { memory = '1.GB' } }` | **overrides** it | ✅ resolved to 1 GB |
+| `process { resourceLimits = [...] }` | **clamps** it (applied last, to whatever was requested) | ✅ 16 GB → 4 GB |
+| `process { memory = '1.GB' }` (unqualified) | only a **default** — the script directive wins | ✅ stayed 16 GB → unschedulable |
+
+**This is why the clamp is the portable knob.** `resourceLimits` is applied *after* every other
+mechanism, including the retry escalation `{ 16.GB * task.attempt }`, so it caps requests no matter
+where they came from. An unqualified `process { memory }` does not.
+
+### 3. Can it be passed on the command line? **No — `resourceLimits` needs a `-c` file.**
+
+`nextflow run` does accept `-process.<key>=<value>`, but it is unusable here:
+
+- **It cannot express a map.** `-process.resourceLimits='[cpus:2,memory:4.GB]'` is parsed as a
+  **String**, and the run then dies with
+  `No signature of method: java.lang.String.get() ... values: [memory]` (verified).
+- **Even for scalars it only sets a default**, i.e. row 3 of the table above — a module's own
+  `memory` directive still wins (verified).
+
+There is also **no `--max_cpus` / `--max_memory` param** in this pipeline: `base.config` hard-codes
+`resourceLimits`. Making it param-driven is a deliberate post-1.0.0 item (see the bottom of this page).
+
+So: **a small `-c` file is the supported way to fit the pipeline to a machine.** It's three lines.
+
+## Porting to another machine
+
+**Do not use `-profile azureD4as` on anything but the 16 GB dev VM** — it hard-codes that machine's
+ceilings and per-task tuning. Either of the two options below; **`base.config` (the cloud default) is
+never touched** in either.
+
+### Option A — clamp-only `-c` (recommended; nothing to author or register)
+
+The **only** thing a new machine strictly needs is the clamp. A ready-to-copy template ships as
+[`conf/mymachine.config`](../../conf/mymachine.config) — commented, with the optional executor-pool
+and per-task-tuning blocks left commented out. It is deliberately **not** registered in
+`nextflow.config`'s `profiles {}` block, so it only loads when you pass it:
+
+```bash
+cp conf/mymachine.config conf/$(hostname).config     # then edit cpus + memory
+nextflow -c conf/$(hostname).config run main.nf -profile ottilie_test,docker \
+    --outdir ./output_ottilie_test --generate_reports
+```
+
+Stripped of comments, the load-bearing part is three lines:
+
+```groovy
+process {
+    resourceLimits = [ cpus: 8, memory: '28.GB', time: '72.h' ]   // vCPUs, RAM − ~2 GB headroom
+}
+```
+
+- **Skip the executor pool.** With no `executor` block, Nextflow's default local executor
+  **auto-detects the host's CPUs/RAM** and sizes concurrency itself — which is what you want on an
+  unfamiliar machine. (This is exactly how the nf-test path runs; see below.)
+- **A params-free `-c` does not clobber profiles.** Verified: with the config above,
+  `-profile ottilie_test` keeps its `input`/`tools`/`fasta`. Only add params to a `-c` if you intend
+  them to outrank the profile — `-c` wins over `-profile`.
+- Same resolved `resourceLimits` as the full `azureD4as` profile, without its pool or tuning.
+
+### Option B — a named profile (for a machine you'll use repeatedly)
 
 1. Copy `conf/azured4as.config` → `conf/<machine>.config`.
 2. Change the two ceilings to the new machine (RAM − ~2 GB headroom, and vCPUs):
@@ -66,8 +147,14 @@ The per-VM config is isolated in a profile — **`base.config` (the cloud defaul
 3. Register the profile in `nextflow.config`: `<machine> { includeConfig 'conf/<machine>.config' }`.
 4. Run `-profile ottilie_test,<machine>,docker`.
 
-| Machine | executor / resourceLimits memory | cpus |
-|---------|----------------------------------|------|
+> ⚠️ **If you set an `executor` pool by hand, keep `executor.memory / process.memory ≥ 2.`** A pool
+> only slightly larger than a single task's request fits exactly one task and can **deadlock** the
+> local scheduler ("No more task to compute"). Full symptoms and diagnosis:
+> [`docs/usage/nextflow_local_executor_deadlock.md`](../usage/nextflow_local_executor_deadlock.md).
+> Option A sidesteps this entirely by not setting a pool.
+
+| Machine | resourceLimits memory | cpus |
+|---------|-----------------------|------|
 | D4as_v5 (16 GB) — `azureD4as` | `14.GB` | 4 |
 | D8as_v5 (32 GB) | `28.GB` | 8 |
 | Big box (256 GB) | `240.GB` | 32 |
@@ -113,11 +200,11 @@ only the **clamp** applies:
 
 Why a separate clamp-only file instead of reusing `azureD4as`? Its `executor='local'` pool is
 full-run machinery the test doesn't want, and a **params-bearing `-c` would clobber** the
-`ottilie_test` profile's input/tools (`-c` outranks profiles — the WP3 config-precedence finding). A
+`ottilie_test` profile's input/tools (`-c` outranks profiles — verified during nf-test wiring). A
 `resourceLimits`-only config caps resources without touching params.
 
 **Porting a test run to another machine:** same idea as porting a VM profile, but edit the two numbers
-in `tests/ottilie_nftest_resources.config` (the [porting table](#porting-to-another-vm) applies
+in `tests/ottilie_nftest_resources.config` (the [porting table](#porting-to-another-machine) applies
 directly). For a CI box that differs from the dev VM, add a second
 `tests/ottilie_nftest_resources_ci.config` and a matching `tests/nf-test-ottilie-ci.config` whose
 `configFile` points at it — keeping the dev-VM config untouched.
@@ -127,10 +214,13 @@ directly). For a CI box that differs from the dev VM, add a second
 A run = **dataset** × **resources** × **engine**, each an independent profile:
 
 - **dataset:** `ottilie_test` (or your input params)
-- **resources:** `azureD4as` (local VM) / a new per-VM profile / cloud compute environment
+- **resources:** `azureD4as` (this dev VM only) / a clamp-only `-c` / a new per-machine profile /
+  cloud compute environment
 - **engine:** `docker` / `singularity` / `conda`
 
-e.g. `-profile ottilie_test,azureD4as,docker`. Porting = swap the **resources** axis only.
+e.g. `-profile ottilie_test,azureD4as,docker` on the dev VM, or
+`-c mymachine.config -profile ottilie_test,docker` anywhere else. Porting = swap the **resources**
+axis only.
 
 ## Post-1.0.0 follow-up (deferred, deliberate)
 

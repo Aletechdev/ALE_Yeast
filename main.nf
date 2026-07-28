@@ -337,7 +337,7 @@ workflow {
     NFCORE_SAREK(PIPELINE_INITIALISATION.out.samplesheet)
 
     // NOTE: MUTATION_REPORT (--generate_reports) is now called INLINE at the end of
-    // workflows/sarek/main.nf (WP5, Option ii) so it consumes live pipeline channels
+    // workflows/sarek/main.nf so it consumes live pipeline channels
     // (clean-run correct). The old path-discovery outer call was removed here.
 
     //

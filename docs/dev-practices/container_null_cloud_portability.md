@@ -1,12 +1,18 @@
-# TODO: Replace `container null` with mulled containers for cloud portability
+# `container null` and cloud portability — ✅ RESOLVED (kept as design rationale)
 
-## Problem
+> **Status: resolved before v1.0.0.** **Option B (split process)** was implemented: `BUILD_SV_COHORT`
+> no longer exists — it was split into `modules/local/survivor_cohort_merge/` (SURVIVOR container) +
+> `modules/local/build_sv_matrix/` (pandas container). No module under `modules/local/` uses
+> `container null` any more. This page is retained for the rationale behind the split and as the
+> checklist to apply if a future multi-tool process is added.
+
+## Problem (as it stood)
 
 Some local modules use `container null` because no single biocontainer has all required tools. This works on our Azure VM (conda always available) but **will fail on Seqera Cloud** or any pure container-based execution environment where conda is not installed.
 
 ## Affected Processes
 
-### BUILD_SV_COHORT (`modules/local/build_sv_cohort/main.nf`)
+### BUILD_SV_COHORT (the former `modules/local/build_sv_cohort/main.nf`, since split)
 ```groovy
 conda 'bioconda::survivor=1.0.7 bioconda::bcftools=1.20 conda-forge::pandas'
 container null  // No single biocontainer has all three; use conda
@@ -39,9 +45,11 @@ For BUILD_SV_COHORT this would mean:
 ### Option C: Custom Dockerfile
 Build a project-specific image with all tools. More maintenance overhead but full control.
 
-## Priority
+## Outcome
 
-Low — only relevant when deploying to Seqera Cloud. Current Azure VM workflow uses conda and works correctly.
+**Option B was chosen and implemented** during v1.0.0 release prep (commit `6933123`):
+`SURVIVOR_COHORT_MERGE` (survivor container) + `BUILD_SV_MATRIX` (pandas container), validated to
+produce identical SV cohort matrices. The remaining `bcftools sort+index` step was not needed.
 
 ## Related
 

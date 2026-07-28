@@ -1,4 +1,11 @@
-# Plan: Add breseq 0.39.0 Subworkflow to Sarek Pipeline
+# breseq 0.39.0 subworkflow — design & integration record
+
+> **Status: implemented (Tier 2).** The design below is as-built — `modules/local/breseq/`,
+> `modules/local/gdtools/convert/`, `subworkflows/local/fastq_variant_calling_breseq/`, and
+> `conf/modules/breseq.config` all exist. breseq is **Tier 2**: functional, but not release-validated
+> for ALE and **not** part of the `ottilie_test` tool set (it needs a GenBank reference, which the
+> ottilie test data doesn't ship). Before trusting any breseq output, read
+> [`BRESEQ_LOW_COVERAGE_BEHAVIOR.md`](BRESEQ_LOW_COVERAGE_BEHAVIOR.md).
 
 ## Context
 
@@ -101,7 +108,7 @@ Add `(meta.variantcaller != 'breseq')` to the VCFtools `ext.when` condition (bre
 5. Create `subworkflows/local/fastq_variant_calling_breseq/main.nf`
 6. Integrate into `workflows/sarek/main.nf`
 7. Update VCFtools skip in `conf/modules/modules.config`
-8. Update `bin/test_nf.sh` to add `breseq` to `--tools` and add `--genbank`
+8. Enable it on a run: add `breseq` to `--tools` and pass `--genbank <reference.gbk>`
 
 ## Key Decisions
 
@@ -111,8 +118,13 @@ Add `(meta.variantcaller != 'breseq')` to the VCFtools `ext.when` condition (bre
 
 ## Verification
 
-1. Add `breseq` to `--tools` and `--genbank` to `bin/test_nf.sh`
-2. Run `bash bin/test_nf.sh` with the test dataset
-3. Check output: `output_test_001/variant_calling/breseq/A1-F6-I1-R1/` should contain output.gd, annotated.gd, index.html, .breseq.vcf.gz
-4. Verify population sample (A1-F6-I2-R1) ran with `-p` flag in `.nextflow.log`
-5. Confirm clonal sample ran without `-p` flag
+breseq needs its own dataset — one with a GenBank reference and **adequate depth** (see
+[`BRESEQ_LOW_COVERAGE_BEHAVIOR.md`](BRESEQ_LOW_COVERAGE_BEHAVIOR.md); a read-subsampled set produces
+false whole-chromosome deletions). Given such a run:
+
+1. Add `breseq` to `--tools` and pass `--genbank <reference.gbk>`
+2. Check `<outdir>/variant_calling/breseq/<sample>/` contains `output.gd`, `annotated.gd`,
+   `index.html`, `<sample>.breseq.vcf.gz`
+3. Verify a `population` sample ran **with** the `-p` flag (grep `.nextflow.log` or the task
+   `.command.sh`)
+4. Confirm a `clonal` sample ran **without** `-p`

@@ -185,7 +185,7 @@ it is just outweighed today by (1).
 > or we adopt a discovery setup that can scope to `tests/` *and* `*/local/**/tests/` at once. If it
 > flips, move the fixtures with the tests and update `testsDir` in `tests/nf-test-ottilie.config`.
 
-### Upstream pipeline-test triage — one-time cleanup (WP4 Step 3b)
+### Upstream pipeline-test triage — one-time cleanup (v1.0.0)
 
 The `tests/` dir inherited 20 pristine upstream sarek pipeline-level tests, all 0-diff vs upstream
 and **never adapted for this fork**. Each was written against a scenario/toolset ALE does not run:

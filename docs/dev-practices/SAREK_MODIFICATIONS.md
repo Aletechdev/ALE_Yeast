@@ -40,7 +40,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 - **`workflows/sarek/main.nf`** ⚠️ — the largest edit surface. ALE additions: custom VCF filtering
   channels (FreeBayes/Mutect2 AF filters via `TABIX_TABIX` + `vcf_with_tbi`), and the **inline
   MUTATION_REPORT** call at the end of the MultiQC block with the `ch_report_vcfs` annotated-or-raw
-  fallback (WP5, commit `246dd7b`). Record the report's channel contract here on every rebase.
+  fallback (commit `246dd7b`). Record the report's channel contract here on every rebase.
 - **`main.nf`** — removed the old outer MUTATION_REPORT path-discovery call (superseded by the inline
   call); otherwise close to upstream.
 - **`nextflow.config`** — ALE params (report_* / generate_reports / split & hard-filter HC), extra
@@ -59,7 +59,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 
 | Subworkflow | Purpose |
 |-------------|---------|
-| `mutation_report` | Multi-caller dashboard (CN/SV matrices + igv-reports + index). Channel-based (WP5). |
+| `mutation_report` | Multi-caller dashboard (CN/SV matrices + igv-reports + index). Channel-based. |
 | `split_joint_vcf` | Split joint germline VCF → per-sample VCFs (channel-based metadata). |
 | `vcf_filter_haplotypecaller_joint` | Hard-filter per-sample VCFs from joint calling. |
 | `vcf_filter_freebayes` | AF-based somatic-style filter for FreeBayes (dev/troubleshooting). |
@@ -71,8 +71,8 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 
 | Subworkflow | ALE change (why) |
 |-------------|------------------|
-| `bam_variant_calling_germline_all` | ⚠️ Core ALE wiring: CNVKit `.cnr/.cns` emits + 4 `hc_kind` lineage tags (WP5); FreeBayes somatic disabled; Control-FREEC germline; split/hard-filter HC. |
-| `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report (WP5). |
+| `bam_variant_calling_germline_all` | ⚠️ Core ALE wiring: CNVKit `.cnr/.cns` emits + 4 `hc_kind` lineage tags; FreeBayes somatic disabled; Control-FREEC germline; split/hard-filter HC. |
+| `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report. |
 | `bam_joint_calling_germline_gatk` | `VARIANTFILTRATION_FALLBACK` when VQSR can't run (custom genomes, no known-sites). |
 | `samplesheet_to_channel` | ALE metadata columns (ploidy; all-samples-as-normal). |
 | `utils_nfcore_sarek_pipeline` | YAML `processVersionsFromYAML()` fix for custom VCF filters. |
