@@ -32,7 +32,7 @@ Three names refer to the same thing — kept distinct on purpose:
 brand stays clean while the repo keeps its existing name. Both may be reconciled/renamed later. The
 `description` (brand) evolves per version; `manifest.name` (identity) stays stable so it isn't churned.
 
-> **Status:** ✅ applied 2026-07-27 (WP4 Step 2e). `manifest.name`, `version = '1.0.0'`, `description`,
+> **Status:** ✅ applied 2026-07-27 (v1.0.0 release prep). `manifest.name`, `version = '1.0.0'`, `description`,
 > `homePage`, and `doi = ''` set in `nextflow.config`; ottilie e2e re-snapshotted — the only output delta
 > was the `versions.yml` Workflow line (`nf-core/sarek: v3.5.1` → `Aletechdev/AMP: v1.0.0`).
 
@@ -46,10 +46,11 @@ brand stays clean while the repo keeps its existing name. Both may be reconciled
 - **Conda Environment**: `conda activate /home/azureuser/miniforge3/envs/nf-env`
 - **Recommended**: Use original configuration for production deployment
 
-### ~~Apple Silicon (Deprecated)~~
-- **Status**: Not maintained
-- **Profile**: `arm,docker`
-- **Issues**: Tools stalled (multiQC, Mutect2), filesystem optimization problems
+### ~~Apple Silicon (unsupported — will fail)~~
+- **Status**: **Not supported.** Running this pipeline (Sarek 3.5.1 base) locally on an Apple Silicon
+  (ARM) Mac **will fail** — do not use for real runs. Use the Azure Linux VM (`-profile azureD4as,docker`).
+- **Profile**: `arm,docker` (retained for reference only)
+- **Why it fails**: tools stall/hang under ARM (e.g. MultiQC, Mutect2) + filesystem-optimization problems.
 
 ---
 
@@ -57,15 +58,25 @@ brand stays clean while the repo keeps its existing name. Both may be reconciled
 
 ### Key Files and Locations
 
-- **Test Data**: https://aledata.blob.core.windows.net/aledata/Yeast/dicarboxylic_acids_all_clones/REDACTED-CUSTOMER-ID/ANP_Dev_2025Q3/data/
-- **Main Execution Script**: `bin/CENPK_run_sarek_351.sh`
-- **Pipeline Config**: `conf/azured4as.config` (the `azureD4as` local-VM resources profile; use `-profile azureD4as`, no `-c` needed). See `docs/dev-practices/compute_resources.md`
-- **Cache Generation**: `bin/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`
-- **Forked nf-core**: `nf-core-sarek_3.5.1` (use version 3.5.1 docs)
+- **Test data (ottilie)** — the release test set: 2 samples (parent + evolved), 4 chromosomes; truth =
+  4 SNVs + a chr I duplication. Lives under `data/ottilie/` (gitignored). Profile:
+  [`conf/test/ottilie_test.config`](conf/test/ottilie_test.config) → run
+  `nextflow run main.nf -profile ottilie_test,azureD4as,docker`. Generate locally with
+  `docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/generate_test_data.sh`; on a fresh machine
+  fetch from the public blob (no creds) with `download_test_data.sh`. Full lineage/prep:
+  [`docs/benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md`](docs/benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md).
+- **Launchers**: `bin/test_ottilie.sh` (minimal 2-sample test) · `docs/benchmarking/ottilie_xenobiotic_ale/03_pipeline/run_ottilie_pilot.sh` (full-depth **4-sample** run, same S288C data). The 2-sample test set is a **chromosome subset** (chr I/IV/VII/XV) of **2 of** the pilot's 4 `--save_mapped` CRAMs, extracted by `generate_test_data.sh` — not a read-subsample. Both use `-profile azureD4as,docker`.
+- **Resources config**: [`conf/azured4as.config`](conf/azured4as.config) (the `azureD4as` local-VM profile;
+  use `-profile azureD4as`, no `-c` needed). See [`docs/dev-practices/compute_resources.md`](docs/dev-practices/compute_resources.md).
+- **SnpEff cache generation**: `docs/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`.
+- **Fork base**: nf-core/sarek 3.5.1 (`nf-core-sarek_3.5.1/`) — consult the upstream 3.5.1 docs for base behavior.
+- **Production/example data (CENPK, dicarboxylic acids)** — real-experiment dataset, not the test set:
+  `https://aledata.blob.core.windows.net/aledata/Yeast/dicarboxylic_acids_all_clones/REDACTED-CUSTOMER-ID/ANP_Dev_2025Q3/data/`
 
 ### Sample Table Format
 
-Adapted from nf-sarek (originally for human cancer research):
+Adapted from nf-sarek (originally for human cancer research). Full column reference + conventions +
+non-Tier-1 notes: [`docs/usage/input_samplesheet.md`](docs/usage/input_samplesheet.md).
 - **experiment**: Experiment ID (maps to "patient" in Sarek)
 - **status**: 0 = ancestral strain (normal), 1 = evolved strain (tumor), update: treat all samples as normal, to run haplotypecaller `--joint_germline`
 - **ploidy**: Custom column for ploidy support
@@ -81,25 +92,32 @@ ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L002,SubSampleCENPK113-7D-N_S53_L002_R1_001.fast
 ```
 
 **⚠️ TODOs:**
-- Support tumor-only mode via `BAM_VARIANT_CALLING_TUMOR_ONLY_ALL` channel
-- Auto-fill sex chromosome column (XX) for CNV tools
+- Auto-fill the `sex` column (`XX`) — **Control-FREEC / Tier-2 only** (the Tier-1 tools ignore `sex`;
+  it's only validated when `--tools` includes `controlfreec`/`ascat`). See [`docs/usage/input_samplesheet.md`](docs/usage/input_samplesheet.md).
+
+(Tumor-only mode is **not** used — all samples run as normal/germline; it's a deferred upstream-Sarek
+fork idea, see [`docs/archive/sarek_fork_ideas.md`](docs/archive/sarek_fork_ideas.md).)
 
 ---
 
 ## Variant Calling Strategy
 
-### Production Tools (Deliverable 1)
+### Tier-1 tools — v1.0.0 deliverable (validated by the ottilie contract test)
 
-**Variant Callers:**
-- **FreeBayes**: Germline mode only (somatic disabled due to excessive noise)
-- **GATK Mutect2**: Somatic mode with custom AF-based filtering
-- **GATK HaplotypeCaller**: Joint and individual germline calling
+- **SNV/INDEL — GATK HaplotypeCaller**: joint (cohort) + individual germline calling; joint-germline is the ALE default.
+- **CNV — CNVKit**: `fold_change`-based CN matrices — see the [CNVKit section](#cnvkit-tier-1-cnv-deliverable).
+- **SV — Manta + TIDDIT**: merged via SURVIVOR into per-sample + cohort matrices.
+- **Annotation — SnpEff**: custom cache (`docs/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`).
 
-**Annotation:**
-- **SnpEff**: Custom cache generated via `bin/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`
+### Tier-2 tools — functional, not release-validated for ALE
+
+- **GATK Mutect2** (somatic + custom AF-based filtering) and **FreeBayes** (germline mode only; somatic
+  disabled — too noisy) — SNV/INDEL; see [`docs/variant-calling/tier2_af_filters.md`](docs/variant-calling/tier2_af_filters.md).
+- **Control-FREEC** (germline CNV — see the [Control-FREEC section](#control-freec-tier-2-cnv)) · **breseq** (bacterial, not released).
 
 **Ploidy Support:**
 - Passed to: HaplotypeCaller (`--sample-ploidy`), `controlfreec`, `FreeBayes`, `Tiddit`
+- **Manta**: has **no** ploidy parameter — it's an SV breakpoint caller (no genotype-by-ploidy), so it's excluded by design, not an omission.
 - **Note**: `bcftools mpileup` still uses ploidy=1 in `conf/modules/ngscheckmate.config`
 - **CNVKit**: does **not** take `--ploidy` (reverted May 2026 → defaults to 2; CN scale is always `cn=2` baseline regardless). Use `fold_change`/log2 for true signal — see the [CNVKit section](#cnvkit-tier-1-cnv-deliverable) and [`docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`](docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md).
 
@@ -132,15 +150,15 @@ explicit `java.io.FileInputStream(path.toFile())` + null/empty validation, so
 
 ### GATK Tools
 
-#### ⚠️ BaseRecalibrator Disabled
+#### ⚠️ BaseRecalibrator (BQSR) — a required manual opt-out
 
-**Reason**: Custom reference genome lacks curated --known-sites variant VCFs (required input)
-
-**Status**: Retained in codebase for reference, not used in current analyses
-
-**Future**: May enable if high-confidence variant set generated (e.g., bootstrapped calls)
-
-**Reference**: https://janis.readthedocs.io/en/latest/tools/bioinformatics/gatk4/gatk4baserecalibrator.html
+The custom yeast reference has no `--known-sites` VCFs, which BQSR requires. This is a **manual
+opt-out, not automatic**: every ALE config sets `skip_tools = 'baserecalibrator'`
+(`conf/test/ottilie_test.config` + the run scripts) — **drop it and the run aborts**. The missing
+known-sites resource *starves* the BaseRecalibrator channel, surfacing as a Nextflow join error (not a
+GATK error). The same starvation gates VQSR (which has the soft-filter fallback — see the HaplotypeCaller
+section below) and FilterVariantTranches. Full mechanism:
+[`haplotypecaller_workflow_analysis.md` → known-sites starvation](docs/variant-calling/haplotypecaller/haplotypecaller_workflow_analysis.md#4-the-known-sites-starvation-pattern-custom-genomes).
 
 #### ⚠️ Mutect2 Missing Resources (Custom Genome)
 
@@ -160,6 +178,28 @@ explicit `java.io.FileInputStream(path.toFile())` + null/empty validation, so
 - https://gatk.broadinstitute.org/hc/en-us/articles/5358911630107-Mutect2
 - https://gatk.broadinstitute.org/hc/en-us/articles/5358921041947-CreateSomaticPanelOfNormals-BETA-
 
+
+### GATK HaplotypeCaller (joint germline)
+
+The Tier-1 SNV/INDEL caller. Two ALE-specific customizations on the joint-germline path:
+
+#### Soft-filter fallback (VQSR unavailable)
+
+VQSR is unavailable for the custom yeast genome (no known-sites resources). As a fallback, GATK
+`VARIANTFILTRATION_FALLBACK` **soft-filters** the joint VCF — it populates the FILTER column
+(`PASS` or named tags like `QD_filter`) but **does not remove variants**. Output:
+`HaplotypeCaller_joint_calling_soft_filtered.vcf.gz`. Extract PASS-only downstream with
+`bcftools view -f PASS`. Details, filter thresholds, and trigger conditions:
+[`docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`](docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md).
+
+#### Split joint VCF into individual sample VCFs
+
+The `SPLIT_JOINT_VCF` subworkflow extracts per-sample VCFs from the joint calling output using
+channel-based metadata propagation (no string parsing). Enable with
+`--joint_germline --split_haplotypecaller_joint_vcf`. Output:
+`variant_calling/haplotypecaller/individual_from_joint/<sample>/<sample>.haplotypecaller.from_joint_calling.vcf.gz`
+(+ `.tbi`). Full architecture, channel flow, and manual bcftools recipe:
+[`docs/variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md`](docs/variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md).
 
 ### CNVKit (Tier-1 CNV deliverable)
 
@@ -212,33 +252,11 @@ samples with `std::length_error`. **CNVKit is the Tier-1 CNV deliverable instead
 germline mode (April 2026) is implemented — see
 [`docs/variant-calling/controlfreec/controlfreec_germline_changes.md`](docs/variant-calling/controlfreec/controlfreec_germline_changes.md).
 
-### Soft-filter fallback for joint germline calling
-
-VQSR is unavailable for the custom yeast genome (no known-sites resources). As a fallback, GATK
-`VARIANTFILTRATION_FALLBACK` **soft-filters** the joint VCF — it populates the FILTER column
-(`PASS` or named tags like `QD_filter`) but **does not remove variants**. Output:
-`HaplotypeCaller_joint_calling_soft_filtered.vcf.gz`. Extract PASS-only downstream with
-`bcftools view -f PASS`. Details, filter thresholds, and trigger conditions:
-[`docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`](docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md).
-
----
-
-### Split joint VCF into individual sample VCFs
-
-The `SPLIT_JOINT_VCF` subworkflow extracts per-sample VCFs from the HaplotypeCaller joint
-calling output using channel-based metadata propagation (no string parsing). Enable with
-`--joint_germline --split_haplotypecaller_joint_vcf`. Output:
-`variant_calling/haplotypecaller/individual_from_joint/<sample>/<sample>.haplotypecaller.from_joint_calling.vcf.gz`
-(+ `.tbi`). Full architecture, channel flow, and manual bcftools recipe:
-[`docs/variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md`](docs/variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md).
-
----
-
 ## Variant Analysis Dashboard System
 
 **Superseded.** The original `bin/` dashboard scripts (`create_research_dashboard.py`,
 `summarize_variants.py`, `organize_results.sh`, `quick_variant_check.sh`, `create_variant_dashboard.py`)
-were removed in WP2. Their role — cross-sample / multi-tool variant tables, cohort matrices, and gene /
+were removed during the v1.0.0 code cleanup. Their role — cross-sample / multi-tool variant tables, cohort matrices, and gene /
 tool-comparison views — is now delivered by the **`MUTATION_REPORT` subworkflow + `GENERATE_INDEX`**
 (igv-reports HTML dashboard backed by `cn_cohort_matrix.csv` / `sv_cohort_matrix_*.csv` /
 `cn_segments_*.csv`). See [`docs/igvreports/`](docs/igvreports/) and

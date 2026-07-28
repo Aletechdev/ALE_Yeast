@@ -1,7 +1,8 @@
 # Variant Analysis Dashboard System (archived — superseded design)
 
 > **Status: superseded / archived (2026-07-27).** This is the original `bin/`-script "research
-> dashboard" design from early development. **All five scripts it describes were removed in WP2**
+> dashboard" design from early development. **All five scripts it describes were removed during the
+> v1.0.0 code cleanup**
 > (`summarize_variants.py`, `organize_results.sh`, `quick_variant_check.sh`,
 > `create_variant_dashboard.py`, `create_research_dashboard.py`), and the `VARIANT_DASHBOARD`
 > Nextflow process was never built. Its purpose — cross-sample/multi-tool variant tables, cohort
@@ -25,7 +26,7 @@ Following bioinformatics community best practices for multi-sample, multi-tool v
 - **Standard approach**: Joint VCFs (good for population genetics, not ideal for research)
 - **Our solution**: Curated dashboards with structured tables for biological interpretation
 
-## Dashboard Scripts (removed in WP2 — described for design reference)
+## Dashboard Scripts (removed in the v1.0.0 code cleanup — described for design reference)
 
 ### 1. `bin/summarize_variants.py` — Variant Overview Generator
 **Purpose**: Quick variant counting across samples and tools
