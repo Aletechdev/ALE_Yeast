@@ -111,8 +111,10 @@ fork idea, see [`docs/archive/sarek_fork_ideas.md`](docs/archive/sarek_fork_idea
 
 ### Tier-2 tools — functional, not release-validated for ALE
 
-- **GATK Mutect2** (somatic + custom AF-based filtering) and **FreeBayes** (germline mode only; somatic
-  disabled — too noisy) — SNV/INDEL; see [`docs/variant-calling/tier2_af_filters.md`](docs/variant-calling/tier2_af_filters.md).
+- **GATK Mutect2** (somatic; runs without `--germline-resource`/`--panel-of-normals` on the custom
+  genome — see [`mutect2_custom_genome_resources.md`](docs/variant-calling/mutect2/mutect2_custom_genome_resources.md)) and **FreeBayes**
+  (germline mode only; somatic disabled — too noisy) — SNV/INDEL. AF-based filters for both:
+  [`docs/variant-calling/tier2_af_filters.md`](docs/variant-calling/tier2_af_filters.md).
 - **Control-FREEC** (germline CNV — see the [Control-FREEC section](#control-freec-tier-2-cnv)) · **breseq** (bacterial, not released).
 
 **Ploidy Support:**
@@ -148,35 +150,16 @@ explicit `java.io.FileInputStream(path.toFile())` + null/empty validation, so
 
 ## Tool-Specific Notes
 
-### GATK Tools
+### Read preprocessing — BQSR skipped
 
-#### ⚠️ BaseRecalibrator (BQSR) — a required manual opt-out
-
-The custom yeast reference has no `--known-sites` VCFs, which BQSR requires. This is a **manual
-opt-out, not automatic**: every ALE config sets `skip_tools = 'baserecalibrator'`
-(`conf/test/ottilie_test.config` + the run scripts) — **drop it and the run aborts**. The missing
+BQSR (BaseRecalibrator — a read-recalibration **preprocessing** step, before any variant calling) is
+skipped: the custom yeast reference has no `--known-sites` VCFs, which BQSR requires. This is a
+**required manual opt-out, not automatic** — every ALE config sets `skip_tools = 'baserecalibrator'`
+(`conf/test/ottilie_test.config` + the run scripts), and **dropping it aborts the run**. The missing
 known-sites resource *starves* the BaseRecalibrator channel, surfacing as a Nextflow join error (not a
 GATK error). The same starvation gates VQSR (which has the soft-filter fallback — see the HaplotypeCaller
 section below) and FilterVariantTranches. Full mechanism:
 [`haplotypecaller_workflow_analysis.md` → known-sites starvation](docs/variant-calling/haplotypecaller/haplotypecaller_workflow_analysis.md#4-the-known-sites-starvation-pattern-custom-genomes).
-
-#### ⚠️ Mutect2 Missing Resources (Custom Genome)
-
-**Warning**: Mutect2 running without `--germline-resource` and `--panel-of-normals`
-
-**1. --germline-resource**
-- **Purpose**: Filter common population variants (SNPs)
-- **For yeast ALE**: All mutations are of interest (no population database like gnomAD)
-- **Decision**: **Omit entirely** (also omits `--af-of-alleles-not-in-resource`)
-
-**2. --panel-of-normals (PoN)**
-- **Purpose**: Identify systematic sequencing/prep artifacts
-- **For yeast ALE**: Could be useful with multiple ancestral strain replicates
-- **Decision**: **Omit** (effort not justified for current experiments)
-
-**References**:
-- https://gatk.broadinstitute.org/hc/en-us/articles/5358911630107-Mutect2
-- https://gatk.broadinstitute.org/hc/en-us/articles/5358921041947-CreateSomaticPanelOfNormals-BETA-
 
 
 ### GATK HaplotypeCaller (joint germline)
