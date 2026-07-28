@@ -1,5 +1,11 @@
 # NF_ALE Project Notes
 
+> **Maintenance convention.** This file holds operational summaries + pointers into `docs/`; the
+> linked doc is the source of detail. When you change pipeline behavior, update **both** the summary
+> here and the linked doc so they stay in sync. Keep inline notes to *stable* facts (tool tiers,
+> thresholds, paths); push volatile detail to `docs/`. Pointers must resolve even if the target doc
+> isn't yet complete.
+
 ## Table of Contents
 1. [Pipeline Identity & Naming](#pipeline-identity--naming)
 2. [Environment Setup](#environment-setup)
@@ -7,8 +13,8 @@
 4. [Variant Calling Strategy](#variant-calling-strategy)
 5. [Implementation Details](#implementation-details)
 6. [Tool-Specific Notes](#tool-specific-notes)
-7. [Analysis Dashboard](#analysis-dashboard)
-8. [Future Development](#future-development)
+7. [Variant Analysis Dashboard System](#variant-analysis-dashboard-system)
+8. [Pipeline Merger Decision - Reminder](#pipeline-merger-decision---reminder)
 
 ---
 
@@ -93,102 +99,32 @@ ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L002,SubSampleCENPK113-7D-N_S53_L002_R1_001.fast
 - **SnpEff**: Custom cache generated via `bin/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`
 
 **Ploidy Support:**
-- Passed to: `cnvkit (call + export), controlfreec, FreeBayes, Tiddit`
+- Passed to: HaplotypeCaller (`--sample-ploidy`), `controlfreec`, `FreeBayes`, `Tiddit`
 - **Note**: `bcftools mpileup` still uses ploidy=1 in `conf/modules/ngscheckmate.config`
-- **CNVKit**: Ploidy passed to both `cnvkit.py call` and `cnvkit.py export vcf`. See `docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`
+- **CNVKit**: does **not** take `--ploidy` (reverted May 2026 → defaults to 2; CN scale is always `cn=2` baseline regardless). Use `fold_change`/log2 for true signal — see the [CNVKit section](#cnvkit-tier-1-cnv-deliverable) and [`docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`](docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md).
 
 ---
 
 ## Implementation Details
 
-### Custom Filtering Workflows
+### Tier-2 somatic AF filters (Mutect2 / FreeBayes)
 
-#### ✅ Allele Frequency-Based Somatic Filtering
-
-**Migration from GT-based to AF-based filtering** for somatic variant detection:
-
-**Mutect2 Filtering** (`vcf_filter_mutect2/bcftools/filter_somatic/main.nf`):
-- **Strategy**: Direct AF field usage from `FORMAT/AF[sample]`
-- **Criteria**: Normal AF < 0.10, Tumor AF > 0.05, AF difference > 0.05, Depth (tumor ≥10, normal ≥8)
-- **Config**: `conf/modules/custom_mutect2_filter.config`
-
-**FreeBayes Filtering** (`vcf_filter_freebayes/bcftools/filter_somatic/main.nf`):
-- **Strategy**: Multi-allelic splitting (`bcftools norm -m-`) + calculated AF via AWK
-- **Criteria**: Same AF thresholds as Mutect2
-- **Config**: `conf/modules/custom_freebayes_filter.config`
-
-**Multi-allelic Handling Example:**
-```
-Before splitting (AECK01000002:547636):
-  REF: AGTATAC  ALT: TGTGTAT,AGTGTAC  (AO=12,5 and AO=0,1)
-
-After bcftools norm -m-:
-  Record 1: AGTATAC → TGTGTAT  (AO=12, AO=0)
-  Record 2: AGTATAC → AGTGTAC  (AO=5, AO=1)
-```
-
-**Benefits:**
-- ✅ Eliminates AO subfield complexity
-- ✅ Processes all alternate alleles individually
-- ✅ Consistent AF thresholds across tools
-- ✅ More sensitive low-frequency detection
-
-#### ⚠️ Mutect2 AF vs AD Discrepancy
-
-**Observation**: Mutect2's `FORMAT/AF` ≠ simple `AD[alt]/DP` calculation
-
-**Root Cause**: Bayesian allele frequency estimation incorporating base quality, mapping quality, and local assembly
-
-**Impact**:
-- Using `FORMAT/AF` in filters is correct for Mutect2
-- May show discrepancies when compared to FreeBayes AO/(AO+RO)
-- More sensitive due to Bayesian uncertainty
-
-#### ✅ Strand Bias Filtering
-
-**Impact**: Removes >50% of raw Mutect2 calls (23,847/45,139 variants)
-
-**Implementation**: `FORMAT/F1R2[1:1] > 0 && FORMAT/F2R1[1:1] > 0`
-
-**Pipeline Chain:**
-```
-Raw: 45,139 → Quality filters → Strand bias (-52.8%) → AF filters → Final: ~4,200 (90.7% reduction)
-```
-
-**Significance**: Eliminates PCR artifacts and sequencing errors critical for ALE experiments
-
-#### ✅ FreeBayes Somatic Mode Disabled
-
-BAM_VARIANT_CALLING_FREEBAYES channel disabled in workflow `~/Docs/ALE_nextflow/nf-core-sarek_3.5.1/3_5_1/subworkflows/local/bam_variant_calling_somatic_all/main.nf` 
-**Rationale**: FreeBayes somatic mode designed for cancer genomics, inappropriate for ALE
-
-**Evidence**:
-- Somatic mode: 248,248 variants (excessive noise)
-- Germline mode: 10,965 variants (biologically relevant)
-
-**Current Strategy**:
-- **FreeBayes**: Germline mode only
-- **Mutect2**: Somatic mode with custom filtering
-- **HaplotypeCaller**: Joint as individual germline
-
-**Channel Logic**: All samples processed as "normal" status (`cram_variant_calling_status_normal`)
-
-**⚠️ Pending Review**: Structural variant tools (Manta, Strelka, TIDDIT) - germline vs somatic mode optimization needed
+**Tier-2 (functional, not release-validated for ALE).** Mutect2 and FreeBayes are somatic
+callers — too sensitive/noisy for ALE (FreeBayes somatic mode alone gave 248,248 variants vs
+10,965 germline). Custom AF-based filters (Normal AF < 0.10, Tumor AF > 0.05, diff > 0.05,
+depth tumor ≥ 10 / normal ≥ 8), multi-allelic `bcftools norm -m-` splitting, strand-bias
+filtering, FreeBayes-somatic disabled, and the FilterMutectCalls channel-join fix all live in
+[`docs/variant-calling/tier2_af_filters.md`](docs/variant-calling/tier2_af_filters.md).
+**HaplotypeCaller is the Tier-1 SNV/INDEL deliverable.**
 
 ### Bug Fixes
 
 #### ✅ YAML Processing Error (Custom VCF Filters)
 
-**Issue**: Groovy method resolution ambiguity in `processVersionsFromYAML()`
-
-**Solution**:
-- Used explicit `java.io.FileInputStream(path.toFile())`
-- Added null/empty file validation and existence checks
-- Maintained backward compatibility
-
-**File**: `nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf`
-
-**Impact**: VCF_FILTER_FREEBAYES and VCF_FILTER_MUTECT2 processes now work correctly
+Groovy method-resolution ambiguity in `processVersionsFromYAML()`
+(`nf-core-sarek_3.5.1/3_5_1/subworkflows/nf-core/utils_nfcore_pipeline/main.nf`) fixed via
+explicit `java.io.FileInputStream(path.toFile())` + null/empty validation, so
+`VCF_FILTER_FREEBAYES` / `VCF_FILTER_MUTECT2` work correctly.
 
 ---
 
@@ -225,17 +161,13 @@ BAM_VARIANT_CALLING_FREEBAYES channel disabled in workflow `~/Docs/ALE_nextflow/
 - https://gatk.broadinstitute.org/hc/en-us/articles/5358921041947-CreateSomaticPanelOfNormals-BETA-
 
 
-### CNVKit
+### CNVKit (Tier-1 CNV deliverable)
 
-#### ✅ Ploidy Fix for VCF Export (April 2026)
-
-**Problem**: `cnvkit.py export vcf` defaulted to `--ploidy 2`, producing incorrect GT for haploid samples.
-
-**Fix**: Added `--ploidy ${meta.ploidy}` to `CNVKIT_EXPORT` in `conf/modules/cnvkit.config`.
-
-**Key behavior**: CNVKit always uses diploid-style GT notation (`0/1`, `1/1`) in VCF regardless of ploidy setting. Use the `CN` FORMAT field for actual copy number. `0/1` for `<DUP>` events is standard SV-VCF convention for copy number gain, not diploid heterozygosity.
-
-**Details**: See `docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`
+CNVKit is the **Tier-1 CNV deliverable**. No explicit `--ploidy` is passed (that was reverted
+May 2026 — CNVKit defaults to 2); CN matrices use `fold_change = 2^log2` (ploidy-agnostic depth
+ratio). **Caveat**: CNVKit's integer `cn` always uses `cn=2` as baseline regardless of ploidy,
+so use `fold_change`/`log2` for the true signal. Details:
+[`docs/variant-calling/cnvkit/`](docs/variant-calling/cnvkit/).
 
 ### VCFtools Compatibility
 
@@ -270,537 +202,49 @@ ext.when = { !(params.skip_tools.contains('vcftools')) &&
 - ❌ Joint variant calling
 - ❌ Ploidy > 2
 
-### Control-FREEC Limitations
+### Control-FREEC (Tier-2 CNV)
 
-#### ⚠️ No SNP Database
+**Tier-2 (functional, not release-validated for ALE).** Not the Tier-1 CNV deliverable because:
+no SNP database → no BAF (copy number from read depth only); no standard VCF output → no SnpEff
+annotation; `ASSESS_SIGNIFICANCE` fails for haploid (ploidy=1) samples (empty `*.gz_CNVs` → R
+script error, auto-skipped via `conf/modules/controlfreec.config`); and it crashes on some
+samples with `std::length_error`. **CNVKit is the Tier-1 CNV deliverable instead.** Single-sample
+germline mode (April 2026) is implemented — see
+[`docs/variant-calling/controlfreec/controlfreec_germline_changes.md`](docs/variant-calling/controlfreec/controlfreec_germline_changes.md).
 
-**Warning**: BAF (B-Allele Frequency) files not generated without SNP database (e.g., dbSNP)
+### Soft-filter fallback for joint germline calling
 
-**Impact**: Copy number analysis uses read depth only (expected for custom genomes)
-
-#### ⚠️ ASSESS_SIGNIFICANCE Skipped (Ploidy=1)
-
-**Reason**: Haploid strains produce empty `*.gz_CNVs` files → R script fails
-
-**Configuration** (`conf/modules/controlfreec.config`):
-```yaml
-withName: 'ASSESS_SIGNIFICANCE' {
-    ext.when = { !(meta.ploidy == null || meta.ploidy == 1) }
-}
-```
-
-**Impact**: Pipeline completes successfully for haploid strains, CNV analysis continues with read depth ratios
-
-#### ✅ IMPLEMENTED: Control-FREEC Germline Mode (April 2026)
-
-Single-sample Control-FREEC added to the germline workflow. See `docs/variant-calling/controlfreec/controlfreec_germline_changes.md` for full implementation details.
-
-#### ✅ FilterMutectCalls Channel Join Fix (Dec 2024)
-
-**Issue**: FilterMutectCalls skipped when no `--germline_resource` provided
-
-**Root Cause**: Empty contamination channels → `vcf.join(Channel.empty())` = empty result
-
-**Fix** (`bam_variant_calling_somatic_mutect2/main.nf:177-199`):
-```nextflow
-// Replaced Channel.empty() with placeholder channels
-calculatecontamination_out_seg = vcf.map{ meta, vcf -> [ meta, [] ] }
-calculatecontamination_out_cont = vcf.map{ meta, vcf -> [ meta, [] ] }
-```
-
-**Results**:
-- ✅ `*.mutect2.filtered.vcf.gz` now generated
-- ✅ `*.filteringStats.tsv` now available
-- ✅ `*.mutect2.artifactprior.tar.gz` now utilized
-- ✅ Read orientation bias + quality filtering applied
-- ❌ Contamination/population frequency filtering unavailable (as expected)
-
-#### ✅ Dual Filtering Strategy
-
-**Available Workflows**:
-1. **GATK FilterMutectCalls**: Standard cancer genomics filtering (`*.mutect2.filtered.vcf.gz`)
-2. **Custom Mutect2**: AF-based ALE-optimized filtering (`vcf_filter_mutect2/`)
-3. **Custom FreeBayes**: Multi-allelic splitting + AF filtering (`vcf_filter_freebayes/`)
-
-**Recommendation**: Layered QC - GATK for technical artifacts, custom for biological interpretation
-
-#### ⚠️ FilterMutectCalls Parameters
-
-**Current**: GATK defaults only (no custom `ext.args`)
-- `--normal-p-value-threshold 0.001` (very stringent)
-- `--false-discovery-rate 0.05`
-- **Pass rate**: 54/8,825 variants (0.6%)
-
-**Filter Distribution**:
-- base_qual;normal_artifact;orientation;strand_bias: 1,925
-- multiallelic;normal_artifact;slippage: 749
-- normal_artifact;slippage: 619
-- **PASS**: 54 only
-
-**⚠️ TODOs**:
-- Review parameter relaxation for ALE (e.g., `--normal-p-value-threshold 0.01`)
-- Generate PASS-only VCF extraction workflow
-- Evaluate dual-filtering optimal balance
-
-### **✅ IMPLEMENTED: Filter Annotation Fallback for Joint Germline Calling**
-
-**Implementation Date**: September 2025
-**Updated**: October 2025 (renamed for clarity)
-
-**Problem Solved**: Joint germline calling produced unfiltered VCFs when VQSR (Variant Quality Score Recalibration) failed due to missing known variant resources for custom yeast genome.
-
-**Solution**: Added GATK VariantFiltration as intelligent fallback when VQSR cannot run. This process **populates the FILTER column** with quality flags but **retains all variants** for manual review.
-
-#### **⚠️ Important: Terminology Clarification**
-- **"Filter Annotation"** = Populates FILTER column (`PASS` or filter names like `QD_filter`)
-- **Does NOT remove variants** - All 1,748 variants remain in the output VCF
-- This is standard VCF **soft filtering** (flagging), not hard removal
-- **Results**: 737 variants marked `PASS` (42.2%), 1,011 flagged with filter names (57.8%)
-- **Extract PASS-only variants** for downstream analysis:
-  ```bash
-  bcftools view -f PASS HaplotypeCaller_joint_calling_soft_filtered.vcf.gz -O z -o joint_germline_PASS.vcf.gz
-  ```
-
-#### **Changes Made:**
-
-1. **Module Installation**: Added `gatk4/variantfiltration` using `nf-core modules install`
-
-2. **Workflow Integration**: Modified `subworkflows/local/bam_joint_calling_germline_gatk/main.nf`:
-   - Added `GATK4_VARIANTFILTRATION` import as `VARIANTFILTRATION_FALLBACK`
-   - Added filter annotation process after joint genotyping (always runs)
-   - Modified conditional logic: `VQSR > Filter Annotation > Unfiltered`
-
-3. **Configuration**: Added filter annotation parameters in `conf/modules/joint_germline.config`:
-   ```groovy
-   withName: 'VARIANTFILTRATION_FALLBACK' {
-       ext.args = { [
-           // SNP filters (populates FILTER column, does not remove variants)
-           '--filter-name "QD_filter" --filter "QD < 2.0"',
-           '--filter-name "FS_filter" --filter "FS > 60.0"',
-           '--filter-name "SOR_filter" --filter "SOR > 3.0"',
-           '--filter-name "MQ_filter" --filter "MQ < 40.0"',
-           // INDEL filters (more lenient)
-           '--filter-name "FS_INDEL_filter" --filter "TYPE==INDEL && FS > 200.0"',
-           // ... additional filters
-       ].join(' ') }
-       ext.prefix = { 'HaplotypeCaller_joint_calling_soft_filtered' }
-   }
-   ```
-
-#### **Filtering Logic Priority:**
-1. **VQSR filtered VCF** (when known sites available - humans)
-2. **Filter-annotated VCF** (**NEW** - fallback when VQSR fails - custom genomes)
-3. **Unfiltered VCF** (should not happen with our implementation)
-
-#### **Output Files:**
-- **VQSR success**: `joint_germline_recalibrated.vcf.gz`
-- **VQSR failure**: `HaplotypeCaller_joint_calling_soft_filtered.vcf.gz` (**NEW**)
-- **Final output**: `joint_germline.vcf.gz` (best available version)
-
-#### **Filter Performance (Test Data):**
-Most common filter flags from 1,748 total variants:
-1. **QD_filter**: 831 variants (49.1%) - Quality by Depth < 2.0
-2. **SOR_filter**: 278 variants (16.4%) - Strand Odds Ratio > 3.0
-3. **MQ_filter**: 107 variants (6.3%) - Mapping Quality < 40.0
-4. **FS_filter**: 77 variants (4.5%) - Fisher Strand > 60.0
-
-#### **Benefits for Yeast ALE:**
-- **Consistent quality control** regardless of known variant availability
-- **Appropriate for evolutionary studies** (no population bias)
-- **Quality-based flagging** suitable for detecting novel mutations
-- **All variants retained** for manual review and parameter optimization
-- **Backward compatible** with human/model organism pipelines
-
-**Status**: ✅ **Production Ready** - Implementation complete and tested
-
-**⚠️ TODO**: **Review and optimize filter parameters** for yeast ALE experiments:
-- Current parameters are based on GATK best practices for human data
-- QD_filter is most restrictive (49% of variants) - consider relaxing threshold
-- May need adjustment for yeast genome characteristics (smaller size, different mutation patterns)
-- Consider relaxing thresholds for evolutionary studies vs. clinical diagnostics
-- Evaluate filtering stringency against known ALE mutation types
+VQSR is unavailable for the custom yeast genome (no known-sites resources). As a fallback, GATK
+`VARIANTFILTRATION_FALLBACK` **soft-filters** the joint VCF — it populates the FILTER column
+(`PASS` or named tags like `QD_filter`) but **does not remove variants**. Output:
+`HaplotypeCaller_joint_calling_soft_filtered.vcf.gz`. Extract PASS-only downstream with
+`bcftools view -f PASS`. Details, filter thresholds, and trigger conditions:
+[`docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`](docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md).
 
 ---
 
-### **✅ IMPLEMENTED: Split Joint VCF into Individual Sample VCFs (Channel-Based)**
+### Split joint VCF into individual sample VCFs
 
-**Implementation Date**: October 2025
-**Updated**: October 2025 (Migrated to channel-based approach)
-
-**Problem Solved**: Joint germline calling produces a multi-sample VCF with all samples combined. For downstream analysis, annotation, or comparison purposes, individual sample VCFs may be needed.
-
-**Solution**: Created `SPLIT_JOINT_VCF` subworkflow that efficiently extracts individual sample VCFs from the joint calling output using channel-based metadata propagation (NextFlow best practice).
-
-#### **How Sample Names Are Formatted:**
-
-Sample names in joint VCF follow the `${patient}_${sample}` format, set during alignment:
-
-**Location**: `workflows/sarek/main.nf:292`
-```groovy
-SM:${meta.patient}_${meta.sample}
-```
-
-**Example**: Input `patient: ALE_Exp1, sample: A0-F0-I1-R1` → Joint VCF column: `ALE_Exp1_A0-F0-I1-R1`
-
-#### **Implementation Approach: Channel-Based (NextFlow Best Practice)**
-
-**Architecture**: Uses existing `cram_variant_calling_status_normal` channel to propagate structured metadata instead of string parsing.
-
-**Files Modified:**
-- `subworkflows/local/split_joint_vcf/main.nf` - Channel-based subworkflow
-- `subworkflows/local/bam_variant_calling_germline_all/main.nf` - Passes cram channel
-- `conf/modules/joint_germline.config` (lines 110-131) - Configuration
-
-**Key Features:**
-1. **Channel-Based Metadata**: Uses structured sample metadata from pipeline channels
-2. **No String Parsing**: Avoids fragile string manipulation, uses typed metadata fields
-3. **Metadata Preservation**: Keeps all original sample info (ploidy, status, sex, etc.)
-4. **Parallel Processing**: Each sample extracted independently
-5. **Automatic Indexing**: Generates `.tbi` index files
-6. **NextFlow Idiomatic**: Follows nf-core/sarek patterns and best practices
-
-**Output Structure:**
-```
-variant_calling/haplotypecaller/individual_from_joint/
-├── A0-F0-I1-R1/
-│   ├── A0-F0-I1-R1_from_joint.vcf.gz
-│   └── A0-F0-I1-R1_from_joint.vcf.gz.tbi
-├── A1-F6-I1-R1/
-│   ├── A1-F6-I1-R1_from_joint.vcf.gz
-│   └── A1-F6-I1-R1_from_joint.vcf.gz.tbi
-└── ...
-```
-
-#### **Manual Usage (Quick Split):**
-
-```bash
-source ~/miniforge3/etc/profile.d/conda.sh && conda activate nf-env
-cd output_all/variant_calling/haplotypecaller/joint_variant_calling
-
-# Extract and split in one command
-mkdir -p individual_samples
-bcftools query -l HaplotypeCaller_joint_calling_soft_filtered.vcf.gz | while read sample; do
-    sample_id=$(echo "$sample" | cut -d'_' -f2-)
-    bcftools view -s "$sample" --force-samples -O z \
-        -o "individual_samples/${sample_id}_from_joint.vcf.gz" \
-        HaplotypeCaller_joint_calling_soft_filtered.vcf.gz
-    bcftools index -t "individual_samples/${sample_id}_from_joint.vcf.gz"
-done
-```
-
-#### **Use Cases:**
-
-1. ✅ **Comparison Analysis**: Compare joint vs individual HaplotypeCaller results
-2. ✅ **Sample-Specific Annotation**: Tools that work better with single-sample VCFs
-3. ✅ **Data Distribution**: Share individual results without exposing all samples
-4. ✅ **Downstream Tools**: Tools expecting single-sample input
-5. ✅ **Quality Control**: Per-sample variant review
-
-#### **Performance:**
-
-- **Speed**: ~30-60 seconds for 7 samples (parallel extraction)
-- **Efficiency**: bcftools view is very fast and memory-efficient
-- **Scalability**: Linear with number of samples
-
-**Status**: ✅ **Fully Integrated** - Ready for production use
-
-#### **Usage:**
-
-**Enable in pipeline run:**
-```bash
---joint_germline --split_haplotypecaller_joint_vcf
-```
-
-**Pipeline integration** (`bam_variant_calling_germline_all/main.nf:162-170`):
-```groovy
-if (params.split_haplotypecaller_joint_vcf) {
-    joint_vcf_tbi = BAM_JOINT_CALLING_GERMLINE_GATK.out.genotype_vcf
-        .join(BAM_JOINT_CALLING_GERMLINE_GATK.out.genotype_index, failOnDuplicate: true)
-
-    // Pass both joint VCF and original cram channel for metadata
-    SPLIT_JOINT_VCF(joint_vcf_tbi, cram)
-}
-```
-- Automatically runs after HaplotypeCaller joint germline calling when `--split_haplotypecaller_joint_vcf` is enabled
-- Uses both joint VCF and `cram` channel for structured metadata
-- Outputs individual VCFs with renamed samples (patient prefix removed)
-
-**Channel-Based Metadata Flow:**
-```groovy
-// Combines joint VCF with individual sample metadata
-joint_vcf_tbi                           cram channel
-[meta_joint, vcf, tbi]     +     [meta_sample, cram, crai]
-         ↓                                    ↓
-    Join on patient ID (meta.patient)
-         ↓
-[meta_combined, vcf, tbi]
-    ↓
-meta_combined = {
-    id: "A0-F0-I1-R1",              // From cram channel
-    patient: "ALE_Exp1",            // From cram channel
-    sample: "A0-F0-I1-R1",          // From cram channel
-    ploidy: 2,                      // ✅ Preserved from cram
-    status: 0,                      // ✅ Preserved from cram
-    sex: "XX",                      // ✅ Preserved from cram
-    variantcaller: "haplotypecaller", // From joint VCF
-    bcftools_sample: "ALE_Exp1_A0-F0-I1-R1"  // Constructed for extraction
-}
-```
-
-**Output Files:**
-```
-variant_calling/haplotypecaller/individual_from_joint/
-├── A0-F0-I1-R1/
-│   ├── A0-F0-I1-R1.haplotypecaller.from_joint_calling.vcf.gz
-│   └── A0-F0-I1-R1.haplotypecaller.from_joint_calling.vcf.gz.tbi
-├── A1-F6-I1-R1/
-│   ├── A1-F6-I1-R1.haplotypecaller.from_joint_calling.vcf.gz
-│   └── A1-F6-I1-R1.haplotypecaller.from_joint_calling.vcf.gz.tbi
-└── ...
-```
-
-**Output VCF Sample Names:**
-- **Input (Joint VCF column)**: `ALE_Exp1_A0-F0-I1-R1` (patient_sample format from BAM header)
-- **Output (Individual VCF column)**: `ALE_Exp1_A0-F0-I1-R1` (keeps original name for traceability)
-- **Rationale**: Keeping full sample names makes it easier to trace variants back to joint calling and compare across different VCF files
-
-**Workflow Steps:**
-1. **Join channels**: Combine joint VCF metadata with individual sample metadata by patient ID
-2. **Extract samples**: Use `bcftools view -s` with structured metadata (compresses with `-Oz`)
-3. **Index**: Generate `.tbi` index with `tabix`
-
-**Advantages of Channel-Based Approach:**
-- ✅ **Type-safe**: No string parsing errors
-- ✅ **Metadata-rich**: Preserves ploidy, status, sex, etc.
-- ✅ **Robust**: Independent of naming conventions
-- ✅ **NextFlow idiomatic**: Follows nf-core/sarek patterns
-- ✅ **Maintainable**: Changes to naming don't break workflow
+The `SPLIT_JOINT_VCF` subworkflow extracts per-sample VCFs from the HaplotypeCaller joint
+calling output using channel-based metadata propagation (no string parsing). Enable with
+`--joint_germline --split_haplotypecaller_joint_vcf`. Output:
+`variant_calling/haplotypecaller/individual_from_joint/<sample>/<sample>.haplotypecaller.from_joint_calling.vcf.gz`
+(+ `.tbi`). Full architecture, channel flow, and manual bcftools recipe:
+[`docs/variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md`](docs/variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md).
 
 ---
-
-### ~~Basic VCF Filtering Implementation, ***deprecated***, for idea of folders involved for making nf-sarek changes~~
-
-#### Integration Point (REVISED)
-
-- **Location**: `nf-core-sarek_3.5.1/3_5_1/workflows/sarek/main.nf` around line 801
-- **Target**: Filter `vcf_to_annotate` channel (before annotation)
-- **Rationale**: More flexible during custom SnpEff/VEP database testing, will add breseq gdtools for annotation, where the output will be in .gb format
-
-#### Implementation Steps
-
-1. **Add BCFTOOLS_FILTER module** from nf-core: `nf-core modules install bcftools/filter`
-2. **Create filter configuration** at `nf-core-sarek_3.5.1/3_5_1/conf/modules/custom_mutect2_filter.config` `nf-core-sarek_3.5.1/3_5_1/subworkflows/local/vcf_filter_mutect2/bcftools/filter_somatic/main.nf`
-3. **New channel vcf_filtered** for downstream QC and annotation
-4. **Output structure**: `variant_calling_filtered/{tool}/{sample}/`
-
-#### Integration Code Location
-
-```nextflow
-// Around line 801 in main.nf, after:
-vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all) ##TODO: fix filtermutectcall, and remove this to vcf_to_annotate channel
-
-// ADD FILTERING HERE:
-include { BCFTOOLS_FILTER } from '../modules/nf-core/bcftools/filter/main'
-BCFTOOLS_FILTER(vcf_to_annotate)
-vcf_filtered = BCFTOOLS_FILTER.out.vcf
-
-```
-
-#### Filter Configuration
-
-```bash
-# Basic quality filters (no annotation dependency)
---include "QUAL>=20 && INFO/DP>=10"
-```
 
 ## Variant Analysis Dashboard System
 
-### **Concept: Research-Grade VCF Organization**
-
-Following bioinformatics community best practices for multi-sample, multi-tool variant analysis, we've developed a dashboard system that converts complex VCF structures into analysis-ready formats.
-
-### **Problem Solved**
-- **Raw VCFs**: Hard to compare across samples/tools, require specialized knowledge
-- **Standard approach**: Joint VCFs (good for population genetics, not ideal for research)
-- **Our solution**: Curated dashboards with structured tables for biological interpretation
-
-### **Dashboard Scripts in `bin/` folder**
-
-#### 1. **`bin/summarize_variants.py`** - Variant Overview Generator
-**Purpose**: Quick variant counting across samples and tools
-```python
-# Key functions:
-count_variants_in_vcf()  # Uses bcftools for accurate counting
-summarize_variants()     # Creates cross-sample comparison
-generate_file_index()    # Maps important files for manual review
-```
-**Output**: 
-- `variant_summary.csv` - Variant counts by sample/tool
-- `file_index.csv` - Key files for manual review
-**Usage**: `python bin/summarize_variants.py`
-
-#### 2. **`bin/organize_results.sh`** - Manual Review Organizer  
-**Purpose**: Creates structured directory for manual variant review
-```bash
-# Creates manual_review/ with:
-# - high_confidence_variants/ (filtered, annotated VCFs)
-# - copy_number_plots/ (CNV visualizations)  
-# - summary_reports/ (MultiQC, summaries)
-# - README.md (review workflow guide)
-```
-**Output**: `output/manual_review/` directory structure
-**Usage**: `./bin/organize_results.sh`
-
-#### 3. **`bin/quick_variant_check.sh`** - Rapid Inspection Tool
-**Purpose**: Quick overview of variant detection across all samples
-```bash
-# Functions:
-check_variants()  # Counts variants per VCF with bcftools
-# Provides impact summaries and recommendations
-```
-**Output**: Console report with variant counts and recommendations  
-**Usage**: `./bin/quick_variant_check.sh`
-
-#### 4. **`bin/create_variant_dashboard.py`** - Full Dashboard Generator
-**Purpose**: Complete bioinformatics research dashboard 
-```python
-# Advanced functions:
-extract_high_impact_variants()     # HIGH/MODERATE impact extraction
-create_tool_comparison_matrix()    # Cross-tool validation
-generate_summary_statistics()      # Research metrics
-```
-**Output**: `variant_dashboard/` with analysis tables
-**Status**: Requires bcftools, designed for clinical-grade analysis
-
-#### 5. **`bin/create_research_dashboard.py`** ⭐ **MAIN RESEARCH TOOL**
-**Purpose**: Research-focused analysis with relaxed filtering  
-```python
-# Core functions:
-extract_research_variants()    # All impact levels, research-friendly
-create_tool_comparison_matrix() # Cross-tool validation matrix
-create_gene_summary()          # Gene-level mutation burden  
-create_sample_summary()        # Sample-level statistics
-```
-
-**Key Features**:
-- **Multi-tool comparison**: FreeBayes + Mutect2 integration ready
-- **Impact prioritization**: HIGH > MODERATE > LOW > MODIFIER
-- **Gene-centric analysis**: Groups variants by affected genes
-- **Research filtering**: Balances discovery vs. precision
-- **Export ready**: CSV format for R/Python/Excel analysis
-
-**Output Files**:
-```
-research_dashboard/
-├── sample_summary.csv           # Cross-sample variant overview
-├── tool_comparison_detailed.csv # Method validation matrix
-├── genes_affected.csv           # Gene-level analysis
-├── high_priority_variants.csv   # Manual review targets  
-├── complete_variant_catalog.csv # Full research dataset
-└── RESEARCH_GUIDE.md           # Analysis workflow
-```
-
-**Proven Results**: Successfully processed 2,968 variants from full dataset:
-- 465 high-priority variants (HIGH/MODERATE impact)
-- ~490 variants per sample (consistent evolution)  
-- 375-393 genes affected per sample
-- Identified adaptation hotspots (YDR150W: 25 variants)
-
-### **Integration Strategy for NextFlow**
-
-#### **Proposed NextFlow Process: `VARIANT_DASHBOARD`**
-```nextflow
-process VARIANT_DASHBOARD {
-    tag "$meta.id"
-    label 'process_medium'
-    
-    input:
-    tuple val(meta), path(vcfs)
-    path(sample_sheet)
-    
-    output:
-    tuple val(meta), path("research_dashboard/"), emit: dashboard
-    tuple val(meta), path("*.csv"), emit: tables
-    path "versions.yml", emit: versions
-    
-    script:
-    """
-    create_research_dashboard.py \\
-        --vcf_dir . \\
-        --sample_sheet ${sample_sheet} \\
-        --output_dir research_dashboard/
-    """
-}
-```
-
-#### **Integration Points in Sarek Pipeline**
-1. **After annotation**: Use annotated VCFs as input
-2. **Before reporting**: Generate dashboard alongside MultiQC
-3. **Output structure**: Parallel to existing `annotation/` directory
-
-### **Bioinformatics Community Alignment**
-
-#### **Best Practices Applied**:
-✅ **Tool Comparison**: Multi-caller consensus for validation  
-✅ **Impact Prioritization**: Focus on functional variants
-✅ **Structured Output**: Analysis-ready CSV format
-✅ **Gene-Centric View**: Biological interpretation focus  
-✅ **Reproducible**: Documented methodology and filtering
-✅ **Scalable**: Easy addition of new samples/tools
-
-#### **Literature Alignment**:
-- **Tenaillon et al. (2012) Science**: E. coli evolution experiments
-- **Lang et al. (2013) Nature Genetics**: Yeast population analysis  
-- **Good et al. (2017) Nature**: Cross-tool variant validation
-
-### **Known Issues & Solutions**
-
-#### **Issue: Mutect2 Missing from Dashboard**
-**Observation**: FreeBayes: 492 variants, Mutect2: 0 variants detected
-**Likely Causes**:
-1. **Format differences**: Mutect2 uses different QUAL/FILTER structure  
-2. **File paths**: Different annotation directory structure
-3. **Filtering stringency**: Mutect2 more conservative by default
-
-**Solutions**:
-```python
-# Add Mutect2-specific parsing:
-def extract_mutect2_variants(vcf_path):
-    # Use TLOD instead of QUAL for Mutect2
-    # Handle different annotation structure
-    # Parse tumor-normal specific fields
-```
-
-#### **Next Development Phase**:
-1. **Fix Mutect2 integration** - Handle format differences
-2. **Add CNV integration** - Include Control-FREEC results  
-3. **Create visualizations** - Manhattan plots, heatmaps
-4. **Export integration** - Direct R/Python analysis pipelines
-
-### **Dashboard Usage Workflow**
-
-#### **For Immediate Use**:
-```bash
-# 1. Generate research dashboard
-source ~/miniforge3/etc/profile.d/conda.sh
-conda activate nf-env
-python bin/create_research_dashboard.py
-
-# 2. Review results
-open output/research_dashboard/RESEARCH_GUIDE.md
-```
-
-#### **For NextFlow Integration** (Future):
-```nextflow
-// Add to sarek/main.nf after annotation
-VARIANT_DASHBOARD(
-    annotation_vcfs,
-    samplesheet
-)
-```
-
-This dashboard system transforms raw VCF complexity into **publication-ready research data**, following community standards while maintaining ALE-specific biological focus.
-
+**Superseded.** The original `bin/` dashboard scripts (`create_research_dashboard.py`,
+`summarize_variants.py`, `organize_results.sh`, `quick_variant_check.sh`, `create_variant_dashboard.py`)
+were removed in WP2. Their role — cross-sample / multi-tool variant tables, cohort matrices, and gene /
+tool-comparison views — is now delivered by the **`MUTATION_REPORT` subworkflow + `GENERATE_INDEX`**
+(igv-reports HTML dashboard backed by `cn_cohort_matrix.csv` / `sv_cohort_matrix_*.csv` /
+`cn_segments_*.csv`). See [`docs/igvreports/`](docs/igvreports/) and
+[`subworkflows/local/mutation_report/`](subworkflows/local/mutation_report/main.nf). The original design
+writeup (kept for future mutation-report work) is archived at
+[`docs/archive/variant_dashboard_system.md`](docs/archive/variant_dashboard_system.md).
 
 ## Pipeline Merger Decision - Reminder
 ### Two Pipeline Architectures
