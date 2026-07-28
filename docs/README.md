@@ -196,6 +196,8 @@ mutation_reports/
 
 | Doc | What it covers |
 |---|---|
+| [`dev-practices/release_process.md`](dev-practices/release_process.md) | **SOP for cutting a release** — checklist, tag → container-image flow, verification, and the CI/registry gotchas |
+| [`dev-practices/check_docs.py`](dev-practices/check_docs.py) | Doc consistency checker (broken markdown links + stale backticked repo paths); used by the release checklist |
 | [`dev-practices/SAREK_MODIFICATIONS.md`](dev-practices/SAREK_MODIFICATIONS.md) | Full inventory of fork changes vs pristine sarek 3.5.1 |
 | [`dev-practices/ale_sarek_upgrade_runbook.md`](dev-practices/ale_sarek_upgrade_runbook.md) | How to rebase onto a newer sarek; the Nextflow 26.x blocker inventory |
 | [`dev-practices/testing_best_practices.md`](dev-practices/testing_best_practices.md) | nf-test strategy, what is (and isn't) tested here, coverage targets |
