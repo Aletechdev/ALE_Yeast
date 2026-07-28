@@ -4,6 +4,44 @@ How the pipeline is fitted to a machine — the dev VM, another VM, or Seqera cl
 authoritative reference for the resource config; older docs may still mention the pre-relocation
 `bin/nextflow.config` path.
 
+## The three run contexts — at a glance
+
+The pipeline is configured for three execution contexts. **They are not in the same state of
+validation** — read the Status row before relying on any of them.
+
+| | **Local** | **Cloud** (Seqera / Azure Batch) | **nf-test** |
+|---|---|---|---|
+| **Launch** | `bin/test_ottilie.sh`, or `nextflow -c <machine>.config run main.nf -profile …,docker` | Seqera launch form (repo + revision + params) | `nf-test test -c tests/nf-test-ottilie.config` |
+| **Resources** | `conf/azured4as.config` (`-profile azureD4as`, dev VM only) **or** `conf/mymachine.config` copied per machine | `conf/base.config` (E4ds_v5, clamp **28 GB**) + the Seqera **compute environment** | `tests/ottilie_nftest_resources.config` (clamp **14 GB**, via nf-test `configFile`) |
+| **Executor pool** | dev VM: yes (4 cpu / 14 GB). Template: none — host auto-detect | Azure Batch owns it (no local `executor`) | none — host auto-detect |
+| **Per-task tuning** | dev VM only | `base.config` labels | none — `base.config` labels, then clamped |
+| **Engine / extras** | `-profile docker` | `-profile docker` + optionally paste `conf/seqera_azure.config` (sets `custom_config_base = null`, docker UID/GID) | `-profile ottilie_test,docker` |
+| **Nextflow pin** | ✅ `NXF_VER=25.10.4` in both launch scripts | ❌ **none** — see gap 2 | ❌ none — uses the shell's engine |
+| **Status** | ✅ **validated** — ottilie e2e green | ⚠️ **configured, never executed on cloud** | ✅ **validated** — green, determinism proven |
+
+### Cloud gaps to close before trusting a Seqera run
+
+Cloud validation is deliberately **post-v1.0.0**; the docs claim only the proven local path. Three
+concrete gaps:
+
+1. **Never actually run on Seqera.** The blob-hosted test data is published and *local-download*
+   verified, but remote staging of the two **directory** params (`snpeff_cache`, `chr_dir`) is
+   unproven — that is the fiddly part, and the reason a cache-only tarball was published alongside
+   the live directory tree.
+2. **No Nextflow version pin reaches the cloud.** Seqera sets the engine version at the **compute
+   environment** level, so `export NXF_VER=` in a launch script does not apply. The manifest guard
+   `nextflowVersion = '!>=24.04.2, <26.0.0'` is only a **secondary** net and does **not** fire on
+   26.x: the strict-config parse error happens *before* Nextflow reads the manifest, so you get
+   `Cannot read project manifest -- Config parsing failed` rather than a clean version message.
+   ⇒ **Run on a Seqera 25.3.x compute environment** (→ Nextflow 25.10.2). Pinning the CE explicitly
+   is a tracked post-1.0.0 item. Blocker inventory: [`ale_sarek_upgrade_runbook.md`](ale_sarek_upgrade_runbook.md).
+3. **Container registry credential.** `ale-reports` on Docker Hub is public (anonymous pull works),
+   but the **ghcr mirror is private** — if you pin ghcr, register a read-only container-registry
+   credential in the Seqera workspace. See
+   [`generate_index_container.md`](../generate_mutation_report/generate_index_container.md).
+
+Full cloud walkthrough: [`seqera_cloud_deployment_checklist.md`](../seqera_cloud/seqera_cloud_deployment_checklist.md).
+
 ## The model: two layers (+ one optional)
 
 Fitting a run to a machine uses two independent mechanisms — **you need both**:
@@ -161,6 +199,9 @@ process {
 
 ## Seqera cloud — why it's different (and more involved)
 
+> ⚠️ Read **"Cloud gaps to close before trusting a Seqera run"** at the top of this page first — this
+> path is configured but has **not** been executed on cloud yet.
+
 On cloud you **do not** use `azureD4as` (its `executor='local'` would pin everything to the head
 node). Resources come from **`base.config` + the Seqera compute environment**:
 
@@ -198,10 +239,24 @@ only the **clamp** applies:
   auto-detects the host's CPUs/RAM). For the 2-sample ottilie run that's plenty; the clamp is what
   guarantees every task stays schedulable.
 
-Why a separate clamp-only file instead of reusing `azureD4as`? Its `executor='local'` pool is
-full-run machinery the test doesn't want, and a **params-bearing `-c` would clobber** the
-`ottilie_test` profile's input/tools (`-c` outranks profiles — verified during nf-test wiring). A
-`resourceLimits`-only config caps resources without touching params.
+Why a separate clamp-only file instead of reusing `azureD4as`? nf-test injects its `configFile` as a
+**`-c`**, and `-c` outranks profiles. The default `nf-test.config` points `configFile` at
+`conf/test.config`, which carries upstream sarek's params (`input`, `genome`, `tools='strelka'`) and
+would clobber the `ottilie_test` profile. The fix was a **params-free** `configFile` — and once it is
+params-free it can only carry `resourceLimits`, not an `executor` pool. (`azureD4as` also brings
+full-run machinery the test doesn't want.) This is the precedent that **Option A** above — the
+`conf/mymachine.config` template — generalises.
+
+**Two consequences worth knowing:**
+
+- ⚠️ **The test suite never exercises `conf/azured4as.config`.** A regression in that profile — the
+  one `bin/test_ottilie.sh` and every dev-VM run depends on — would **not** be caught by `nf-test`.
+  Coverage gap, not a bug; validate profile edits with an actual `bin/test_ottilie.sh` run.
+- Because `base.config`'s per-label requests apply un-trimmed, a `process_medium` task asks for
+  16 GB and is clamped to 14 GB under nf-test, versus 4 GB under `azureD4as` — so fewer tasks pack
+  in concurrently. Correct either way; just less dense.
+- Minor drift: the test clamp allows `time: '24.h'` while `azureD4as` allows `'72.h'`. Unintentional
+  rather than a decision — harmless for the 2-sample run, but align them if a test ever times out.
 
 **Porting a test run to another machine:** same idea as porting a VM profile, but edit the two numbers
 in `tests/ottilie_nftest_resources.config` (the [porting table](#porting-to-another-machine) applies
