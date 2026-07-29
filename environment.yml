@@ -1,0 +1,39 @@
+# Conda environment for running yAMP.
+#
+#   conda env create -f environment.yml
+#   conda activate nf-env
+#
+# The pipeline itself needs only TWO things: Nextflow (here) and Docker (installed at the
+# system level — see docs/usage/new_machine_setup.md). Every bioinformatics tool the pipeline
+# runs (GATK, BWA, CNVKit, Manta, TIDDIT, SnpEff, SURVIVOR, bcftools, …) is pulled as a
+# container at runtime, so none of them belong in this file.
+#
+# ⚠️ Do NOT `conda install nextflow` unpinned — that resolves to the latest release (26.x),
+# which CANNOT parse this pipeline's nextflow.config (strict config DSL). See
+# docs/dev-practices/ale_sarek_upgrade_runbook.md § "Known Blocker: Nextflow 26.x".
+#
+# Note the launch scripts also `export NXF_VER=25.10.4`. That overrides whatever is installed
+# here and makes Nextflow self-fetch that exact engine on first run (so the first launch needs
+# network access). 25.10.2 below is a compatible bootstrap from the same validated line.
+name: nf-env
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.13
+  - openjdk=17          # Nextflow runtime; 17 is what the validated setup uses
+  - nextflow=25.10.2
+  - nf-test=0.9.3       # runs the ALE contract test — used to verify a fresh install
+
+# ---------------------------------------------------------------------------------------
+# OPTIONAL — not needed to run or verify the pipeline.
+#
+# Pipeline development (schema linting, module management):
+#     conda install -n nf-env -c bioconda nf-core=3.5.1
+#
+# Ad-hoc inspection of pipeline outputs by hand (VCF poking, coverage plots, prototyping).
+# These duplicate what the containers already provide; install only if you are doing manual
+# analysis on this machine:
+#     conda install -n nf-env -c conda-forge -c bioconda \
+#         bcftools samtools bwa seqtk survivor matplotlib r-base ipykernel
+# ---------------------------------------------------------------------------------------

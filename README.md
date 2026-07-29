@@ -16,11 +16,19 @@ custom cache, and an integrated igv-reports mutation dashboard.
 ## Requirements
 
 - **Linux x86_64.** Apple Silicon (ARM) is **not supported** — GATK/MultiQC tasks stall or fail.
-  Development and validation run on an Azure D4as_v5 VM.
-- **Nextflow 25.10.x** — [install via conda](https://www.nextflow.io/docs/latest/install.html#conda).
-  The launch scripts pin `NXF_VER=25.10.4`; Nextflow 26.x cannot parse this config (see
-  [`docs/dev-practices/ale_sarek_upgrade_runbook.md`](docs/dev-practices/ale_sarek_upgrade_runbook.md)).
+  Development and validation run on an Azure D4as_v5 VM (4 vCPU / 16 GB).
 - **Docker** — [install](https://docs.docker.com/engine/install/).
+- **Nextflow 25.10.x**, plus the pipeline's dev toolchain. ⚠️ **Do not `conda install nextflow`
+  unpinned** — that installs the latest release (26.x), which **cannot parse this config**. Use:
+  ```bash
+  conda env create -f environment.yml && conda activate nf-env
+  ```
+  The launch scripts then `export NXF_VER=25.10.4`, which makes Nextflow self-fetch that exact
+  engine on first run (so the first launch needs network access). Why 26.x is blocked:
+  [`ale_sarek_upgrade_runbook.md`](docs/dev-practices/ale_sarek_upgrade_runbook.md).
+- **Disk** — ~10 GB for the test run (≈400 MB test data + ~8 GB work dir + ~200 MB output).
+
+Setting up a machine from scratch: [`docs/usage/new_machine_setup.md`](docs/usage/new_machine_setup.md).
 
 ## Quick start
 
@@ -186,7 +194,20 @@ DeepVariant, Strelka. Enable via `--tools`; see
 └── pipeline_info/            # execution report, timeline, trace, software versions
 ```
 
-Output layout and how to read the dashboard: [`docs/README.md#output`](docs/README.md#output).
+The **mutation report bundle** is the ALE-specific deliverable — start at its `index.html`:
+
+```
+mutation_reports/
+├── index.html               # entry point — links everything below
+├── cohort_report.html       # cross-sample igv-report
+├── samples/                 # <sample>_{hc,cnvkit,manta,tiddit}_report.html
+├── data/                    # cn_cohort_{full,collapsed}.csv, sv_cohort_matrix_union{,_pass}.csv,
+│                            # cn_matrices/, sv_merged/, *.tiddit.pass_stats.tsv
+└── vcf/                     # curated per-caller VCFs (see vcf/README.md in the bundle)
+```
+
+How the reports are built and how to read them:
+[`docs/README.md#output--reporting`](docs/README.md#output--reporting).
 
 ## Testing
 

@@ -40,17 +40,20 @@ brand stays clean while the repo keeps its existing name. Both may be reconciled
 
 ## Environment Setup
 
-### Azure Linux VM (Production)
-- **Profile**: `AzureD4as,docker`
-- **VM Size**: D4as
-- **Conda Environment**: `conda activate /home/azureuser/miniforge3/envs/nf-env`
-- **Recommended**: Use original configuration for production deployment
+User-facing install/run instructions live in [`README.md`](README.md); a bare-machine walkthrough is
+[`docs/usage/new_machine_setup.md`](docs/usage/new_machine_setup.md). Only the facts a contributor
+needs in-session are repeated here.
 
-### ~~Apple Silicon (unsupported — will fail)~~
-- **Status**: **Not supported.** Running this pipeline (Sarek 3.5.1 base) locally on an Apple Silicon
-  (ARM) Mac **will fail** — do not use for real runs. Use the Azure Linux VM (`-profile azureD4as,docker`).
-- **Profile**: `arm,docker` (retained for reference only)
-- **Why it fails**: tools stall/hang under ARM (e.g. MultiQC, Mutect2) + filesystem-optimization problems.
+- **Toolchain**: `conda activate nf-env` (spec: [`environment.yml`](environment.yml) — nextflow 25.10.2,
+  nf-test 0.9.3, nf-core 3.5.1, openjdk 17, python 3.13). Use `python`, **not** `python3`.
+- **Nextflow version**: run on **25.10.x**. The launchers `export NXF_VER=25.10.4`, which overrides
+  whatever conda installed and self-fetches that engine. **26.x cannot parse `nextflow.config`** —
+  see [`ale_sarek_upgrade_runbook.md`](docs/dev-practices/ale_sarek_upgrade_runbook.md).
+- **Resources**: `-profile azureD4as` is **on dev VM only** (4 vCPU / 16 GB). On any other machine
+  copy [`conf/mymachine.config`](conf/mymachine.config) and pass it with `-c` — never reuse
+  `azureD4as`. Model + precedence rules: [`compute_resources.md`](docs/dev-practices/compute_resources.md).
+- **Apple Silicon is NOT supported** — tools stall/hang under ARM (MultiQC, Mutect2) plus
+  filesystem-optimization problems. The `arm,docker` profile is retained for reference only.
 
 ---
 
@@ -77,28 +80,19 @@ brand stays clean while the repo keeps its existing name. Both may be reconciled
 
 ### Sample Table Format
 
-Adapted from nf-sarek (originally for human cancer research). Full column reference + conventions +
-non-Tier-1 notes: [`docs/usage/input_samplesheet.md`](docs/usage/input_samplesheet.md).
-- **experiment**: Experiment ID (maps to "patient" in Sarek)
-- **status**: 0 = ancestral strain (normal), 1 = evolved strain (tumor), update: treat all samples as normal, to run haplotypecaller `--joint_germline`
-- **ploidy**: Custom column for ploidy support
-- **Requirement**: Each experiment **must have one normal sample** (status: 0)
+Canonical column reference, conventions, and non-Tier-1 notes:
+[`docs/usage/input_samplesheet.md`](docs/usage/input_samplesheet.md). A worked example is in
+[`README.md`](README.md). The **ALE-specific invariants** worth knowing without opening either:
 
-**Example:**
-```csv
-experiment,sample,status,clonal_or_population,ploidy,lane,fastq_1,fastq_2
-ALE_Exp1,A4-F5-I1-R1,0,clonal,2,L001,SubSampleA4-5_S11_L001_R1_001.fastq.gz,SubSampleA4-5_S11_L001_R2_001.fastq.gz
-ALE_Exp1,A4-F5-I1-R1,0,clonal,2,L003,SubSampleA4-5_S11_L003_R1_001.fastq.gz,SubSampleA4-5_S11_L003_R2_001.fastq.gz
-ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L001,SubSampleCENPK113-7D-N_S53_L001_R1_001.fastq.gz,SubSampleCENPK113-7D-N_S53_L001_R2_001.fastq.gz
-ALE_Exp1,A0-F0-I1-R1,0,clonal,2,L002,SubSampleCENPK113-7D-N_S53_L002_R1_001.fastq.gz,SubSampleCENPK113-7D-N_S53_L002_R2_001.fastq.gz
-```
-
-**⚠️ TODOs:**
-- Auto-fill the `sex` column (`XX`) — **Control-FREEC / Tier-2 only** (the Tier-1 tools ignore `sex`;
-  it's only validated when `--tools` includes `controlfreec`/`ascat`). See [`docs/usage/input_samplesheet.md`](docs/usage/input_samplesheet.md).
-
-(Tumor-only mode is **not** used — all samples run as normal/germline; it's a deferred upstream-Sarek
-fork idea, see [`docs/archive/sarek_fork_ideas.md`](docs/archive/sarek_fork_ideas.md).)
+- **All samples are normal (`status = 0`)** — that is what puts HaplotypeCaller in joint-germline
+  mode. Tumor/`1` is unused; tumor-only mode is a deferred fork idea
+  ([`docs/archive/sarek_fork_ideas.md`](docs/archive/sarek_fork_ideas.md)).
+- **`experiment`** maps to Sarek's `patient` and groups samples for joint calling.
+- **`ploidy`** and **`clonal_or_population`** are ALE additions — ploidy feeds
+  `--sample-ploidy`/FreeBayes/TIDDIT/Control-FREEC; clonal-vs-population drives the joint HC
+  hard-filter AF thresholds.
+- **`sex`** is inert on a Tier-1 run — only Control-FREEC/ASCAT read it. Not auto-filled (open
+  convenience item, Tier-2 only).
 
 ---
 
