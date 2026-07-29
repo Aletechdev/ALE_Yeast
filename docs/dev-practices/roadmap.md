@@ -65,6 +65,29 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 
 ## Robustness / infrastructure
 
+- **[med] `generate_mutation_report.nf` CRAM suffixes are wrong for 2 of 3 preprocessing layouts.**
+  The standalone launcher rebuilds channels by *discovering published files*, so it hard-codes the
+  publish directory and filename suffix. Only the branch ALE actually uses is correct:
+
+  | `cram_subdir` | Sarek publishes | launcher expects | |
+  |---|---|---|---|
+  | `mapped` | `<id>.sorted.cram` (`BAM_TO_CRAM_MAPPING`, `conf/modules/markduplicates.config`) | `.cram` | ❌ |
+  | `markduplicates` | `<id>.md.cram` | `.md.cram` | ✅ (the ALE path) |
+  | `recalibrated` | `<id>.recal.cram` (`conf/modules/recalibrate.config`) | `.cram` | ❌ |
+
+  Harmless today — every ALE run sets `skip_tools = 'baserecalibrator'` (mandatory: no known-sites
+  VCFs for the custom genome), so only the middle branch is reachable. It becomes a **silent**
+  failure the moment BQSR is enabled or markduplicates skipped: the glob matches nothing, so IGV
+  alignment tracks vanish from the reports with no error. Fix the `cram_suffix` map alongside any
+  work that enables BQSR. **The inline path (`workflows/sarek/main.nf`) is unaffected** — it passes
+  `cram_variant_calling`, which Sarek points at the right CRAMs for any preprocessing configuration
+  (`workflows/sarek/main.nf` ~L586-644). Warning comment is in the launcher at the branch itself.
+- **[low] `generate_mutation_report.nf` has no automated test coverage.** `tests/ottilie_e2e.nf.test`
+  runs `main.nf` (the inline, channel-based path); nothing under `tests/` exercises the standalone
+  launcher. Its *whole* risk surface is filesystem-layout assumptions — the CRAM suffixes above plus
+  the annotated-vs-raw VCF suffix map (`sfx`) — which is exactly the class of bug an e2e on the
+  inline path cannot catch. Belongs with the per-module test work in the test-coverage target
+  ([`testing_best_practices.md`](testing_best_practices.md) §11).
 - **[med] Better exception handling in `samplesheet_to_channel`.** The bare
   `input_sample.filter{…}.ifEmpty{ error(…) }` at
   `subworkflows/local/samplesheet_to_channel/main.nf:146-166` surfaces a misleading "sample-sheet only

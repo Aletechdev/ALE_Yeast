@@ -11,9 +11,17 @@
  * The inline one-shot path is workflows/sarek/main.nf (--generate_reports); use THIS launcher
  * only to re-run reports against an already-populated outdir.
  *
+ * ⚠️ MAINTENANCE WARNING — this file encodes FILESYSTEM LAYOUT ASSUMPTIONS (publish directory
+ * and filename suffixes). The inline path does not: it consumes `cram_variant_calling` and the
+ * caller output channels directly, so it stays correct whatever preprocessing ran. Anything
+ * here that guesses a path can rot silently when the pipeline configuration changes — a wrong
+ * guess yields an EMPTY glob, i.e. missing tracks in the report, not an error. See the
+ * cram_subdir/cram_suffix note below and the VCF suffix map (`sfx`). This launcher has NO
+ * automated test coverage (tests/ottilie_e2e.nf.test exercises main.nf, not this file).
+ *
  * Usage:
  *   nextflow run generate_mutation_report.nf \
- *       -c bin/nextflow.config -profile azureD4as,docker \
+ *       -profile azureD4as,docker \
  *       --outdir output_ottilie_test \
  *       --input data/ottilie/samplesheet_pilot.csv \
  *       --fasta data/ottilie/S288C_reference/S288C_R64.fa \
@@ -44,7 +52,24 @@ workflow {
     def outdir   = params.outdir
     def vcf_root = has_annotation ? "${outdir}/annotation" : "${outdir}/variant_calling"
 
-    // CRAM subdir depends on which preprocessing steps ran
+    // CRAM subdir depends on which preprocessing steps ran.
+    //
+    // ⚠️ ONLY the 'markduplicates' branch is exercised. Every ALE run sets
+    // `skip_tools = 'baserecalibrator'` (mandatory — the custom genome has no known-sites VCFs,
+    // and dropping it aborts the run), so that branch is always taken. The other two are
+    // effectively dead here AND their suffixes are WRONG against what Sarek actually publishes:
+    //
+    //   subdir           published filename        cram_suffix below   ok?
+    //   mapped           <id>.sorted.cram          .cram               NO  (BAM_TO_CRAM_MAPPING,
+    //                                                                       conf/modules/markduplicates.config)
+    //   markduplicates   <id>.md.cram              .md.cram            yes
+    //   recalibrated     <id>.recal.cram           .cram               NO  (conf/modules/recalibrate.config)
+    //
+    // So enabling BQSR, or skipping markduplicates, would make the CRAM glob match nothing and
+    // silently drop IGV alignment tracks from the reports. Fix the suffix map before relying on
+    // either branch. The INLINE path (workflows/sarek/main.nf) is unaffected — it takes
+    // `cram_variant_calling`, which Sarek already points at the right CRAMs for any
+    // preprocessing configuration. Tracked in docs/dev-practices/roadmap.md.
     def cram_subdir
     if (skip_list.contains('markduplicates')) {
         cram_subdir = 'mapped'
