@@ -44,10 +44,12 @@ User-facing install/run instructions live in [`README.md`](README.md); a bare-ma
 [`docs/usage/new_machine_setup.md`](docs/usage/new_machine_setup.md). Only the facts a contributor
 needs in-session are repeated here.
 
-- **Toolchain**: `conda activate nf-env` (spec: [`environment.yml`](environment.yml) — nextflow 25.10.2,
+- **Toolchain**: `conda activate nf-env` (spec: [`environment.yml`](environment.yml) — nextflow 25.10.4,
   nf-test 0.9.3, nf-core 3.5.1, openjdk 17, python 3.13). Use `python`, **not** `python3`.
-- **Nextflow version**: run on **25.10.x**. The launchers `export NXF_VER=25.10.4`, which overrides
-  whatever conda installed and self-fetches that engine. **26.x cannot parse `nextflow.config`** —
+- **Nextflow version**: run on **25.10.4** — `environment.yml` and the launchers' `NXF_VER` are
+  deliberately the same version, so an unpinned shell inside `nf-env` runs the engine everything else
+  assumes. Keep them in sync. `NXF_VER` still wins wherever it is set (it self-fetches that engine
+  regardless of what conda installed). **26.x cannot parse `nextflow.config`** —
   see [`ale_sarek_upgrade_runbook.md`](docs/dev-practices/ale_sarek_upgrade_runbook.md).
 - **Resources**: `-profile azureD4as` is **on dev VM only** (4 vCPU / 16 GB). On any other machine
   copy [`conf/mymachine.config`](conf/mymachine.config) and pass it with `-c` — never reuse

@@ -14,7 +14,11 @@
 #
 # Note the launch scripts also `export NXF_VER=25.10.4`. That overrides whatever is installed
 # here and makes Nextflow self-fetch that exact engine on first run (so the first launch needs
-# network access). 25.10.2 below is a compatible bootstrap from the same validated line.
+# network access). The pin below is deliberately the SAME version, so a shell where NXF_VER is
+# unset runs the same engine as everything else — the launchers, the documented nf-test command,
+# and the `meta` block recorded in tests/ottilie_e2e.nf.test.snap. Keep the two in sync when
+# either moves. (Was 25.10.2 until 2026-07-30; harmless — output is stable across 25.10.x — but
+# it left the unpinned fallback on a version nothing else in the repo named.)
 name: nf-env
 channels:
   - conda-forge
@@ -22,7 +26,7 @@ channels:
 dependencies:
   - python=3.13
   - openjdk=17          # Nextflow runtime; 17 is what the validated setup uses
-  - nextflow=25.10.2
+  - nextflow=25.10.4    # keep equal to NXF_VER in the launch scripts (see note above)
   - nf-test=0.9.3       # runs the ALE contract test — used to verify a fresh install
 
 # ---------------------------------------------------------------------------------------

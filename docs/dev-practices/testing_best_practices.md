@@ -194,6 +194,12 @@ the v1.0.0 `manifest.name` change moved exactly one line (`versions.yml`: `nf-co
 Re-recording under a different Nextflow or nf-test bakes that into the committed expectation. Use the
 same `NXF_VER=25.10.4` prefix as every other invocation ([`../usage/new_machine_setup.md`](../usage/new_machine_setup.md) § 7).
 
+> `meta` is **provenance, not an assertion** — nf-test does not compare it, so running on a different
+> engine than the one recorded does not by itself fail the test. Verified 2026-07-30: the suite passes
+> on Nextflow 25.10.2 against this snapshot recorded on 25.10.4, so output is stable across the
+> 25.10.x patch line. Don't "fix" a version mismatch here by re-recording — that discards the real
+> expectation to sync a field nothing checks.
+
 **Other flags worth knowing:**
 
 - `--ci` — fails instead of auto-storing when a snapshot is *missing*. Use in CI so a deleted or

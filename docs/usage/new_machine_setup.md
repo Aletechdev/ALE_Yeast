@@ -6,10 +6,12 @@ Bare Linux VM → a verified pipeline run. Follow it top to bottom.
 (GATK, BWA, CNVKit, Manta, TIDDIT, SnpEff, SURVIVOR, …) is pulled as a container at runtime, so
 nothing else has to be installed.
 
-> **This document is validated by being followed.** It was written on a machine that already
-> worked, so some steps are marked **[unverified]** — plausible but not yet confirmed on a genuinely
-> fresh box. If a step is wrong, fix it here in the same session; that is the only test this guide
-> gets. See [Reporting deviations](#reporting-deviations).
+> **This document is validated by being followed.** Written on a machine that already worked, then
+> walked end-to-end on a second VM (8 vCPU / 15 GB, 2026-07-30) — every gap that run exposed is fixed
+> below, and no **[unverified]** claims remain. If a step is wrong, fix it here in the same session;
+> that is the only test this guide gets. Mark anything you *infer* rather than observe with
+> **[unverified]** so the next person knows where to look. See
+> [Reporting deviations](#reporting-deviations).
 
 ---
 
@@ -59,7 +61,8 @@ conda env create -f environment.yml
 conda activate nf-env
 ```
 
-This installs Nextflow **25.10.2**, Java 17, and `nf-test` (used to verify the install in step 7).
+This installs Nextflow **25.10.4**, Java 17, and `nf-test` (used to verify the install in step 7).
+That is the same version the launch scripts pin via `NXF_VER`, on purpose — see below.
 
 > In this environment use `python`, not `python3` — the env's interpreter is at the conda prefix.
 
@@ -248,9 +251,11 @@ The failure mode is misleading if you don't: the test reports a **missing output
 > **local-machine safeguard** for the common case where a system Nextflow — often 26.x — is already
 > on PATH and `nf-env` was never created. Redundant if you followed step 2; harmless either way.
 
-**[unverified]** The nf-test path uses its own clamp (`tests/ottilie_nftest_resources.config`, set
-to 4 cpu / 14 GB) and **ignores** your `conf/<hostname>.config`. On a machine smaller than the dev
-VM you may need to lower those numbers too — see
+The nf-test path uses its own clamp (`tests/ottilie_nftest_resources.config`, set to 4 cpu / 14 GB)
+and **ignores** your `conf/<hostname>.config` — deliberately, so the contract test gives the same
+answer on every machine instead of varying with the host. Confirmed 2026-07-30 on a second VM
+(8 vCPU / 15 GB): the test passed with no `-c conf/<hostname>.config` and no edits. On a machine
+*smaller* than the dev VM you may still need to lower those numbers — see
 [`compute_resources.md`](../dev-practices/compute_resources.md) § "nf-test resources".
 
 ---
@@ -281,6 +286,10 @@ FASTA and a SnpEff cache — build both from a GenBank file with
 ## Reporting deviations
 
 If a step here didn't match reality, **fix this file** rather than working around it. Note which
-step, what actually happened, and on what OS/VM size. The **[unverified]** markers above are the
-places most likely to be wrong — they were inferred from a machine that was already configured, not
-observed on a fresh one.
+step, what actually happened, and on what OS/VM size.
+
+There are currently no **[unverified]** markers — the guide has been walked end-to-end on two
+machines. Add the marker back to any claim you write from inference rather than observation; it is
+how the next person knows which parts have actually been exercised. Least-tested areas today: disk
+sizing (the ~10 GB figure in step 0 excludes the Docker image cache) and machines materially smaller
+than 4 vCPU / 16 GB.
