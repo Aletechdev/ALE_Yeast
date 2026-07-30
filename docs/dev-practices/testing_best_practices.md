@@ -151,6 +151,62 @@ Three categories of `*.nf.test` files exist in the repo; only the first is ours 
 | **Upstream pipeline-level** | `tests/*.nf.test` (inherited) | whole-pipeline scenarios on human test data | triaged out — see the next section |
 | **Upstream component-level** | `modules/nf-core/*/tests/`, `subworkflows/*/tests/` | one module/subworkflow in isolation | **leave untouched** — co-located with upstream code; deleting them creates a rebase patch per upgrade, and they don't fail from our fork changes |
 
+### Updating the snapshot after an intentional pipeline change
+
+`tests/ottilie_e2e.nf.test.snap` (~790 lines of JSON) is the recorded expectation for the e2e run:
+the published file tree (`stable_name`), content hashes for the files not excluded by
+`tests/.nftignore` (`stable_path`), and the joint-VCF `variantsMD5`. Any change to pipeline output —
+a new published file, a renamed directory, different variant records — makes the test fail by design.
+
+**First, decide which kind of failure it is.** The snapshot cannot tell you; only you can:
+
+| The diff shows | Meaning |
+|---|---|
+| Exactly the files/values your change should have touched | Intentional → re-record |
+| Anything else moving too | **Stop.** A regression, or non-determinism the `.nftignore` doesn't cover |
+
+Re-recording is the *last* step, never the first response to a red test.
+
+```bash
+# 1. See what moved (run normally; do NOT pass --update-snapshot yet)
+NXF_VER=25.10.4 nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test
+
+# 2. Only once every difference is explained, re-record
+NXF_VER=25.10.4 nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test \
+    --update-snapshot
+
+# 3. Review the diff as source code, then commit test + snapshot together
+git diff tests/ottilie_e2e.nf.test.snap
+```
+
+`--update-snapshot` re-records **every** snapshot that fails in that run, so a genuine regression
+sitting alongside your intended change is silently blessed. Reviewing `git diff` on the `.snap` is the
+only thing standing between you and a permanently wrong expectation. A worked example of a good diff:
+the v1.0.0 `manifest.name` change moved exactly one line (`versions.yml`: `nf-core/sarek: v3.5.1` →
+`Aletechdev/AMP: v1.0.0`) — see the status note in [`../../CLAUDE.md`](../../CLAUDE.md).
+
+**Keep the engine pinned when re-recording.** The snapshot stores the toolchain that produced it:
+
+```json
+"meta": { "nf-test": "0.9.3", "nextflow": "25.10.4" }
+```
+
+Re-recording under a different Nextflow or nf-test bakes that into the committed expectation. Use the
+same `NXF_VER=25.10.4` prefix as every other invocation ([`../usage/new_machine_setup.md`](../usage/new_machine_setup.md) § 7).
+
+**Other flags worth knowing:**
+
+- `--ci` — fails instead of auto-storing when a snapshot is *missing*. Use in CI so a deleted or
+  absent snapshot can never silently pass as a freshly recorded one.
+- `--wipe-snapshot` — drops obsolete entries (after renaming or deleting a test case).
+
+> Output that changes run-to-run belongs in `tests/.nftignore`, not in a re-recorded snapshot. The
+> file already excludes timestamped/non-deterministic artifacts (igv-reports HTML with its
+> non-deterministic `sessionDictionary`, SnpEff summaries carrying a date stamp, samtools stats
+> embedding the CRAM path). If a re-record keeps producing a fresh diff on an unchanged pipeline, the
+> fix is an `.nftignore` pattern — each one there was verified with a controlled probe, per the
+> comments in that file.
+
 ### Why our component tests live in `tests/`, not co-located
 
 nf-core convention puts a component test next to its component

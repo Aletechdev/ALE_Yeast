@@ -113,6 +113,28 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   then the rest of the process layer, then subworkflow, then ploidy 1/2/3 pipeline scenarios (these want
   the CI item below to land first). Also decide the fixtures convention (committed-small vs. Azure Blob)
   before `tests/fixtures/` grows.
+- **[low] 12 "Dependency … not found" warnings on every nf-test run.** Five vendored nf-core module
+  test files declare `setup {}` blocks that run a *sibling* module to manufacture their input, and
+  none of those siblings is installed:
+
+  | Warning source (× test cases) | Missing sibling |
+  |---|---|
+  | `spring/decompress` (×4) | `spring/compress` |
+  | `sentieon/bwamem` (×5) | `sentieon/bwaindex` |
+  | `sentieon/haplotyper` | `sentieon/qualcal` |
+  | `fgbio/callmolecularconsensusreads` | `fgbio/sortbam` |
+  | `ngscheckmate/ncm` | `bedtools/makewindows` |
+
+  **Inherited, not fork damage** — all five siblings are equally absent from upstream nf-core/sarek
+  3.5.1 (verified 2026-07-30 against the `sarek-compare` worktree). `nf-core modules install` vendors
+  a module's `main.nf` *and* its test file but resolves only runtime deps, not test-only ones; sarek
+  needs the module and never the sibling. Cosmetic: the warnings come from nf-test's dependency-graph
+  pass over all 93 `modules/**/*.nf.test`, which runs regardless of `testsDir "tests"`, and none of
+  those tests execute. Fix options all have costs — installing the siblings adds five unused modules;
+  deleting the vendored `tests/` dirs breaks the deliberate 0-diff-vs-upstream stance that keeps
+  re-forks cheap. **Recommend leaving it** unless the noise starts masking real warnings; revisit at
+  the next sarek rebase, when upstream may have resolved it. Documented as expected in
+  [`../usage/new_machine_setup.md`](../usage/new_machine_setup.md) § Troubleshooting.
 - **[low, post-1.0.0] Adopt incremental nf-test (`--changed-since`) in CI.** The `triggers` change-detection
   deps are already declared on `tests/nf-test-ottilie.config` (2026-07-24), so the ottilie suite re-runs
   when `nextflow.config` / `conf/test/ottilie_test.config` / `tests/.nftignore` / the ottilie configs change.
