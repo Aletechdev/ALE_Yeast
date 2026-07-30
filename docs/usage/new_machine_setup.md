@@ -30,23 +30,41 @@ The container images dominate, and they land somewhere different from everything
 
 | What | Size | Where it lands |
 |---|---|---|
-| **Container images** | **~20 GB [unverified]** | `/var/lib/docker` — *not* your repo |
+| **Container images** | **~16 GB** (26 images) | `/var/lib/docker` — *not* your repo |
 | Work dir (`work/`) | ~8 GB | launch directory, or wherever `-w` points |
 | Test data | ~400 MB | `data/ottilie/` |
 | Output | ~200 MB | `--outdir` |
 
 Every tool the pipeline runs is a container, so a first run pulls the lot. Later runs reuse them and
-cost only work + output.
+cost only work + output. The rows sum to ~25 GB; **~30 GB** is the recommendation because a pull
+needs transient room to download and unpack on top of the final size.
 
-**[unverified]** The ~20 GB is a **loose upper bound**, not a measured pipeline footprint. It comes
-from one observation — `docker system df` on a workstation after an ottilie run reported 32 images /
-19.5 GB — but that counts *every* image on the host, including any from unrelated services, and no
-before/after baseline was taken. Treat it as "plan for tens of GB, not a few". To measure it properly
-on a machine that has run the test:
+Measured on a workstation after an ottilie run (2026-07-30): **26 pipeline images totalling 16.05 GB**,
+within a host-wide `docker system df` of 19.46 GB across 32 images. Summing `docker images` sizes
+double-counts shared layers, so the true on-disk figure is somewhat *lower* than 16 GB — treat it as a
+safe upper bound. Re-measure on any machine with:
 
 ```bash
 docker images --format '{{.Repository}}\t{{.Size}}' | grep -E 'biocontainers|wave.seqera|nf-core'
 ```
+
+It is top-heavy — 8 images are 79% of the total:
+
+| Image | Size | |
+|---|---|---|
+| `gatk4_gcnvkernel` | 4.97 GB | **`GATK4_VARIANTFILTRATION`** — see the warning below |
+| `cnvkit` (×2 versions) | 2.58 GB | |
+| `mulled-v2-780d63…` | 1.26 GB | |
+| `mulled-v2-d9e7ba…` | 1.15 GB | |
+| `gatk4` | 1.13 GB | |
+| `multiqc` | 0.90 GB | |
+| `snpeff` | 0.70 GB | |
+
+⚠️ **Do not prune `gatk4_gcnvkernel` as unused.** At 4.97 GB it is 31% of the footprint and its name
+suggests GATK germline-CNV calling, which ALE does not run — but it is the container for
+`GATK4_VARIANTFILTRATION` (`modules/nf-core/gatk4/variantfiltration/main.nf`), i.e. the Tier-1
+`VARIANTFILTRATION_FALLBACK` soft-filter on the joint VCF. The `gcnvkernel` in the name is nf-core
+packaging, not a tool ALE invokes. Deleting it just forces a 5 GB re-pull on the next run.
 
 ⚠️ **Budget for `/var/lib/docker` separately.** It is usually on the root filesystem, while you may
 be running the pipeline from a larger data disk — so `df -h .` in your repo can look comfortable
@@ -331,9 +349,5 @@ If a step here didn't match reality, **fix this file** rather than working aroun
 step, what actually happened, and on what OS/VM size.
 
 Mark any claim you write from inference rather than observation with **[unverified]**; it is how the
-next person knows which parts have actually been exercised. Open items today:
-
-- **Container-image disk size** (step 0). One host-wide `docker system df` reading, which counts
-  images from unrelated services too. On a machine with a clean Docker install, record image usage
-  before and after the first run and replace the number.
-- **Machines materially smaller than 4 vCPU / 16 GB.** Both validation runs were at or above that.
+next person knows which parts have actually been exercised. Open item today: **machines materially
+smaller than 4 vCPU / 16 GB** — both validation runs were at or above that size.
