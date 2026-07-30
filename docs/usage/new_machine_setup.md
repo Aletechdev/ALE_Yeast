@@ -7,11 +7,10 @@ Bare Linux VM → a verified pipeline run. Follow it top to bottom.
 nothing else has to be installed.
 
 > **This document is validated by being followed.** Written on a machine that already worked, then
-> walked end-to-end on a second VM (8 vCPU / 15 GB, 2026-07-30) — every gap that run exposed is fixed
-> below, and no **[unverified]** claims remain. If a step is wrong, fix it here in the same session;
-> that is the only test this guide gets. Mark anything you *infer* rather than observe with
-> **[unverified]** so the next person knows where to look. See
-> [Reporting deviations](#reporting-deviations).
+> walked end-to-end on a second machine (8 vCPU / 15 GB, 2026-07-30) — every gap that run exposed is
+> fixed below. If a step is wrong, fix it here in the same session; that is the only test this guide
+> gets. Mark anything you *infer* rather than observe with **[unverified]** so the next person knows
+> where to look. See [Reporting deviations](#reporting-deviations).
 
 ---
 
@@ -21,9 +20,52 @@ nothing else has to be installed.
 |---|---|
 | **OS** | Linux **x86_64**. Apple Silicon / ARM is **not supported** — GATK and MultiQC tasks stall or hang. |
 | **CPU / RAM** | 4 vCPU / 16 GB is the validated dev size. Less RAM works if you lower the clamp (step 5), but tasks run less concurrently. |
-| **Disk** | **~10 GB** for the test run: ~400 MB test data + ~8 GB work dir + ~200 MB output. *(Ignore the 64 GB `data/ottilie/` on the original dev VM — that's full-depth pilot FASTQs from earlier work, not part of setup.)* |
+| **Disk** | **~30 GB free**, and check *which* filesystem — see below. |
 | **Network** | Needed for: git clone, conda, the test-data download (~400 MB), the Nextflow engine self-fetch, and container pulls on first run. |
 | **Privileges** | `sudo` for installing Docker. |
+
+### Disk, in detail
+
+The container images dominate, and they land somewhere different from everything else:
+
+| What | Size | Where it lands |
+|---|---|---|
+| **Container images** | **~20 GB [unverified]** | `/var/lib/docker` — *not* your repo |
+| Work dir (`work/`) | ~8 GB | launch directory, or wherever `-w` points |
+| Test data | ~400 MB | `data/ottilie/` |
+| Output | ~200 MB | `--outdir` |
+
+Every tool the pipeline runs is a container, so a first run pulls the lot. Later runs reuse them and
+cost only work + output.
+
+**[unverified]** The ~20 GB is a **loose upper bound**, not a measured pipeline footprint. It comes
+from one observation — `docker system df` on a workstation after an ottilie run reported 32 images /
+19.5 GB — but that counts *every* image on the host, including any from unrelated services, and no
+before/after baseline was taken. Treat it as "plan for tens of GB, not a few". To measure it properly
+on a machine that has run the test:
+
+```bash
+docker images --format '{{.Repository}}\t{{.Size}}' | grep -E 'biocontainers|wave.seqera|nf-core'
+```
+
+⚠️ **Budget for `/var/lib/docker` separately.** It is usually on the root filesystem, while you may
+be running the pipeline from a larger data disk — so `df -h .` in your repo can look comfortable
+while the images fill `/` and the run dies with `No space left on device`. Check both:
+
+```bash
+df -h /var/lib/docker .    # same filesystem, or different?
+docker system df           # what is already cached
+```
+
+If they share a filesystem, you need the full ~30 GB there. If the work dir is on a bigger disk, put
+it there explicitly with `-w /path/to/big/disk/work` — but the images still go to `/var/lib/docker`
+regardless, so that filesystem alone needs ~20 GB.
+
+> `docker system df` reporting most of the cache as "reclaimable" does **not** mean it is wasted.
+> Images show as reclaimable once no container is using them, but the next run needs them again.
+> Pruning only makes sense if you are done with the pipeline, or short on space and willing to
+> re-pull. *(Also ignore the 64 GB `data/ottilie/` on the original dev VM — full-depth pilot FASTQs
+> from earlier work, not part of setup.)*
 
 ---
 
@@ -288,8 +330,10 @@ FASTA and a SnpEff cache — build both from a GenBank file with
 If a step here didn't match reality, **fix this file** rather than working around it. Note which
 step, what actually happened, and on what OS/VM size.
 
-There are currently no **[unverified]** markers — the guide has been walked end-to-end on two
-machines. Add the marker back to any claim you write from inference rather than observation; it is
-how the next person knows which parts have actually been exercised. Least-tested areas today: disk
-sizing (the ~10 GB figure in step 0 excludes the Docker image cache) and machines materially smaller
-than 4 vCPU / 16 GB.
+Mark any claim you write from inference rather than observation with **[unverified]**; it is how the
+next person knows which parts have actually been exercised. Open items today:
+
+- **Container-image disk size** (step 0). One host-wide `docker system df` reading, which counts
+  images from unrelated services too. On a machine with a clean Docker install, record image usage
+  before and after the first run and replace the number.
+- **Machines materially smaller than 4 vCPU / 16 GB.** Both validation runs were at or above that.

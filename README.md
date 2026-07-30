@@ -80,6 +80,41 @@ test (`tests/ottilie_e2e.nf.test`).
 
 ## Running your own data
 
+### Where to put it — run from your own directory, not the repo
+
+Nextflow doesn't need to be launched from the pipeline directory. Keep each project in its own
+folder and point at `main.nf` by path:
+
+```
+~/projects/myproject/
+├── data/              # FASTQs (or leave them wherever they already are)
+├── ref/               # FASTA + SnpEff cache, from process_genbank_auto.sh
+├── samplesheet.csv    # ABSOLUTE paths to the FASTQs
+├── run.sh
+├── work/              # created here, not in the repo
+└── output/
+```
+
+```bash
+cd ~/projects/myproject
+export NXF_VER=25.10.4
+nextflow -c /path/to/ALE_Yeast/conf/$(hostname).config \
+    run /path/to/ALE_Yeast/main.nf -profile docker \
+    --input samplesheet.csv --outdir ./output   # …plus the params in "Launch" below
+```
+
+`work/` and outputs land in the project folder, so `git status` on the pipeline stays clean, a
+finished project is one `rm -rf`, and `git pull` never touches your data.
+
+Use the in-repo layout (`data/<name>/`, a launcher in `bin/`) only for things that should ship *with*
+the pipeline — a shared benchmark or test set, like `data/ottilie/`. Note `bin/` is not a general
+script folder: Nextflow puts it on `PATH` inside every task container, and it is git-tracked.
+
+> **Samplesheet paths must be absolute** — they're validated at launch (`exists: true`), and relative
+> ones would resolve against whatever directory you happened to launch from. That makes the
+> samplesheet machine-specific, so **generate it rather than hand-maintaining it** (`"$PWD"/data/…`),
+> the same way `download_test_data.sh` regenerates the ottilie one per machine.
+
 ### Fitting the run to your machine
 
 Same `-c` file as in the quick start — [`conf/mymachine.config`](conf/mymachine.config) is a
