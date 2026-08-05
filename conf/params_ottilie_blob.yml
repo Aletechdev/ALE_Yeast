@@ -1,0 +1,39 @@
+# Ottilie contract test — all inputs on Azure Blob (az://), for Azure Batch / Seqera runs.
+# Use with:  nextflow run main.nf -profile docker -c conf/azure_batch.config -params-file conf/params_ottilie_blob.yml
+input: "az://aletest/ottilie/v1/samplesheet_test_az.csv"
+
+# Reference — 4-chromosome subset of S288C R64-1-1
+genome: null
+igenomes_ignore: true
+fasta: "az://aletest/ottilie/v1/S288C_reference_test/S288C_R64_test.fa"
+genbank: "az://aletest/ottilie/v1/S288C_reference_test/S288C_R64_test.gb"
+chr_dir: "az://aletest/ottilie/v1/S288C_reference_test/chromosomes"
+
+# Annotation — snpeff_cache is a DIRECTORY param; az:// staging verified working
+snpeff_db: "R64-1-1.105"
+snpeff_cache: "az://aletest/ottilie/v1/S288C_reference_test/snpeff_cache"
+
+# Tools
+tools: "snpeff,cnvkit,tiddit,manta,haplotypecaller"
+skip_tools: "baserecalibrator"
+
+# Joint germline calling
+joint_germline: true
+split_haplotypecaller_joint_vcf: true
+hard_filter_haplotypecaller_joint: true
+
+# Mutation report — the igv-reports dashboard. ON.
+# Stated explicitly rather than inherited: it matches the nextflow.config default today,
+# but this file should not silently change behaviour if that default ever moves.
+generate_reports: true
+
+# report_gff3 supplies the gene-annotation track for the igv-reports dashboards. It is
+# OPTIONAL — without it the reports still build, just without the gene track — but the
+# contract test wants the track, so set it here.
+# Note the path: S288C_reference/, NOT the S288C_reference_test/ subset.
+# (Until 2026-08-04 omitting this aborted the DAG and reported a bogus samplesheet error;
+#  see docs/dev-practices/troubleshooting.md.)
+report_gff3: "az://aletest/ottilie/v1/S288C_reference/S288C_R64.gff3"
+
+# Performance
+split_fastq: 0

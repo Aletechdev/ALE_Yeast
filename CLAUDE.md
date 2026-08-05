@@ -57,6 +57,46 @@ needs in-session are repeated here.
 - **Apple Silicon is NOT supported** — tools stall/hang under ARM (MultiQC, Mutect2) plus
   filesystem-optimization problems. The `arm,docker` profile is retained for reference only.
 
+### Cloud execution — Azure Batch
+
+Opt-in only: `-c conf/azure_batch.config` (deliberately **not** a profile) plus
+`-params-file conf/params_ottilie_blob.yml`; launcher `bin/test_ottilie_azure_batch.sh`. Azure service
+principal + RBAC provisioning lives in [`deploy/azure/`](deploy/azure/) (per-resource grants only, never
+resource-group-wide). **Status: validated end-to-end for a LOCAL head job** (2026-08-03 — 138 tasks,
+540 blobs published). Outputs are **not yet diffed against a local run**, and a **Seqera Platform
+launch is a separate, unproven step**.
+
+**Before changing any Azure setting, read the orientation section** —
+[`azure_batch_execution.md` → why this config isn't the five-line example](docs/dev-practices/azure_batch_execution.md#orientation--why-this-config-isnt-the-five-line-example).
+Only 4 settings differ from the stock tutorial config (auth, `vmType`, image pin, `workDir`
+placement); 3 are forced by the account or by the service-principal auth, not chosen. The
+non-obvious rules, each learned by running it — full detail in the same doc:
+
+- **With an Entra/SP credential, `workDir` must be in the same blob *container* as the inputs** — same
+  storage account is not enough. Nextflow mints **one** container-scoped SAS (`sr=c`) for the work-dir
+  container and reuses it for every blob URL, so a Batch node cannot read another container even in the
+  same account; the task exits 1 with empty stderr. **This tracks the CREDENTIAL, not local-vs-cloud** —
+  a shared-key credential gives nodes account-wide access and has no such rule (verified: the
+  `aledev4test_e4ds_v4` CE runs `workDir` and inputs in different containers). Granting the SP more RBAC
+  does **not** help: it already holds `Storage Blob Data Contributor` on the whole account; the limit is
+  what Nextflow *delegates*, not what the SP *may* do. **`outdir` is exempt** — `publishDir` runs in the
+  head process using the full credential (verified for a local head job; unproven under Platform).
+- **Every declared input path must exist.** `file('SENTINEL')` for a missing file works locally
+  (symlink) but fails on a remote work dir, which must physically copy. Use `checkIfExists: true`.
+  `projectDir` assets are fine — nf-core relies on them too.
+- **Pin the newest `verified` `ubuntu-hpc` LTS**, named by node *agent* SKU (`batch.node.ubuntu 24.04`),
+  not image sku. Nextflow's default (22.04) has aged out service-wide — re-pin at each LTS. Stay on
+  `ubuntu-hpc`: the only verified family with a container runtime.
+- **Pool ids are content-addressed** (`nf-pool-<hash>-<vmType>` over the `pools` block), so
+  `deletePoolsOnCompletion` breaks `-resume`. Idle pools cost nothing; keep them.
+- **Bare `-resume` resumes the *last* run in `.nextflow/history`** — any `-preview` or unrelated test in
+  the same directory hijacks the chain. Pass an explicit session id.
+- **Optional file params must be passed as `[]`**, never `null` (`file(null)` throws while the DAG is
+  built) and never a placeholder filename (fails to stage on a remote work dir). This bit
+  `report_gff3`, which aborted with a bogus "sample-sheet only contains tumor-samples" error until it
+  was made properly optional (2026-08-04). The dangling `ifEmpty` that produces that misdirection is
+  still there for *other* early aborts — [`troubleshooting.md`](docs/dev-practices/troubleshooting.md).
+
 ---
 
 ## Input Configuration
@@ -70,7 +110,7 @@ needs in-session are repeated here.
   `docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/generate_test_data.sh`; on a fresh machine
   fetch from the public blob (no creds) with `download_test_data.sh`. Full lineage/prep:
   [`docs/benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md`](docs/benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md).
-- **Launchers**: `bin/test_ottilie.sh` (minimal 2-sample test) · `docs/benchmarking/ottilie_xenobiotic_ale/03_pipeline/run_ottilie_pilot.sh` (full-depth **4-sample** run, same S288C data). The 2-sample test set is a **chromosome subset** (chr I/IV/VII/XV) of **2 of** the pilot's 4 `--save_mapped` CRAMs, extracted by `generate_test_data.sh` — not a read-subsample. Both use `-profile azureD4as,docker`.
+- **Launchers**: `bin/test_ottilie.sh` (minimal 2-sample test) · `bin/test_ottilie_blob.sh` (same test, `ottilie_test_ci` profile — inputs streamed from the public blob, **no local `data/ottilie/`**; `snpeff_cache` is a directory param and can't come from an https URL, so the script untars the published `snpeff_cache.tar.gz` locally first) · `docs/benchmarking/ottilie_xenobiotic_ale/03_pipeline/run_ottilie_pilot.sh` (full-depth **4-sample** run, same S288C data). The 2-sample test set is a **chromosome subset** (chr I/IV/VII/XV) of **2 of** the pilot's 4 `--save_mapped` CRAMs, extracted by `generate_test_data.sh` — not a read-subsample. Both use `-profile azureD4as,docker`.
 - **Resources config**: [`conf/azured4as.config`](conf/azured4as.config) (the `azureD4as` local-VM profile;
   use `-profile azureD4as`, no `-c` needed). See [`docs/dev-practices/compute_resources.md`](docs/dev-practices/compute_resources.md).
 - **SnpEff cache generation**: `docs/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`.

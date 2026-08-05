@@ -169,6 +169,18 @@ Downloads ~400 MB into `data/ottilie/` (gitignored), verifies a SHA256 checksum,
 the script regenerates it correctly per machine. Full lineage:
 [`DATA_PROVENANCE.md`](../benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md).
 
+**Or skip this step entirely.** `bash bin/test_ottilie_blob.sh` runs the same test straight off the
+public blob URLs (`ottilie_test_ci` profile) — no `data/ottilie/`, no samplesheet to write. It still
+fetches ~23 MB once for the SnpEff cache, which is a directory param and cannot be streamed from a URL.
+Use the download above when you want the data on disk (nf-test, repeat runs, offline work); use the
+streaming script for a one-shot check that the install works.
+
+> Streaming doesn't save disk — Nextflow downloads each remote file once into
+> `<workdir>/stage-<session-uuid>/` (~366 MB here), so the inputs move *into* the work dir rather than
+> disappearing. `rm -rf work_ottilie_test_blob` reclaims all of it; **`nextflow clean` does not** — it
+> skips `stage-*` dirs. Full breakdown:
+> [`DATA_PROVENANCE.md`](../benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md).
+
 ---
 
 ## 4. Tell the pipeline how big this machine is

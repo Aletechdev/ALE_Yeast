@@ -137,13 +137,63 @@ The data is published in **BOTH shapes** under a **versioned prefix** so each co
 |---|---|---|
 | `ottilie_test_data.tar.gz` | **local onboarding + CI** (download-then-run) | one atomic ~373 MB bundle; `download_test_data.sh` uses this |
 | `files/**` | **Seqera/Batch** per-file URL staging | mirrors `data/ottilie/` (fastq_test, S288C_reference_test incl. snpeff_cache/, gff3) |
-| `snpeff_cache.tar.gz` | Seqera **fallback** | cache-only; untar → point `--snpeff_cache` at the `snpeff_cache/` dir if the dir won't stage from a URL |
+| `snpeff_cache.tar.gz` | Seqera + URL-streaming **fallback** | cache-only; untar → point `--snpeff_cache` at the `snpeff_cache/` dir. **Required**, not optional, for the streaming profile — see below |
 | `SHA256SUMS` | integrity | covers the individual files **and** both tarballs → proves they don't drift |
-| `samplesheet_test_blob.csv` | Seqera | samplesheet whose `fastq_1/2` are the public per-file URLs |
+| `samplesheet_test_blob.csv` | Seqera + URL-streaming | samplesheet whose `fastq_1/2` are the public per-file URLs |
 
 Content is PRJNA590203 (public SRA) + public S288C reference/annotation → **safe to be world-readable**; the
 URL is public **for zero-credential access (no expiring SAS to distribute/rotate)**, not because the data is
-open by necessity. The individual `files/**` tree also backs the post-v1.0.0 URL-streaming CI profile.
+open by necessity. The individual `files/**` tree also backs the URL-streaming profile below.
+
+### Run with zero local data — the `ottilie_test_ci` streaming profile
+
+```bash
+bash bin/test_ottilie_blob.sh        # == -profile ottilie_test_ci,azureD4as,docker
+```
+
+Same 2 samples / 4 chromosomes / same tools as `ottilie_test`, but `input`, `fasta`, `genbank`, and
+`report_gff3` are the public `files/**` URLs — Nextflow stages each into the task work dir, so nothing
+lands in `data/ottilie/`.
+
+**Why `snpeff_cache` is the one exception.** It is a *directory* param: the pipeline validates it with
+`file(...).isDirectory()` and stages the whole tree
+([`annotation_cache_initialisation/main.nf`](../../../subworkflows/local/annotation_cache_initialisation/main.nf)),
+and Nextflow's http provider has no directory listing — a blob prefix is not an object, so an https
+"directory" URL can neither be validated nor walked. (`az://` would work but needs credentials, which
+defeats the no-SAS point.) That is exactly what `snpeff_cache.tar.gz` is published for:
+`bin/test_ottilie_blob.sh` curls it, checksums it against `SHA256SUMS`, untars it into
+`.ottilie_ci_cache/snpeff_cache/` (~23 MB, gitignored, fetched once), and passes that local dir. Reuse an
+existing copy with `OTTILIE_SNPEFF_CACHE=…`; re-host the whole set with `OTTILIE_BLOB_BASE=…`.
+
+`chr_dir` (Control-FREEC) is a directory param too and is set to `null` in the streaming profile —
+Control-FREEC is not in this test's `tools`, so nothing is lost. Adding it later would need the same
+tarball treatment (`prepare_genome` already accepts a `.tar.gz` for `chr_dir`).
+
+#### Local storage: streaming still writes to disk
+
+Nextflow does not stream a remote file into a task — it downloads it **once per session** into
+`<workdir>/stage-<session-uuid>/` and symlinks that copy into every task dir. So the inputs still land
+locally; they just live **inside the work dir** instead of `data/ottilie/`. Measured on this test:
+
+| | local `ottilie_test` | streaming `ottilie_test_ci` |
+|---|---|---|
+| persistent input data | `data/ottilie/` **402 MB** (symlinked into tasks, never copied) | `.ottilie_ci_cache/` **23 MB** (SnpEff cache only) |
+| staged copies in work dir | 0 | `stage-*/` **366 MB** (4 FASTQ + FASTA + GFF3) |
+| task work dir | ~7.6 GB | ~7.6 GB |
+| published outputs | 216 MB | 216 MB |
+
+Net footprint is within ~15 MB of each other — the point is *where* it lives, not how much. Two
+cleanup consequences, both verified:
+
+- **`nextflow clean` does not touch `stage-*` dirs.** It deletes task hash dirs from the cache DB;
+  the stage dir isn't one, so the 366 MB survives. Clean up with `rm -rf work_ottilie_test_blob`,
+  which reclaims staged inputs and task dirs together.
+- **A run without `-resume` re-downloads into a *second* `stage-<uuid>/`.** The session UUID names the
+  dir, so a fresh session in the same work dir adds another full copy rather than reusing the first.
+  `bin/test_ottilie_blob.sh` always passes `-resume`; keep it if you edit the launcher.
+
+Only files a process actually consumes are fetched — e.g. `genbank` is set but breseq isn't in `tools`,
+so the `.gb` is never downloaded.
 
 ### Publish — maintainer runbook (`publish_test_data.sh`)
 
@@ -166,9 +216,9 @@ data-plane RBAC; `login` = AAD). Uploads use shared-key auth, which works with c
 the account's `allowSharedKeyAccess: true`. If org policy ever forbids public access, re-provision the
 container as `None` and fall back to a read-only SAS (consumers then need `BLOB_BASE` + the token).
 
-**Scope:** local-FS download-then-run (turnkey multi-server deploy) **and** Seqera/Batch per-file staging
-off the same public blobs. A dedicated URL-**streaming** `ottilie_test_ci` profile + GitHub Actions remains
-post-v1.0.0. See Notes.
+**Scope:** local-FS download-then-run (turnkey multi-server deploy), Seqera/Batch per-file staging, **and**
+the `ottilie_test_ci` URL-streaming profile — all off the same public blobs. Wiring that profile into
+GitHub Actions remains post-v1.0.0. See Notes.
 
 > **`gh` Release Assets considered, not adopted (2026-07-22):** clean for CI (built-in token) but the repo
 > is **private** (no unauthenticated URL), assets are flat (breaks per-file streaming / the snpeff_cache
@@ -185,8 +235,10 @@ post-v1.0.0. See Notes.
   - ✅ **Public no-SAS blob, both shapes (v1.0.0):** `publish_test_data.sh` emits a tarball (local/CI) +
     an individual `files/**` tree (Seqera per-file staging) + a cache-only tarball (snpeff_cache fallback)
     under a versioned `ottilie/v1/` prefix; `download_test_data.sh` curls the tarball (no creds).
-    See "Fetch on a new machine" above. URL **streaming** profile for GHA/Seqera is the remaining
-    post-1.0.0 bit (reuses the same `files/**` per-file URLs).
+    See "Fetch on a new machine" above.
+  - ✅ **URL-streaming profile:** `ottilie_test_ci` + `bin/test_ottilie_blob.sh` run the test off the
+    `files/**` per-file URLs with no local data (snpeff cache staged from `snpeff_cache.tar.gz` —
+    see "Run with zero local data" above). Wiring it into GitHub Actions is the remaining post-1.0.0 bit.
 - **CI-tier dataset (post-v1.0.0):** 356 MB is large for per-run CI. A `generate_ci_test_data.sh`
   doing chr-subset **+ calibrated read-subsampling with a truth-set validation gate** (assert the
   4 SNVs + chr I dup remain detectable) would give a fast CI dataset. SNV depth is the binding

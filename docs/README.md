@@ -31,8 +31,9 @@ how to run it, start at the [**root README**](../README.md).
 | Doc | What it covers |
 |---|---|
 | [`dev-practices/compute_resources.md`](dev-practices/compute_resources.md) | Resource model, `resourceLimits` clamp, per-VM porting, cloud notes |
-| [`seqera_cloud/seqera_cloud_deployment_checklist.md`](seqera_cloud/seqera_cloud_deployment_checklist.md) | Seqera Platform + Azure Batch deployment checklist |
-| [`seqera_cloud/azure_batch_recommendations.md`](seqera_cloud/azure_batch_recommendations.md) | Azure Batch VM sizing |
+| [`dev-practices/azure_batch_execution.md`](dev-practices/azure_batch_execution.md) | **Start here for Azure Batch.** Why the config differs from the stock tutorial (4 settings), plus the execution gotchas: work-dir/container rule, node-agent SKU, pool ids, `-resume`, cost |
+| [`seqera_cloud/seqera_cloud_deployment_checklist.md`](seqera_cloud/seqera_cloud_deployment_checklist.md) | Seqera Platform + Azure Batch deployment checklist (April 2026 — predates the service-principal work; verify against `deploy/azure/seqera-sp/RUNBOOK.md`) |
+| [`seqera_cloud/azure_batch_recommendations.md`](seqera_cloud/azure_batch_recommendations.md) | ⚠️ Stale (April 2026) — VM-sizing background only. Its config advice recommends **account keys**, which the current setup deliberately replaced with an Entra service principal |
 | [`usage/azure_vm_swap_setup.md`](usage/azure_vm_swap_setup.md) · [`usage/azure_blob_large_file_upload.md`](usage/azure_blob_large_file_upload.md) | VM swap; uploading >50 GB files to blob |
 | [`usage/nextflow_local_executor_deadlock.md`](usage/nextflow_local_executor_deadlock.md) | Local-executor deadlock and how to avoid it |
 | [`dev-practices/troubleshooting.md`](dev-practices/troubleshooting.md) | Common run failures (starting with misleading samplesheet errors) |

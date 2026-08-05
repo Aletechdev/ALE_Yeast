@@ -1,0 +1,10 @@
+# Raw command transcripts print full GUIDs and may contain tokens.
+# RUNBOOK.md is the committed record; logs stay local.
+logs/
+
+# Defence in depth: no credential material or hard-coded identifiers in this tree.
+# Scripts resolve GUIDs at runtime from resource names — see seqera-sp/00_vars.sh.
+*.env
+*.secret
+*.pem
+*.local.sh

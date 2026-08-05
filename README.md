@@ -67,6 +67,16 @@ Results land in `output_ottilie_test/`; open `output_ottilie_test/mutation_repor
 > `azureD4as` hard-codes that VM's ceilings and per-task tuning, so **don't use it on other
 > hardware** — use your own `-c` file as above.
 
+> **No-download variant.** `bash bin/test_ottilie_blob.sh` (`-profile ottilie_test_ci`) runs the same
+> test with the samplesheet and every reference file read straight from the public blob URLs, so you can
+> skip the `download_test_data.sh` step above. The SnpEff cache is the one exception — it is a
+> *directory* param and cannot be streamed from an https URL, so the script fetches and untars the
+> published `snpeff_cache.tar.gz` (~23 MB, once) into `.ottilie_ci_cache/`.
+>
+> This doesn't reduce disk use — Nextflow copies each remote file once into
+> `<workdir>/stage-<session-uuid>/`, so the ~366 MB of inputs lands in the work dir instead of
+> `data/ottilie/`. Clean up with `rm -rf work_ottilie_test_blob`; `nextflow clean` leaves `stage-*` behind.
+
 ### The test dataset
 
 2 samples (parent `NODRUG-GM2` + evolved `CBR110-15-R3a`) from *S. cerevisiae* S288C, subset to
@@ -254,8 +264,30 @@ See [`docs/dev-practices/testing_best_practices.md`](docs/dev-practices/testing_
 
 ## Cloud deployment
 
-Seqera Platform + Azure Batch is supported via `conf/seqera_azure.config`. Checklist and known issues:
+Two stages, and the difference is **where the Nextflow head process runs** — the tasks run on Azure
+Batch either way:
+
+| | Head process | Launched with | Status |
+|---|---|---|---|
+| **Local head job** | your machine | `nextflow run … -c conf/azure_batch.config` | ✅ validated end-to-end (2026-08-03) |
+| **Cloud head job** | an Azure Batch node | `tw launch` / Seqera Platform UI | not yet run |
+
+Start here: [`docs/dev-practices/azure_batch_execution.md`](docs/dev-practices/azure_batch_execution.md)
+— it opens with why the config differs from the stock Azure Batch tutorial (only 4 settings, 3 of them
+forced by the account or by service-principal auth), then lists the execution gotchas. Azure service
+principal + RBAC provisioning: [`deploy/azure/`](deploy/azure/).
+
+```bash
+source deploy/azure/seqera-sp/00_vars.sh
+read -rs AZURE_CLIENT_SECRET && export AZURE_CLIENT_SECRET
+bash bin/test_ottilie_azure_batch.sh
+```
+
+Platform-side checklist (April 2026, predates the service-principal work — verify against
+`deploy/azure/seqera-sp/RUNBOOK.md`):
 [`docs/seqera_cloud/seqera_cloud_deployment_checklist.md`](docs/seqera_cloud/seqera_cloud_deployment_checklist.md).
+`conf/seqera_azure.config` is a small supplement pasted into the Platform config field, not the
+executor config above.
 
 ## Credits
 
