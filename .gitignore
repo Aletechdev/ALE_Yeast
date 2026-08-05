@@ -129,5 +129,15 @@ null/
 
 # nf-test working directory
 .nf-test/
+
+# Local git worktrees for diffing against pristine sarek 3.5.1 (see docs/dev-practices/
+# SAREK_MODIFICATIONS.md). ~1.9 GB of full checkouts — local aids, never committed.
+# NOTE: scope to worktrees/ only — .claude/skills/ IS tracked.
+.claude/worktrees/
+
+# Ottilie blob staging: snpeff cache untarred by bin/test_ottilie_blob.sh, and the
+# publish_test_data.sh scratch dir (both transient, both re-fetchable from the blob)
+.ottilie_ci_cache/
+.ottilie_publish/
 docs/igvreports/ottilie_4samples/
 docs/igvreports/demo/
