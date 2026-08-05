@@ -1,0 +1,74 @@
+nextflow_pipeline {
+
+    name "report_gff3 optional"
+    script "../main.nf"
+    tag "ottilie"
+    tag "smoke"
+
+    // Run with:  nf-test test -c tests/nf-test-ottilie.config tests/report_gff3_optional.nf.test
+    //
+    // WHAT THIS GUARDS
+    // `report_gff3` is OPTIONAL: with it unset the igv-reports still build, just without the
+    // gene-annotation track. That path is not exercised by ottilie_e2e (which sets the param),
+    // so without this test a regression would ship silently.
+    //
+    // WHY -preview IS ENOUGH
+    // The failure mode is at DAG-CONSTRUCTION time, not task time: `file(params.report_gff3)`
+    // on a null param throws while the workflow is being built, and the abort then surfaces as
+    // a completely unrelated "sample-sheet only contains tumor-samples … expect at least one
+    // normal-sample" error (see docs/dev-practices/troubleshooting.md). `-preview` builds the
+    // DAG and stops before any task runs, so it catches exactly that in seconds and needs no
+    // snapshot. Actual report CONTENT is the e2e test's job — duplicating it here would add a
+    // second snapshot to maintain for no extra coverage.
+    options "-preview"
+
+    // Reads the RESOLVED params Nextflow recorded for the run, i.e. what the pipeline actually
+    // saw — not what this test meant to send.
+    //
+    // Asserting on this is the point, not decoration. `workflow.success` alone would make the
+    // second case a silent no-op under either of two failure modes: a dropped param would fall
+    // back to the ottilie_test profile's real GFF3, and `--report_gff3 null` on a command line
+    // yields the STRING "null" (truthy — see docs/dev-practices/troubleshooting.md). Both would
+    // pass while testing the opposite path. (Note `workflow.stdout` is NOT usable here: log.warn
+    // goes to .nextflow.log, and nf-test leaves workflow.stdout empty.)
+    def resolvedParams = { dir ->
+        def f = new File("$dir/pipeline_info").listFiles().find { it.name.startsWith('params_') }
+        assert f : "no pipeline_info/params_*.json written — cannot verify resolved params"
+        new groovy.json.JsonSlurper().parse(f)
+    }
+
+    test("report_gff3 set — the production configuration") {
+
+        when {
+            params {
+                outdir           = "$outputDir"
+                generate_reports = true
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert resolvedParams("$outputDir").report_gff3 != null }
+            )
+        }
+    }
+
+    test("report_gff3 unset — reports build without the gene track") {
+
+        when {
+            params {
+                outdir           = "$outputDir"
+                generate_reports = true
+                report_gff3      = null
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert resolvedParams("$outputDir").report_gff3 == null }
+            )
+        }
+    }
+}

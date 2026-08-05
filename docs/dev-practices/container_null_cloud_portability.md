@@ -5,6 +5,31 @@
 > `modules/local/build_sv_matrix/` (pandas container). No module under `modules/local/` uses
 > `container null` any more. This page is retained for the rationale behind the split and as the
 > checklist to apply if a future multi-tool process is added.
+>
+> **Update 2026-08-03 — the original check was incomplete.** Grepping for `container null` misses the
+> other way a process ends up without an image: **declaring no `container` line at all**.
+> `CNR_TO_BEDGRAPH` did exactly that (`// Pure awk — no container needed`) and passed every local test,
+> because with the local executor Nextflow runs such a command directly on the host, where `awk` and
+> `sort` exist. The first Azure Batch run failed at submission:
+>
+> ```
+> No container image specified for process NFCORE_SAREK:SAREK:MUTATION_REPORT:CNR_TO_BEDGRAPH
+> ```
+>
+> **Every cloud task must run in a container — "no tools needed" is not an exemption.** Fixed with
+> `quay.io/biocontainers/gawk:5.3.0`, matching the module's conda spec. Deliberately **not** a generic
+> `ubuntu` image: those ship *mawk*, which would make the conda path (gawk) and the container path
+> (mawk) different tools and make the module's `versions.yml` mislabel mawk as gawk — its `sed` parses
+> GNU Awk output. Pick the image that matches the declared conda package, not the smallest one.
+> Use the audit below, which catches both failure modes:
+>
+> ```bash
+> # processes with NO container line, or an explicit null
+> for f in $(find modules/local -name main.nf); do
+>     grep -qE '^\s*container\s' "$f" || echo "NO CONTAINER: $f"
+> done
+> grep -rn 'container null' modules/
+> ```
 
 ## Problem (as it stood)
 

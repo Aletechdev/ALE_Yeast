@@ -80,9 +80,22 @@ workflow MUTATION_REPORT {
     // 2. GFF3 preparation + static report assets (pipeline assets, not outputs)
     // =========================================================================
 
-    PREPARE_GFF3(gff3)
-    ch_gff3_indexed = PREPARE_GFF3.out.gff3
-    versions = versions.mix(PREPARE_GFF3.out.versions)
+    // The gene track is OPTIONAL. With --report_gff3 unset, skip the sort/bgzip/tabix step
+    // and feed the downstream `tuple path(gff3_gz), path(gff3_tbi)` a pair of empty lists —
+    // the Nextflow idiom for an absent optional path. Both render falsy in the module script
+    // blocks, which then drop the track from --tracks.
+    //
+    // `[]` declares no file at all, so nothing has to stage (or exist) on a remote work dir —
+    // the same idiom used for the absent coverage tracks below.
+    if (params.report_gff3) {
+        PREPARE_GFF3(gff3)
+        ch_gff3_indexed = PREPARE_GFF3.out.gff3
+        versions = versions.mix(PREPARE_GFF3.out.versions)
+    } else {
+        log.warn "MUTATION_REPORT: --report_gff3 not set — reports will be generated " +
+                 "WITHOUT the gene annotation track."
+        ch_gff3_indexed = Channel.value([ [], [] ])
+    }
 
     ch_fasta = fasta                        // value channel: [ path(fasta), path(fai) ]
     ch_fai   = fasta.map { it[1] }           // value channel: path(fai)
@@ -316,6 +329,20 @@ workflow MUTATION_REPORT {
             versions = versions.mix(CNR_TO_BEDGRAPH.out.versions)
         }
 
+        // Absent coverage tracks for callers with no CNVKit output. `[]` is the Nextflow
+        // idiom for an optional path: it declares no file, so IGVREPORTS_SV_CNV sees a falsy
+        // value and drops the track.
+        //
+        // Do NOT substitute a placeholder filename here. `file('NO_DEPTH_BG')` (no such file)
+        // works on the local executor — Nextflow symlinks it, and `ln -s` to a missing target
+        // succeeds — but with a remote work dir (az://, s3://) every input must be physically
+        // copied, so FilePorter fails the task with:
+        //     Can't stage file /path/NO_DEPTH_BG -- file does not exist
+        // Found by the first Azure Batch run; the local test suite cannot catch it. `[]` has
+        // nothing to stage and so avoids the problem entirely.
+        no_depth_bg = []
+        no_log2_bg  = []
+
         // combine(by:0), NOT join: sv_cnv carries cnvkit + manta + tiddit per sample (same meta.id).
         // join is one-to-one and would drop all but one caller per sample; combine attaches the
         // sample CRAM to every caller's row.
@@ -339,14 +366,14 @@ workflow MUTATION_REPORT {
 
             ch_other_sv = ch_sv_cnv_branched.other
                 .map { meta, vcf, tbi, c, crai ->
-                    [ meta, vcf, tbi, c, crai, file('NO_DEPTH_BG'), file('NO_LOG2_BG') ]
+                    [ meta, vcf, tbi, c, crai, no_depth_bg, no_log2_bg ]
                 }
 
             ch_sv_cnv_all = ch_cnvkit_with_bg.mix(ch_other_sv)
         } else {
             ch_sv_cnv_all = ch_sv_cnv_with_cram
                 .map { meta, vcf, tbi, c, crai ->
-                    [ meta, vcf, tbi, c, crai, file('NO_DEPTH_BG'), file('NO_LOG2_BG') ]
+                    [ meta, vcf, tbi, c, crai, no_depth_bg, no_log2_bg ]
                 }
         }
 

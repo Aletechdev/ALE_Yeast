@@ -21,10 +21,13 @@ process IGVREPORTS_COHORT {
     task.ext.when == null || task.ext.when
 
     script:
+    // The gene track is this report's ONLY track, so when --report_gff3 is unset (gff3_gz is
+    // []) the whole flag must go; `--tracks` with no value is a create_report usage error.
+    def tracks_arg = gff3_gz ? "--tracks ${gff3_gz}" : ''
     """
     create_report ${vcf} \\
         --fasta ${fasta} \\
-        --tracks ${gff3_gz} \\
+        ${tracks_arg} \\
         --template ${template} \\
         --filter-config ${filter_config} \\
         --info-columns ANN VCF_FILTER ORIG_ALT AC AF DP QD MQ \\

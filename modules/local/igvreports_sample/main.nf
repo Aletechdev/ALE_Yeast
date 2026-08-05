@@ -21,10 +21,13 @@ process IGVREPORTS_SAMPLE {
     task.ext.when == null || task.ext.when
 
     script:
+    // Gene track is optional (--report_gff3 unset -> gff3_gz is []). The CRAM is always
+    // present, so --tracks never ends up empty here.
+    def gff3_track = gff3_gz ? "${gff3_gz} " : ''
     """
     create_report ${vcf} \\
         --fasta ${fasta} \\
-        --tracks ${gff3_gz} ${cram} \\
+        --tracks ${gff3_track}${cram} \\
         --template ${template} \\
         --filter-config ${filter_config} \\
         --info-columns ANN VCF_FILTER ORIG_ALT AC AF DP QD MQ \\

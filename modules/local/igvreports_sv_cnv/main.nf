@@ -21,12 +21,19 @@ process IGVREPORTS_SV_CNV {
     task.ext.when == null || task.ext.when
 
     script:
-    def has_bedgraph = depth_bg.name != 'NO_DEPTH_BG'
+    def has_bedgraph = depth_bg as boolean   // absent coverage tracks arrive as []
     def flanking = has_bedgraph ? 50000 : 500
     def maxlen_arg = has_bedgraph ? "--maxlen 2000000" : ""
     def strip_session = !has_bedgraph && meta.caller != 'manta' && meta.caller != 'tiddit'
     def want_alignment = meta.caller in ['manta', 'tiddit']
-    def tracks = has_bedgraph ? "${gff3_gz} ${depth_bg} ${log2_bg}" : (want_alignment ? "${gff3_gz} ${cram}" : "${gff3_gz}")
+    // Track list, in render order. The gene track is optional (--report_gff3 unset ->
+    // gff3_gz is []), and for a caller with neither bedgraphs nor an alignment view it was
+    // the only track — so --tracks must be dropped entirely rather than left empty.
+    def track_list = []
+    if (gff3_gz)             track_list << "${gff3_gz}"
+    if (has_bedgraph)        track_list += ["${depth_bg}", "${log2_bg}"]
+    else if (want_alignment) track_list << "${cram}"
+    def tracks_arg = track_list ? "--tracks ${track_list.join(' ')}" : ""
     def info_cols = meta.caller == 'cnvkit'
         ? "ANN VCF_FILTER SVTYPE SVLEN FOLD_CHANGE FOLD_CHANGE_LOG PROBES"
         : "ANN VCF_FILTER SVTYPE SVLEN"
@@ -38,7 +45,7 @@ process IGVREPORTS_SV_CNV {
     """
     create_report ${vcf} \\
         --fasta ${fasta} \\
-        --tracks ${tracks} \\
+        ${tracks_arg} \\
         --template ${template} \\
         --info-columns ${info_cols} \\
         --sample-columns ${sample_cols} \\

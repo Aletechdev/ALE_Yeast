@@ -985,7 +985,11 @@ workflow SAREK {
                 MULTIQC.out.data,                                           // MultiQC *_data dir
                 multiqc_report,                                            // ordering edge + linked
                 ch_report_fasta,                                            // value: [ fasta, fai ] (fai auto-generated if absent)
-                file(params.report_gff3)
+                // report_gff3 is OPTIONAL — without it the igv-reports still build, just with
+                // no gene-annotation track. `[]` (not null, not a sentinel file) is the
+                // Nextflow idiom for an absent optional path: it declares no file at all, so
+                // there is nothing for a remote work dir to stage.
+                params.report_gff3 ? file(params.report_gff3, checkIfExists: true) : []
             )
         }
 
