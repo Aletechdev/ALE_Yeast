@@ -300,6 +300,86 @@ A `snpeff_cache` untar path remains a reasonable robustness idea for https-only 
 
 </details>
 
+### 2026-08-05 15:44Z — compute environments forged (plan Phase 4)
+
+Two **new** CEs created in `DTU-Biosustain/RECON-ALE`, both on the Entra credential
+`azure_SP_cfb_ale_mutations_pipeline`. None of the six pre-existing shared CEs was touched.
+
+| Name | Id | Fusion / Wave | Status |
+|---|---|---|---|
+| `ale-ottilie-nf25104` | `5CR3jOkRBI58YXWtDIAAtu` | off / off | AVAILABLE |
+| `ale-ottilie-nf25104-fusion` | `5ncp4rI8GezvoPBnpvnTEk` | on / on | AVAILABLE |
+
+Identical otherwise: `workDir az://aletest/nf-work`, `northeurope`, forge pool
+`Standard_E4ds_v4` ×4 autoscaling, `disposeOnDeletion: true`.
+
+```bash
+tw compute-envs add azure-batch forge -n ale-ottilie-nf25104 \
+    -w DTU-Biosustain/RECON-ALE -c azure_SP_cfb_ale_mutations_pipeline \
+    -l northeurope --work-dir az://aletest/nf-work \
+    -e NXF_VER=25.10.4 --vm-type Standard_E4ds_v4 --vm-count 4
+# ...and the same again with `-n ale-ottilie-nf25104-fusion --fusion-v2 --wave`
+```
+
+**Results worth keeping:**
+
+- ✅ **`-e NXF_VER=25.10.4` stored exactly as intended** — readback shows
+  `{"name":"NXF_VER","value":"25.10.4","head":true,"compute":false}`. Head-job-only is what the pin
+  needs. That it *stored* is not proof it *takes*: the head job must invoke `nextflow` through the
+  self-fetching launcher. Still verify the run log reports 25.10.x, not 26.x.
+- ✅ **Batch Forge works with an Entra service principal.** `Azure Batch Data Contributor` on the
+  account was sufficient — no `AuthorizationFailed`, no extra grant, no subscription-level role.
+- ⚠️ **Fusion + Entra forged with `managedIdentity*` all `null`.** This contradicts the research lead
+  that Entra + Forge + Fusion *requires* a user-assigned managed identity — at least at forge time.
+  Whether Fusion **mounts** at task runtime is still untested.
+- ⚠️ **`tw` 0.26 `--wait AVAILABLE` fails with `Error reading entity from input stream` /
+  `Connection error`.** The CE is created correctly regardless — this is the known 0.26-vs-API-1.193
+  response-parsing bug, on the *poll*, not the request. **Do not re-run the command on this error**;
+  you would create a duplicate CE. Check status via the REST API instead:
+  ```bash
+  curl -s -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" \
+    "https://api.cloud.seqera.io/compute-envs?workspaceId=<ws-id>" | python -m json.tool
+  ```
+- ✅ **The forged pools carry a *verified* image — checked, not assumed.** Forge creates the pool at
+  **CE-creation time**: two new pools appear with `creationTime` equal to the CE timestamps
+  (`15:43:57`, `15:45:26`), both `microsoft-dsvm / ubuntu-hpc / 2404`, agent `batch.node.ubuntu 24.04`
+  — the same verified combination `conf/azure_batch.config` pins for Nextflow's autopool. Platform's
+  own default is current, so Phase 3.5 finding #4 does **not** bite here. All 15 pools on the account
+  are on `2404`. Re-check after any region change:
+  ```bash
+  az batch account login -g rg-aledb -n aledev4test
+  az batch pool list --query "sort_by([].{id:id,created:creationTime,sku:virtualMachineConfiguration.imageReference.sku}, &created)" -o table
+  ```
+
+### 2026-08-05 — `NXF_VER` on the head job is correct; do NOT set it to `both:`
+
+Asked whether the pin should also target compute tasks. **No — it would be a no-op.** Evidence from an
+actual task wrapper (`work/*/.command.run`): the payload is invoked as
+`/usr/bin/env bash … .command.sh` inside `docker run`, and the only NXF_* variables forwarded into the
+container are `NXF_TASK_WORKDIR` and `NXF_DEBUG`, each enumerated explicitly with `-e`. **No `nextflow`
+binary ever executes on a Batch node**, so nothing on a compute node reads `NXF_VER`. The variable
+selects which engine the *launcher* self-fetches, and the launcher runs only in the head job.
+
+### 2026-08-05 — `tw` upgraded 0.26.0 → 0.38.0
+
+The plan called this "worth doing eventually; does not help here". **That is now superseded** — 0.26's
+response-parsing bug broke `compute-envs add --wait` and `compute-envs view`, which are the readback
+path for this work. Client-side only: it cannot change what runs in the cloud.
+
+Installed to `/usr/local/bin/tw` (user-owned, no sudo). SHA-256 verified against the release
+`checksums_sha256.txt`. **Roll back** by restoring the saved 0.26 binary if anything regresses.
+
+Re-verified on 0.38 after upgrading:
+
+- ✅ `compute-envs view` now parses — the exact call 0.26 could not make.
+- ✅ **`tw launch` still has no single-param option** (`--params-file`, `--config`, `--profile` only),
+  so the "`outdir` must live in the params file" conclusion holds unchanged.
+- 🆕 **`--pre-run` and `--launch-container` are available per launch.** The `NXF_VER` fallback no
+  longer requires rebuilding the CE — a failed pin can be patched on the launch command itself.
+- 🆕 `--wait=SUBMITTED|RUNNING|SUCCEEDED|FAILED|…` on launch, and `--stub-run`.
+- ⚠️ `--version-id` / `--version-name` render with a required marker (`*`) in the help output; they are
+  part of a mutually-exclusive group, not genuinely required. Expect this if launch complains.
+
 ## Client secret
 
 | Key id (short) | Display name | Created | **Expires** |
@@ -324,10 +404,11 @@ The secret value was never written to this repo.
 - [x] Create a client secret (`03_create_secret.sh`) — done 2026-07-31.
 - [x] Verify both data planes (`05_verify_sp_access.sh`) — done 2026-07-31, all checks passed.
 - [x] Register the Entra credential in Seqera via the web UI — done 2026-07-31, schema captured.
-- [ ] **Next:** create a new compute environment in `DTU-Biosustain/RECON-ALE` bound to the
-      `azure_SP_cfb_ale_mutations_pipeline` credential, with `NXF_VER=25.10.4` pinned via the head-job
-      environment (plan Phase 4). Do **not** repoint any of the six existing CEs — they are shared
-      org-workspace assets on the old shared-key credential.
+- [x] Create a new compute environment bound to the `azure_SP_cfb_ale_mutations_pipeline` credential,
+      with `NXF_VER=25.10.4` pinned via the head-job environment (plan Phase 4) — done 2026-08-05,
+      two CEs (non-Fusion + Fusion), both AVAILABLE. The six existing CEs were not repointed.
+- [ ] **Next:** `tw launch` against `ale-ottilie-nf25104` (plan Phase 6). Blocked on adding `outdir`
+      to `conf/params_ottilie_blob.yml` — `tw launch` has no way to pass a single pipeline param.
 - [x] GitHub auth decided and keypair generated (`07_github_deploy_key.sh`) — the pre-existing
       `github_Aletechdev` credential had in fact expired.
 - [x] Deploy key registered on the repo and as a Seqera `ssh` credential; auth + read access verified.
