@@ -380,6 +380,124 @@ Re-verified on 0.38 after upgrading:
 - ⚠️ `--version-id` / `--version-name` render with a required marker (`*`) in the help output; they are
   part of a mutually-exclusive group, not genuinely required. Expect this if launch complains.
 
+### 2026-08-05 — 🚨 the SSH deploy key CANNOT be used to clone the pipeline repo
+
+**Seqera Platform does not support SSH-key authentication for pipeline repositories.** This
+invalidates the Phase 2 decision recorded above ("deploy key, not a PAT"). The deploy key is genuinely
+valid — `ssh -T` and `git ls-remote` both pass — but it authenticates *your machine* to GitHub, and
+Platform never uses it.
+
+Found by trying to launch. Bisected with `tw pipelines add`, which validates the repo at add time and
+so is a cheap probe (no run is started):
+
+| Repository URL | Result |
+|---|---|
+| `git@github.com:Aletechdev/ALE_Yeast.git` (scp-style) | `Unexpected error … Error ID: …` — an internal 500; Platform cannot even parse this form |
+| `ssh://git@github.com/Aletechdev/ALE_Yeast.git` | parses, then `Unknown pipeline repository or expired Git credentials` |
+| `https://github.com/Aletechdev/ALE_Yeast` | same `Unknown pipeline repository or expired Git credentials` — Platform reached for it and found no usable credential |
+
+Three independent confirmations that this is by design, not a misconfiguration:
+
+1. **Docs** — the Git integration page lists the supported providers as Azure DevOps, GitHub (PAT or
+   **GitHub App**), GitLab, Gitea, Bitbucket and AWS CodeCommit. SSH keys are absent, and every
+   documented repository base URL is `https://`.
+2. **`ssh` credentials are for something else entirely** — "the key pair is used to authenticate a
+   connection with your SSH-enabled environment", i.e. **HPC compute environments**, not Git.
+3. **Structural** — `tw credentials add github` has `--base-url` (how Platform matches a credential to
+   a repository host); `tw credentials add ssh` has **no such option**, so an `ssh` credential cannot
+   be bound to `github.com` even in principle. Confirmed by readback: `baseUrl: null`.
+
+**Also learned:** `tw launch <ssh-url>` fails with the misleading `Pipeline 'git@github.com:…' not
+found on this workspace`. `tw launch` takes *a workspace pipeline name or a URL*, and since it does not
+recognise the scp-style string as a URL it falls back to a name lookup. The message describes the
+fallback, not the real problem.
+
+The deploy key itself is **not** wasted — it stays useful for local clones and CI checkouts. It is only
+useless *to Platform*. Consider revoking it if no such use materialises.
+
+Demonstrated directly, same key (`SHA256:1VRUK9eZMJAPilP6UZO/1fOqZFVqWkzBnlRTUF+2kfs`,
+`~/.ssh/seqera_ale_yeast_deploy`) against the same repo:
+
+```
+$ GIT_SSH_COMMAND="ssh -i ~/.ssh/seqera_ale_yeast_deploy -o IdentitiesOnly=yes" \
+    git ls-remote git@github.com:Aletechdev/ALE_Yeast.git
+1c20c4b…  refs/heads/main                      # ← reads fine
+
+$ git ls-remote https://github.com/Aletechdev/ALE_Yeast
+remote: Repository not found.                  # ← same key, HTTPS, denied
+```
+
+**Two independent constraints whose intersection is empty:** a GitHub deploy key is an SSH credential
+*by definition* (GitHub accepts it only on SSH connections), and Platform's Git integration is
+HTTPS-only. No URL form bridges that. The key reads the **repository** perfectly; what it cannot read
+is the **`https://` URL**, which is the only form Platform accepts.
+
+#### Registering to the Launchpad is not a way around this
+
+**The Launchpad *is* `tw pipelines`** — same object, same API, and `tw pipelines add` is exactly the
+call that fails. Platform validates the repository at registration time, so registration is gated by
+the same missing credential as a launch; "register now, fix launching later" is not an available
+sequencing. Nor would registering first help: Platform does not cache pipeline code, so the head job
+clones at run time and needs a *live* credential either way. The existing `ALE-Yeast-aledev4test`
+entry (`181498121471668`) exists only because it was registered on **2026-04-20**, when a working
+GitHub credential was available.
+
+#### Where the credentials actually are — the gap is workspace scope
+
+| Scope | GitHub credential |
+|---|---|
+| `DTU-Biosustain/RECON-ALE` (the workspace in use) | **none** — only `azure_entra`, `ssh`, `azure` |
+| user / personal workspace | none |
+| `zhlia-org-ALE-beta/zhlia-wsp` | `seqera-platform-ale-16april2026` (provider `github`, last activity 2026-04-20, believed expired) |
+
+**Seqera credentials are workspace-scoped**, so the `zhlia-wsp` credential cannot serve a pipeline in
+`RECON-ALE`. `github_Aletechdev` — recorded in the plan as "expired, left in place" — is **not present
+in `RECON-ALE` at all**; that note described the other workspace. ⚠️ Token values **cannot be recovered
+from Platform** (the API returns `null` for every secret field), so an existing credential cannot be
+copied across workspaces — only re-entered from the original token.
+
+**The repository is genuinely private**, so a credential is unavoidable: an unauthenticated
+`git ls-remote https://github.com/Aletechdev/ALE_Yeast` returns `Repository not found`.
+
+### 2026-08-05 — GitHub App ruled out (no org ownership) → classic PAT
+
+**Decision: classic PAT**, because the better options are blocked by org permissions, not by merit.
+
+| Option | Verdict |
+|---|---|
+| **GitHub App**, org-owned, scoped to `ALE_Yeast` | **The right answer, and unavailable.** It preserves every property the deploy key was chosen for — org-owned not person-owned, scopable to one repo, `Contents: Read` only, installation tokens auto-rotate so there is no expiry to miss. Platform supports it (manifest flow, or App ID + Installation ID + App slug + private key + client secret + webhook secret). **Blocked: creating an org-owned App and installing it requires org-owner rights on `Aletechdev`, which the operator does not have.** A *personally*-owned App installed on the org would work technically but reintroduces the person-tied dependency, i.e. it buys nothing over a PAT for much more effort. |
+| **Fine-grained PAT** | Gives exactly `Contents: Read` on `ALE_Yeast` alone — real least privilege. **Also needs an org owner**, but only to *approve a request*, not to build anything. Far smaller ask than the App; worth requesting even while unblocked by the classic token. This org has refused/queued these before ("approval pending"). |
+| **Machine-user + classic PAT** | Bot account added to `ALE_Yeast` as a read-only collaborator; use *its* token. Effective privilege is repo-scoped **and** not person-tied, and it needs only **repo-admin**, not org-owner. ⚠️ On paid org plans an outside collaborator on a private repo consumes a seat. |
+| **Classic PAT (chosen)** | Only option needing no one else's permission. ⚠️ **Cannot be fine-grained** — `repo` is all-or-nothing across every repo the user can reach, and there is no read-only scope for private repos (`public_repo` covers public only). Strictly broader than the deploy key it replaces; that is the price of the fallback, not a tuning oversight. |
+
+Creating it: Settings → Developer settings → Personal access tokens → **Tokens (classic)** →
+`repo` scope → **set an explicit expiry** (never "no expiration"). If `Aletechdev` enforces SAML SSO,
+**Configure SSO → Authorize** on the token afterwards or it fails silently against org repos.
+
+Registering it — run it yourself so the token never enters a transcript or shell history:
+
+```bash
+read -rsp 'GitHub token: ' GH_TOKEN && export GH_TOKEN
+tw credentials add github -n github_ALE_Yeast_pat -w DTU-Biosustain/RECON-ALE \
+    -u <github-username> -p "$GH_TOKEN" --base-url https://github.com/Aletechdev
+```
+
+Then the Launchpad entry and the launch are one command each:
+
+```bash
+tw pipelines add https://github.com/Aletechdev/ALE_Yeast \
+    -n ale-ottilie-contract-test -w DTU-Biosustain/RECON-ALE \
+    -c ale-ottilie-nf25104 --revision main -p docker \
+    --params-file conf/params_ottilie_blob.yml
+```
+
+> ⏰ **Record the token's owner and expiry in the table below when it is created.** This is a *shared
+> org workspace* on *one person's* token — a teammate hitting an opaque launch failure in a year needs
+> to know who to chase. The same reasoning already applies to the Azure client secret.
+>
+> 🔁 **Swap to a GitHub App when an org owner is available.** Nothing depends on which credential
+> authenticated the clone, so it is a credential change and nothing else.
+
 ## Client secret
 
 | Key id (short) | Display name | Created | **Expires** |
@@ -407,8 +525,16 @@ The secret value was never written to this repo.
 - [x] Create a new compute environment bound to the `azure_SP_cfb_ale_mutations_pipeline` credential,
       with `NXF_VER=25.10.4` pinned via the head-job environment (plan Phase 4) — done 2026-08-05,
       two CEs (non-Fusion + Fusion), both AVAILABLE. The six existing CEs were not repointed.
-- [ ] **Next:** `tw launch` against `ale-ottilie-nf25104` (plan Phase 6). Blocked on adding `outdir`
-      to `conf/params_ottilie_blob.yml` — `tw launch` has no way to pass a single pipeline param.
+- [x] Add `outdir` to `conf/params_ottilie_blob.yml` — done 2026-08-05, date-stamped, preview-verified.
+- [ ] 🚨 **BLOCKER — create a classic GitHub PAT and register it in `RECON-ALE`.** Platform cannot use
+      the SSH deploy key, and there is no GitHub credential in this workspace. Nothing else in Phase 6
+      can proceed: registering the Launchpad entry is gated on it just as launching is.
+- [ ] Record the PAT's **owner and expiry** below once created — shared workspace, one person's token.
+- [ ] Request a **fine-grained PAT** (`Contents: Read` on `ALE_Yeast`) from an org owner in parallel —
+      a one-click approval, and strictly less privilege than the classic `repo` scope.
+- [ ] 🔁 **Swap to an org-owned GitHub App** when an org owner is available — the durable answer, and
+      the only option that restores what the deploy key was chosen for.
+- [ ] **Then:** register the pipeline and `tw launch` against `ale-ottilie-nf25104` (plan Phase 6).
 - [x] GitHub auth decided and keypair generated (`07_github_deploy_key.sh`) — the pre-existing
       `github_Aletechdev` credential had in fact expired.
 - [x] Deploy key registered on the repo and as a Seqera `ssh` credential; auth + read access verified.
