@@ -2,6 +2,26 @@
 # Use with:  nextflow run main.nf -profile docker -c conf/azure_batch.config -params-file conf/params_ottilie_blob.yml
 input: "az://aletest/ottilie/v1/samplesheet_test_az.csv"
 
+# Output directory — a SAFETY NET, not the value you should run with.
+#
+# Why it must be here at all: `tw launch` has no way to pass a single pipeline param — its only
+# channels are --params-file, --config and --profile. `nextflow.config` defaults outdir to null,
+# which publishes to a literal `null/` directory, so a Seqera launch without this lands nowhere
+# useful. bin/test_ottilie_azure_batch.sh still overrides it with --outdir (CLI outranks
+# -params-file), so this changes nothing for the local Azure Batch path.
+#
+# ⚠️ For a REAL run, copy this file and give it a per-run outdir, e.g.
+#     az://aletest/seqera-runs/2026-08-05-01/
+# publishDir OVERWRITES files but never DELETES ones a later version stops producing, so reusing
+# one directory silently accumulates stale outputs from older pipeline versions and makes any
+# comparison untrustworthy. (Seen for real: output_ottilie_test/ carried 5 files from a
+# superseded version and corrupted the first cloud-vs-local diff.) The per-run copy doubles as
+# provenance for exactly what was launched.
+#
+# ⚠️ Do NOT point a Seqera run at az://aletest/ottilie-azurebatch-out/ — those 445 blobs are the
+# verified local-head-job baseline that cloud runs are compared against.
+outdir: "az://aletest/ottilie-seqera-out"
+
 # Reference — 4-chromosome subset of S288C R64-1-1
 genome: null
 igenomes_ignore: true
