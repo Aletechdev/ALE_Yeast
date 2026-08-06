@@ -554,6 +554,28 @@ The secret value was never written to this repo.
 > launch with an opaque Azure auth error, a year from now, when nobody has touched this in months —
 > this is the single most likely cause of a future "it just stopped working".
 
+## GitHub PAT (classic — interim credential)
+
+| Seqera credential | Provider | Owner | Created | **Expires** |
+|---|---|---|---|---|
+| `personal_token_classic_ALE_yeast` (`Z3yo4zFgy1xfdW0Ts11kI`) | `github` | **personal** account of the operator (Seqera user `zhlia`) | 2026-08-06 | **2026-11-04** (Wed) |
+
+Scope: classic **`repo`**. ⚠️ This cannot be narrowed — `repo` grants read *and write* on every
+repository the owner can reach, so it is **strictly broader than the deploy key it replaced**. That is
+a property of classic PATs, not a configuration mistake: GitHub provides no read-only scope for private
+repositories.
+
+> ⏰ **Set a calendar reminder for ~2026-10-21** (two weeks before expiry). This is a *shared org
+> workspace* running on *one person's* personal token: when it lapses, every launch in the workspace
+> fails with the opaque `Unknown pipeline repository or expired Git credentials`, and the person who
+> can fix it may not be the person who hits it. This has already happened once here —
+> `seqera-platform-ale-16april2026` expired unnoticed and cost a full debugging session.
+
+**Retire it early if possible.** The 90-day expiry is deliberately short because this is a stopgap: a
+fine-grained PAT (`Contents: Read` on `ALE_Yeast` only) is pending org-owner approval, and an org-owned
+GitHub App is the durable answer. On either landing, re-register the credential and **revoke this
+token** rather than letting it run to November.
+
 ## Open items
 
 - [x] Grant the two roles (`02_grant_roles.sh`) — done 2026-07-31, verified.
@@ -567,8 +589,8 @@ The secret value was never written to this repo.
 - [x] Create a classic GitHub PAT and register it in `RECON-ALE` — done 2026-08-06,
       `personal_token_classic_ALE_yeast`; the repo clones over HTTPS.
 - [x] Register the Launchpad pipeline — `yAMP-ottilie-test` (`227651105760023`), done 2026-08-06.
-- [ ] ⏰ **Record the classic PAT's owner and expiry in the table below.** Shared org workspace on one
-      person's token; an unrecorded expiry is the most likely cause of a future silent failure.
+- [x] Record the classic PAT's owner and expiry — done: expires **2026-11-04**, see the table above.
+- [ ] ⏰ Set a calendar reminder for **~2026-10-21** (two weeks before the PAT expires).
 - [ ] Chase the **fine-grained PAT** approval (submitted 2026-08-06, pending an `Aletechdev` owner).
       On approval: re-register the credential, then **revoke the classic token** — `repo` scope cannot
       be narrowed and is strictly broader than the deploy key it replaced.
