@@ -78,9 +78,23 @@ needs in-session are repeated here.
 Opt-in only: `-c conf/azure_batch.config` (deliberately **not** a profile) plus
 `-params-file conf/params_ottilie_blob.yml`; launcher `bin/test_ottilie_azure_batch.sh`. Azure service
 principal + RBAC provisioning lives in [`deploy/azure/`](deploy/azure/) (per-resource grants only, never
-resource-group-wide). **Status: validated end-to-end for a LOCAL head job** (2026-08-03 — 138 tasks,
-540 blobs published). Outputs are **not yet diffed against a local run**, and a **Seqera Platform
-launch is a separate, unproven step**.
+resource-group-wide).
+
+**Status: validated end-to-end for BOTH head-job locations** —
+- **Local head job** (2026-08-03): 138 tasks (+32 cached), 540 blobs → `az://aletest/ottilie-azurebatch-out/`. **This is the reference baseline.**
+- **Seqera Platform head job** (2026-08-06): 170/170 tasks, **all 9 cohort deliverables byte-identical** to that baseline. Launchpad entry `yAMP-ottilie-test` in `DTU-Biosustain/RECON-ALE`.
+
+⚠️ **A Platform head job needs a `--dual-pool` CE with an enlarged worker boot disk.** On a single-pool
+compute environment it fails at ~98% completion, with **zero failed tasks** — the node's OS disk fills
+with Docker images, which kills the head job, and Platform's ephemeral launch config is single-use so
+the restarted head job cannot recover. Both halves are required: the disk stops the failure, dual-pool
+stops it being fatal. Full detail, plus the better `/mnt` relocation fix:
+[`azure_batch_execution.md` §9–§10](docs/dev-practices/azure_batch_execution.md).
+
+⚠️ **Seqera clones from GitHub over HTTPS only** — an SSH deploy key cannot be used for a pipeline
+repository, so a GitHub App or PAT credential is required. See
+[`deploy/azure/seqera-sp/RUNBOOK.md`](deploy/azure/seqera-sp/RUNBOOK.md) for the credential in use and
+its expiry.
 
 **Before changing any Azure setting, read the orientation section** —
 [`azure_batch_execution.md` → why this config isn't the five-line example](docs/dev-practices/azure_batch_execution.md#orientation--why-this-config-isnt-the-five-line-example).

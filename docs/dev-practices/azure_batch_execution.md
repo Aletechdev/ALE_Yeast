@@ -1,14 +1,18 @@
 # Running the pipeline on Azure Batch — execution gotchas
 
-> **Status (2026-08-03): validated end-to-end for a LOCAL head job.** `Pipeline completed successfully`
-> — 138 tasks submitted (+32 cached), **540 blobs published** to `az://aletest/ottilie-azurebatch-out/`,
-> including `cohort_report.html`, the per-sample igv-reports, and the CN/SV cohort CSVs. Azure Batch
-> works with the Entra service principal.
+> **Status (2026-08-06): validated end-to-end for BOTH a local head job and a Seqera Platform head job.**
 >
-> **Still open:** (1) the outputs have **not** been diffed against a local run — byte-identical cohort
-> CSVs is the acceptance criterion, and a delta would be a real cloud-vs-local reproducibility finding;
-> (2) a **Seqera Platform launch** is a separate step, and at least one rule below (`outdir` container
-> placement) is verified only for a local head job.
+> - **Local head job** (2026-08-03): 138 tasks (+32 cached), **540 blobs** published to
+>   `az://aletest/ottilie-azurebatch-out/`. This is the **reference baseline**.
+> - **Seqera Platform head job** (2026-08-06, run `3C5zYMYY5M32dO`): **170/170 tasks, 0 failed**, and all
+>   **9 cohort deliverables byte-identical** to that baseline — the acceptance criterion, met. Every
+>   remaining difference falls in a known non-determinism class (§11).
+>
+> Both run under the **Entra service principal**. `outdir` container placement (§3) is now confirmed for
+> a Platform head job too, not just a local one.
+>
+> ⚠️ Getting there needed **§9 (node OS disk)** and **§10 (head-job restart)** — a Platform head job on a
+> single-pool compute environment fails at ~98% completion without them.
 
 Config: [`conf/azure_batch.config`](../../conf/azure_batch.config) (pass with `-c`, deliberately not a
 profile, so only opted-in runs are affected) · params: [`conf/params_ottilie_blob.yml`](../../conf/params_ottilie_blob.yml) ·
@@ -295,3 +299,174 @@ storage transactions. `northeurope` list prices:
 Low priority is ~5× cheaper and well suited to resumable test runs. For scale reference, real ALE
 production jobs on the `ale` Batch account cost roughly **$30–40 each**. Cost Management returns **DKK**
 while the retail price API returns **USD** — do not mix them (~6.9 DKK/USD).
+
+---
+
+## 9. Batch nodes fill their **OS disk** with Docker images — not with task data
+
+**Symptom.** Nodes go `unusable` with:
+
+```
+code: DiskFull
+"The VM disk is full. Delete jobs, tasks, or files on the node to free up space and then reboot the node."
+```
+
+Downstream this looks like something else entirely: the workflow is marked `FAILED` with **zero failed
+tasks** (see §10), so nothing points at the disk.
+
+**Why.** An Azure Batch Linux node has two disks, and they do different jobs:
+
+| Disk | Mount | On `Standard_E4ds_v4` | Holds | Billed |
+|---|---|---|---|---|
+| **OS / boot** | `/` | ~30 GB by default | the OS and **`/var/lib/docker`** (image layers, overlay2) | yes, managed disk |
+| **Temp / ephemeral** | `/mnt` | **150 GB** local NVMe | `/mnt/batch/tasks` — Nextflow task dirs, staged inputs | no, included with the VM |
+
+Task scratch is on the *big* disk already. **Docker is on the small one**, and this pipeline pulls
+10–15 tool images (GATK, snpEff, CNVkit, Manta, TIDDIT, igv-reports, MultiQC, FastQC, bwa/samtools),
+which exhausts the default root disk.
+
+**Evidence it is Docker, not task data:** an unusable node had **0.07 GB across 205 files** in its Batch
+task directories. Confirm with:
+
+```bash
+az batch node file list --pool-id <pool> --node-id <node> --recursive \
+  --query "[].properties.contentLength" -o tsv | paste -sd+ | bc
+```
+
+⚠️ **Concurrency is NOT the cause.** An early hypothesis blamed two runs sharing a pool; the next
+failure was a **solo** run. Concurrency only reaches the limit sooner.
+
+### Two fixes — pick per situation
+
+**(a) Enlarge the OS disk — what we run today.** One flag, Batch Forge keeps managing the pools:
+
+```bash
+tw compute-envs add azure-batch forge ... --worker-boot-disk-size 256 --head-boot-disk-size 64
+```
+
+Verify it applied — Batch reports `osDisk.diskSizeGb`, and a CE without the flag shows `null`:
+
+```bash
+az batch pool list --query "[].{id:id,diskGB:virtualMachineConfiguration.osDisk.diskSizeGb}" -o table
+```
+
+**(b) Move Docker to the ephemeral disk — better, but needs a manual pool.** Uses the 150 GB of local
+NVMe you already pay for with the VM, and it is faster for image-layer extraction. As a Batch **pool
+start task**:
+
+```bash
+systemctl stop docker && mkdir -p /mnt/docker && rsync -aP /var/lib/docker/ /mnt/docker &&
+sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/dockerd --data-root=/mnt/docker|" /lib/systemd/system/docker.service &&
+systemctl daemon-reexec && systemctl start docker
+```
+
+⚠️ **`preRunScript` cannot do this.** Platform's pre-run script executes in the nf-launch script inside
+the **head job**, not as a start task on every worker node. A start task requires a pre-created pool
+plus `tw compute-envs add azure-batch manual --compute-pool-name/--worker-pool` — which means taking
+autoscale, the verified image pin (§4), node lifecycle and `azcopy` back from Forge.
+
+**Trade-off:** (a) costs a managed disk per node and leaves the free NVMe idle; (b) is free and faster
+but hands you the pool lifecycle. (a) also tolerates an image set larger than 150 GB, which (b) cannot.
+
+> **Unmeasured:** peak disk usage was never sampled, so "256 GB is enough" rests on one clean run plus
+> the bounded image footprint, not on a margin. Log `df -h /` from a task before pointing large datasets
+> at this.
+
+### Recovering a stuck pool
+
+```bash
+az batch node reboot --pool-id <pool> --node-id <node> --node-reboot-option terminate
+```
+
+⚠️ `az batch node delete` is **rejected while autoscale is enabled** (`Remove VMs not allowed when
+AutoScale is enabled`). ⚠️ And a rebooted node can report `state: running, errors: null` and return to
+`unusable` minutes later — **never declare a pool healthy from a single sample.**
+
+---
+
+## 10. A Seqera Platform head job **cannot survive a restart** — isolate it with `--dual-pool`
+
+**Symptom.** The workflow is `FAILED` with **zero failed tasks** (seen at 122/138 and 169/170), and:
+
+```
+ERROR ~ Unable to access config file 'https://api.cloud.seqera.io/ephemeral/…'
+        -- Cause: Server returned HTTP response code: 403
+```
+
+**Why.** Platform passes launch parameters to the head job through an **ephemeral, single-use URL**.
+When the head job's node dies — §9 — Batch reschedules the head task, the replacement re-fetches that
+URL, and gets **403**. A recoverable node failure becomes a total run loss near completion.
+
+Tell-tale: the surviving Batch task ran for ~14 seconds with `retryCount: 0`, while the workflow had
+been running for 20+ minutes. That short-lived task is the *replacement*, not the original.
+
+```bash
+az batch task list --job-id nf-workflow-<runId> \
+  --query "[].{state:state,retries:executionInfo.retryCount,exit:executionInfo.exitCode,
+               start:executionInfo.startTime,end:executionInfo.endTime}" -o json
+```
+
+**Fix: `--dual-pool`.** The head job gets its own pool, so a worker-side disk failure can no longer kill
+it. It is also *cheaper* — the head sits on a `Standard_D2s_v3` instead of an `E4ds_v4`.
+
+⚠️ **Dual pool requires explicit per-pool VM counts.** `--vm-count` is single-pool only; omitting the
+per-pool flags fails with `Missing VM count parameter for head pool`, despite the help text claiming the
+head count defaults to 1.
+
+⚠️ **Dual pool starts slower** — measured **4 min** (single-pool) vs **~17 min** for the head pool to
+provision. The head job waits on its *own* VM allocation rather than using whichever shared node came up
+first; worker nodes sit `idle` meanwhile. Cold-start only. `--head-no-auto-scale` keeps a head node warm
+at the cost of a `D2s_v3` running continuously.
+
+> **`--dual-pool` alone is not sufficient** — it does not stop workers filling up, it only stops that
+> from killing the run. §9 is the load-bearing fix; §10 is the safety net. Use both.
+
+**Also transient, and unrelated:** `Unable to access config file … Connection timed out` with
+`start: None` and no Nextflow version reported. That is the head job failing to reach Seqera's API at
+startup — network-level, before any path is resolved. Retry.
+
+---
+
+## 11. Platform-vs-local output differences that are NOT regressions
+
+Comparing a Platform run against the local-head-job baseline, 464 of 529 common files were byte-size
+identical and **all 9 cohort deliverables were byte-identical by md5**. The rest classify as:
+
+| Difference | Cause |
+|---|---|
+| MultiQC plot renders (pdf/png/svg), `multiqc_data` | render non-determinism — already in `tests/.nftignore` |
+| igv-reports HTML | `sessionDictionary` is a base64 gzip blob, non-deterministic |
+| `.vcf.gz` / `.tbi` ±1–7 bytes | bgzf/gzip framing, `##fileDate`, `##source` |
+| CRAM ±1 byte | header metadata |
+| `csv/markduplicates_no_table.csv`, `csv/variantcalled.csv` | these **embed the absolute output path**, so a longer `outdir` string changes the byte count |
+| `versions.yml` | a run from a **Git clone** appends the short commit (`v1.0.0-g86c4672`); a local-directory run does not |
+| `pipeline_info/*` file *count* | timestamped per execution — the baseline has two sets because it was run twice |
+
+⚠️ **`contentMd5` is NOT populated on published blobs** (0/534) — Azure stores it only when the uploader
+supplies it, and Nextflow's publish path does not. So the "compare blob `Content-MD5` against local md5"
+shortcut **does not work**. Compare `contentLength` first, then download and hash the files that matter:
+
+```bash
+az storage blob list -c <container> --prefix <run>/ --account-name <acct> --auth-mode login \
+  --num-results 10000 --query "[].{n:name,s:properties.contentLength}" -o json
+```
+
+⚠️ `##TIDDITcmd` embeds the thread count, so TIDDIT VCFs can never be byte-identical across runs with
+different vCPU allocations. Strip that line before comparing.
+
+---
+
+## 12. `NXF_VER` beats the launch UI's "Nextflow version" selector
+
+A run submitted with **26.04** chosen in the launch form's Advanced settings still executed **25.10.4** —
+the compute environment's `NXF_VER` environment variable won, silently. `NXF_VER` selects the engine the
+launcher self-fetches, and that wins wherever it is set.
+
+Consequence: **you cannot test another engine version from the UI while the CE pins one.** Use a CE
+without the env var, or a launch-time `--pre-run` that re-exports it.
+
+`-e NXF_VER=…` is the right delivery mechanism — `tw`'s help states env vars are added to the **Nextflow
+head job process** by default, which is exactly where the pin is needed. Confirmed stored as
+`{"name":"NXF_VER","value":"25.10.4","head":true,"compute":false}`, and confirmed in effect: the run
+reported Nextflow 25.10.4. Nothing on a compute node ever reads it — task wrappers invoke `.command.sh`
+via plain bash inside `docker run`, forwarding only `NXF_TASK_WORKDIR` and `NXF_DEBUG`.
