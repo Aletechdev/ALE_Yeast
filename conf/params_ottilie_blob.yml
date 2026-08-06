@@ -24,7 +24,7 @@ input: "az://aletest/ottilie/v1/samplesheet_test_az.csv"
 #
 # ⚠️ Do NOT point a Seqera run at az://aletest/ottilie-azurebatch-out/ — those 445 blobs are the
 # verified local-head-job baseline that cloud runs are compared against.
-outdir: "az://aletest/seqera-runs/2026-08-05-01"
+outdir: "az://aletest/seqera-runs/2026-08-06-01"
 
 # Reference — 4-chromosome subset of S288C R64-1-1
 genome: null

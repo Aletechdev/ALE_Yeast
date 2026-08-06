@@ -498,6 +498,44 @@ tw pipelines add https://github.com/Aletechdev/ALE_Yeast \
 > 🔁 **Swap to a GitHub App when an org owner is available.** Nothing depends on which credential
 > authenticated the clone, so it is a credential change and nothing else.
 
+### 2026-08-06 — ✅ classic PAT registered; repo clones; Launchpad entry live
+
+**The blocker above is cleared.** A personal **classic** PAT was registered in `RECON-ALE` as
+`personal_token_classic_ALE_yeast` (`Z3yo4zFgy1xfdW0Ts11kI`, provider `github`), and Platform
+successfully cloned the private repo over HTTPS — proven by `tw pipelines add` succeeding, since it
+validates the repository at registration time.
+
+A **fine-grained** PAT (`Contents: Read` on `ALE_Yeast`, resource owner `Aletechdev`) was submitted in
+parallel and is **pending org-owner approval**. ⚠️ Note for anyone repeating this: the org *does*
+appear in the fine-grained token's **Resource owner** dropdown — if the repo seems missing, the cause
+is Resource owner still set to the personal account, not the org disallowing it.
+
+**Launchpad pipeline registered:**
+
+| Field | Value |
+|---|---|
+| Name / id | `yAMP-ottilie-test` / `227651105760023` |
+| Repository | `https://github.com/Aletechdev/ALE_Yeast` (HTTPS — the only form Platform accepts) |
+| Revision / profile / labels | `main` / `docker` / `dev` |
+| Compute env | `ale-ottilie-nf25104` |
+| workDir / outdir | `az://aletest/nf-work` (from the CE) / `az://aletest/seqera-runs/2026-08-06-01` |
+
+⚠️ **`tw pipelines update` is broken** — HTTP 500 (`Unexpected error while processing request`) with
+`-n` or `-i`, full or partial options, while `add` with the *same* arguments succeeds. Work around it
+by deleting and re-adding (the pipeline id changes), or edit in the web UI.
+
+**One pipeline entry, not one per compute environment.** The CE is a single field at registration but
+is **overridable per launch** (`tw launch -c …`, or the dropdown on the UI launch form). So the Fusion
+comparison runs from this same entry against `ale-ottilie-nf25104-fusion` — which is also the
+methodologically better choice, since launching one record against two CEs guarantees nothing else
+differs between the two runs. ⚠️ Give the second run its own `outdir`.
+
+**Params stay dataset-specific and ready-to-run.** `conf/params_ottilie_blob.yml` is deliberately a
+filled-in, launch-without-editing file rather than a template with placeholders — splitting it into a
+generic template is explicitly deferred. Note that Platform stores params as a single `paramsText`
+blob, so launch-time params **replace** the saved set rather than merging key-by-key; saved params are
+an editable template, never inherited defaults.
+
 ## Client secret
 
 | Key id (short) | Display name | Created | **Expires** |
@@ -526,15 +564,19 @@ The secret value was never written to this repo.
       with `NXF_VER=25.10.4` pinned via the head-job environment (plan Phase 4) — done 2026-08-05,
       two CEs (non-Fusion + Fusion), both AVAILABLE. The six existing CEs were not repointed.
 - [x] Add `outdir` to `conf/params_ottilie_blob.yml` — done 2026-08-05, date-stamped, preview-verified.
-- [ ] 🚨 **BLOCKER — create a classic GitHub PAT and register it in `RECON-ALE`.** Platform cannot use
-      the SSH deploy key, and there is no GitHub credential in this workspace. Nothing else in Phase 6
-      can proceed: registering the Launchpad entry is gated on it just as launching is.
-- [ ] Record the PAT's **owner and expiry** below once created — shared workspace, one person's token.
-- [ ] Request a **fine-grained PAT** (`Contents: Read` on `ALE_Yeast`) from an org owner in parallel —
-      a one-click approval, and strictly less privilege than the classic `repo` scope.
+- [x] Create a classic GitHub PAT and register it in `RECON-ALE` — done 2026-08-06,
+      `personal_token_classic_ALE_yeast`; the repo clones over HTTPS.
+- [x] Register the Launchpad pipeline — `yAMP-ottilie-test` (`227651105760023`), done 2026-08-06.
+- [ ] ⏰ **Record the classic PAT's owner and expiry in the table below.** Shared org workspace on one
+      person's token; an unrecorded expiry is the most likely cause of a future silent failure.
+- [ ] Chase the **fine-grained PAT** approval (submitted 2026-08-06, pending an `Aletechdev` owner).
+      On approval: re-register the credential, then **revoke the classic token** — `repo` scope cannot
+      be narrowed and is strictly broader than the deploy key it replaced.
 - [ ] 🔁 **Swap to an org-owned GitHub App** when an org owner is available — the durable answer, and
       the only option that restores what the deploy key was chosen for.
-- [ ] **Then:** register the pipeline and `tw launch` against `ale-ottilie-nf25104` (plan Phase 6).
+- [ ] **Next:** `tw launch` (plan Phase 6) — then compare outputs against the local-head-job baseline.
+- [ ] Run 2: relaunch the same pipeline against `ale-ottilie-nf25104-fusion` with a **fresh `outdir`**,
+      to settle whether Fusion removes the same-container SAS rule.
 - [x] GitHub auth decided and keypair generated (`07_github_deploy_key.sh`) — the pre-existing
       `github_Aletechdev` credential had in fact expired.
 - [x] Deploy key registered on the repo and as a Seqera `ssh` credential; auth + read access verified.
