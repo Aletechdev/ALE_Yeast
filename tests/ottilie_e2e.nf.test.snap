@@ -79,7 +79,7 @@
                     "vcftools": "0.1.16"
                 },
                 "Workflow": {
-                    "Aletechdev/AMP": "v1.0.0"
+                    "Aletechdev/ALE_Yeast": "v1.0.0"
                 }
             },
             [

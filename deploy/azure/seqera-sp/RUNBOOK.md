@@ -554,6 +554,124 @@ The secret value was never written to this repo.
 > launch with an opaque Azure auth error, a year from now, when nobody has touched this in months —
 > this is the single most likely cause of a future "it just stopped working".
 
+### 2026-08-06 — ✅ PHASE 6 COMPLETE: Platform head job runs end-to-end and reproduces the baseline
+
+`ottilie-dualpool-01` (`3C5zYMYY5M32dO`) **SUCCEEDED** — **170 tasks, 0 failed**, matching the local
+baseline exactly (138 submitted + 32 cached), with **zero `DiskFull`** on either pool.
+
+Proven for the first time, all in this run: `NXF_VER=25.10.4` takes in a Platform head job; the private
+repo clones over HTTPS with the PAT; inputs *and* both directory params (`snpeff_cache`, `chr_dir`)
+stage from blob under the Entra SP; containers pull; and **`publishDir` writes to `outdir` from a
+Platform-hosted head job** — the last exemption to the same-container SAS rule that had only ever been
+verified locally.
+
+**Output comparison vs the verified local-head-job baseline** (`az://aletest/ottilie-azurebatch-out/`):
+
+| | |
+|---|---|
+| files in common | 529 (540 baseline vs 534 new — the delta is entirely timestamped `pipeline_info/` artifacts; the baseline has two sets because Phase 3.5 ran twice) |
+| byte-size identical | 464 |
+| differing | 65 — **all in explained classes** |
+| **cohort deliverables** | **9/9 byte-identical (md5)** — `cn_cohort_collapsed/full`, `cn_bins_continuous`, `cn_chr_summary_call/germline`, `cn_segments_call/germline`, `sv_cohort_matrix_union/_pass` |
+
+⚠️ **`contentMd5` is NOT populated on these blobs** (0/534) — Azure only stores it when the uploader
+supplies it, and Nextflow's publish path does not. The plan's "blob `Content-MD5` vs local md5" method
+therefore **does not work here**; compare by size first, then download and hash the files that matter.
+
+The 65 differences classify as: MultiQC plot renders (pdf/png/svg) and `multiqc_data`; igv-reports
+`sessionDictionary`; bgzf/gzip framing on `.vcf.gz`/`.tbi`; CRAM ±1 byte; and two Sarek `csv/` files
+that **embed the absolute output path** (`seqera-runs/2026-08-06-04` is longer than
+`ottilie-azurebatch-out`, which exactly accounts for the +12/+33 byte deltas). Nothing uncategorised,
+no variant-content differences.
+
+**`versions.yml` differs by provenance, not content:** `Aletechdev/AMP: v1.0.0` (baseline) vs
+`Aletechdev/AMP: v1.0.0-g86c4672` (Platform). nf-core appends the short commit when the pipeline runs
+from a **Git clone**; a local-directory run has no commit id. Expected, and desirable.
+
+### 2026-08-06 — root cause of the two failed runs: Docker on the OS disk
+
+Two earlier runs died at **122/138** and **169/170 tasks with ZERO failed tasks** — the signature of a
+head-job death, not a pipeline error. The chain:
+
+1. Pool nodes hit **`DiskFull`** and went `unusable`.
+2. The head job's node died with them, so Batch rescheduled the head task.
+3. The replacement head job tried to re-fetch Platform's **ephemeral launch config** and got **403** —
+   the URL is **single-use**. A recoverable node failure therefore became a total run loss.
+
+**It is Docker, not task scratch.** An unusable node had only **0.07 GB across 205 files** in its Batch
+task directories — the pressure is `/var/lib/docker` overlay2 on the **OS disk**, from this pipeline's
+many tool images (GATK, snpEff, CNVkit, Manta, TIDDIT, igv-reports, MultiQC, FastQC, bwa/samtools).
+
+⚠️ **Concurrency was NOT the cause** — an early hypothesis that proved wrong. The second failure was a
+**solo** run. Concurrency only reached the limit faster.
+
+**Fix, both parts needed:**
+
+- **`--dual-pool`** puts the head job on its own pool, so a worker-side disk failure can no longer kill
+  a run that is 98% done. This is the durable fix, and it is *cheaper* (head on `Standard_D2s_v3`).
+- **`--worker-boot-disk-size 256`** stops the workers filling in the first place.
+
+CE `ale-ottilie-nf25104-bigdisk` = `6buIkRXLMZFgDXs5NkyuH`. Verified at the Azure level — Forge built
+two pools with `diskSizeGb` **64** (head) and **256** (worker); the earlier CEs show `null` (Azure
+default), so the flag genuinely applied.
+
+```bash
+tw compute-envs add azure-batch forge -n ale-ottilie-nf25104-bigdisk \
+    -w DTU-Biosustain/RECON-ALE -c azure_SP_cfb_ale_mutations_pipeline \
+    -l northeurope --work-dir az://aletest/nf-work -e NXF_VER=25.10.4 \
+    --dual-pool \
+    --head-vm-type Standard_D2s_v3    --head-vm-count 1   --head-boot-disk-size 64 \
+    --worker-vm-type Standard_E4ds_v4 --worker-vm-count 4 --worker-boot-disk-size 256
+```
+
+⚠️ **Dual pool requires explicit per-pool VM counts.** `--vm-count` is single-pool only; omitting
+`--head-vm-count`/`--worker-vm-count` fails with `Missing VM count parameter for head pool`, despite the
+help text saying the head count defaults to 1.
+
+⚠️ **Dual pool starts slower** — measured **4 min** (single-pool) vs **~17 min** for the head pool to
+provision a node. The head job waits on its *own* VM allocation instead of using whichever shared node
+came up first; worker nodes sit `idle` meanwhile. Cold-start only. `--head-no-auto-scale` would keep a
+head node warm at the cost of a `D2s_v3` running continuously.
+
+> **Better long-term fix (not yet applied):** relocate Docker's data-root to the ephemeral disk via a
+> Batch **pool start task** — `/mnt` on `Standard_E4ds_v4` is 150 GB of local NVMe, free with the VM and
+> faster than a managed OS disk:
+> ```
+> systemctl stop docker && mkdir -p /mnt/docker && rsync -aP /var/lib/docker/ /mnt/docker &&
+> sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/dockerd --data-root=/mnt/docker|" /lib/systemd/system/docker.service &&
+> systemctl daemon-reexec && systemctl start docker
+> ```
+> ⚠️ **`preRunScript` cannot do this** — it runs in the nf-launch script inside the *head job*, not as a
+> pool start task on every worker node. A start task requires a **pre-created pool** plus
+> `tw compute-envs add azure-batch manual --compute-pool-name/--worker-pool`, which means taking over
+> the autoscale formula, the verified `ubuntu-hpc/2404` image pin, and node lifecycle from Forge — and
+> the head pool must ship `azcopy`.
+
+### 2026-08-06 — other Platform behaviours worth not rediscovering
+
+- **The CE's `NXF_VER` env var beats the launch-UI "Nextflow version" selector.** A run submitted with
+  `26.04` selected in Advanced settings still executed **25.10.4**; the selection was silently ignored.
+  So you cannot test another engine version from the UI while the CE pins one — use a CE without the
+  env var, or a launch-time `--pre-run` that re-exports it.
+- **Transient head-job startup failure:** `Unable to access config file .../ephemeral/… Connection
+  timed out`, with `start: None` and no Nextflow version reported. Network-level, unrelated to storage,
+  credentials or config — it never reached the point of resolving a path. Retry.
+- **Seqera shows `manifest.name`, falling back to the repo-derived project name** when a run dies before
+  parsing `nextflow.config`. That made one pipeline appear under two names in the runs view; fixed by
+  aligning `manifest.name` to the repo handle (see `CLAUDE.md` → Pipeline Identity & Naming).
+- **Node `idle` is healthy** — the lifecycle is `creating → starting → idle → running`. `idle` means
+  provisioned and waiting for work. The states to worry about are `unusable`, `offline`,
+  `startTaskFailed`, `preempted`, `leavingPool`.
+- **Batch refuses node removal while autoscale is enabled** (`Remove VMs not allowed when AutoScale is
+  enabled`). Use `az batch node reboot --node-reboot-option terminate`. ⚠️ A rebooted node can report
+  `state: running, errors: null` and then return to `unusable` minutes later — do not declare a pool
+  healthy from one sample.
+- ⚠️ **Do not run two pipelines concurrently against one work dir.** Identical code+inputs+params
+  produce **identical task hashes**, so both write the same `az://…/nf-work/<hash>` directories. Without
+  `-resume` Nextflow does not check for existing dirs and collects outputs by glob, so stale files from
+  another run can be picked up as this run's outputs. Use `tw launch --work-dir` to separate them.
+- **`tw launch` has no `--resume` flag** in 0.38 (UI/API only).
+
 ## GitHub PAT (classic — interim credential)
 
 | Seqera credential | Provider | Owner | Created | **Expires** |
@@ -596,9 +714,18 @@ token** rather than letting it run to November.
       be narrowed and is strictly broader than the deploy key it replaced.
 - [ ] 🔁 **Swap to an org-owned GitHub App** when an org owner is available — the durable answer, and
       the only option that restores what the deploy key was chosen for.
-- [ ] **Next:** `tw launch` (plan Phase 6) — then compare outputs against the local-head-job baseline.
-- [ ] Run 2: relaunch the same pipeline against `ale-ottilie-nf25104-fusion` with a **fresh `outdir`**,
-      to settle whether Fusion removes the same-container SAS rule.
+- [x] `tw launch` (plan Phase 6) and compare outputs against the local-head-job baseline — **done
+      2026-08-06**: `3C5zYMYY5M32dO` SUCCEEDED, 170/170 tasks, 9/9 cohort deliverables byte-identical.
+- [ ] Point the `yAMP-ottilie-test` Launchpad entry at `ale-ottilie-nf25104-bigdisk` — it still
+      references the old single-pool CE, which fails at ~98% under disk pressure. ⚠️ `tw pipelines
+      update` is broken; delete and re-add, or edit in the web UI.
+- [ ] Retire the two superseded CEs (`ale-ottilie-nf25104`, `…-fusion`) once nothing references them.
+- [ ] Run 2: relaunch against `ale-ottilie-nf25104-fusion` with a **fresh `outdir` and work dir**, to
+      settle whether Fusion removes the same-container SAS rule. ⚠️ That CE is **single-pool** and has
+      no boot-disk override, so it will likely hit the same `DiskFull` — re-forge it with `--dual-pool`
+      and `--worker-boot-disk-size` before drawing any conclusion about Fusion.
+- [ ] Move Docker's data-root to `/mnt` via a pool start task (needs a `manual` CE) — the better fix
+      than a larger OS disk; see the note above.
 - [x] GitHub auth decided and keypair generated (`07_github_deploy_key.sh`) — the pre-existing
       `github_Aletechdev` credential had in fact expired.
 - [x] Deploy key registered on the repo and as a Seqera `ssh` credential; auth + read access verified.

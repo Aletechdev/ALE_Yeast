@@ -20,21 +20,37 @@
 
 ## Pipeline Identity & Naming
 
-Three names refer to the same thing — kept distinct on purpose:
+Two names, and **the identity must match the repo handle**:
 
 | What | Value | Notes |
 |------|-------|-------|
-| **Brand** (this version) | **yAMP** — *yeast Automated Mutation Pipeline* | Product name; future majors → AMPv3, … Lives in `manifest.description`. |
-| **`manifest.name`** | **`Aletechdev/AMP`** | Stable `org/repo`-form pipeline identity (drives the console banner, MultiQC header, versions `id:`, Seqera launch title). `org/repo` form keeps `nextflow run <name>` viable if ever open-sourced. |
-| **GitHub repo (handle/URL)** | **`Aletechdev/ALE_Yeast`** → https://github.com/Aletechdev/ALE_Yeast | The real repo; `worktree-seqera-cloud` lives here. Also `manifest.homePage`. |
+| **Brand** (this version) | **yAMP** — *yeast Automated Mutation Pipeline* | Product name; future majors → AMPv3, … Lives in `manifest.description`, and in the Seqera Launchpad entry name (`yAMP-ottilie-test`). |
+| **`manifest.name`** = **GitHub repo** | **`Aletechdev/ALE_Yeast`** → https://github.com/Aletechdev/ALE_Yeast | Drives the console banner, MultiQC header, versions `id:`, and the Seqera runs view. Also `manifest.homePage`. |
 
-**`manifest.name` (`Aletechdev/AMP`) intentionally ≠ the repo handle (`Aletechdev/ALE_Yeast`)** — the
-brand stays clean while the repo keeps its existing name. Both may be reconciled/renamed later. The
-`description` (brand) evolves per version; `manifest.name` (identity) stays stable so it isn't churned.
+**Keep `manifest.name` equal to the `org/repo` handle.** Two reasons, both learned the hard way
+(2026-08-06):
 
-> **Status:** ✅ applied 2026-07-27 (v1.0.0 release prep). `manifest.name`, `version = '1.0.0'`, `description`,
-> `homePage`, and `doi = ''` set in `nextflow.config`; ottilie e2e re-snapshotted — the only output delta
-> was the `versions.yml` Workflow line (`nf-core/sarek: v3.5.1` → `Aletechdev/AMP: v1.0.0`).
+1. **Seqera shows two different names for one pipeline if they diverge.** The runs view displays
+   `manifest.name`, but falls back to the **repo-derived** project name when a run dies before parsing
+   `nextflow.config` — so a startup failure appears under a different name than a healthy run. With the
+   two equal, every run reads the same in every state.
+2. **`nextflow run <name>` resolves against GitHub, not against `manifest.name`.** The earlier
+   rationale — that an `org/repo`-form `manifest.name` "keeps `nextflow run <name>` viable if ever
+   open-sourced" — was **wrong**: `nextflow run Aletechdev/AMP` would clone `github.com/Aletechdev/AMP`,
+   which does not exist. Only the repo handle is runnable.
+
+The brand is **not** carried by `manifest.name` — it lives in `description` and in the Launchpad entry,
+so it can evolve per version without touching the identity. If an AMP *family* ever materialises, the
+clean move is to **rename the repo**, keeping the two in sync, rather than to diverge them again.
+
+> **Status:** `manifest.name = 'Aletechdev/AMP'` was set 2026-07-27 (v1.0.0 prep) and **changed to
+> `Aletechdev/ALE_Yeast` on 2026-08-06** for the reasons above. Each change moved exactly one output
+> line — `versions.yml`: `nf-core/sarek: v3.5.1` → `Aletechdev/AMP: v1.0.0` → `Aletechdev/ALE_Yeast: v1.0.0`.
+>
+> ⚠️ The **verified Azure Batch baseline** at `az://aletest/ottilie-azurebatch-out/` was produced under
+> `Aletechdev/AMP`, so any future comparison against it shows that `versions.yml` line as a known,
+> expected difference. Note also that runs launched from a Git clone append the short commit
+> (`v1.0.0-g86c4672`) while local-directory runs do not — that is nf-core provenance, not a regression.
 
 ---
 

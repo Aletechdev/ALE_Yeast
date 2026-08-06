@@ -182,8 +182,14 @@ git diff tests/ottilie_e2e.nf.test.snap
 `--update-snapshot` re-records **every** snapshot that fails in that run, so a genuine regression
 sitting alongside your intended change is silently blessed. Reviewing `git diff` on the `.snap` is the
 only thing standing between you and a permanently wrong expectation. A worked example of a good diff:
-the v1.0.0 `manifest.name` change moved exactly one line (`versions.yml`: `nf-core/sarek: v3.5.1` →
-`Aletechdev/AMP: v1.0.0`) — see the status note in [`../../CLAUDE.md`](../../CLAUDE.md).
+each `manifest.name` change moved exactly one line (`versions.yml`: `nf-core/sarek: v3.5.1` →
+`Aletechdev/AMP: v1.0.0` → `Aletechdev/ALE_Yeast: v1.0.0`) — see the status note in
+[`../../CLAUDE.md`](../../CLAUDE.md).
+
+⚠️ A run launched **from a Git clone** (Seqera Platform, `nextflow run <org/repo>`) appends the short
+commit to that same line — `Aletechdev/ALE_Yeast: v1.0.0-g86c4672` — while a run from a local working
+directory does not. That is nf-core provenance, not a regression, but it means `versions.yml` can never
+be byte-compared across those two launch modes.
 
 **Keep the engine pinned when re-recording.** The snapshot stores the toolchain that produced it:
 
