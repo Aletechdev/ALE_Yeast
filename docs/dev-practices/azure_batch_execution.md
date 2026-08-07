@@ -389,9 +389,53 @@ autoscale, the verified image pin (§4), node lifecycle and `azcopy` back from F
 **Trade-off:** (a) costs a managed disk per node and leaves the free NVMe idle; (b) is free and faster
 but hands you the pool lifecycle. (a) also tolerates an image set larger than 150 GB, which (b) cannot.
 
-> **Unmeasured:** peak disk usage was never sampled, so "256 GB is enough" rests on one clean run plus
-> the bounded image footprint, not on a margin. Log `df -h /` from a task before pointing large datasets
-> at this.
+### ✅ Measured 2026-08-07 — peak OS-disk usage is ~65 GB
+
+Sampled with [`conf/disk_probe.config`](../../conf/disk_probe.config) (opt-in `-c`/`--config`, logs
+`df` at the start of every task) across 21 nodes of run `XFwlgZnKvUvpu`:
+
+| | |
+|---|---|
+| disk size | **246.9 G** (the 256 GB `--worker-boot-disk-size`) |
+| **peak used** | **65.2 G — 26%** |
+| range | 56.7 G – 65.2 G |
+| free at peak | 182 G |
+
+What this does and does not establish:
+
+1. ✅ **256 GB is ample** — ~3.8× the observed peak, 182 G free. 128 GB would also fit; the difference
+   is about $0.05/hr across four workers, so there is no reason to trim it.
+2. ✅ **The `/mnt` relocation fix is viable** — 65 GB fits well inside the 150 GB ephemeral NVMe, which
+   was the untested assumption underneath it.
+3. ❓ **The default disk size is still UNKNOWN.** An earlier draft of this section asserted "Azure's
+   default is ~30 GB"; that was an **assumption, not a measurement**, and `az vm image show` will not
+   return `osDiskImage.sizeInGb` for this image. All that is actually known is that the default was
+   *large enough* to run 122/138 and 169/170 tasks before filling — so it sits somewhere near the
+   65 GB peak. **A 64 GB default would fit the observed failure timing exactly** (survives most of the
+   run, crosses the line at the end), but that is inference.
+
+⚠️ **These numbers are a MULTI-RUN accumulation, not a single run.** The sampled nodes were allocated
+**67 minutes before** this run's first task and had already executed a complete 170-task pipeline —
+`totalTasksRun` per node was 57/94/80/109, i.e. ~340 tasks across two runs. Consequences:
+
+- Every container image was **already cached** when sampling began, so the first-task reading
+  (53.8 G) is **not a baseline** and cannot be used to separate the base OS image from this
+  pipeline's images. An earlier draft did exactly that and was wrong.
+- The ~11 GB of growth *during* the run is therefore **not** image pulls — more likely container
+  writable layers, logs and temp.
+- The 65 GB figure is the **more conservative** number for sizing a long-lived pool, since it reflects
+  accumulation across runs. Autoscale draining to 0 destroys the nodes and resets it.
+
+**To get a true baseline**, the pool must be cold: let autoscale drain it to 0 (or forge a fresh CE),
+then read the *genuine* first task. That gives base OS + one image, and growth from there is this
+pipeline's real footprint. Not yet done.
+
+⚠️ **`beforeScript` runs INSIDE the container**, not on the node (`hostname` returns a container id,
+`/` shows as `overlay`). The reading is still valid because overlay2's `df` reports the **backing**
+filesystem — 246.9 G matches the OS disk — but the mechanism is not what it appears.
+
+⚠️ **Under Fusion the work-dir `df` is meaningless**: Fusion presents a synthetic filesystem
+(`fusion 8.0P 4.0P 4.0P 50% /fusion`). Only the `root:` line is usable on a Fusion CE.
 
 ### Recovering a stuck pool
 
@@ -433,6 +477,47 @@ it. It is also *cheaper* — the head sits on a `Standard_D2s_v3` instead of an 
 ⚠️ **Dual pool requires explicit per-pool VM counts.** `--vm-count` is single-pool only; omitting the
 per-pool flags fails with `Missing VM count parameter for head pool`, despite the help text claiming the
 head count defaults to 1.
+
+### 🚨 `tw` cannot enable autoscale for a dual-pool CE — create it in the WEB UI
+
+**Measured cost of getting this wrong: ~$66/day.** `tw compute-envs add azure-batch forge --dual-pool`
+produces pools with **`autoScale: null`**, which Azure builds as **`enableAutoScale: False`** — fixed
+size, running 24/7 whether or not anything is queued. Reproduced deliberately on 2026-08-07 with a
+throwaway CE, so it is repeatable CLI behaviour, not a one-off. Ten nodes (8× `E4ds_v4` + 2× `D2s_v3`)
+ran idle for hours before it was noticed: ~$2.75/hr compute plus ~$324/month of managed disks.
+
+The CLI offers **only flags to DISABLE** autoscaling — `--no-auto-scale`, `--head-no-auto-scale`,
+`--worker-no-auto-scale` — which reads as "enabled by default". For **single-pool** that is true
+(`autoScale: true`, pools sit at 0 nodes). For **dual-pool** it is not, and nothing warns you.
+
+**The web UI CAN set it.** A dual-pool CE created through the UI reads back
+`headPool.autoScale: true` / `workerPool.autoScale: true`, and Azure reports `enableAutoScale: True`.
+So this is a **CLI gap, not a Platform limitation** — use the UI for dual-pool CEs.
+
+⚠️ **Compute environments are IMMUTABLE.** A fixed-size CE cannot be patched; the only fix is delete
+and recreate. **Verify the readback before running anything:**
+
+```bash
+curl -s -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" \
+  "$API/compute-envs/<ce-id>?workspaceId=<ws>" | python -c "
+import sys,json; f=json.load(sys.stdin)['computeEnv']['config']['forge']
+print(f['headPool']['autoScale'], f['workerPool']['autoScale'])"     # must print: True True
+
+az batch pool list --query "[].{cur:currentDedicatedNodes,auto:enableAutoScale}" -o table
+```
+
+If it is already wrong, stop the billing first — `az batch pool resize --pool-id <pool>
+--target-dedicated-nodes 0` — then delete the CE, which disposes the pools *and* their managed disks.
+
+⚠️ **A new pool always shows 1 node for ~5 minutes; that is not a fault.** The Forge autoscale formula
+hardcodes the first interval: `$TargetDedicatedNodes = lifespan < interval ? 1 : targetPoolSize`. So
+`1 + 1` right after creation proves nothing — **`0 + 0` fifteen minutes later** is what proves
+autoscale works. Confirmed unrelated to Wave/Fusion: a duplicate CE with both disabled behaves
+identically.
+
+⚠️ **`--worker-vm-count` is a CEILING under autoscale, not an allocation.** The autoscaling CE
+provisioned 1 + 1 and scales toward 4 as tasks queue; the fixed-size one went straight to 1 + 4 and
+stayed there.
 
 ⚠️ **Dual pool starts slower** — measured **4 min** (single-pool) vs **~17 min** for the head pool to
 provision. The head job waits on its *own* VM allocation rather than using whichever shared node came up

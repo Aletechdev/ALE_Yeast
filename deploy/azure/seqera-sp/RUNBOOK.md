@@ -793,6 +793,85 @@ The original `ale-ottilie-nf25104-fusion` was single-pool with the default boot 
 would have hit `DiskFull` (§9) and told us nothing about Fusion. Carrying the §9–§10 fixes over means a
 Fusion run now isolates **Fusion** as the single variable. The superseded CEs were disabled.
 
+### 2026-08-07 — ✅ Fusion + Entra verified, and node disk usage MEASURED (one run, `XFwlgZnKvUvpu`)
+
+`ottilie-fusion-diskprobe` on `ale-ottilie-nf25104-bigdisk_fusion`, with
+[`conf/disk_probe.config`](../../../conf/disk_probe.config) attached via `--config`, a **fresh** outdir
+(`az://aletest/seqera-runs/2026-08-07-02-fusion`) and a **fresh** work dir (`nf-work-fusion02`).
+**SUCCEEDED — 170/170 tasks, 0 failed, 0 `DiskFull`.**
+
+**1. Fusion + Entra SP works.** The plan flagged this as *unverified*, since the only working Fusion CE
+was on a **shared-key** credential. It now runs on the Entra SP, with dual-pool and 256 GB workers.
+All **9 cohort deliverables byte-identical** to the validated non-Fusion baseline
+(`seqera-runs/2026-08-06-04`), 534 blobs. Note this run is on current `main` (`12a599d`, the new
+`manifest.name`) while the baseline is `86c4672` — so the deliverables match across **both** the Fusion
+change and four commits.
+
+⚠️ An earlier Fusion run (`3eXbxZVVpOPtGW`) also succeeded 170/170, but it shared outdir
+`2026-08-07-01` with the non-Fusion `5Ped8HWvzzjoDx`, so that directory is a **mixture** and is not a
+citable artifact. `2026-08-07-02-fusion` is the clean one.
+
+**2. Peak OS-disk usage is ~65 GB** — measured across 21 nodes, not inferred:
+
+| disk size | peak used | range | free at peak |
+|---|---|---|---|
+| 246.9 G | **65.2 G (26%)** | 56.7–65.2 G | 182 G |
+
+- Azure's **default** Batch OS disk is ~30 GB, so 57–65 GB overruns it **2×**. That is the whole
+  `DiskFull` story, and it confirms the concurrency hypothesis was wrong — a solo run exceeds the
+  default on its own.
+- 256 GB is ~3.8× the peak; 128 GB would suffice. The margin costs ~$0.05/hr across four nodes.
+- ✅ **The `/mnt` relocation fix is viable**: 65 GB fits inside the 150 GB ephemeral NVMe — the
+  assumption that fix rested on.
+
+⚠️ **Correction to the config's original comment:** `beforeScript` runs **inside the container**, not on
+the node (`hostname` = container id, `/` = `overlay`). The reading is still valid — overlay2's `df`
+reports the backing filesystem, and 246.9 G matches the OS disk — but the mechanism is not as stated.
+⚠️ **Under Fusion the work-dir `df` is useless**: it reports a synthetic `fusion 8.0P … 50% /fusion`.
+Only the `root:` line is usable there.
+
+### 2026-08-07 — 🚨 COST INCIDENT: `tw --dual-pool` creates FIXED-SIZE pools (~$66/day)
+
+**Ten nodes ran idle for hours.** Both dual-pool CEs forged with `tw` had
+`headPool.autoScale: null` / `workerPool.autoScale: null`, which Azure built as
+`enableAutoScale: False` — fixed at 1 head + 4 workers, billing regardless of load:
+**8× `E4ds_v4` + 2× `D2s_v3` ≈ $2.75/hr compute, plus ~$324/month of managed disks.**
+
+Noticed only because a *cold pool* was wanted for a disk baseline and the pools would not drain.
+
+**Reproduced deliberately** with a throwaway CE (`ale-ottilie-autoscale-test`, since deleted): same
+flags, same result. Repeatable CLI behaviour, not a one-off.
+
+**Root cause.** `tw compute-envs add azure-batch forge` exposes only flags to *disable* autoscaling —
+`--no-auto-scale`, `--head-no-auto-scale`, `--worker-no-auto-scale` — which reads as "enabled by
+default", and *is* true for **single-pool** (`autoScale: true`, pools sit at 0). For **dual-pool** it is
+not, and nothing warns you: `tw` reports success.
+
+✅ **The web UI CAN set it.** `ale-ottilie-nf25104-bigdisk_autoScale_manual` (`6zsRCxeGmUoiae4OVOGSKO`),
+created through the UI, reads back `headPool.autoScale: true` / `workerPool.autoScale: true`, and Azure
+confirms `enableAutoScale: True` with the pools draining to 0. So this is a **CLI gap, not a Platform
+limitation** — **create dual-pool CEs in the UI.**
+
+**Remediation performed:** all four pinned pools resized to 0 (`az batch pool resize
+--target-dedicated-nodes 0`), the test CE deleted (deletion disposes pools *and* disks). Two correct
+CEs now exist — `…_autoScale_manual` (Fusion) and `…_autoScale_manual_noFusion`.
+
+⚠️ **Still to do:** the `yAMP-ottilie-test` Launchpad entry points at `ale-ottilie-nf25104-bigdisk`,
+one of the **fixed-size** CEs. Repoint it to the `_noFusion` keeper before anyone launches, then delete
+both fixed-size CEs.
+
+**Guard added:** [`12_verify_compute_env.sh`](12_verify_compute_env.sh) asserts `autoScale` on both
+pools (plus workDir, `NXF_VER`, disk sizes) and exits non-zero with the resize/delete steps. Verified
+against both a good and a bad CE. ⚠️ **CEs are immutable** — a wrong setting can only be deleted and
+recreated, so verify *before* launching, not after the invoice.
+
+⚠️ **A new pool shows 1 node for its first ~5 minutes and that is normal** — the Forge autoscale formula
+pins the first interval (`$TargetDedicatedNodes = lifespan < interval ? 1 : targetPoolSize`). `1 + 1`
+right after creation proves nothing; **`0 + 0` fifteen minutes later** is the real check. Confirmed
+unrelated to Wave/Fusion — a duplicate CE with both disabled behaves identically.
+⚠️ **`--worker-vm-count` is a CEILING under autoscale**, not an allocation: the autoscaling CE started
+at 1 + 1 and scales toward 4, while the fixed one went straight to 1 + 4 and stayed.
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |
@@ -906,30 +985,18 @@ revoke the token** — see the open item below.
          then, **do not design around it**.
 - [ ] Still unproven: **`outdir` in a different container under a Platform head job.** Verified locally
       only; the cross-container run died before publishing, so it tested nothing about `outdir`.
-- [ ] 📏 **Measure actual node disk usage — "256 GB is enough" is currently inferred, not measured.**
-      The margin rests on one clean run plus the fact that the image footprint is bounded; peak usage
-      was never sampled. Worth closing **before pointing large datasets** (the full-depth pilot, real
-      CENPK data) at this, since task scratch scales with input size while images do not.
-      **Method:** the measurement must come from *inside a task* — Batch pool nodes are not queryable
-      VMs, Azure Monitor exposes only Batch **account** metrics (node/task counts, no disk), and there
-      is no way to run an ad-hoc command on a node without submitting a task. Sample **both** disks, as
-      the distinction is the whole point:
-      ```
-      df -h /       → container root: overlay2 on the OS disk    ← the disk that filled (§9)
-      df -h "$PWD"  → task work dir: /mnt, 150 GB ephemeral      ← where scratch lives
-      ```
-      Deliver it as an **opt-in `-c` config**, never a profile, so the blast radius is only runs that
-      ask for it (same convention as `conf/azure_batch.config`):
-      ```groovy
-      process.beforeScript = 'echo "[disk] root=$(df -h / | awk \'NR==2{print $3"/"$2" "$5}\') work=$(df -h "$PWD" | awk \'NR==2{print $3"/"$2" "$5}\')"'
-      ```
-      This samples **every node at every task start** (~170 samples/run) with no probe task occupying a
-      worker. ⚠️ Two things to verify rather than assume: (1) whether `beforeScript` participates in the
-      **task hash** — it lives in `.command.run`, not `.command.sh`, so probably not, but if it does it
-      invalidates the cache and would silently break a resume; (2) harvesting means reading each task's
-      `.command.log` from blob, so sample ~20 tasks spread across the run rather than all of them.
-      *Rejected alternative:* a standalone probe pipeline looping `df` every 30 s — continuous timeline,
-      but it occupies a worker node and only ever observes **one** node. Worse coverage, higher cost.
+- [x] 📏 **Measure actual node disk usage** — done 2026-08-07: **peak 65.2 G of 246.9 G (26%)**.
+      ⚠️ Measured on **warm** nodes (already ~340 tasks across two runs), so it is a multi-run
+      accumulation, and the base-OS vs pipeline-image split is **still unknown**. A cold-pool baseline
+      is outstanding — see below.
+- [ ] 🧊 **Cold-pool disk baseline** — rerun with `conf/disk_probe.config` on a pool that has drained to
+      0, so the first task's reading is a genuine baseline. Only that separates the fixed base-image
+      cost from this pipeline's own footprint, and the 128-vs-256 GB sizing decision rests on it.
+      ⚠️ The probe now also samples `/mnt`: under Fusion the work dir is a FUSE mount reporting a
+      synthetic `8.0P … 50%`, so `/mnt` is the only way to see whether Fusion's local cache competes
+      with Docker for the ephemeral disk — which matters before moving Docker there.
+- [ ] Repoint `yAMP-ottilie-test` at `…_autoScale_manual_noFusion`, then **delete both fixed-size CEs**
+      (`ale-ottilie-nf25104-bigdisk`, `…-bigdisk_fusion`) — deletion disposes their pools and disks.
 - [ ] Move Docker's data-root to `/mnt` via a pool start task (needs a `manual` CE) — the better fix
       than a larger OS disk; see the note above. ⚠️ Do the disk measurement **first**: it tells you
       whether 150 GB of ephemeral disk is actually enough headroom for the image set, which is the
