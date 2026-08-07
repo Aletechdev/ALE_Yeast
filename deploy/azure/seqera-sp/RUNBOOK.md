@@ -906,8 +906,34 @@ revoke the token** — see the open item below.
          then, **do not design around it**.
 - [ ] Still unproven: **`outdir` in a different container under a Platform head job.** Verified locally
       only; the cross-container run died before publishing, so it tested nothing about `outdir`.
+- [ ] 📏 **Measure actual node disk usage — "256 GB is enough" is currently inferred, not measured.**
+      The margin rests on one clean run plus the fact that the image footprint is bounded; peak usage
+      was never sampled. Worth closing **before pointing large datasets** (the full-depth pilot, real
+      CENPK data) at this, since task scratch scales with input size while images do not.
+      **Method:** the measurement must come from *inside a task* — Batch pool nodes are not queryable
+      VMs, Azure Monitor exposes only Batch **account** metrics (node/task counts, no disk), and there
+      is no way to run an ad-hoc command on a node without submitting a task. Sample **both** disks, as
+      the distinction is the whole point:
+      ```
+      df -h /       → container root: overlay2 on the OS disk    ← the disk that filled (§9)
+      df -h "$PWD"  → task work dir: /mnt, 150 GB ephemeral      ← where scratch lives
+      ```
+      Deliver it as an **opt-in `-c` config**, never a profile, so the blast radius is only runs that
+      ask for it (same convention as `conf/azure_batch.config`):
+      ```groovy
+      process.beforeScript = 'echo "[disk] root=$(df -h / | awk \'NR==2{print $3"/"$2" "$5}\') work=$(df -h "$PWD" | awk \'NR==2{print $3"/"$2" "$5}\')"'
+      ```
+      This samples **every node at every task start** (~170 samples/run) with no probe task occupying a
+      worker. ⚠️ Two things to verify rather than assume: (1) whether `beforeScript` participates in the
+      **task hash** — it lives in `.command.run`, not `.command.sh`, so probably not, but if it does it
+      invalidates the cache and would silently break a resume; (2) harvesting means reading each task's
+      `.command.log` from blob, so sample ~20 tasks spread across the run rather than all of them.
+      *Rejected alternative:* a standalone probe pipeline looping `df` every 30 s — continuous timeline,
+      but it occupies a worker node and only ever observes **one** node. Worse coverage, higher cost.
 - [ ] Move Docker's data-root to `/mnt` via a pool start task (needs a `manual` CE) — the better fix
-      than a larger OS disk; see the note above.
+      than a larger OS disk; see the note above. ⚠️ Do the disk measurement **first**: it tells you
+      whether 150 GB of ephemeral disk is actually enough headroom for the image set, which is the
+      assumption that fix depends on.
 - [x] GitHub auth decided and keypair generated (`07_github_deploy_key.sh`) — the pre-existing
       `github_Aletechdev` credential had in fact expired. ⚠️ **That script was deleted 2026-08-07**
       (obsolete route; see the entry above) — the numbered sequence skips 07 by design.
