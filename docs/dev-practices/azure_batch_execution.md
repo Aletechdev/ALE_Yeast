@@ -164,22 +164,43 @@ using the SP credentials, which have account-wide blob access — not the node's
 Verified: 195 blobs published to `az://debugging/ottilie-azurebatch-out/` while `workDir` was
 `az://aletest/nf-work`.
 
-> ⚠️ **The `outdir` exemption is verified only for a LOCAL head job — do not assume it under
-> `tw launch`.** The two constraints behave differently once Seqera Platform runs the head process on a
-> Batch node instead of your machine:
->
-> | Constraint | Under Seqera Platform |
-> |---|---|
-> | inputs ↔ `workDir` same container | **Still applies.** The node-side SAS is minted by nf-azure the same way regardless of where the head job runs. |
-> | `outdir` may be in another container | **Unproven.** The justification above is "the head process holds SP credentials". That is true locally. On a Seqera head job it depends on whether Platform passes the full Entra credential or only a scoped SAS. |
->
-> Likely fine — Seqera injects the `azure_entra` credential into the head job, which would give the
-> same account-wide access. But it is an inference, not a measurement.
->
-> **De-risk cheaply:** for the *first* `tw launch`, put `outdir` in the **same container** as
-> `workDir`/inputs. That removes the variable entirely. Once the run succeeds, move `outdir` to a
-> different container as a deliberate second run — then the result is a clean answer about Platform
-> head-job credentials rather than one more unknown inside a first launch.
+### ✅ Confirmed under a Seqera Platform head job (2026-08-07)
+
+Previously this rule was verified only with a **local** head job, leaving open whether Platform — which
+runs the head process on a Batch node — behaves the same. **It does.** Run `48kJmc9QY6Q3h9`
+(`ottilie-xcontainer-01`) was launched deliberately to falsify it: identical to a known-good run except
+`--work-dir az://debugging/nf-work-xcontainer`, with inputs left in `aletest`.
+
+**Result: 0 tasks succeeded, 6 failed**, dying in `PREPARE_GENOME` about 6 minutes in. Every failed
+process is one that reads an input from `aletest` — `SAMTOOLS_FAIDX`, `GATK4_CREATESEQUENCEDICTIONARY`,
+`BWAMEM1_INDEX` (the fasta), `PREPARE_GFF3`, `FASTQC`. The evidence, from the task's blob work dir:
+
+```
+.command.log:  Unable to download path:
+               https://aledata.blob.core.windows.net/aletest/ottilie/v1/S288C_reference_test/S288C_R64_test.fa
+.command.err:  (0 bytes)
+```
+
+⚠️ **Note where the message is.** `.command.err` was empty — the Seqera UI and `tw` both surface
+stderr, so this failure looks like *no error at all* from the console. **Always read `.command.log`
+from the blob work dir**:
+
+```bash
+az storage blob download -c <workdir-container> --name "<path>/<hash>/.command.log" \
+  --file /tmp/x.log --account-name <acct> --auth-mode login
+```
+
+| Constraint | Status |
+|---|---|
+| inputs ↔ `workDir` same container | ✅ **Confirmed for BOTH local and Platform head jobs.** Not a convention — a requirement. |
+| `outdir` may be in another container | **Still unproven under Platform.** Verified locally (195 blobs published to `az://debugging/…` while `workDir` was in `aletest`). The cross-container run above died before publishing, so it says nothing about `outdir`. |
+
+**Open question — does Fusion lift this?** Fusion may use per-container tokens rather than one delegated
+SAS. That is untested and load-bearing, so **do not design around it**. The test is now cheap and
+unambiguous, because the run above is a clean predicted-failure baseline: repeat that exact launch
+against a Fusion-enabled CE (`ale-ottilie-nf25104-bigdisk_fusion`). If it succeeds where this failed,
+Fusion genuinely relaxes the constraint. ⚠️ Use a Fusion CE that also carries `--dual-pool` and the
+enlarged worker disk (§9–§10), or `DiskFull` confounds the result.
 
 Terminology, since the distinction is the whole point: `aledata` is the **storage account**;
 `aletest` and `debugging` are **containers** within it. `az://<container>/<path>` — the account comes

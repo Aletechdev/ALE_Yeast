@@ -744,6 +744,55 @@ replaces `repo` read+write across every repository the operator can reach. Perso
 finite expiry: **unchanged**. A shared org workspace still runs on one person's token; it now lapses in
 2027 instead of 2026. The org-owned GitHub App remains the durable answer and its open item stays open.
 
+### 2026-08-07 — ✅ same-container rule CONFIRMED under a Platform head job (falsification test)
+
+The rule "with an Entra SP, `workDir` must be in the same **container** as the inputs" was verified only
+with a **local** head job. Run `48kJmc9QY6Q3h9` (`ottilie-xcontainer-01`) tested it under Platform:
+identical to the known-good launch except `--work-dir az://debugging/nf-work-xcontainer`, inputs left in
+`aletest`, `outdir` unchanged so only one variable moved.
+
+**Result: 0 succeeded / 6 failed**, dying in `PREPARE_GENOME` ~6 min in (mostly pool warm-up — a cheap
+test, no real compute billed). Every failed process reads an input from `aletest`: `SAMTOOLS_FAIDX`,
+`GATK4_CREATESEQUENCEDICTIONARY`, `BWAMEM1_INDEX`, `PREPARE_GFF3`, `FASTQC`.
+
+```
+.command.log:  Unable to download path:
+               https://aledata.blob.core.windows.net/aletest/ottilie/v1/S288C_reference_test/S288C_R64_test.fa
+.command.err:  (0 bytes)
+```
+
+⚠️ **`.command.err` was empty**, so from the Seqera UI (which shows stderr) this failure looks like *no
+error at all*. The real message lives only in `.command.log` in the blob work dir. Anyone debugging a
+silent exit-1 here must go fetch it.
+
+So the constraint is a **requirement, not a convention**, and it holds regardless of where the head job
+runs — the node-side SAS is minted the same way either way. `outdir` in another container remains
+**unproven under Platform**: this run died before publishing, so it tested nothing about `outdir`.
+Detail: [`azure_batch_execution.md` §3](../../../docs/dev-practices/azure_batch_execution.md).
+
+The failed run's work dir (58 blobs in the shared `debugging` container) was deleted afterwards.
+
+### 2026-08-07 — ✅ ottilie e2e passed; the hand-edited snapshot is validated
+
+`nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test` → **PASSED in 802 s**, run
+**without** `--update-snapshot` on purpose.
+
+This closes a caveat: the `manifest.name` change was applied to `tests/ottilie_e2e.nf.test.snap` **by
+hand** (one line, `Aletechdev/AMP` → `Aletechdev/ALE_Yeast`) rather than regenerated, and was therefore
+unverified. A pass proves both halves — the edited value is what the pipeline now emits, **and** nothing
+else moved, since the `stable_path` md5 layer would have failed otherwise. The snapshot file is
+unchanged on disk after the run.
+
+### 2026-08-07 — Fusion CE re-forged with the dual-pool + disk fixes
+
+`ale-ottilie-nf25104-bigdisk_fusion` = `5acBaUVwry7j0DJmLnwyh0` — **AVAILABLE**. Fusion v2 + Wave **on**,
+dual-pool (head `Standard_D2s_v3`/64 GB, worker `Standard_E4ds_v4`/256 GB), `NXF_VER=25.10.4` on the head
+job, Entra credential, `workDir az://aletest/nf-work`.
+
+The original `ale-ottilie-nf25104-fusion` was single-pool with the default boot disk, so a run against it
+would have hit `DiskFull` (§9) and told us nothing about Fusion. Carrying the §9–§10 fixes over means a
+Fusion run now isolates **Fusion** as the single variable. The superseded CEs were disabled.
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |
@@ -836,14 +885,27 @@ revoke the token** — see the open item below.
       on one person's token, now expiring 2027-08-07 instead of 2026-11-04.
 - [x] `tw launch` (plan Phase 6) and compare outputs against the local-head-job baseline — **done
       2026-08-06**: `3C5zYMYY5M32dO` SUCCEEDED, 170/170 tasks, 9/9 cohort deliverables byte-identical.
-- [ ] Point the `yAMP-ottilie-test` Launchpad entry at `ale-ottilie-nf25104-bigdisk` — it still
-      references the old single-pool CE, which fails at ~98% under disk pressure. ⚠️ `tw pipelines
-      update` is broken; delete and re-add, or edit in the web UI.
-- [ ] Retire the two superseded CEs (`ale-ottilie-nf25104`, `…-fusion`) once nothing references them.
-- [ ] Run 2: relaunch against `ale-ottilie-nf25104-fusion` with a **fresh `outdir` and work dir**, to
-      settle whether Fusion removes the same-container SAS rule. ⚠️ That CE is **single-pool** and has
-      no boot-disk override, so it will likely hit the same `DiskFull` — re-forge it with `--dual-pool`
-      and `--worker-boot-disk-size` before drawing any conclusion about Fusion.
+- [x] Point the `yAMP-ottilie-test` Launchpad entry at `ale-ottilie-nf25104-bigdisk` — done 2026-08-07,
+      verified by readback (`computeEnvId 6buIkRXLMZFgDXs5NkyuH`).
+- [x] Retire the superseded CEs — **disabled** 2026-08-07 (`ale-ottilie-nf25104`, the original
+      single-pool `…-fusion`). Delete them once no run history needs them; disabling already prevents
+      accidental use.
+- [x] Re-forge the Fusion CE with the §9–§10 fixes — done 2026-08-07,
+      `ale-ottilie-nf25104-bigdisk_fusion` (`5acBaUVwry7j0DJmLnwyh0`), AVAILABLE.
+- [x] Confirm the same-container rule under a **Platform** head job — done 2026-08-07, run
+      `48kJmc9QY6Q3h9`: 0/6 tasks, `Unable to download path` in `.command.log`. See the entry above.
+- [ ] **Fusion run — two questions, one launch each.** Both against
+      `ale-ottilie-nf25104-bigdisk_fusion`, which now carries dual-pool + 256 GB workers so `DiskFull`
+      cannot confound the result:
+      1. **Does the pipeline still work under Fusion?** Same params as the validated run, **fresh
+         `outdir` and work dir**. Success ⇒ compare the 9 cohort deliverables against
+         `az://aletest/seqera-runs/2026-08-06-04`; they should stay byte-identical.
+      2. **Does Fusion lift the same-container rule?** Repeat the `48kJmc9QY6Q3h9` launch exactly —
+         `--work-dir az://debugging/…`, inputs in `aletest`. That run is a clean predicted-failure
+         baseline, so success here is unambiguous evidence Fusion uses per-container tokens. ⚠️ Until
+         then, **do not design around it**.
+- [ ] Still unproven: **`outdir` in a different container under a Platform head job.** Verified locally
+      only; the cross-container run died before publishing, so it tested nothing about `outdir`.
 - [ ] Move Docker's data-root to `/mnt` via a pool start task (needs a `manual` CE) — the better fix
       than a larger OS disk; see the note above.
 - [x] GitHub auth decided and keypair generated (`07_github_deploy_key.sh`) — the pre-existing
@@ -863,6 +925,26 @@ revoke the token** — see the open item below.
       an error. Confirm `git status` is clean and `main` is level with `origin/main` first. ⚠️ Launching
       a **tag** is not a way around this — a tag pins whatever it pointed at, which is how
       `--revision v1.0.0` came to lack the cloud-portability fixes.
+- [ ] 🔬 **Re-test Platform resume — the 2026-08-07 attempt was inconclusive, not negative.** The UI's
+      Resume toggle *does* work at the API level: relaunch `5Ped8HWvzzjoDx` recorded `resume: true` with
+      the **original** `sessionId` (`128211f9-…`, from the successful `3C5zYMYY5M32dO`) and
+      `resumeDir: az://aletest/nf-work-04`. But it re-ran from the start — **`cached=0`** at 64 tasks.
+      **Do not conclude resume is broken**: the test was confounded. `wBQPdPBbfyZAH` — a *non*-resume
+      relaunch (`resume: false`, new session) — was executing **concurrently into the same work dir**,
+      rewriting the very task directories the resuming run needed. Nextflow re-runs a task whose work
+      dir is incomplete or altered, which is exactly what it would have found.
+      **Retest cleanly, after the local clean run + comparison against the latest pipeline**, and change
+      one thing at a time:
+      1. Nothing else running against that work dir.
+      2. Keep `outdir` **identical** to the run being resumed — it differed here
+         (`2026-08-06-04` → `2026-08-07-01`), and whether `outdir` perturbs task hashes is unverified.
+      3. Same revision/commit — ✅ **already ruled out as a cause.** The resumed run pinned
+         `commitId 86c4672`, identical to the original, even though `main` had moved four commits on.
+         Platform honours `resumeCommitId`, so a moving branch does **not** break resume.
+      Expect ~170 `cached` and a couple of minutes' wall clock. If `cached=0` persists under those
+      conditions, the likely cause is that Platform does not persist Nextflow's **cache DB** — the
+      `stage-<sessionId>` directory in the work dir is a *staging* area, and it has not been confirmed
+      to contain the hash→result mapping resume actually needs.
 - [ ] Rename the app registration to match its new purpose — the current display name describes the
       *previous* tenant of this SP, which is an audit hazard when someone reads a role assignment six
       months from now. `appId`/`objectId` survive a rename, so nothing downstream breaks. Scripts
