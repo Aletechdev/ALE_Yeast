@@ -506,7 +506,8 @@ successfully cloned the private repo over HTTPS — proven by `tw pipelines add`
 validates the repository at registration time.
 
 A **fine-grained** PAT (`Contents: Read` on `ALE_Yeast`, resource owner `Aletechdev`) was submitted in
-parallel and is **pending org-owner approval**. ⚠️ Note for anyone repeating this: the org *does*
+parallel and is **pending org-owner approval**. → ✅ **Approved the next day and swapped in; the classic
+PAT is retired — see the `2026-08-07` entry below.** ⚠️ Note for anyone repeating this: the org *does*
 appear in the fine-grained token's **Resource owner** dropdown — if the repo seems missing, the cause
 is Resource owner still set to the personal account, not the org disallowing it.
 
@@ -672,27 +673,131 @@ head node warm at the cost of a `D2s_v3` running continuously.
   another run can be picked up as this run's outputs. Use `tw launch --work-dir` to separate them.
 - **`tw launch` has no `--resume` flag** in 0.38 (UI/API only).
 
-## GitHub PAT (classic — interim credential)
+### 2026-08-07 — ✅ swapped classic PAT → **fine-grained PAT**; org approval landed in ~1 day
 
-| Seqera credential | Provider | Owner | Created | **Expires** |
-|---|---|---|---|---|
-| `personal_token_classic_ALE_yeast` (`Z3yo4zFgy1xfdW0Ts11kI`) | `github` | **personal** account of the operator (Seqera user `zhlia`) | 2026-08-06 | **2026-11-04** (Wed) |
+The fine-grained PAT submitted 2026-08-06 was **approved**, and the credential was swapped the same
+morning. `personal_token_classic_ALE_yeast` was deleted from `RECON-ALE` and replaced by
+**`github_ALE_Yeast_finegrained`** (`2NhER3hJHchursPHekAV1P`, provider `github`).
 
-Scope: classic **`repo`**. ⚠️ This cannot be narrowed — `repo` grants read *and write* on every
-repository the owner can reach, so it is **strictly broader than the deploy key it replaced**. That is
-a property of classic PATs, not a configuration mistake: GitHub provides no read-only scope for private
-repositories.
+**Correction to the 2026-08-05 option table:** it warned that *"this org has refused/queued these
+before (approval pending)"*, which framed the fine-grained route as slow enough to need a stopgap. The
+approval in fact took **about one day**. The classic PAT was still the right call — it unblocked Phase 6
+immediately and the approval time was unknowable in advance — but the next person facing this should
+**submit the fine-grained request first and wait a day** before reaching for a classic token.
 
-> ⏰ **Set a calendar reminder for ~2026-10-21** (two weeks before expiry). This is a *shared org
+**Verified in use, without launching a run** — the `yAMP-ottilie-test` Launchpad form renders its
+parameters, i.e. Platform resolved `nextflow_schema.json` / `nextflow.config` for the private repo.
+`tw credentials list` shows the credential carrying activity:
+
+| ID | Provider | Name | Last activity |
+|---|---|---|---|
+| `2NhER3hJHchursPHekAV1P` | `github` | `github_ALE_Yeast_finegrained` | 2026-08-07 08:01:57 GMT |
+| `2nZYlDlUj2hutarvPunhRb` | `ssh` | `github_ALE_Yeast_deploykey` | **never** |
+
+⚠️ **`Last activity` is worth understanding before leaning on it**, because the obvious objection — that
+it is just the creation timestamp — has to be ruled out. The API (`GET /credentials?workspaceId=…`)
+exposes three separate fields, and for this credential they are all different: `dateCreated 07:49:50`,
+`lastUpdated 08:00:56`, **`lastUsed 08:01:57`**. `lastUsed` is therefore a genuine usage stamp, 12
+minutes after creation. The two Azure credentials confirm the semantics from the other direction —
+created in March and July, both showing `lastUsed` moving *today*, which is Platform's periodic
+compute-environment health check.
+
+It is also the **only** `github` credential in the workspace, so there is no ambiguity about which one
+Platform matched to `github.com`.
+
+✅ **Proven by a repeat, not by inference.** The first `lastUsed` (08:01:57) landed 61 s after
+`lastUpdated`, which left one loophole — a save-time validation of the just-edited credential, rather
+than a repo fetch. Closed by re-opening the Launchpad form at 12:29 and re-reading the API:
+`lastUsed` advanced to **12:29:12**, 30 s before the query, while `dateCreated`/`lastUpdated` stayed
+put. So **rendering the launch form consults this credential live** — Platform is fetching repo content
+over HTTPS with the fine-grained PAT, and is not replaying the pipeline record stored at
+`tw pipelines add` time (2026-08-06, under the classic PAT).
+
+**Reusable technique:** to test *any* Seqera Git credential without spending a run, note `lastUsed`,
+open the pipeline's launch form, and re-read it. A credential that cannot authenticate leaves it
+unchanged — which is exactly the `never` in the `ssh` row above.
+
+⚠️ The `ssh` deploy-key credential reads **`never`**, which is the empirical confirmation of the
+2026-08-05 finding: Platform structurally cannot use an SSH credential for a pipeline repository, so it
+was never consulted and never would be. **Deleted the same day** — readback then shows three
+credentials (`github`, `azure_entra`, `azure`), all with recent activity. The keypair itself is
+untouched and stays useful for local and CI clones.
+
+🗑️ **`07_github_deploy_key.sh` was deleted with it**, leaving a deliberate gap in the numbered
+sequence. Its STEP 2 registered the very `ssh` credential removed above and its STEP 3 instructed
+launching from `git@github.com:…` — both dead routes, so the script's remaining value (an `ssh-keygen`
+line) did not justify a file that hands out obsolete instructions. It is in git history if the deploy
+key ever needs regenerating; the key already on the repo is unaffected.
+
+**There is deliberately no replacement script for the GitHub credential.** The token is minted by the
+operator in the GitHub UI (org approval is a UI flow with no CLI equivalent) and registered with the
+one-liner under *GitHub PAT* below, typed by hand so the secret never enters a transcript or shell
+history. Scripting it would only move the token into a file.
+
+**The classic token was also revoked at GitHub on 2026-08-07**, not merely unregistered from Seqera.
+Those are two separate actions and only the second one actually retires the `repo` read+write reach —
+worth stating explicitly, because a workspace readback showing the credential gone looks identical in
+both cases.
+
+**What this fixes, and what it does not.** Blast radius: closed — `Contents: Read` on one repository
+replaces `repo` read+write across every repository the operator can reach. Person-tied dependency and
+finite expiry: **unchanged**. A shared org workspace still runs on one person's token; it now lapses in
+2027 instead of 2026. The org-owned GitHub App remains the durable answer and its open item stays open.
+
+## GitHub PAT (fine-grained — current credential)
+
+| Seqera credential | Provider | Scope | Owner | Created | **Expires** |
+|---|---|---|---|---|---|
+| `github_ALE_Yeast_finegrained` (`2NhER3hJHchursPHekAV1P`) | `github` | **`Contents: Read` on `ALE_Yeast` only**, resource owner `Aletechdev` | **personal** account of the operator — GitHub user `zhliUU`, Seqera user `zhlia` | 2026-08-07 | **2027-08-07** (Sat) |
+
+**Registered `baseUrl` = `https://github.com/Aletechdev/ALE_Yeast`** — read back from the API, and
+worth recording because it is **repo-level, not org-level**. That is the field Platform matches a
+pipeline URL against, so this credential answers for *this repository only*; a second repo under
+`Aletechdev` would need its own credential, which mirrors the token's own `Contents: Read on ALE_Yeast`
+scope rather than fighting it. ⚠️ Earlier entries in this runbook show `--base-url
+https://github.com/Aletechdev` (org-level) — that is what was typed for the **classic** PAT. Rotating
+with the org-level form would register a *differently scoped* match than the credential in use, and if
+both existed they would overlap on this repo — exactly the ambiguity warned about below.
+
+> ⏰ **Calendar reminder set for ~2027-07-24** (two weeks before expiry). This is a *shared org
 > workspace* running on *one person's* personal token: when it lapses, every launch in the workspace
 > fails with the opaque `Unknown pipeline repository or expired Git credentials`, and the person who
 > can fix it may not be the person who hits it. This has already happened once here —
-> `seqera-platform-ale-16april2026` expired unnoticed and cost a full debugging session.
+> `seqera-platform-ale-16april2026` expired unnoticed and cost a full debugging session. **A year of
+> silence is exactly the condition under which that recurs.**
 
-**Retire it early if possible.** The 90-day expiry is deliberately short because this is a stopgap: a
-fine-grained PAT (`Contents: Read` on `ALE_Yeast` only) is pending org-owner approval, and an org-owned
-GitHub App is the durable answer. On either landing, re-register the credential and **revoke this
-token** rather than letting it run to November.
+Re-registering or rotating it — run it yourself so the token never enters a transcript or shell history:
+
+```bash
+read -rsp 'GitHub token: ' GH_TOKEN && export GH_TOKEN
+tw credentials add github -n github_ALE_Yeast_finegrained -w DTU-Biosustain/RECON-ALE \
+    -u zhliUU -p "$GH_TOKEN" --base-url https://github.com/Aletechdev/ALE_Yeast
+```
+
+`-u` must be the GitHub account that **owns the token**, not the org and not the Seqera username.
+Both values above reproduce the credential currently in use; verify after any change with
+`GET /credentials?workspaceId=…`, which returns `baseUrl` and `keys.username` in clear (secrets read
+back as `null`).
+
+⚠️ **Add before deleting, and never leave two `github` credentials matching the same `--base-url`** —
+which one Platform picks is undefined, so an overlapping pair makes any failure unattributable.
+
+<details><summary>Retired — the classic PAT it replaced (2026-08-06 → 2026-08-07)</summary>
+
+| Seqera credential | Provider | Owner | Created | Expiry (if never revoked) |
+|---|---|---|---|---|
+| `personal_token_classic_ALE_yeast` (`Z3yo4zFgy1xfdW0Ts11kI`) | `github` | **personal** account of the operator (Seqera user `zhlia`) | 2026-08-06 | 2026-11-04 (Wed) |
+
+Scope: classic **`repo`**. ⚠️ This could not be narrowed — `repo` grants read *and write* on every
+repository the owner can reach, so it was **strictly broader than the deploy key it replaced**. That is
+a property of classic PATs, not a configuration mistake: GitHub provides no read-only scope for private
+repositories. It was deliberately given a short 90-day expiry because it was always a stopgap; in the
+event it was retired after **one day**.
+
+Deleted from the `RECON-ALE` workspace on 2026-08-07. ⚠️ **Deleting the Seqera credential does not
+revoke the token** — see the open item below.
+
+</details>
 
 ## Open items
 
@@ -705,15 +810,30 @@ token** rather than letting it run to November.
       two CEs (non-Fusion + Fusion), both AVAILABLE. The six existing CEs were not repointed.
 - [x] Add `outdir` to `conf/params_ottilie_blob.yml` — done 2026-08-05, date-stamped, preview-verified.
 - [x] Create a classic GitHub PAT and register it in `RECON-ALE` — done 2026-08-06,
-      `personal_token_classic_ALE_yeast`; the repo clones over HTTPS.
+      `personal_token_classic_ALE_yeast`; the repo clones over HTTPS. **Superseded 2026-08-07.**
 - [x] Register the Launchpad pipeline — `yAMP-ottilie-test` (`227651105760023`), done 2026-08-06.
-- [x] Record the classic PAT's owner and expiry — done: expires **2026-11-04**, see the table above.
-- [ ] ⏰ Set a calendar reminder for **~2026-10-21** (two weeks before the PAT expires).
-- [ ] Chase the **fine-grained PAT** approval (submitted 2026-08-06, pending an `Aletechdev` owner).
-      On approval: re-register the credential, then **revoke the classic token** — `repo` scope cannot
-      be narrowed and is strictly broader than the deploy key it replaced.
-- [ ] 🔁 **Swap to an org-owned GitHub App** when an org owner is available — the durable answer, and
-      the only option that restores what the deploy key was chosen for.
+- [x] Chase the **fine-grained PAT** approval — **approved and swapped in 2026-08-07**, ~1 day after
+      submission. Credential `github_ALE_Yeast_finegrained`; the classic credential was deleted from the
+      workspace and the new one is **confirmed in live use** — opening the Launchpad form advances its
+      `lastUsed` on demand (see the entry above).
+- [x] Record the current PAT's owner and expiry — done: expires **2027-08-07**, see the table above.
+- [x] **Revoke the retired classic token at `github.com/settings/tokens`** — done 2026-08-07. Deleting
+      the Seqera credential only stopped Platform using it; revoking at GitHub is what actually retires
+      the `repo` read+write reach. Both halves are now complete, so the switch's security benefit is
+      banked rather than merely intended.
+- [x] Delete the unused `github_ALE_Yeast_deploykey` (`ssh`) credential from `RECON-ALE` — done
+      2026-08-07, verified by readback (three credentials remain: `github`, `azure_entra`, `azure`).
+      The keypair itself is untouched and stays usable for local/CI clones; only the Platform-side
+      registration was removed.
+- [x] ⏰ Calendar reminder for **~2027-07-24** (two weeks before the PAT expires) — **set 2026-08-07**
+      by the operator. ~~2026-10-21~~ — obsolete, that was the classic token's date. ⚠️ The reminder
+      lives in *one person's* calendar, which is the same single-point dependency as the token itself;
+      it fires two weeks early because re-issuing a fine-grained PAT on an org-owned repo needs a fresh
+      org-owner approval, empirically ~1 day.
+- [ ] 🔁 **Swap to an org-owned GitHub App** when an org owner is available — still the durable answer.
+      The fine-grained PAT closed the *blast-radius* half of the problem (`Contents: Read` on one repo,
+      not `repo` on everything) but **not** the *person-tied* half: a shared org workspace still depends
+      on one person's token, now expiring 2027-08-07 instead of 2026-11-04.
 - [x] `tw launch` (plan Phase 6) and compare outputs against the local-head-job baseline — **done
       2026-08-06**: `3C5zYMYY5M32dO` SUCCEEDED, 170/170 tasks, 9/9 cohort deliverables byte-identical.
 - [ ] Point the `yAMP-ottilie-test` Launchpad entry at `ale-ottilie-nf25104-bigdisk` — it still
@@ -727,16 +847,22 @@ token** rather than letting it run to November.
 - [ ] Move Docker's data-root to `/mnt` via a pool start task (needs a `manual` CE) — the better fix
       than a larger OS disk; see the note above.
 - [x] GitHub auth decided and keypair generated (`07_github_deploy_key.sh`) — the pre-existing
-      `github_Aletechdev` credential had in fact expired.
+      `github_Aletechdev` credential had in fact expired. ⚠️ **That script was deleted 2026-08-07**
+      (obsolete route; see the entry above) — the numbered sequence skips 07 by design.
 - [x] Deploy key registered on the repo and as a Seqera `ssh` credential; auth + read access verified.
-- [ ] Use the SSH form `git@github.com:Aletechdev/ALE_Yeast.git` in every launch — the deploy key
-      cannot authenticate HTTPS.
-- [ ] ⚠️ **Push before launching.** Seqera clones from GitHub, so anything unpushed does not exist for
-      a cloud run. At the time of writing, local `main` is **4 commits ahead** of remote `main`, and
-      `deploy/azure/` is entirely uncommitted. One of the unpushed commits
-      (`build: align environment.yml to NXF_VER=25.10.4`) is directly relevant to the version pinning
-      in Phase 4. Launching `--revision v1.0.0` uses the tag, which does exist remotely — but any run
-      against `main` would silently use older code.
+      ⚠️ **The Seqera-side registration was deleted 2026-08-07** (Platform cannot use it for a pipeline
+      repo — 2026-08-05). The keypair on the repo is untouched and stays usable for local/CI clones.
+- [x] ~~Use the SSH form `git@github.com:Aletechdev/ALE_Yeast.git` in every launch~~ — **dropped
+      2026-08-07.** Launches go through the **`yAMP-ottilie-test` Launchpad entry** (`tw launch
+      yAMP-ottilie-test -w DTU-Biosustain/RECON-ALE …`), which carries the HTTPS repo URL and resolves
+      the `github` credential itself — so no launch names a Git URL at all. The SSH route is closed, not
+      pending.
+- [ ] ⚠️ **Push before every launch — a standing check, not a one-off.** Seqera clones from GitHub, so
+      anything unpushed does not exist for a cloud run: a run against `--revision main` silently uses
+      whatever `origin/main` holds, and the failure mode is a *successful* run of stale code rather than
+      an error. Confirm `git status` is clean and `main` is level with `origin/main` first. ⚠️ Launching
+      a **tag** is not a way around this — a tag pins whatever it pointed at, which is how
+      `--revision v1.0.0` came to lack the cloud-portability fixes.
 - [ ] Rename the app registration to match its new purpose — the current display name describes the
       *previous* tenant of this SP, which is an audit hazard when someone reads a role assignment six
       months from now. `appId`/`objectId` survive a rename, so nothing downstream breaks. Scripts
