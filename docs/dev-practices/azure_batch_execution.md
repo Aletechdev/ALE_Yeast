@@ -429,6 +429,9 @@ startup — network-level, before any path is resolved. Retry.
 
 ## 11. Platform-vs-local output differences that are NOT regressions
 
+> Generalised, with normalisation recipes for each class and the 3-tier comparison method:
+> [`output_comparison.md`](output_comparison.md). This section is the Azure-specific summary.
+
 Comparing a Platform run against the local-head-job baseline, 464 of 529 common files were byte-size
 identical and **all 9 cohort deliverables were byte-identical by md5**. The rest classify as:
 

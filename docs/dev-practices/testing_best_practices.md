@@ -138,6 +138,11 @@ These cover the most likely breakage points when updating or refactoring.
 ## 10. Existing Test Infrastructure
 
 See also:
+- [`output_comparison.md`](output_comparison.md) — **which pipeline outputs are actually deterministic.**
+  The classes of run-to-run noise (embedded timestamps, gzip framing, absolute paths, MultiQC renders,
+  igv-reports base64 blobs) with a normalisation recipe for each. **This is the *why* behind every entry
+  in [`tests/.nftignore`](../../tests/.nftignore)** — read it before adding or removing one, and before
+  deciding whether a file may be snapshotted byte-for-byte.
 - `bin/test_ottilie.sh` — ALE end-to-end test launcher (ottilie 2-sample dataset)
 - `bin/CENPK_run_sarek_351_all.sh` — production execution script (reference for params)
 
