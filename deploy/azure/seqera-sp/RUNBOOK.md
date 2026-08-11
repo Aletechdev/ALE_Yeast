@@ -817,9 +817,14 @@ citable artifact. `2026-08-07-02-fusion` is the clean one.
 |---|---|---|---|
 | 246.9 G | **65.2 G (26%)** | 56.7–65.2 G | 182 G |
 
-- Azure's **default** Batch OS disk is ~30 GB, so 57–65 GB overruns it **2×**. That is the whole
-  `DiskFull` story, and it confirms the concurrency hypothesis was wrong — a solo run exceeds the
-  default on its own.
+- A 57–65 GB working set overruns the default OS disk, whatever it is — that is the whole `DiskFull`
+  story, and it confirms the concurrency hypothesis was wrong: a solo run exceeds the default on its
+  own. ⚠️ **This bullet originally asserted "the default is ~30 GB, so 57–65 GB overruns it 2×".
+  That figure was an assumption, never measured**, and `az vm image show` does not return
+  `osDiskImage.sizeInGb` for this image. The default is only known to be *large enough* for 122/138
+  and 169/170 tasks before filling, i.e. somewhere near the 65 GB peak — 64 GB would fit the observed
+  failure timing exactly, but that is inference. See
+  [`azure_batch_execution.md` §9](../../../docs/dev-practices/azure_batch_execution.md).
 - 256 GB is ~3.8× the peak; 128 GB would suffice. The margin costs ~$0.05/hr across four nodes.
 - ✅ **The `/mnt` relocation fix is viable**: 65 GB fits inside the 150 GB ephemeral NVMe — the
   assumption that fix rested on.

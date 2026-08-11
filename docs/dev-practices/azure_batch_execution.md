@@ -22,6 +22,9 @@ Azure/SP provisioning: [`deploy/azure/`](../../deploy/azure/).
 Everything below was found by *running* it. None of it is visible to the local test suite, and several
 items produce errors that point at the wrong thing entirely.
 
+📌 **§13 is a register of claims that were believed and then disproved.** Read it before concluding
+that some tool "cannot" do something — several entries here were once confidently written the other way.
+
 ---
 
 ## Orientation — why this config isn't the five-line example
@@ -339,7 +342,7 @@ tasks** (see §10), so nothing points at the disk.
 
 | Disk | Mount | On `Standard_E4ds_v4` | Holds | Billed |
 |---|---|---|---|---|
-| **OS / boot** | `/` | ~30 GB by default | the OS and **`/var/lib/docker`** (image layers, overlay2) | yes, managed disk |
+| **OS / boot** | `/` | **default size unknown** — near 65 GB, never measured (see below) | the OS and **`/var/lib/docker`** (image layers, overlay2) | yes, managed disk |
 | **Temp / ephemeral** | `/mnt` | **150 GB** local NVMe | `/mnt/batch/tasks` — Nextflow task dirs, staged inputs | no, included with the VM |
 
 Task scratch is on the *big* disk already. **Docker is on the small one**, and this pipeline pulls
@@ -592,3 +595,30 @@ head job process** by default, which is exactly where the pin is needed. Confirm
 `{"name":"NXF_VER","value":"25.10.4","head":true,"compute":false}`, and confirmed in effect: the run
 reported Nextflow 25.10.4. Nothing on a compute node ever reads it — task wrappers invoke `.command.sh`
 via plain bash inside `docker run`, forwarding only `NXF_TASK_WORKDIR` and `NXF_DEBUG`.
+
+---
+
+## 13. Corrections — claims that were believed, then disproved
+
+**Read this before re-deriving anything.** Each line is a conclusion that was written down as fact and
+later shown to be wrong. They are kept because the wrong answer is reachable from the same evidence
+that produced it the first time — deleting them invites a second trip. One line each; the dated detail
+is in [`RUNBOOK.md`](../../deploy/azure/seqera-sp/RUNBOOK.md).
+
+| Claimed | Actually | Why it was believed |
+|---|---|---|
+| `tw` cannot create Entra credentials — only shared-key | `tw credentials add **azure-entra**` does it, present since 0.26.0 | only `credentials add azure` was inspected; the Entra form is a separate subcommand |
+| `tw` cannot enable autoscale on a dual-pool CE — use the web UI | `compute-envs import` carries `autoScale`, and `add ... forge` takes explicit `--head-no-auto-scale=false` | only `add ... forge`'s flag list was inspected, then generalised to the whole CLI (2026-08-11) |
+| Two runs sharing a pool caused `DiskFull` | a **solo** run exceeds the default disk on its own | the first two failures happened to overlap; concurrency was the visible difference |
+| Azure's default Batch OS disk is ~30 GB, so 65 GB overruns it 2× | **unknown** — only bounded near 65 GB by when runs actually failed | plausible round number, never measured; `az vm image show` does not report it for this image |
+| Peak OS-disk use of 65.2 G is a per-run baseline | measured on **warm** nodes (~340 prior tasks), so it is a multi-run high-water mark | the probe was read as if the pool were cold |
+| `az://` staged an empty directory — use a tarball instead | all 7 files were present; `find` does not descend a symlink, and Nextflow stages directories as symlinks | the probe reported absence without proving it could detect presence (`find -L` shows them) |
+| `beforeScript` runs on the node | it runs **inside the container** | the config's own comment said so; `hostname` returns the container id |
+| The org refuses/queues fine-grained PAT requests | approval took **about one day** | an untested assumption that made the classic-PAT stopgap look necessary |
+| Upgrading `tw` 0.26 → 0.38 "does not help here" | 0.38 was needed for later work | judged against one immediate blocker only |
+| An `org/repo`-form `manifest.name` keeps `nextflow run <name>` viable | `nextflow run` resolves against GitHub, so only the real repo handle runs | see [`CLAUDE.md`](../../CLAUDE.md) → Pipeline Identity |
+
+⚠️ **Four of these ten share one shape** (rows 1, 2, 6 and 9): a subcommand, flag list, or probe was
+inspected, the result was correct *about that surface*, and the conclusion was then stated about the
+whole tool. When writing "X cannot do Y", name the surface actually checked. Three more (rows 4, 8, 10)
+are plain assumptions written in the voice of findings — if it was not run, say so.
