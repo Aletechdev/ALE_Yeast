@@ -12,11 +12,12 @@
 #
 # The CLI only offers flags to DISABLE autoscaling (--no-auto-scale, --head-no-auto-scale,
 # --worker-no-auto-scale), which reads as "on by default". For SINGLE-pool that is true.
-# For DUAL-pool it is not.
+# For DUAL-pool it is not. Upstream: seqeralabs/tower-cli#658, fix #659 (unmerged 2026-08-11).
 #
-# ➡️  CREATE DUAL-POOL CEs IN THE WEB UI. The UI sets headPool.autoScale/workerPool.autoScale
-#     correctly; `tw` cannot. This script does not create anything — creation is one command,
-#     while noticing that a CE will bill you forever is the part worth automating.
+# ➡️  CREATE DUAL-POOL CEs WITH ./13_create_compute_env.sh, which imports a readback of a known-good
+#     config and then calls THIS script. (Earlier guidance here said "use the web UI" — superseded
+#     2026-08-11.) This script still creates nothing: noticing that a CE will bill you forever is
+#     the part worth automating.
 #
 # ⚠️ Compute environments are IMMUTABLE: a wrong setting cannot be patched, only deleted and
 #    recreated. So verify at creation time, not after the invoice.
@@ -106,7 +107,8 @@ if bad:
        az batch pool resize --pool-id tower-pool-<ce-id>-worker --target-dedicated-nodes 0
        az batch pool resize --pool-id tower-pool-<ce-id>-head   --target-dedicated-nodes 0
   2. CEs are immutable, so delete and recreate — deleting also disposes the pools and disks.
-  3. RECREATE DUAL-POOL CEs IN THE WEB UI; `tw --dual-pool` cannot set autoScale.""")
+  3. Recreate with ./13_create_compute_env.sh <name> [--fusion]; plain `tw --dual-pool`
+     omits autoScale unless you pass --head-no-auto-scale=false --worker-no-auto-scale=false.""")
     sys.exit(1)
 
 print("\n✅ All checks passed.")

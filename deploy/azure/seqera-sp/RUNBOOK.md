@@ -852,6 +852,9 @@ created through the UI, reads back `headPool.autoScale: true` / `workerPool.auto
 confirms `enableAutoScale: True` with the pools draining to 0. So this is a **CLI gap, not a Platform
 limitation** — **create dual-pool CEs in the UI.**
 
+> ⚠️ **Superseded 2026-08-11** — the diagnosis holds, but "use the UI" and "`tw` cannot" were both too
+> strong. See the 2026-08-11 entry below: CEs are now created by script.
+
 **Remediation performed:** all four pinned pools resized to 0 (`az batch pool resize
 --target-dedicated-nodes 0`), the test CE deleted (deletion disposes pools *and* disks). Two correct
 CEs now exist — `…_autoScale_manual` (Fusion) and `…_autoScale_manual_noFusion`.
@@ -871,6 +874,51 @@ right after creation proves nothing; **`0 + 0` fifteen minutes later** is the re
 unrelated to Wave/Fusion — a duplicate CE with both disabled behaves identically.
 ⚠️ **`--worker-vm-count` is a CEILING under autoscale**, not an allocation: the autoscaling CE started
 at 1 + 1 and scales toward 4, while the fixed one went straight to 1 + 4 and stayed.
+
+### 2026-08-11 — ✅ CEs are now created from code (`tw compute-envs import`)
+
+**CEs are no longer created by hand, and not the way that was planned either.** The plan was a raw REST
+creator, "since the CLI cannot express the one field that matters". `tw` *can*: **`compute-envs
+export`/`import` round-trip `autoScale`**, and neither subcommand had been tried — the 2026-08-07
+investigation stayed inside `add ... forge`'s flag set and generalised from it. **No API client was
+written.**
+
+| Ran | Result |
+|---|---|
+| `tw compute-envs export -n …_autoScale_manual_noFusion` | `headPool.autoScale: true` / `workerPool.autoScale: true` in the exported JSON |
+| `./13_create_compute_env.sh ale-ce-import-test` | CE `5HMxAhK0lWX4X7JUDhoOVm` AVAILABLE; `12_verify_compute_env.sh` **6/6 OK** |
+| `az batch pool list` at creation | both pools `enableAutoScale: True`, at the expected `1 + 1` |
+| same, 17 min later (08:20Z) | **`0 + 0`** — autoscale genuinely working |
+| `./13_create_compute_env.sh … --delete` | CE DELETED; both pools disposed by 08:25Z, no orphaned disks |
+
+Cost of the test: ~5 node-minutes (1× `D2s_v3` + 1× `E4ds_v4`).
+
+**Two corrections to the 2026-08-07 entry above.**
+
+1. **`tw add ... forge` CAN set autoscale**, via explicit `--head-no-auto-scale=false
+   --worker-no-auto-scale=false`. Undocumented in `--help`; from
+   [seqeralabs/tower-cli#658](https://github.com/seqeralabs/tower-cli/issues/658). Verified here by
+   inspecting the request payload with `tw -v` against an existing CE name — the collision is rejected
+   *after* the body is printed, so the check costs nothing and creates nothing.
+2. **The field is OMITTED, not sent as `null`.** The control payload (no flags) has no `autoScale` key
+   at all on either pool; the `null` in the 2026-08-07 entry is Platform's readback of the missing
+   field. Both descriptions are correct, at different layers.
+
+**Decision: `import` is the route, `=false` is an escape hatch.** `add ... forge` has **no flags** for
+`jobMaxWallClockTime`, `deleteJobsOnCompletion`, `deleteTasksOnCompletion` or
+`terminateJobsOnCompletion`, so a flag-built CE silently takes Platform defaults for the four
+job-lifecycle settings our CEs pin (`7d` / `never`). Fixing autoscale that way trades a loud bug for a
+quiet one. The template is a readback, so every field in it is one Platform wrote.
+
+⚠️ **The upstream fix is not released.** [#659](https://github.com/seqeralabs/tower-cli/pull/659) is
+**open/unmerged** as of 2026-08-11 and **0.38.0 is the latest release** — there is no version to upgrade
+to. Re-check when it merges: plain `add --dual-pool` becomes safe, but the job-lifecycle gap remains.
+
+**Files:** [`13_create_compute_env.sh`](13_create_compute_env.sh) (`<name> [--fusion|--delete]`) ·
+[`ce_import_template.json`](ce_import_template.json) (export of the working non-Fusion CE; `--fusion`
+flips only `fusion2Enabled`/`waveEnabled`). ⚠️ `tw` strips the template's trailing `"labels": []` —
+labels go through `--labels`, not the config body. The script refuses to run if the template's
+`autoScale` is not `true`.
 
 ## GitHub PAT (fine-grained — current credential)
 
@@ -928,6 +976,13 @@ revoke the token** — see the open item below.
 </details>
 
 ## Open items
+
+> 📋 **This file needs slimming.** ~1,900 lines across it, `azure_batch_execution.md`,
+> `output_comparison.md` and `../README.md`, with the same findings written out in full in two or three
+> places (the DiskFull story, the dual-pool autoscale incident, the same-container rule). The
+> convention to restore is `CLAUDE.md`'s: dated record here, durable rules in `docs/`, summary +
+> pointer in `CLAUDE.md`. ⚠️ **Keep every ⚠️ that cost real time or money, and keep the corrections** —
+> entries recording claims that turned out wrong exist so the wrong conclusion is not re-derived.
 
 - [x] Grant the two roles (`02_grant_roles.sh`) — done 2026-07-31, verified.
 - [x] Create a client secret (`03_create_secret.sh`) — done 2026-07-31.

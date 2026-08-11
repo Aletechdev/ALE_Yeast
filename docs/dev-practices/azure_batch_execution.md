@@ -478,21 +478,34 @@ it. It is also *cheaper* — the head sits on a `Standard_D2s_v3` instead of an 
 per-pool flags fails with `Missing VM count parameter for head pool`, despite the help text claiming the
 head count defaults to 1.
 
-### 🚨 `tw` cannot enable autoscale for a dual-pool CE — create it in the WEB UI
+### 🚨 A dual-pool CE defaults to NO autoscale — create it with `13_create_compute_env.sh`
 
 **Measured cost of getting this wrong: ~$66/day.** `tw compute-envs add azure-batch forge --dual-pool`
-produces pools with **`autoScale: null`**, which Azure builds as **`enableAutoScale: False`** — fixed
-size, running 24/7 whether or not anything is queued. Reproduced deliberately on 2026-08-07 with a
-throwaway CE, so it is repeatable CLI behaviour, not a one-off. Ten nodes (8× `E4ds_v4` + 2× `D2s_v3`)
-ran idle for hours before it was noticed: ~$2.75/hr compute plus ~$324/month of managed disks.
+**omits `autoScale` from the request** unless you force it, so Platform stores null and Azure builds
+**`enableAutoScale: False`** — fixed size, running 24/7 whether or not anything is queued. Reproduced
+deliberately on 2026-08-07 with a throwaway CE, so it is repeatable CLI behaviour, not a one-off. Ten
+nodes (8× `E4ds_v4` + 2× `D2s_v3`) ran idle for hours before it was noticed: ~$2.75/hr compute plus
+~$324/month of managed disks. Upstream: [seqeralabs/tower-cli#658](https://github.com/seqeralabs/tower-cli/issues/658),
+fix in [#659](https://github.com/seqeralabs/tower-cli/pull/659) — **unmerged as of 2026-08-11**, and
+0.38.0 is the latest release, so there is no version to upgrade to.
 
-The CLI offers **only flags to DISABLE** autoscaling — `--no-auto-scale`, `--head-no-auto-scale`,
+The `--help` offers **only flags to DISABLE** autoscaling — `--no-auto-scale`, `--head-no-auto-scale`,
 `--worker-no-auto-scale` — which reads as "enabled by default". For **single-pool** that is true
 (`autoScale: true`, pools sit at 0 nodes). For **dual-pool** it is not, and nothing warns you.
 
-**The web UI CAN set it.** A dual-pool CE created through the UI reads back
-`headPool.autoScale: true` / `workerPool.autoScale: true`, and Azure reports `enableAutoScale: True`.
-So this is a **CLI gap, not a Platform limitation** — use the UI for dual-pool CEs.
+**Use [`13_create_compute_env.sh`](../../deploy/azure/seqera-sp/13_create_compute_env.sh)** — it
+`tw compute-envs import`s a readback of a known-good CE, which carries `autoScale: true` verbatim, then
+runs the verifier. Both the web UI and the import route set the field correctly, so this is a CLI
+**default**, not a Platform limitation.
+
+> ⚠️ **Correction (2026-08-11).** This section previously said `tw` *cannot* set autoscale and that the
+> **web UI** was therefore required. Both halves were too strong. `add ... forge` **can** set it via
+> explicit `--head-no-auto-scale=false --worker-no-auto-scale=false` (undocumented in `--help`, verified
+> by payload inspection), and the UI is no longer needed. Keep using the script anyway: `add ... forge`
+> has **no flags at all** for `jobMaxWallClockTime`, `deleteJobsOnCompletion`, `deleteTasksOnCompletion`
+> or `terminateJobsOnCompletion`, so a flag-built CE silently takes Platform defaults for the four
+> job-lifecycle settings our CEs pin (`7d` / `never`). Fixing autoscale that way would trade a loud bug
+> for a quiet one.
 
 ⚠️ **Compute environments are IMMUTABLE.** A fixed-size CE cannot be patched; the only fix is delete
 and recreate. **Verify the readback before running anything:**
