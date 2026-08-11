@@ -229,6 +229,19 @@ GATK error). The same starvation gates VQSR (which has the soft-filter fallback 
 section below) and FilterVariantTranches. Full mechanism:
 [`haplotypecaller_workflow_analysis.md` → known-sites starvation](docs/variant-calling/haplotypecaller/haplotypecaller_workflow_analysis.md#4-the-known-sites-starvation-pattern-custom-genomes).
 
+### Read preprocessing — no trimming either
+
+**Reads reach bwa-mem exactly as sequenced.** FastQC runs on the raw FASTQs (report-only; nothing gates
+on it), and **FASTP never executes on an ALE run** — its gate is `params.trim_fastq || params.split_fastq > 0`
+(`workflows/sarek/main.nf`), `trim_fastq` defaults false, and every ALE config sets `split_fastq = 0`.
+So: no adapter removal, no clipping, no length filter. The **Azure baseline was produced this way**, so
+enabling any trimming invalidates byte-comparison against it.
+
+Note also that **no quality-based trimming is reachable in any configuration** — `conf/modules/trimming.config`
+never emits fastp's `--cut_front/--cut_tail/--cut_right`, so no base is ever removed for its quality score.
+Audit + the plan to expose it (and to add Trimmomatic):
+[`fastq_preprocessing_audit.md`](docs/dev-practices/fastq_preprocessing_audit.md).
+
 
 ### GATK HaplotypeCaller (joint germline)
 

@@ -118,6 +118,7 @@ Output-directory layout is in the [root README](../README.md#output).
 | [`dev-practices/output_comparison.md`](dev-practices/output_comparison.md) | **Which outputs are deterministic and which are not** — the classes of run-to-run noise (timestamps, gzip framing, embedded paths, MultiQC renders, igv-reports blobs) with normalisation recipes, plus the 3-tier method for diffing two runs. The *why* behind `tests/.nftignore` |
 | [`dev-practices/compute_resources.md`](dev-practices/compute_resources.md) | Resource model and config layout |
 | [`dev-practices/roadmap.md`](dev-practices/roadmap.md) | Prioritized post-1.0.0 work |
+| [`dev-practices/fastq_preprocessing_audit.md`](dev-practices/fastq_preprocessing_audit.md) | **What happens to reads before bwa-mem** — audit of the FastQC/fastp path (no quality trimming is reachable today), plus the plan to expose fastp's sliding-window trimming and add Trimmomatic |
 | [`dev-practices/troubleshooting.md`](dev-practices/troubleshooting.md) | Debugging guide |
 | [`dev-practices/container_null_cloud_portability.md`](dev-practices/container_null_cloud_portability.md) | Replacing `container null` processes for cloud portability |
 | [`pipeline-guides/NEXTFLOW_EXT_PREFIX_GUIDE.md`](pipeline-guides/NEXTFLOW_EXT_PREFIX_GUIDE.md) | How `ext.prefix` works in nf-core module configs |
