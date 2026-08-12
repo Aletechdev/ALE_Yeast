@@ -18,8 +18,10 @@ you would hope. This page lists the classes, the cause of each, and how to compa
 
 ## 1. The rule: compare deliverables byte-for-byte, everything else by content
 
-**The acceptance criterion is the cohort deliverables**, because they are what the pipeline exists to
-produce and they are genuinely deterministic:
+**The acceptance criterion is the nine cohort deliverables (all CSV, listed below)**, because they are
+what the pipeline exists to produce and they are genuinely deterministic. Elsewhere in these docs they
+are referred to by the shorthand **"cohort deliverables"** — *cohort* separates them from per-sample
+outputs, *deliverable* marks them as the thing that must be byte-identical:
 
 ```
 mutation_reports/data/cn_cohort_collapsed.csv        mutation_reports/data/sv_cohort_matrix_union.csv

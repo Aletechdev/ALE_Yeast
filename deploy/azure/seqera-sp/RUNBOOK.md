@@ -1033,28 +1033,55 @@ revoke the token** — see the open item below.
       `ale-ottilie-nf25104-bigdisk_fusion` (`5acBaUVwry7j0DJmLnwyh0`), AVAILABLE.
 - [x] Confirm the same-container rule under a **Platform** head job — done 2026-08-07, run
       `48kJmc9QY6Q3h9`: 0/6 tasks, `Unable to download path` in `.command.log`. See the entry above.
-- [ ] **Fusion run — two questions, one launch each.** Both against
-      `ale-ottilie-nf25104-bigdisk_fusion`, which now carries dual-pool + 256 GB workers so `DiskFull`
-      cannot confound the result:
-      1. **Does the pipeline still work under Fusion?** Same params as the validated run, **fresh
-         `outdir` and work dir**. Success ⇒ compare the 9 cohort deliverables against
-         `az://aletest/seqera-runs/2026-08-06-04`; they should stay byte-identical.
-      2. **Does Fusion lift the same-container rule?** Repeat the `48kJmc9QY6Q3h9` launch exactly —
-         `--work-dir az://debugging/…`, inputs in `aletest`. That run is a clean predicted-failure
-         baseline, so success here is unambiguous evidence Fusion uses per-container tokens. ⚠️ Until
-         then, **do not design around it**.
+- [x] **Does the pipeline still work under Fusion?** — done 2026-08-07, run `XFwlgZnKvUvpu`: 170/170,
+      0 `DiskFull`, all nine cohort deliverables byte-identical to `seqera-runs/2026-08-06-04`. See the
+      entry above.
+- [ ] **Does Fusion lift the same-container rule?** Repeat the `48kJmc9QY6Q3h9` launch exactly —
+      `--work-dir az://debugging/…`, inputs in `aletest`. That run is a clean **predicted-failure**
+      baseline (0/6 tasks, `Unable to download path`), so success here is unambiguous evidence Fusion
+      uses per-container tokens. ⚠️ Until then, **do not design around it**.
+      ⚠️ Launch against **`ale-ottilie-nf25104-bigdisk_autoScale_manual`** (`6zsRCxeGmUoiae4OVOGSKO`),
+      the autoscaling Fusion keeper. This item previously named `…-bigdisk_fusion`, which is one of the
+      two **fixed-size** CEs on the delete list below — launching there would bill 24/7.
+      📌 Predicted failure ⇒ **no disk data**; it cannot double as the cold-pool disk run.
 - [ ] Still unproven: **`outdir` in a different container under a Platform head job.** Verified locally
       only; the cross-container run died before publishing, so it tested nothing about `outdir`.
 - [x] 📏 **Measure actual node disk usage** — done 2026-08-07: **peak 65.2 G of 246.9 G (26%)**.
       ⚠️ Measured on **warm** nodes (already ~340 tasks across two runs), so it is a multi-run
       accumulation, and the base-OS vs pipeline-image split is **still unknown**. A cold-pool baseline
       is outstanding — see below.
-- [ ] 🧊 **Cold-pool disk baseline** — rerun with `conf/disk_probe.config` on a pool that has drained to
-      0, so the first task's reading is a genuine baseline. Only that separates the fixed base-image
-      cost from this pipeline's own footprint, and the 128-vs-256 GB sizing decision rests on it.
-      ⚠️ The probe now also samples `/mnt`: under Fusion the work dir is a FUSE mount reporting a
-      synthetic `8.0P … 50%`, so `/mnt` is the only way to see whether Fusion's local cache competes
-      with Docker for the ephemeral disk — which matters before moving Docker there.
+- [ ] 🧊 **Cold-pool disk baseline — on the FULL-DEPTH ottilie pilot.** Specified 2026-08-12; not yet run.
+
+      **What it settles.** The 2026-08-07 figure (peak 65.2 G) was measured on **warm** nodes, so the
+      ~54 G base was never split into OS vs Docker images. `/` carries two things: image layers
+      (*data-independent*) and container writable layers + logs/temp (*data-dependent* — anything a
+      task writes inside the container rather than into the bind-mounted work dir). Running ~11× the
+      input data discriminates between them: a flat cold base ⇒ images dominate; a base that moves
+      ⇒ they do not. At test-set scale the two cannot be separated at all. Also settles 128-vs-256 GB
+      sizing, and whether Fusion's cache competes with Docker for `/mnt` before Docker is moved there.
+
+      **Inputs — full-depth ottilie pilot, 4 samples.** 8 FASTQs (4.0 G) + full `S288C_reference/`
+      (179 M) uploaded to the **private** `aletest` container (same container as `workDir` — the SP
+      SAS rule, §3). Needs an `az://` rewrite of `data/ottilie/samplesheet_pilot.csv`, whose paths are
+      absolute-local, and a params file copied from `conf/params_ottilie_blob.yml` repointed at the
+      full reference. ⚠️ **Real project data (dicarboxylic acids / CENPK) is not to be used** — it is
+      not public; ottilie is. The public `aletestdatapublic/releases` account is not touched by this.
+
+      **Tools: `snpeff,cnvkit,tiddit,manta,haplotypecaller`** — the validated cloud set, so the image
+      set matches the 170-task run and the difference between readings is data scale alone. **No
+      `controlfreec`**, though the local pilot script uses it: Tier-2, and its `ASSESS_SIGNIFICANCE`
+      is auto-skipped at ploidy 1 (which every pilot sample is), so it adds an image and a
+      failure-prone step for nothing.
+
+      **Method.** Forge a **fresh CE** with `13_create_compute_env.sh` — new pools guarantee cold
+      nodes, which is stronger than waiting for a drain. Attach the probe with
+      `-c conf/disk_probe.config`. Fresh `outdir` **and** fresh `workDir`. Sample the **first task on
+      each node** — that reading is the base cost and is the point of the exercise — not only the peak.
+
+      ⚠️ **The probe perturbs the task hash** (`beforeScript` lives in `.command.run`), so this run
+      cannot reuse or be reused by a cached run. Accept losing `-resume` deliberately.
+      ⚠️ **Not comparable to the 65.2 G figure** — that came from the 2-sample, 4-chromosome test set.
+      This is a new absolute measurement, not a diff.
 - [ ] Repoint `yAMP-ottilie-test` at `…_autoScale_manual_noFusion`, then **delete both fixed-size CEs**
       (`ale-ottilie-nf25104-bigdisk`, `…-bigdisk_fusion`) — deletion disposes their pools and disks.
 - [ ] Move Docker's data-root to `/mnt` via a pool start task (needs a `manual` CE) — the better fix
