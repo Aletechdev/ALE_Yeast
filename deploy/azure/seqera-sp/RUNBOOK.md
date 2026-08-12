@@ -1060,12 +1060,17 @@ revoke the token** — see the open item below.
       ⇒ they do not. At test-set scale the two cannot be separated at all. Also settles 128-vs-256 GB
       sizing, and whether Fusion's cache competes with Docker for `/mnt` before Docker is moved there.
 
-      **Inputs — full-depth ottilie pilot, 4 samples.** 8 FASTQs (4.0 G) + full `S288C_reference/`
-      (179 M) uploaded to the **private** `aletest` container (same container as `workDir` — the SP
-      SAS rule, §3). Needs an `az://` rewrite of `data/ottilie/samplesheet_pilot.csv`, whose paths are
-      absolute-local, and a params file copied from `conf/params_ottilie_blob.yml` repointed at the
-      full reference. ⚠️ **Real project data (dicarboxylic acids / CENPK) is not to be used** — it is
-      not public; ottilie is. The public `aletestdatapublic/releases` account is not touched by this.
+      **Inputs — full-depth ottilie pilot, 4 samples. ✅ STAGED 2026-08-12** by
+      [`upload_pilot_data.sh`](../../../docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/upload_pilot_data.sh):
+      8 FASTQs (4.0 G, verified byte-for-byte) → `az://aletest/ottilie/v1/fastq_pilot_full/`, full
+      reference (~79 M: fasta, genbank, snpeff_cache, chromosomes) → `…/S288C_reference/`, plus
+      `…/samplesheet_pilot_az.csv`. All in the **private** `aletest` container — same container as
+      `workDir`, per the SP SAS rule (§3). Still to write: a params file copied from
+      `conf/params_ottilie_blob.yml` and repointed at the full reference with a fresh dated `outdir`.
+      ⚠️ **Real project data (dicarboxylic acids / CENPK) is not to be used** — it is not public;
+      ottilie is. The public `aletestdatapublic/releases` account is untouched, and the upload script
+      refuses to run against it. Layout + how the two ottilie datasets are told apart:
+      [`blob_layout.md`](../../../docs/benchmarking/ottilie_xenobiotic_ale/blob_layout.md).
 
       **Tools: `snpeff,cnvkit,tiddit,manta,haplotypecaller`** — the validated cloud set, so the image
       set matches the 170-task run and the difference between readings is data scale alone. **No

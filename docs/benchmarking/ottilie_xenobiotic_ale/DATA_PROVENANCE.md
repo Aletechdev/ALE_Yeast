@@ -104,6 +104,12 @@ nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test
 | Test FASTQs (2 samples, chr-subset) | `data/ottilie/fastq_test/` | yes | ✅ Azure Blob bundle (`download_test_data.sh`); also regenerable via `generate_test_data.sh` |
 | Reference (test subset) | `data/ottilie/S288C_reference_test/` | yes | ✅ Azure Blob bundle (`download_test_data.sh`); also regenerable |
 | Samplesheet | `data/ottilie/samplesheet_test.csv` | yes | ❌ written by `download_test_data.sh` / `generate_test_data.sh` (machine-local paths) |
+| **Pilot FASTQs (4 samples, full depth)** | `data/ottilie/fastq/SRR109855*` | yes | ✅ **private** blob `az://aletest/ottilie/v1/fastq_pilot_full/` (`upload_pilot_data.sh`) |
+| **Reference (full genome)** | `data/ottilie/S288C_reference/` | yes | ✅ **private** blob `az://aletest/ottilie/v1/S288C_reference/` (`upload_pilot_data.sh`) |
+
+📌 **Two ottilie datasets share the `az://aletest/ottilie/v1/` prefix** — the 2-sample chromosome
+subset and the 4-sample full-depth pilot. They are not interchangeable, and only the first is
+published publicly. Naming convention and how to tell them apart: [`blob_layout.md`](blob_layout.md).
 
 **Ultimate source of truth:** SRA (PRJNA590203). Everything downstream is reproducible via
 `--from-sra`. The raw FASTQs are additionally archived on Azure Blob. The CRAMs are the only
