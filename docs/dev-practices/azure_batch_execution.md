@@ -15,7 +15,7 @@
 > single-pool compute environment fails at ~98% completion without them.
 
 Config: [`conf/azure_batch.config`](../../conf/azure_batch.config) (pass with `-c`, deliberately not a
-profile, so only opted-in runs are affected) · params: [`conf/params_ottilie_blob.yml`](../../conf/params_ottilie_blob.yml) ·
+profile, so only opted-in runs are affected) · params: [`conf/params_ottilie_test_blob.yml`](../../conf/params_ottilie_test_blob.yml) ·
 launcher: [`bin/test_ottilie_azure_batch.sh`](../../bin/test_ottilie_azure_batch.sh) ·
 Azure/SP provisioning: [`deploy/azure/`](../../deploy/azure/).
 

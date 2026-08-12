@@ -70,7 +70,7 @@ echo
 nextflow run main.nf \
     -profile docker \
     -c conf/azure_batch.config \
-    -params-file conf/params_ottilie_blob.yml \
+    -params-file conf/params_ottilie_test_blob.yml \
     --outdir "$OUTDIR" \
     -ansi-log false \
     "$@"

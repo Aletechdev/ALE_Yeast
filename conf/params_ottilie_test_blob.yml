@@ -1,5 +1,5 @@
 # Ottilie contract test — all inputs on Azure Blob (az://), for Azure Batch / Seqera runs.
-# Use with:  nextflow run main.nf -profile docker -c conf/azure_batch.config -params-file conf/params_ottilie_blob.yml
+# Use with:  nextflow run main.nf -profile docker -c conf/azure_batch.config -params-file conf/params_ottilie_test_blob.yml
 input: "az://aletest/ottilie/v1/samplesheet_test_az.csv"
 
 # Output directory — a SAFETY NET, not the value you should run with.

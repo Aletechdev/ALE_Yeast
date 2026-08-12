@@ -76,7 +76,7 @@ needs in-session are repeated here.
 ### Cloud execution — Azure Batch
 
 Opt-in only: `-c conf/azure_batch.config` (deliberately **not** a profile) plus
-`-params-file conf/params_ottilie_blob.yml`; launcher `bin/test_ottilie_azure_batch.sh`. Azure service
+`-params-file conf/params_ottilie_test_blob.yml`; launcher `bin/test_ottilie_azure_batch.sh`. Azure service
 principal + RBAC provisioning lives in [`deploy/azure/`](deploy/azure/) (per-resource grants only, never
 resource-group-wide).
 

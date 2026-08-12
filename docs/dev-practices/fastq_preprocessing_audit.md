@@ -37,7 +37,7 @@ publishes to `reports/fastqc/<id>/`, and feeds MultiQC. Nothing downstream reads
 ([`nextflow.config:38`](../../nextflow.config#L38)) and every ALE config forces `split_fastq = 0` —
 [`ottilie_test.config:58`](../../conf/test/ottilie_test.config#L58),
 [`ottilie_test_ci.config:67`](../../conf/test/ottilie_test_ci.config#L67),
-[`params_ottilie_blob.yml:63`](../../conf/params_ottilie_blob.yml#L63),
+[`params_ottilie_test_blob.yml:63`](../../conf/params_ottilie_test_blob.yml#L63),
 [`run_ottilie_pilot.sh:28`](../benchmarking/ottilie_xenobiotic_ale/03_pipeline/run_ottilie_pilot.sh#L28).
 So no adapter removal, no clipping, no length filter, no quality filter. `params_seqera_381.yml:34`
 records the rationale — *"No trimming (good quality Illumina reads assumed)"*. **This is a defensible

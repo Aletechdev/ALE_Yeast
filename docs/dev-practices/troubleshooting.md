@@ -130,7 +130,7 @@ Two consequences:
   preview run instead:
 
   ```bash
-  nextflow run main.nf -c conf/azure_batch.config -params-file conf/params_ottilie_blob.yml -preview
+  nextflow run main.nf -c conf/azure_batch.config -params-file conf/params_ottilie_test_blob.yml -preview
   ```
 
 Whether the `nextflow config` behaviour is deliberate or an upstream bug has not been investigated.

@@ -488,7 +488,7 @@ Then the Launchpad entry and the launch are one command each:
 tw pipelines add https://github.com/Aletechdev/ALE_Yeast \
     -n ale-ottilie-contract-test -w DTU-Biosustain/RECON-ALE \
     -c ale-ottilie-nf25104 --revision main -p docker \
-    --params-file conf/params_ottilie_blob.yml
+    --params-file conf/params_ottilie_test_blob.yml
 ```
 
 > ⏰ **Record the token's owner and expiry in the table below when it is created.** This is a *shared
@@ -531,11 +531,22 @@ comparison runs from this same entry against `ale-ottilie-nf25104-fusion` — wh
 methodologically better choice, since launching one record against two CEs guarantees nothing else
 differs between the two runs. ⚠️ Give the second run its own `outdir`.
 
-**Params stay dataset-specific and ready-to-run.** `conf/params_ottilie_blob.yml` is deliberately a
+**Params stay dataset-specific and ready-to-run.** `conf/params_ottilie_test_blob.yml` is deliberately a
 filled-in, launch-without-editing file rather than a template with placeholders — splitting it into a
 generic template is explicitly deferred. Note that Platform stores params as a single `paramsText`
 blob, so launch-time params **replace** the saved set rather than merging key-by-key; saved params are
 an editable template, never inherited defaults.
+
+> 📛 **Renamed 2026-08-12: `params_ottilie_blob.yml` → `params_ottilie_test_blob.yml`.** A second
+> params file now exists (`params_ottilie_pilot_blob.yml`, 4 samples at full depth), and the unmarked
+> name read as the generic default when it is in fact the narrow 2-sample, 4-chromosome subset. `_test`
+> matches the convention already used by `fastq_test/`, `S288C_reference_test/`,
+> `samplesheet_test_az.csv` and the `ottilie_test` profile.
+>
+> ⚠️ **The `yAMP-ottilie-test` Launchpad entry was not affected, because it does not reference the file
+> at all** — it stores an inlined *copy* of the params as `paramsText`. That is worth knowing for its
+> own sake: **editing the repo file does not change what the Launchpad entry launches.** The two drift
+> silently. Re-paste after any params change that a Launchpad run should pick up.
 
 ## Client secret
 
@@ -996,7 +1007,7 @@ revoke the token** — see the open item below.
 - [x] Create a new compute environment bound to the `azure_SP_cfb_ale_mutations_pipeline` credential,
       with `NXF_VER=25.10.4` pinned via the head-job environment (plan Phase 4) — done 2026-08-05,
       two CEs (non-Fusion + Fusion), both AVAILABLE. The six existing CEs were not repointed.
-- [x] Add `outdir` to `conf/params_ottilie_blob.yml` — done 2026-08-05, date-stamped, preview-verified.
+- [x] Add `outdir` to `conf/params_ottilie_test_blob.yml` — done 2026-08-05, date-stamped, preview-verified.
 - [x] Create a classic GitHub PAT and register it in `RECON-ALE` — done 2026-08-06,
       `personal_token_classic_ALE_yeast`; the repo clones over HTTPS. **Superseded 2026-08-07.**
 - [x] Register the Launchpad pipeline — `yAMP-ottilie-test` (`227651105760023`), done 2026-08-06.
@@ -1065,8 +1076,10 @@ revoke the token** — see the open item below.
       8 FASTQs (4.0 G, verified byte-for-byte) → `az://aletest/ottilie/v1/fastq_pilot_full/`, full
       reference (~79 M: fasta, genbank, snpeff_cache, chromosomes) → `…/S288C_reference/`, plus
       `…/samplesheet_pilot_az.csv`. All in the **private** `aletest` container — same container as
-      `workDir`, per the SP SAS rule (§3). Still to write: a params file copied from
-      `conf/params_ottilie_blob.yml` and repointed at the full reference with a fresh dated `outdir`.
+      `workDir`, per the SP SAS rule (§3). Params:
+      [`conf/params_ottilie_pilot_blob.yml`](../../../conf/params_ottilie_pilot_blob.yml) — written
+      2026-08-12, every `az://` path verified to resolve and `outdir` verified empty. **Remaining: forge
+      a fresh CE, then launch with `--config conf/disk_probe.config`.**
       ⚠️ **Real project data (dicarboxylic acids / CENPK) is not to be used** — it is not public;
       ottilie is. The public `aletestdatapublic/releases` account is untouched, and the upload script
       refuses to run against it. Layout + how the two ottilie datasets are told apart:
