@@ -537,16 +537,37 @@ generic template is explicitly deferred. Note that Platform stores params as a s
 blob, so launch-time params **replace** the saved set rather than merging key-by-key; saved params are
 an editable template, never inherited defaults.
 
-> 📛 **Renamed 2026-08-12: `params_ottilie_blob.yml` → `params_ottilie_test_blob.yml`.** A second
-> params file now exists (`params_ottilie_pilot_blob.yml`, 4 samples at full depth), and the unmarked
+> 📛 **Renamed 2026-08-12: `params_ottilie_blob.yml` → `params_ottilie_test_blob.yml`.** The unmarked
 > name read as the generic default when it is in fact the narrow 2-sample, 4-chromosome subset. `_test`
 > matches the convention already used by `fastq_test/`, `S288C_reference_test/`,
-> `samplesheet_test_az.csv` and the `ottilie_test` profile.
+> `samplesheet_test_az.csv` and the `ottilie_test` profile. It survives because
+> `bin/test_ottilie_azure_batch.sh` reads it for the **local** head-job path.
 >
-> ⚠️ **The `yAMP-ottilie-test` Launchpad entry was not affected, because it does not reference the file
-> at all** — it stores an inlined *copy* of the params as `paramsText`. That is worth knowing for its
-> own sake: **editing the repo file does not change what the Launchpad entry launches.** The two drift
-> silently. Re-paste after any params change that a Launchpad run should pick up.
+> 🚨 **A Launchpad entry does NOT reference a params file — it stores a pasted COPY.** The
+> `yAMP-ottilie-test` entry holds the params as `paramsText`, captured 2026-08-07 and never re-read.
+> **Editing the repo file does not change what that entry launches**; the two drift in silence, and
+> nothing warns you. The same applies to the *Nextflow config* box — see the same pattern recorded for
+> `ALE-Sarek-3.5.1` in [`../../../docs/seqera_cloud/seqera_cloud_deployment_checklist.md`](../../../docs/seqera_cloud/seqera_cloud_deployment_checklist.md)
+> ("Parameters | Content of `conf/params_seqera_test.yml`"), where it was written down as a setup step
+> rather than as a hazard.
+>
+> ✅ **The fix is a profile, not a better paste.** `-p docker,ottilie_test_az` makes Platform read
+> [`conf/test/ottilie_test_az.config`](../../../conf/test/ottilie_test_az.config) from the cloned repo
+> on **every** launch, so there is no copy to rot. Only `outdir` stays in the parameters box, because
+> it must change per run anyway.
+>
+> ⚠️ Two conditions, or the profile silently does nothing:
+> 1. **Empty the parameters box down to `outdir`.** Nextflow precedence is config < params-file < CLI,
+>    and Platform passes `paramsText` as a params file — a full `paramsText` shadows the profile
+>    entirely, and the run looks like the profile never took effect.
+> 2. **Push.** Platform clones from GitHub at the registered revision, so an unpushed profile edit does
+>    not exist as far as a Launchpad run is concerned.
+>
+> ⚠️ **`tw pipelines update` cannot be used to switch an existing entry over.** It returns HTTP 500,
+> reproduced on 0.38.0 (2026-08-12) — and unlike the `tw`-vs-API split in the autoscale case, going
+> under the CLI does **not** help: `PUT /pipelines/{id}` returns 400 both with `name` added and with the
+> full launch object round-tripped from `GET`. `add` is the only working path, so switching means
+> registering a new entry (new pipeline id) and deleting the old one.
 
 ## Client secret
 
@@ -1076,10 +1097,11 @@ revoke the token** — see the open item below.
       8 FASTQs (4.0 G, verified byte-for-byte) → `az://aletest/ottilie/v1/fastq_pilot_full/`, full
       reference (~79 M: fasta, genbank, snpeff_cache, chromosomes) → `…/S288C_reference/`, plus
       `…/samplesheet_pilot_az.csv`. All in the **private** `aletest` container — same container as
-      `workDir`, per the SP SAS rule (§3). Params:
-      [`conf/params_ottilie_pilot_blob.yml`](../../../conf/params_ottilie_pilot_blob.yml) — written
-      2026-08-12, every `az://` path verified to resolve and `outdir` verified empty. **Remaining: forge
-      a fresh CE, then launch with `--config conf/disk_probe.config`.**
+      `workDir`, per the SP SAS rule (§3). Params: the **`ottilie_pilot_az` profile**
+      ([`conf/test/ottilie_pilot_az.config`](../../../conf/test/ottilie_pilot_az.config)) — every
+      `az://` path verified to resolve. It sets no `outdir`: supply a fresh dated one per run, and a
+      fresh work dir with it. **Remaining: forge a fresh CE, then launch with
+      `-p docker,ottilie_pilot_az --config conf/disk_probe.config`.**
       ⚠️ **Real project data (dicarboxylic acids / CENPK) is not to be used** — it is not public;
       ottilie is. The public `aletestdatapublic/releases` account is untouched, and the upload script
       refuses to run against it. Layout + how the two ottilie datasets are told apart:
