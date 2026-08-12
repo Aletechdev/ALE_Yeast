@@ -76,6 +76,26 @@ acids / CENPK), which is not public. The pilot set stays private too. `upload_pi
 to run against the public account or any container whose `publicAccess` is not `None`;
 [`publish_test_data.sh`](01_data_retrieval/publish_test_data.sh) is the only script that writes there.
 
+### Why the pilot set is private even though its source is public — decided 2026-08-12
+
+PRJNA590203 is public, so this is a **cost-and-purpose** decision, not a governance one. Re-hosting it
+publicly was considered and rejected:
+
+- **It would duplicate two things that already exist.** SRA serves the reads, and
+  [`download_pilot_fastq.sh`](01_data_retrieval/download_pilot_fastq.sh) already fetches exactly these
+  four accessions. A public copy gives an external user nothing new.
+- **It is the wrong artifact for external validation.** The pilot has **no truth set**, so running it
+  proves only that the pipeline finished. The published test set carries 4 SNVs + a chr I duplication
+  and therefore actually tests correctness — that is what an outside user wants.
+- **Egress and support.** ~4 GB per download at ~$0.087/GB, unthrottled and unattributable behind a
+  no-SAS URL, versus ~$0.03 for the test set. Publishing also implies `SHA256SUMS`, a public-URL
+  samplesheet, version discipline, and an artifact that can no longer be restructured quietly.
+
+This set exists to **stress-test Azure resource usage** — node disks, pool scaling, staging throughput
+— which is an internal question about our own infrastructure. If external stress-testing ever becomes a
+goal, publish the *recipe* (`download_pilot_fastq.sh` + `upload_pilot_data.sh`) rather than the data:
+anyone running it on their own Batch pool needs it in their own storage account regardless.
+
 ⚠️ **`workDir` must live in this same container** whenever a run uses the Entra service principal:
 Nextflow mints one container-scoped SAS and reuses it for every blob URL, so a node cannot read
 another container even in the same account. See
