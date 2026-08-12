@@ -141,11 +141,22 @@ The data is published in **BOTH shapes** under a **versioned prefix** so each co
 
 | Object (under `…/ottilie/v1/`) | For | Notes |
 |---|---|---|
-| `ottilie_test_data.tar.gz` | **local onboarding + CI** (download-then-run) | one atomic ~373 MB bundle; `download_test_data.sh` uses this |
-| `files/**` | **Seqera/Batch** per-file URL staging | mirrors `data/ottilie/` (fastq_test, S288C_reference_test incl. snpeff_cache/, gff3) |
+| `README.md` | **anyone handed the URL** | sample↔FASTQ↔SRA mapping, the truth set, and the reference-pairing rule. Ships inside the bundle too. Source: `01_data_retrieval/bundle_README.md` |
+| `ottilie_test_data.tar.gz` | **local onboarding + CI** (download-then-run) | one atomic ~399 MB bundle; `download_test_data.sh` uses this. Carries **both** references + `README.md` |
+| `files/**` | **Seqera/Batch** per-file URL staging | mirrors `data/ottilie/` — fastq_test, S288C_reference_test, **and the full S288C_reference** (fa, gb, gff3, chromosomes/, snpeff_cache/) |
 | `snpeff_cache.tar.gz` | Seqera + URL-streaming **fallback** | cache-only; untar → point `--snpeff_cache` at the `snpeff_cache/` dir. **Required**, not optional, for the streaming profile — see below |
-| `SHA256SUMS` | integrity | covers the individual files **and** both tarballs → proves they don't drift |
+| `SHA256SUMS`, `MD5SUMS` | integrity | same file set, generated from one list; each covers the individual files **and** both tarballs → proves they don't drift |
+| `*.tar.gz.md5`, `files/fastq_test/*.fastq.gz.md5` | "did my download finish?" | per-file sidecars for the large objects. The FASTQ ones **also ship inside the bundle**, so `cd fastq_test && md5sum -c *.md5` re-verifies after extraction *and* after any later copy to cluster scratch — a root manifest cannot, once files have moved. ⚠️ Deliberately **absent inside `chromosomes/` and `snpeff_cache/`**: those stage as *directory* params, so stray files would be staged with the data |
 | `samplesheet_test_blob.csv` | Seqera + URL-streaming | samplesheet whose `fastq_1/2` are the public per-file URLs |
+
+⚠️ **`ottilie/v1` is a ROLLING prefix, updated in place** — re-running `publish_test_data.sh`
+republishes it and every consumer picks the change up with no repointing. Additive changes (new
+files, a bigger bundle) are safe; **removing or renaming** a published file is not, and needs a
+prefix bump. Note the tarball's hash changes whenever the bundled set does.
+
+**Both references are published**, so the same download serves the 2-sample test and the 4-sample
+SRA set. ⚠️ Reads set a *minimum* reference: bigger is always allowed, smaller never is — 4-sample
+reads against the slimmed 4-chromosome reference **mismap** rather than fail. See `bundle_README.md`.
 
 Content is PRJNA590203 (public SRA) + public S288C reference/annotation → **safe to be world-readable**; the
 URL is public **for zero-credential access (no expiring SAS to distribute/rotate)**, not because the data is

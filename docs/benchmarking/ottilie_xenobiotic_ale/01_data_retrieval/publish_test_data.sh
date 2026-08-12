@@ -7,6 +7,19 @@
 #   4. SHA256SUMS                 — covers the individual files AND both tarballs, so a consumer can prove
 #                                   the tarball unpacks to exactly the individual set (they never drift)
 #   5. samplesheet_test_blob.csv  — samplesheet whose fastq_1/fastq_2 are the public per-file URLs (Seqera)
+#   6. README.md                  — what the data IS: sample↔FASTQ↔SRA mapping, the truth set, and the
+#                                   reference-pairing rule. Shipped INSIDE the bundle and published
+#                                   standalone. Source of truth is bundle_README.md, next to this script.
+#
+# BOTH REFERENCES ARE PUBLISHED, and both go in the bundle:
+#   S288C_reference_test/   slimmed — chromosomes I, IV, VII, XV. Pairs with the 2-sample test reads.
+#   S288C_reference/        full    — all 16 + Mito. Needed by the 4-sample SRA set, and usable with
+#                                     the 2-sample reads for a truer (but not truth-set-comparable) run.
+# The full reference costs only ~27 MB compressed (84 MB on disk — it is nearly all text), which is
+# ~7% on a 373 MB bundle. Cheap enough that shipping one bundle beats shipping two and having someone
+# pair the wrong reference with the wrong reads. ⚠️ Reads set a MINIMUM reference: bigger is always
+# allowed, smaller never is — 4-sample reads against the slim reference MISMAP rather than fail.
+# See bundle_README.md.
 #
 # Content is PRJNA590203 (public SRA) + public S288C reference/annotation → safe to be world-readable;
 # the URL is stable, unauthenticated, and needs no SAS to distribute or rotate. See DATA_PROVENANCE.md.
@@ -15,13 +28,18 @@
 # 'blob') are created by infra/azure/deploy.sh from the ARM template. THIS script only UPLOADS content;
 # it never creates or re-permissions the container (so it can't flip the deployed 'blob' access level).
 #
-# Requires: az CLI (`az login`), a populated data/ottilie/, tar, sha256sum. Uploads use shared-key auth
-# (AUTH=key) — works with control-plane access + the account's allowSharedKeyAccess=true, no data-plane
-# RBAC role needed. Set AUTH=login to use AAD instead (needs a Storage Blob Data role).
+# Requires: az CLI (`az login`), a populated data/ottilie/, tar, sha256sum, md5sum. Uploads use
+# shared-key auth (AUTH=key) — works with control-plane access + the account's allowSharedKeyAccess=true,
+# no data-plane RBAC role needed. Set AUTH=login to use AAD instead (needs a Storage Blob Data role).
+#
+# ⚠️ ottilie/v1 IS A ROLLING PREFIX — re-running this republishes it IN PLACE, and every consumer
+#    picks the change up with no repointing. That is deliberate: an update parked under a new prefix
+#    reaches nobody until something is edited to point at it. Additive changes (new files, a bigger
+#    bundle) are safe. REMOVING or RENAMING a published file is not — bump PREFIX for that.
 #
 # Usage (from repo root):
 #   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/publish_test_data.sh
-# Override target (e.g. a new version prefix, or a different host):
+# Override target (a breaking change needing a new version, or a different host):
 #   ACCOUNT=aletestdatapublic CONTAINER=releases PREFIX=ottilie/v2  bash .../publish_test_data.sh
 
 set -euo pipefail
@@ -32,7 +50,7 @@ SRC="$REPO_ROOT/data/ottilie"
 
 ACCOUNT="${ACCOUNT:-aletestdatapublic}"
 CONTAINER="${CONTAINER:-releases}"
-PREFIX="${PREFIX:-ottilie/v1}"                  # versioned → a re-host under v2 never breaks pinned runs
+PREFIX="${PREFIX:-ottilie/v1}"                  # rolling: updated in place (see Phase 0). Bump for a breaking change.
 AUTH="${AUTH:-key}"                             # 'key' = shared-key (default, needs no data-plane role); 'login' = AAD
 STAGE="${STAGE:-$REPO_ROOT/.ottilie_publish}"   # small: tarballs + SHA + url-samplesheet only (not the 402 MB copied)
 BASE_URL="https://${ACCOUNT}.blob.core.windows.net/${CONTAINER}/${PREFIX}"
@@ -45,6 +63,18 @@ command -v az >/dev/null || { echo "ERROR: az CLI not found (az login required).
     echo "ERROR: data/ottilie/ not populated. Run generate_test_data.sh (or download_test_data.sh) first." >&2
     exit 1
 }
+# The FULL reference ships too, so both references are ready to use from one download.
+for f in S288C_R64.fa S288C_R64_ensembl_chrnames.gb; do
+    [[ -f "$SRC/S288C_reference/$f" ]] || {
+        echo "ERROR: missing S288C_reference/$f — the full reference is part of the bundle." >&2
+        echo "       Fetch it, or publish without it by editing REF_FULL below." >&2
+        exit 1
+    }
+done
+[[ -d "$SRC/S288C_reference/chromosomes" && -d "$SRC/S288C_reference/snpeff_cache" ]] || {
+    echo "ERROR: missing S288C_reference/chromosomes/ or snpeff_cache/." >&2; exit 1; }
+[[ -f "$SCRIPT_DIR/bundle_README.md" ]] || {
+    echo "ERROR: bundle_README.md not found next to this script — it ships inside the bundle." >&2; exit 1; }
 
 # The account + container are provisioned by infra/azure/deploy.sh — verify the container exists rather
 # than creating it here (keeps provisioning in one place, and preserves the deployed public-access level).
@@ -56,22 +86,107 @@ if [[ "$EXISTS" != "true" ]]; then
     exit 2
 fi
 
+# THE PREFIX IS ROLLING, NOT IMMUTABLE: ottilie/v1 is updated in place, so every consumer picks up
+# a change with no repointing. That is the whole reason the improvements land here rather than under
+# a new version nothing references. Warn — do not block. A prompt that fires on every single publish
+# gets bypassed reflexively, which is worse than no check at all.
+#
+# What this means in practice, and why it is safe for the consumers that exist today:
+#   • files/**            byte-identical on a content-preserving republish → CI
+#                         (conf/test/ottilie_test_ci.config, bin/test_ottilie_blob.sh) is unaffected.
+#   • the tarball         its hash CHANGES whenever the bundled set changes. SHA256SUMS/MD5SUMS are
+#                         republished in the same run, so download_test_data.sh stays consistent —
+#                         but anything holding an OLD hash out-of-band will now mismatch.
+#
+# ⚠️ BUMP THE PREFIX (PREFIX=ottilie/v2) for a change that would BREAK a consumer — removing or
+#    renaming a published file, or changing the content of one that already exists. Growing the set
+#    is additive and safe; taking things away is not.
+N_EXISTING="$(az storage blob list --account-name "$ACCOUNT" --auth-mode "$AUTH" \
+    -c "$CONTAINER" --prefix "$PREFIX/" --query "length(@)" -o tsv 2>/dev/null || echo 0)"
+if [[ "${N_EXISTING:-0}" -gt 0 ]]; then
+    echo "⚠️  '$PREFIX/' already holds $N_EXISTING blobs — republishing IN PLACE (rolling prefix)."
+    echo "    Consumers pull this prefix live. Removing or renaming a file here breaks them;"
+    echo "    bump to a new PREFIX for that. Adding files, as here, is additive and safe."
+fi
+
 # ---------------------------------------------------------------------------
 # Phase 1 — build tarballs, checksums, URL samplesheet (no 402 MB copy)
 # ---------------------------------------------------------------------------
 rm -rf "$STAGE"; mkdir -p "$STAGE"
+
+# What the bundle and the files/ tree both contain. ONE list, so the tarball and the individual
+# blobs can never drift apart — SHA256SUMS is generated from this same list and is what proves it.
+# S288C_reference is spelled out file-by-file rather than taken wholesale: the directory also holds
+# .fai/.dict/BWA indices on a dev machine, and those are deliberately NOT published (Sarek builds
+# them in-run; shipping them would tempt someone to pass them and change the task graph).
+PUBLISH_PATHS=(
+    fastq_test                                      # 2 samples, chromosomes I/IV/VII/XV
+    S288C_reference_test                            # slimmed reference — pairs with those reads
+    S288C_reference/S288C_R64.gff3                  # shared by both references
+    S288C_reference/S288C_R64.fa                    # ↓ full reference — all 16 chromosomes + Mito
+    S288C_reference/S288C_R64_ensembl_chrnames.gb
+    S288C_reference/chromosomes
+    S288C_reference/snpeff_cache
+)
+
+# --- Per-FASTQ .md5 sidecars, staged ONCE and used twice ------------------------------------
+# Written before the tarball so they can go inside it. The same staged directory is what
+# upload-batch later publishes to $PREFIX/files/fastq_test/, so the blob and the bundle carry
+# byte-identical sidecars by construction rather than by two code paths agreeing.
+#
+# They ship INSIDE the bundle because the FASTQs get moved again after extraction — copied to
+# cluster scratch, rsynced between machines — and a sidecar travelling with its file lets each
+# hop be re-verified. A manifest at the blob root cannot do that once the files have moved.
+#
+# ⚠️ NOT one per published file. chr_dir and snpeff_cache are consumed as DIRECTORY params, so a
+#    .md5 inside chromosomes/ or snpeff_cache/ would be staged into those tasks along with the
+#    real data. Harmless as far as anyone knows — which is exactly the problem. fastq_test/ is
+#    not directory-staged (the samplesheet names each file), so sidecars are safe there.
+#    MD5SUMS covers everything the sidecars do not.
+echo "Writing per-FASTQ .md5 sidecars ..."
+mkdir -p "$STAGE/files/fastq_test"
+for f in "$SRC"/fastq_test/*.fastq.gz; do
+    ( cd "$SRC/fastq_test" && md5sum "${f##*/}" ) > "$STAGE/files/fastq_test/${f##*/}.md5"
+    echo "  fastq_test/${f##*/}.md5"
+done
+
 echo "Building bundle + cache tarball ..."
-tar -czf "$STAGE/ottilie_test_data.tar.gz" -C "$SRC" \
-    fastq_test S288C_reference_test S288C_reference/S288C_R64.gff3
+# README.md ships INSIDE the bundle (extracts to data/ottilie/README.md) and is published
+# standalone. tar applies each -C in turn, so later roots contribute their own members:
+#   -C $SRC    the data itself
+#   -C $STAGE  README.md
+#   -C $STAGE/files  fastq_test/*.md5 → merges into the fastq_test/ dir from the first root
+# `<base>` is substituted with the real versioned URL, so the shipped copy always names the version
+# it came from — the source file stays version-agnostic and cannot go stale on the next bump.
+sed "s|<base>|$BASE_URL|g" "$SCRIPT_DIR/bundle_README.md" > "$STAGE/README.md"
+grep -q '<base>' "$STAGE/README.md" && { echo "ERROR: unsubstituted <base> in README." >&2; exit 1; }
+tar -czf "$STAGE/ottilie_test_data.tar.gz" \
+    -C "$SRC" "${PUBLISH_PATHS[@]}" \
+    -C "$STAGE" README.md \
+    -C "$STAGE/files" fastq_test
 tar -czf "$STAGE/snpeff_cache.tar.gz" -C "$SRC/S288C_reference_test" snpeff_cache
 
-echo "Writing SHA256SUMS (blob-relative paths) ..."
-{
-    # individual files → mirror the 'files/…' blob layout
-    ( cd "$SRC" && find fastq_test S288C_reference_test S288C_reference/S288C_R64.gff3 -type f -print0 \
-        | sort -z | xargs -0 sha256sum ) | awk '{print $1"  files/"$2}'
-    ( cd "$STAGE" && sha256sum ottilie_test_data.tar.gz snpeff_cache.tar.gz )
-} > "$STAGE/SHA256SUMS"
+echo "Writing SHA256SUMS + MD5SUMS (blob-relative paths) ..."
+# Two manifests, same file set, generated from the same PUBLISH_PATHS so they cannot disagree.
+#   SHA256SUMS  authoritative integrity
+#   MD5SUMS     the genomics-convention shape; md5sum is everywhere and this is what most people
+#               reach for to answer "did my download finish?"
+for algo in sha256 md5; do
+    {
+        # individual files → mirror the 'files/…' blob layout
+        ( cd "$SRC" && find "${PUBLISH_PATHS[@]}" -type f -print0 \
+            | sort -z | xargs -0 "${algo}sum" ) | awk '{print $1"  files/"$2}'
+        ( cd "$STAGE" && "${algo}sum" ottilie_test_data.tar.gz snpeff_cache.tar.gz README.md )
+    } > "$STAGE/$(echo "$algo" | tr '[:lower:]' '[:upper:]')SUMS"
+done
+
+# Sidecars for the tarballs themselves — necessarily after they are built. Each holds a bare
+# `<md5>  <basename>` line, so `md5sum -c foo.tar.gz.md5` works from wherever it was downloaded.
+echo "Writing tarball .md5 sidecars ..."
+for f in "$STAGE"/*.tar.gz; do
+    ( cd "$STAGE" && md5sum "${f##*/}" > "${f##*/}.md5" )
+    echo "  ${f##*/}.md5"
+done
 
 echo "Writing blob-URL samplesheet (for Seqera per-file staging) ..."
 FQ="$BASE_URL/files/fastq_test"
@@ -85,15 +200,21 @@ CSV
 # Phase 2 — upload BOTH shapes under the versioned prefix
 # ---------------------------------------------------------------------------
 echo "Uploading individual file tree → $PREFIX/files/ ..."
-az storage blob upload-batch --account-name "$ACCOUNT" --auth-mode "$AUTH" --overwrite \
-    --destination "$CONTAINER" --destination-path "$PREFIX/files/fastq_test" \
-    --source "$SRC/fastq_test" -o none
-az storage blob upload-batch --account-name "$ACCOUNT" --auth-mode "$AUTH" --overwrite \
-    --destination "$CONTAINER" --destination-path "$PREFIX/files/S288C_reference_test" \
-    --source "$SRC/S288C_reference_test" -o none
-az storage blob upload --account-name "$ACCOUNT" --auth-mode "$AUTH" --overwrite \
-    --container-name "$CONTAINER" --name "$PREFIX/files/S288C_reference/S288C_R64.gff3" \
-    --file "$SRC/S288C_reference/S288C_R64.gff3" -o none
+# Driven by PUBLISH_PATHS so files/ and the tarball cannot diverge: a directory goes up as a batch,
+# a single file as one blob. Anything not in that list is not published, by construction.
+for p in "${PUBLISH_PATHS[@]}"; do
+    if [[ -d "$SRC/$p" ]]; then
+        echo "  $p/"
+        az storage blob upload-batch --account-name "$ACCOUNT" --auth-mode "$AUTH" --overwrite \
+            --destination "$CONTAINER" --destination-path "$PREFIX/files/$p" \
+            --source "$SRC/$p" -o none
+    else
+        echo "  $p"
+        az storage blob upload --account-name "$ACCOUNT" --auth-mode "$AUTH" --overwrite \
+            --container-name "$CONTAINER" --name "$PREFIX/files/$p" \
+            --file "$SRC/$p" -o none
+    fi
+done
 
 echo "Uploading tarballs + SHA256SUMS + url-samplesheet → $PREFIX/ ..."
 az storage blob upload-batch --account-name "$ACCOUNT" --auth-mode "$AUTH" --overwrite \
@@ -104,20 +225,53 @@ az storage blob upload-batch --account-name "$ACCOUNT" --auth-mode "$AUTH" --ove
 # ---------------------------------------------------------------------------
 echo ""
 echo "Verifying public read (no credentials) ..."
-if curl -fsSL "$BASE_URL/SHA256SUMS" -o /dev/null; then
-    echo "  OK: $BASE_URL/SHA256SUMS is publicly readable."
-else
-    echo "  WARNING: public GET failed — check the container public-access level (infra/azure)." >&2
+# Check one object from each shape, not just SHA256SUMS. A missing full-reference blob is the
+# failure this release can actually introduce, and it would otherwise surface much later as a
+# 4-sample run silently paired with the slimmed reference.
+VFAIL=0
+for obj in SHA256SUMS MD5SUMS README.md ottilie_test_data.tar.gz \
+           ottilie_test_data.tar.gz.md5 \
+           files/fastq_test/NODRUG-GM2_chrI_IV_VII_XV_R1.fastq.gz.md5 \
+           files/S288C_reference/S288C_R64.fa \
+           files/S288C_reference/chromosomes/Mito.fa \
+           files/S288C_reference_test/S288C_R64_test.fa; do
+    if curl -fsSL -o /dev/null "$BASE_URL/$obj"; then
+        echo "  OK      $obj"
+    else
+        echo "  FAILED  $obj" >&2; VFAIL=1
+    fi
+done
+if (( VFAIL )); then
+    echo "  WARNING: a public GET failed — check the container public-access level (infra/azure)." >&2
 fi
+
+# Prove the bundle really unpacks to the published file tree, rather than trusting that it does,
+# and that the two manifests agree with each other on the same artefacts.
+echo "Checking the bundle against SHA256SUMS + MD5SUMS ..."
+( cd "$STAGE" && sha256sum -c SHA256SUMS --ignore-missing --quiet 2>/dev/null ) \
+    && echo "  OK: staged tarballs + README match SHA256SUMS." \
+    || echo "  WARNING: staged artefacts do not match SHA256SUMS." >&2
+( cd "$STAGE" && md5sum -c MD5SUMS --ignore-missing --quiet 2>/dev/null ) \
+    && echo "  OK: staged tarballs + README match MD5SUMS." \
+    || echo "  WARNING: staged artefacts do not match MD5SUMS." >&2
+( cd "$STAGE" && md5sum -c ottilie_test_data.tar.gz.md5 --quiet 2>/dev/null ) \
+    && echo "  OK: sidecar ottilie_test_data.tar.gz.md5 verifies." \
+    || echo "  WARNING: sidecar .md5 does not verify." >&2
 
 cat <<EOF
 
 Published under: $BASE_URL
-  ottilie_test_data.tar.gz     full bundle (local onboarding / CI)
+  README.md                    what the data is: sample↔FASTQ↔SRA, truth set, reference pairing
+  ottilie_test_data.tar.gz     full bundle (local onboarding / CI) — BOTH references, + README.md
   snpeff_cache.tar.gz          cache-only (Seqera dir-staging fallback)
   files/**                     individual tree (Seqera per-file staging)
-  SHA256SUMS                   integrity for both shapes
+  SHA256SUMS / MD5SUMS         integrity for both shapes, same file set
+  *.tar.gz.md5, *.fastq.gz.md5 sidecars — check one big file without fetching a manifest
   samplesheet_test_blob.csv    Seqera samplesheet (per-file public URLs)
+
+⚠️ This is a ROLLING prefix — every consumer of $PREFIX is now serving the content above, with no
+   repointing needed. Who that is:
+     grep -rn 'releases/ottilie/v' conf/ bin/ infra/ docs/ --include='*.sh' --include='*.config'
 
 Local run:   bash $SCRIPT_DIR/download_test_data.sh
 Seqera:      use samplesheet_test_blob.csv; for --snpeff_cache try the files/ dir URL first,

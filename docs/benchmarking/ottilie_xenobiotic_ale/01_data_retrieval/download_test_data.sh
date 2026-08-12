@@ -4,10 +4,15 @@
 # newly deployed server) WITHOUT regenerating from CRAM/SRA — that heavier reproducible path is
 # generate_test_data.sh (needs the full reference + a prior pilot run).
 #
-# Grabs the single bundle tarball (~380 MB compressed) and extracts it into data/ottilie/:
+# Grabs the single bundle tarball (~399 MB compressed) and extracts it into data/ottilie/:
 #   fastq_test/                     chr I/IV/VII/XV subset reads, 2 samples
 #   S288C_reference_test/           subset FASTA + .fai + .dict + .gb + snpeff_cache/ + chromosomes/
-#   S288C_reference/S288C_R64.gff3  gene annotation for the IGV reports
+#   S288C_reference/                FULL genome — FASTA + .gb + .gff3 + snpeff_cache/ + chromosomes/
+#   README.md                       what the data is: sample↔FASTQ↔SRA, truth set, reference pairing
+#
+# BOTH references ship, so no second download is needed to run against the full genome. The
+# `ottilie_test` profile uses the slimmed one — that pairing is a SPEED choice, not a correctness
+# requirement, and it is the pairing the truth set was established against.
 # (The igv-reports templates/scripts under docs/igvreports/ are tracked in git, so they already travel.)
 #
 # The same blobs are ALSO published as an individual file/folder tree (files/**) + a cache-only tarball
