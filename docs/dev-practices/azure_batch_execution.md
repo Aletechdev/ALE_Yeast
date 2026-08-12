@@ -22,7 +22,7 @@ Azure/SP provisioning: [`deploy/azure/`](../../deploy/azure/).
 Everything below was found by *running* it. None of it is visible to the local test suite, and several
 items produce errors that point at the wrong thing entirely.
 
-📌 **§13 is a register of claims that were believed and then disproved.** Read it before concluding
+📌 **§14 is a register of claims that were believed and then disproved.** Read it before concluding
 that some tool "cannot" do something — several entries here were once confidently written the other way.
 
 ---
@@ -598,7 +598,63 @@ via plain bash inside `docker run`, forwarding only `NXF_TASK_WORKDIR` and `NXF_
 
 ---
 
-## 13. Corrections — claims that were believed, then disproved
+## 13. A Seqera launch INJECTS some schema defaults, silently overriding your profile
+
+**Symptom.** A Launchpad run using `-profile docker,ottilie_test_az` died with:
+
+```
+ERROR ~ No such file or directory: s3://annotation-cache/snpeff_cache/R64-1-1.105
+```
+
+…even though the profile sets `snpeff_cache` to an `az://` path, and Platform's own resolved config
+for that run *shows* the `az://` value.
+
+**Cause.** Platform submits a params file alongside the launch, and **`-params-file` beats config**, so
+anything in it overrides the profile. That params file is not just what you typed in the *Pipeline
+parameters* box — the launch form **adds some `nextflow_schema.json` defaults of its own**. For run
+`2eiGBEA0NXagap` the box held two lines but four params were submitted:
+
+```
+step                'mapping'                                 ← from the box
+outdir              'az://aletest/seqera-runs/2026-08-12-01'  ← from the box
+snpeff_cache        's3://annotation-cache/snpeff_cache/'     ← INJECTED, schema default
+custom_config_base  'https://raw.githubusercontent.com/…'     ← INJECTED, schema default
+```
+
+⚠️ **It is not every schema default.** `split_fastq` (default `50000000`) and `genome` (default
+`GATK.GRCh38`) were **not** injected, and the profile's values (`0`, `null`) survived. So the rule is
+narrower than "schema defaults always win" — which is exactly what makes it dangerous: most profile
+params work, and the one that doesn't fails deep into the run.
+
+**Fix.** Any param that has a `default:` in `nextflow_schema.json` **and** matters to the run must be
+set in the *Pipeline parameters* box, not only in the profile. There your value replaces the schema
+default before the form submits anything. Everything without a schema default is safe in the profile —
+`input`, `fasta`, `genbank`, `chr_dir`, `snpeff_db`, `tools`, `joint_germline`, `igenomes_ignore` all
+came through untouched on the same run.
+
+⚠️ **`snpeff_cache` is the one that bites here, and it differs per dataset** —
+`S288C_reference_test/snpeff_cache` for the contract test, `S288C_reference/snpeff_cache` for the
+full-depth pilot. So a single Launchpad entry serving both profiles needs that field edited at launch
+time, alongside `outdir`.
+
+**How to diagnose this class of failure** — compare what was *submitted* against what the config
+*resolved to*; they are different objects and only the first wins:
+
+```bash
+# what the launch actually submitted (the authority)
+curl -s -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" \
+  "$API/workflow/<runId>/launch?workspaceId=<ws>" | python -c "
+import json,sys; print(json.loads(json.load(sys.stdin)['launch']['paramsText']))"
+
+# what the pipeline config resolved to (informative, but overridden)
+curl -s -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" \
+  "$API/workflow/<runId>?workspaceId=<ws>" | python -c "
+import json,sys; print(json.load(sys.stdin)['workflow']['configText'])" | grep snpeff
+```
+
+---
+
+## 14. Corrections — claims that were believed, then disproved
 
 **Read this before re-deriving anything.** Each line is a conclusion that was written down as fact and
 later shown to be wrong. They are kept because the wrong answer is reachable from the same evidence

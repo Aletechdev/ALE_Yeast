@@ -957,6 +957,121 @@ flips only `fusion2Enabled`/`waveEnabled`). ⚠️ `tw` strips the template's tr
 labels go through `--labels`, not the config body. The script refuses to run if the template's
 `autoScale` is not `true`.
 
+### 2026-08-12 — ✅ Launchpad params come from the repo now, not a pasted copy
+
+**New entry `yAMP-ottilie-test-az` (`227711052831937`)**, registered with `tw pipelines add` because
+`update` is dead (see the note under *Params stay dataset-specific* above). Readback:
+
+| Field | Value |
+|---|---|
+| Compute env | `ale-ottilie-nf25104-bigdisk_autoScale_manual_noFusion` (`5u0qeS7p3cNmOITd5Gdhe1`) |
+| Repo / revision | `https://github.com/Aletechdev/ALE_Yeast` @ `main` |
+| **Config profiles** | **`docker`, `ottilie_test_az`** ← the params live in the repo |
+| **paramsText** | **one line** — `outdir: "az://aletest/seqera-runs/2026-08-12-01"` |
+| `nextflowVersion` / `configText` | unset |
+
+**One entry, not one per dataset.** Profiles are overridable per launch, exactly as the CE is, so the
+full-depth pilot runs from this same entry with `-p docker,ottilie_pilot_az` plus its own `outdir`.
+
+⚠️ **`nextflowVersion` is deliberately left unset**, unlike the old entry which stored `26.04`. That
+value never took effect — the CE's `NXF_VER=25.10.4` wins (§12) — and it contradicts what actually
+runs, since 26.x cannot parse `nextflow.config`. Pinning the engine per *pipeline* rather than per *CE*
+is arguably the better model (one CE could then serve entries on different versions), but it is not
+usable yet: neither `tw pipelines add` nor `tw launch` has a `--nextflow-version` flag, so it is
+UI-only, and the CE-level pin additionally covers ad-hoc launches that name no entry. Revisit if `tw`
+gains the flag.
+
+⚠️ **The old `yAMP-ottilie-test` (`227651105760023`) is deliberately still there.** The readback proves
+the *configuration*; only a real run proves the profile resolves on Platform. Keep the old entry as a
+fallback until a contract-test run passes on the new one, then delete it — there is no cost to waiting
+and no way to rename or patch either entry if the new one turns out wrong.
+
+### 2026-08-12 — Launchpad params moved into the repo, and the one default that refuses to move
+
+**New entry `yAMP-ottilie-test-az` (`202872785247251`)**, registered with `tw pipelines add` — `update`
+is dead (see *Params stay dataset-specific* above). Config profiles `docker, ottilie_test_az`; the CE
+is the autoscaling non-Fusion keeper; `nextflowVersion` and `configText` unset.
+
+**`-p <profile>` stores a REFERENCE; `--params-file` stores a SNAPSHOT.** The profile name is resolved
+by Nextflow after the head job clones the repo, so params are whatever the file says at launch time.
+`--params-file` is read once by `tw` and frozen into `paramsText`. Because `update` is broken, a frozen
+copy can only be changed by re-registering; the profile is changed by a commit and a push.
+
+**🖥️ The box nevertheless carries the FULL param set — a deliberate UX trade.** Platform's launch form
+populates its fields from `paramsText` only; profile values are applied at runtime but never displayed,
+so the launch page showed an empty `input` box and a reader had to open the profile to learn what would
+run. That break was judged worse than the alternative. The box is therefore **generated from the
+profile** (`./14_register_pipeline.sh --generate`), not hand-copied, and a normal run of the script
+re-derives it and **aborts on drift** — so the two artifacts cannot silently diverge.
+
+⚠️ **Consequence: a Launchpad run is now driven by the box, not the profile** (`-params-file` beats
+config). Changing a param means edit profile → `--generate` → commit → re-register, and re-registering
+mints a **new pipeline id** every time. The profile remains the single source of truth and is what local
+runs and nf-test actually execute. `outdir` is excluded from generation so the profile's timestamped
+value still applies per run.
+
+**🚨 First launch failed, and the cause is worth knowing.** Run `2eiGBEA0NXagap`, `-profile
+docker,ottilie_test_az`, died with `No such file or directory: s3://annotation-cache/snpeff_cache/R64-1-1.105`
+— the nf-core default — even though the profile sets an `az://` path *and Platform's own resolved
+config for that run shows the `az://` value*. The launch form **injects some `nextflow_schema.json`
+defaults into the submitted params**, and submitted params beat config. Four params were submitted from
+a two-line box: `step` and `outdir` from the box, `snpeff_cache` and `custom_config_base` injected.
+Not every schema default is injected — `split_fastq` and `genome` were not, and the profile's values
+survived — which is precisely what makes it easy to miss. Mechanism, and the two API calls that
+distinguish *submitted* from *resolved*: [`azure_batch_execution.md` §13](../../../docs/dev-practices/azure_batch_execution.md).
+
+**Consequence: `snpeff_cache` is repeated in the params box on purpose.** It is the only param that
+must be, and it is also the one that differs between the two datasets
+(`S288C_reference_test/snpeff_cache` vs `S288C_reference/snpeff_cache`). So running the pilot from this
+entry means changing **two** things at launch — `-p docker,ottilie_pilot_az` *and* that path. The box
+says so in a comment. If the pilot becomes routine, give it its own entry instead.
+
+⚠️ **`nextflowVersion` deliberately unset**, unlike the old entry which stored `26.04`. That never took
+effect — the CE's `NXF_VER=25.10.4` wins (§12) — and it contradicts what runs, since 26.x cannot parse
+`nextflow.config`. Pinning the engine per *pipeline* rather than per *CE* is arguably the better model,
+but neither `tw pipelines add` nor `tw launch` has a `--nextflow-version` flag, so it is UI-only, and
+the CE pin also covers ad-hoc launches. Revisit if `tw` gains the flag.
+
+⚠️ **The params box cannot be empty or comments-only** — Platform rejects that with *"Invalid
+ParamsText format"*, because a comments-only document is valid YAML that parses to `null` rather than an
+object. Hence the inert `step: "mapping"` (already the schema default). **Comments themselves are
+preserved verbatim**, confirmed by readback, which is what makes the box usable as in-place guidance.
+
+⚠️ **The launch form cannot display what a profile sets.** It renders from `nextflow_schema.json` plus
+the stored `paramsText`, never from a profile — so `input`, `fasta` and `tools` appear blank even though
+they are set at runtime. That is the real cost of this design; the comment block in the box is the
+mitigation. 📌 Do **not** "fix" it by moving dataset paths into `nextflow_schema.json`: schema defaults
+are pipeline-wide, are applied by nf-schema at runtime, and would make an ottilie samplesheet the
+default for every use of this pipeline — besides diverging from upstream Sarek 3.5.1.
+
+**`outdir` is not pinned in the box.** Both `_az` profiles now compute
+`az://aletest/seqera-runs/yAMP-out-{test,pilot}-<YYYYMMDD-HHMMSS>` in Groovy, so two launches can never
+publish into the same directory even if nobody edits anything. Verified at run time: consecutive runs
+resolved `…-20260812-150202` and `…-20260812-150208`, and an explicit `outdir` still overrides. ⚠️ It is
+evaluated when the head node parses the config, so a `-resume` publishes to a **new** directory — pass
+an explicit `outdir` when resuming. ⚠️ `workflow.runName` is **not** available in config on 25.10.4
+(`Unknown config attribute`), which is why this uses a timestamp rather than the Platform run name.
+
+⚠️ **The old `yAMP-ottilie-test` (`227651105760023`) is deliberately still there.** The readback proves
+configuration, not behaviour — only a successful run proves the profile resolves on Platform. Keep it
+as a fallback until a contract-test run passes on the new entry.
+
+**Registration is now scripted:** [`14_register_pipeline.sh`](14_register_pipeline.sh) +
+[`launchpad_params_ottilie_test_az.yml`](launchpad_params_ottilie_test_az.yml). The box content lives
+in the repo, so the copy Platform holds is reproducible and reviewable rather than existing only in a
+browser field — which is how the 2026-08-07 entry came to carry params naming a file that no longer
+existed. The script deletes-then-adds (no working `update`), refuses a params box that does not parse
+to a non-empty object, asserts `snpeff_cache` is present and `nextflowVersion` unset on readback, and
+warns when `conf/test/` has uncommitted changes or local is ahead of `origin` — the two ways a launch
+silently runs code you are not looking at. `DRY_RUN=1` prints without touching anything.
+
+**Still an interim shape.** Every param is duplicated between the profile and the generated box — the
+duplication this change set set out to remove. It is accepted because the two alternatives were worse:
+a minimal box breaks the launch-page UX, and no box at all breaks the run outright (`snpeff_cache`).
+The duplication is at least *generated and drift-checked* rather than hand-maintained. A genuinely
+elegant fix needs one of: Platform reading profiles when rendering the form, Platform not injecting
+schema defaults, or `tw pipelines update` working so the box can be refreshed without a new id.
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |
