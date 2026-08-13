@@ -22,7 +22,7 @@ Azure/SP provisioning: [`deploy/azure/`](../../deploy/azure/).
 Everything below was found by *running* it. None of it is visible to the local test suite, and several
 items produce errors that point at the wrong thing entirely.
 
-📌 **§14 is a register of claims that were believed and then disproved.** Read it before concluding
+📌 **§15 is a register of claims that were believed and then disproved.** Read it before concluding
 that some tool "cannot" do something — several entries here were once confidently written the other way.
 
 ---
@@ -654,7 +654,50 @@ import json,sys; print(json.load(sys.stdin)['workflow']['configText'])" | grep s
 
 ---
 
-## 14. Corrections — claims that were believed, then disproved
+## 14. 🔬 A Launchpad entry pins a BRANCH NAME — its version hash is blind to your repo
+
+**"Launched from `yAMP-ottilie-test-az`" is not a reproducible statement.** The entry stores
+`revision: main` — a *name*. Nextflow resolves it to a commit when the run starts, so the same entry,
+unchanged, executes different code as `main` moves.
+
+**Measured 2026-08-12.** `main` advanced from `1e09fc3` to `bd591b6` — six commits, including two new
+config profiles, a config refactor and a new script — and the pipeline's version hash was **byte-identical
+before and after**:
+
+```
+before push (1e09fc3)   JHY5OjA0ZjA5MTBkZmI…FiZGVmOTVlNzg4MTg3
+after  push (bd591b6)   JHY5OjA0ZjA5MTBkZmI…FiZGVmOTVlNzg4MTg3
+```
+
+The hash is content-addressed over the **stored entry** — repo URL, revision *name*, compute env,
+profiles, `paramsText`, description — and over nothing else. It answers *"how is this Launchpad entry
+configured"*, never *"what code ran"*. A Platform "pipeline version" is likewise a property of the
+entry, not of the pipeline source: `yAMP-ottilie-test-az-1` stayed version 1 across all of it.
+
+⚠️ **So do not cite a pipeline name, version name, or version hash as provenance.** Three things that
+*are* reliable, in order of preference:
+
+1. **`--commit-id <sha>` at registration** — pins the entry to one commit. Do this for an entry whose
+   results you intend to cite as a baseline; leave it unpinned for routine dev entries.
+2. **The run's own `commitId`**, resolved at launch and recorded on the run:
+   ```bash
+   curl -s -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" \
+     "$API/workflow/<runId>?workspaceId=<ws>" | python -c "
+   import json,sys; w=json.load(sys.stdin)['workflow']; print(w['revision'], w['commitId'])"
+   ```
+   Run `2eiGBEA0NXagap` recorded `main 1e09fc3c9f6c26842183f1537b77d1fe50db9ab9` — the head at that
+   moment, which the entry itself never mentioned.
+3. **`versions.yml` in the published outdir.** A run launched from a Git clone appends the short commit
+   to the pipeline version (`Aletechdev/ALE_Yeast: v1.0.0-g86c4672`), so the outputs carry their own
+   provenance in-band. See [`CLAUDE.md`](../../CLAUDE.md) → Pipeline Identity.
+
+⚠️ **The inverse trap:** because the hash does not move, an unchanged hash is **not** evidence that
+nothing changed. Re-registering with identical content also reproduces the hash under a *new* pipeline
+id — observed three times on 2026-08-12. Compare `commitId`s, never hashes.
+
+---
+
+## 15. Corrections — claims that were believed, then disproved
 
 **Read this before re-deriving anything.** Each line is a conclusion that was written down as fact and
 later shown to be wrong. They are kept because the wrong answer is reachable from the same evidence

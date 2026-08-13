@@ -988,9 +988,33 @@ and no way to rename or patch either entry if the new one turns out wrong.
 
 ### 2026-08-12 — Launchpad params moved into the repo, and the one default that refuses to move
 
-**New entry `yAMP-ottilie-test-az` (`202872785247251`)**, registered with `tw pipelines add` — `update`
-is dead (see *Params stay dataset-specific* above). Config profiles `docker, ottilie_test_az`; the CE
+**New entry `yAMP-ottilie-test-az` (`73451879466603`)**, registered by
+[`14_register_pipeline.sh`](14_register_pipeline.sh). Config profiles `docker, ottilie_test_az`; the CE
 is the autoscaling non-Fusion keeper; `nextflowVersion` and `configText` unset.
+
+⚠️ **There is NO way to change a registered entry in place — all four routes were tried (2026-08-12):**
+
+| Route | Result |
+|---|---|
+| `tw pipelines update` | **HTTP 500**, any combination of options |
+| `PUT /pipelines/{id}` direct | **HTTP 400**, both with `name` added and with the full launch object round-tripped from `GET` |
+| `tw pipelines versions manage` | only **renames** a version or sets it default — cannot create one |
+| `tw pipelines import --overwrite` | works, but reports *"New pipeline added"* and **the pipeline id changes** — delete-and-re-add underneath |
+
+So every edit mints a new pipeline id, and **a bookmarked Launchpad URL breaks each time**. Nothing in
+this repo depends on the id; only this entry records it. Platform pipelines *do* carry versions
+(`yAMP-ottilie-test-az-1`, default), but nothing exposed by `tw` or the API can add one.
+
+🔬 **And the version hash is blind to the repo — a reproducibility trap.** `main` advanced
+`1e09fc3` → `bd591b6` (six commits, two new profiles, a config refactor) and the hash was
+**byte-identical before and after**: it is content-addressed over the *stored entry* only. The entry
+pins the branch **name**; Nextflow resolves it to a commit at launch, so the same entry runs different
+code as `main` moves. Re-registering identical content also reproduces the hash under a *new* id —
+seen three times today — so an unchanged hash proves nothing either way.
+**Never cite a pipeline name, version name or hash as provenance.** Use the run's `commitId` (run
+`2eiGBEA0NXagap` recorded `1e09fc3c9f6c…`, which the entry never mentioned), the `versions.yml` in the
+published outdir, or `--commit-id <sha>` at registration for an entry whose results you intend to cite.
+Full detail: [`azure_batch_execution.md` §14](../../../docs/dev-practices/azure_batch_execution.md).
 
 **`-p <profile>` stores a REFERENCE; `--params-file` stores a SNAPSHOT.** The profile name is resolved
 by Nextflow after the head job clones the repo, so params are whatever the file says at launch time.
