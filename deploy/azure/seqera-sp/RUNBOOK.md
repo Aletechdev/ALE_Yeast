@@ -1003,6 +1003,16 @@ revoke the token** — see the open item below.
 - [x] **Does the pipeline still work under Fusion?** — done 2026-08-07, run `XFwlgZnKvUvpu`: 170/170,
       0 `DiskFull`, all nine cohort deliverables byte-identical to `seqera-runs/2026-08-06-04`. See the
       entry above.
+- [ ] 🧊 **Fusion cache footprint on the OS disk — the one Fusion measurement still missing.** Needs a
+      *successful* Fusion run (inputs + `workDir` together in `aletest`) on a **freshly forged** Fusion
+      CE (`./13_create_compute_env.sh <name> --fusion`) with `conf/disk_probe.config` attached, fresh
+      dated outdir + work dir; compare the cold `root:` trajectory against the non-Fusion cold
+      baseline (base ~45 G + images ~15 G). Neither existing Fusion run answers it:
+      `XFwlgZnKvUvpu` (170/170, probe attached) ran on **warm** nodes, so cache is conflated with
+      multi-run Docker accumulation, and the 2026-08-13 cross-container run died before Fusion did
+      any real I/O. ⚠️ Under Fusion only the `root:` line is readable (`work:` synthetic, `mnt:`
+      reports the container overlay), so OS-disk pressure is measurable but `/mnt` competition is
+      not — which is the standing caveat on the parked `/mnt` relocation below.
 - [x] **Does Fusion lift the same-container rule?** — **answered 2026-08-13: NO.** Run
       `3AJ4JRNkb7D2dG` repeated the `48kJmc9QY6Q3h9` launch on a fresh Fusion CE and failed
       identically (0/6, same six tasks); `.fusion.log` shows the container-scoped SAS being rejected
