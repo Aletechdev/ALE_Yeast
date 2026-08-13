@@ -1154,6 +1154,44 @@ no longer requires it (`EXPECT_NXF_VER` defaults empty — set it to re-assert o
 ⚠️ The trade: a launch that does **not** come from an entry carrying the pin now gets Platform's
 default engine, and 26.x cannot parse `nextflow.config`.
 
+### 2026-08-13 — 🧊✅ COLD-POOL DISK BASELINE MEASURED (full-depth pilot, run `18wEWW90THA2Ek`)
+
+**Base ≈ 45 G, pipeline adds ≈ 15 G, peak 60.0 G of 246.9 G; task-scratch disk peaked at 2.7 G.**
+The 2026-08-12 spec was executed as written: fresh CE `yAMP-ce-coldprobe-256` forged with
+`13_create_compute_env.sh` (6/6 checks; new pools = genuinely cold nodes), launched from
+`yAMP-ottilie-test-az` with `-p docker,ottilie_pilot_az --config conf/disk_probe.config`, params
+overridden to **two lines only** (pilot `snpeff_cache` + explicit
+`outdir az://aletest/seqera-runs/yAMP-out-pilot-coldprobe-20260813`), fresh
+`workDir az://aletest/nf-work-coldprobe-20260813`. **SUCCEEDED — 310/310 tasks, 0 failed**, 54 min
+(13:23–14:17Z), engine **25.10.4**, `commitId e1b95a2`. All 310 `.command.log`s were harvested — the
+numbers are a census, not a sample. Conclusions + numbers live in
+[`azure_batch_execution.md` §9 → cold-pool baseline](../../../docs/dev-practices/azure_batch_execution.md);
+the headlines: the base is the `ubuntu-hpc 2404` OS image itself (~45 G before any pipeline image);
+image pulls, not data, drive the growth (11× the input data did not move `/` usage); **128 GB would
+suffice**; the `/mnt` relocation fix has ample headroom (images ~15 G + scratch ≤2.7 G vs 150 G).
+The CE was deleted after harvest; pools disposed; the Batch account is back to only
+`yAMP-ce-nofusion-256`'s two pools. Outputs kept at the outdir above (no truth set — diagnostic, not
+citable as a validation).
+
+Traps found while doing it, each verified:
+
+- **`deleteTasksOnCompletion: true` (our template) erases Batch task records as tasks finish**, so a
+  post-hoc task→node mapping via `az batch task list` is impossible — the per-process jobs survive
+  (`deleteJobsOnCompletion: never`) but are all empty. Also: those jobs are named
+  `job-<hash>-<PROCESS>` with **no run id in the name** — filter by *pool id* to find a run's jobs.
+  Node attribution for the measurement came from Seqera's task records (workdir + timestamps) plus
+  the df trajectories themselves; a future run wanting exact mapping must snapshot task lists *during*
+  the run.
+- **`tw pipelines export` silently omits `nextflowVersion`** even when the entry has it set —
+  readback shows `None` while `GET /pipelines/{id}/launch` shows `25.10.4`. Do not audit the engine
+  pin via `export`.
+- ✅ **`tw launch` from an entry DOES carry the entry's `nextflowVersion`** (verified in the submitted
+  launch record before the run started), and **does not inject schema defaults when `--params-file`
+  is given** — 2 params in, 2 params submitted, no `s3://` `snpeff_cache`. The §13 injection is a
+  launch-*form* behaviour.
+- ✅ **The head job exited cleanly** — status `SUCCEEDED`, pools drained to 0 unaided. The
+  `1XuapND2cN2oCO` hang is therefore intermittent, not systematic; the reaper open item stays open.
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |
@@ -1287,54 +1325,24 @@ revoke the token** — see the open item below.
       only; the cross-container run died before publishing, so it tested nothing about `outdir`.
 - [x] 📏 **Measure actual node disk usage** — done 2026-08-07: **peak 65.2 G of 246.9 G (26%)**.
       ⚠️ Measured on **warm** nodes (already ~340 tasks across two runs), so it is a multi-run
-      accumulation, and the base-OS vs pipeline-image split is **still unknown**. A cold-pool baseline
-      is outstanding — see below.
-- [ ] 🧊 **Cold-pool disk baseline — on the FULL-DEPTH ottilie pilot.** Specified 2026-08-12; not yet run.
-
-      **What it settles.** The 2026-08-07 figure (peak 65.2 G) was measured on **warm** nodes, so the
-      ~54 G base was never split into OS vs Docker images. `/` carries two things: image layers
-      (*data-independent*) and container writable layers + logs/temp (*data-dependent* — anything a
-      task writes inside the container rather than into the bind-mounted work dir). Running ~11× the
-      input data discriminates between them: a flat cold base ⇒ images dominate; a base that moves
-      ⇒ they do not. At test-set scale the two cannot be separated at all. Also settles 128-vs-256 GB
-      sizing, and whether Fusion's cache competes with Docker for `/mnt` before Docker is moved there.
-
-      **Inputs — full-depth ottilie pilot, 4 samples. ✅ STAGED 2026-08-12** by
-      [`upload_pilot_data.sh`](../../../docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/upload_pilot_data.sh):
-      8 FASTQs (4.0 G, verified byte-for-byte) → `az://aletest/ottilie/v1/fastq_pilot_full/`, full
-      reference (~79 M: fasta, genbank, snpeff_cache, chromosomes) → `…/S288C_reference/`, plus
-      `…/samplesheet_pilot_az.csv`. All in the **private** `aletest` container — same container as
-      `workDir`, per the SP SAS rule (§3). Params: the **`ottilie_pilot_az` profile**
-      ([`conf/test/ottilie_pilot_az.config`](../../../conf/test/ottilie_pilot_az.config)) — every
-      `az://` path verified to resolve. It sets no `outdir`: supply a fresh dated one per run, and a
-      fresh work dir with it. **Remaining: forge a fresh CE, then launch with
-      `-p docker,ottilie_pilot_az --config conf/disk_probe.config`.**
-      ⚠️ **Real project data (dicarboxylic acids / CENPK) is not to be used** — it is not public;
-      ottilie is. The public `aletestdatapublic/releases` account is untouched, and the upload script
-      refuses to run against it. Layout + how the two ottilie datasets are told apart:
-      [`blob_layout.md`](../../../docs/benchmarking/ottilie_xenobiotic_ale/blob_layout.md).
-
-      **Tools: `snpeff,cnvkit,tiddit,manta,haplotypecaller`** — the validated cloud set, so the image
-      set matches the 170-task run and the difference between readings is data scale alone. **No
-      `controlfreec`**, though the local pilot script uses it: Tier-2, and its `ASSESS_SIGNIFICANCE`
-      is auto-skipped at ploidy 1 (which every pilot sample is), so it adds an image and a
-      failure-prone step for nothing.
-
-      **Method.** Forge a **fresh CE** with `13_create_compute_env.sh` — new pools guarantee cold
-      nodes, which is stronger than waiting for a drain. Attach the probe with
-      `-c conf/disk_probe.config`. Fresh `outdir` **and** fresh `workDir`. Sample the **first task on
-      each node** — that reading is the base cost and is the point of the exercise — not only the peak.
-
-      ⚠️ **The probe perturbs the task hash** (`beforeScript` lives in `.command.run`), so this run
-      cannot reuse or be reused by a cached run. Accept losing `-resume` deliberately.
-      ⚠️ **Not comparable to the 65.2 G figure** — that came from the 2-sample, 4-chromosome test set.
-      This is a new absolute measurement, not a diff.
+      accumulation, and the base-OS vs pipeline-image split is **still unknown**. → split settled by
+      the cold-pool baseline below.
+- [x] 🧊 **Cold-pool disk baseline — DONE 2026-08-13**, run `18wEWW90THA2Ek` on the full-depth pilot
+      (310/310 tasks), executed exactly as the 2026-08-12 spec (fresh CE via
+      `13_create_compute_env.sh`, `-p docker,ottilie_pilot_az --config conf/disk_probe.config`,
+      fresh outdir + workDir, `-resume` forfeited deliberately). **Cold base 45.4–45.5 G; peak
+      60.0 G; pipeline images + writable layers ≈ 15 G; task-scratch disk ≤ 2.7 G.** Images
+      dominate — 11× the data did not move `/` usage; **128 GB would suffice**. Numbers + what
+      remains open (Fusion's `/mnt` cache):
+      [`azure_batch_execution.md` §9 → cold-pool baseline](../../../docs/dev-practices/azure_batch_execution.md),
+      and the dated entry above.
 - [ ] Repoint `yAMP-ottilie-test` at `…_autoScale_manual_noFusion`, then **delete both fixed-size CEs**
       (`ale-ottilie-nf25104-bigdisk`, `…-bigdisk_fusion`) — deletion disposes their pools and disks.
 - [ ] Move Docker's data-root to `/mnt` via a pool start task (needs a `manual` CE) — the better fix
-      than a larger OS disk; see the note above. ⚠️ Do the disk measurement **first**: it tells you
-      whether 150 GB of ephemeral disk is actually enough headroom for the image set, which is the
-      assumption that fix depends on.
+      than a larger OS disk; see the note above. ✅ **Unblocked 2026-08-13**: the cold-pool baseline
+      measured the image set at ~15 G and task scratch at ≤ 2.7 G, so the 150 GB ephemeral disk has
+      ample headroom. Still open: whether Fusion's cache would compete for `/mnt` (unmeasurable from
+      inside a container — see the §9 probe caveat).
 - [x] GitHub auth decided and keypair generated (`07_github_deploy_key.sh`) — the pre-existing
       `github_Aletechdev` credential had in fact expired. ⚠️ **That script was deleted 2026-08-07**
       (obsolete route; see the entry above) — the numbered sequence skips 07 by design.
@@ -1420,4 +1428,6 @@ revoke the token** — see the open item below.
       next local Batch run with the same `conf/azure_batch.config` recreates the identical id.
       **The Batch account now holds only `yAMP-ce-nofusion-256`'s two pools.**
       ⚠️ `yAMP-ce-nofusion-256` is **warm** after run `1XuapND2cN2oCO`, so the cold-pool disk baseline
-      still needs a freshly forged CE — not this one.
+      still needs a freshly forged CE — not this one. ✅ Done exactly that way later the same day:
+      `yAMP-ce-coldprobe-256`, forged for run `18wEWW90THA2Ek` and deleted after harvest (see the
+      cold-pool baseline entry above), leaving the account again with only the keeper's two pools.

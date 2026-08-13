@@ -431,7 +431,7 @@ What this does and does not establish:
 
 **To get a true baseline**, the pool must be cold: let autoscale drain it to 0 (or forge a fresh CE),
 then read the *genuine* first task. That gives base OS + one image, and growth from there is this
-pipeline's real footprint. Not yet done.
+pipeline's real footprint. ✅ **Done 2026-08-13 — see the cold-pool baseline below.**
 
 ⚠️ **`beforeScript` runs INSIDE the container**, not on the node (`hostname` returns a container id,
 `/` shows as `overlay`). The reading is still valid because overlay2's `df` reports the **backing**
@@ -440,7 +440,41 @@ filesystem — 246.9 G matches the OS disk — but the mechanism is not what it 
 ⚠️ **Under Fusion the work-dir `df` is meaningless**: Fusion presents a synthetic filesystem
 (`fusion 8.0P 4.0P 4.0P 50% /fusion`). Only the `root:` line is usable on a Fusion CE.
 
-### Recovering a stuck pool
+⚠️ **The probe's `mnt :` line is useless too** — a Docker task container has no `/mnt` bind, so
+in-container `df /mnt` falls back to `/` and duplicates the `root:` line (measured 2026-08-13).
+The host's ephemeral disk is visible only through the `work:` line, because the task sandbox
+(`/mnt/batch/tasks`) actually lives on it.
+
+### ✅ Measured 2026-08-13 — COLD-pool baseline: base ≈ 45 G, pipeline adds ≈ 15 G
+
+Run `18wEWW90THA2Ek` (`ottilie-pilot-coldprobe-01`): the **full-depth 4-sample ottilie pilot**
+(~11× the test set's input data) on a freshly forged CE (`yAMP-ce-coldprobe-256`, since deleted), so
+every node was genuinely cold. 310/310 tasks, 0 failed; all 310 `.command.log`s harvested, not a sample.
+
+| | |
+|---|---|
+| **cold base** (first task on each fresh node, 13:28Z) | **45.4–45.5 G** of 246.9 G |
+| **peak** (end of run) | **60.0 G — 24%** |
+| growth over the run | ≈ 14.6 G, stepping up as each new process type first pulls its image |
+| task work-dir disk (`/dev/sdb1`, 146.6 G ephemeral) | **max 2.7 G** |
+
+What this settles:
+
+1. **The warm figure's split.** Of the 65.2 G warm peak, ~45 G is the **base OS image** — the
+   `ubuntu-hpc 2404` stack costs that much before a single pipeline image is pulled. This
+   pipeline's images + container writable layers add only **~15 G**.
+2. **Images dominate; `/` usage does not scale with input data.** Running ~11× the data produced a
+   *lower* single-run peak (60.0 G cold) than the test set's two-run warm accumulation (65.2 G),
+   and the growth curve steps at process-phase boundaries (image pulls), not with data volume.
+3. **Sizing: 128 GB would be comfortably sufficient** (>2× the observed peak); 256 GB is 4×.
+   And the "~64 GB default" inference in the 2026-08-07 entry gets stronger: base 45 G + images
+   15 G ≈ 60 G — exactly the shape of a default-sized disk surviving most of a run and filling
+   near the end.
+4. **The `/mnt` relocation fix has more headroom than assumed** — only Docker's ~15 G would move
+   (the 45 G base is the OS image itself, not `/var/lib/docker`), and task scratch peaked at
+   2.7 G, so the 150 G ephemeral disk is ample for both.
+5. ❓ **Whether Fusion's cache competes for `/mnt` is still open** — this was a non-Fusion run, and
+   the probe cannot see the host's `/mnt` from inside a container anyway (see the ⚠️ above).
 
 ```bash
 az batch node reboot --pool-id <pool> --node-id <node> --node-reboot-option terminate
