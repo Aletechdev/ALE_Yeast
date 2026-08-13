@@ -41,9 +41,11 @@ unset _c
 #
 # An app registration that was freed up when the ALE mutations service moved to
 # its own separately-scoped SP; repurposed here for the Nextflow/Seqera Batch path.
+# Named cfb_ale_mutations_pipeline until 2026-08-13; renamed to match the sibling
+# SP's naming standard (appId unchanged, so nothing downstream moved).
 # Override without editing this file:  export SP_DISPLAY_NAME=...
 # ---------------------------------------------------------------------------
-SP_DISPLAY_NAME="${SP_DISPLAY_NAME:-cfb_ale_mutations_pipeline}"
+SP_DISPLAY_NAME="${SP_DISPLAY_NAME:-sp-bright-recon-ale-mutations-pipeline-seqera-deploy}"
 
 # ---------------------------------------------------------------------------
 # Target resources — exactly two, each granted at its own resource scope.

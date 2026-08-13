@@ -13,7 +13,7 @@ the audience this record is for.
 
 | Principal | Scope | Role |
 |---|---|---|
-| SP `cfb_ale_mutations_pipeline` | Batch account `aledev4test` | `Azure Batch Data Contributor` |
+| SP `sp-bright-recon-ale-mutations-pipeline-seqera-deploy` (📛 `cfb_ale_mutations_pipeline` until 2026-08-13) | Batch account `aledev4test` | `Azure Batch Data Contributor` |
 | same | Storage account `aledata` | `Storage Blob Data Contributor` |
 
 Per-resource scope only — never the resource group, never the subscription.
@@ -23,6 +23,14 @@ Per-resource scope only — never the resource group, never the subscription.
 `cfb_ale_mutations_pipeline` is an **existing app registration that was deliberately freed up and is
 now being repurposed** for the Nextflow / Seqera Platform cloud testing. It is not a fresh
 registration and not an accidental reuse.
+
+> 📛 **Renamed 2026-08-13 → `sp-bright-recon-ale-mutations-pipeline-seqera-deploy`** (the naming
+> standard of its sibling `sp-bright-recon-ale-mutations-pipeline`, suffixed with its purpose). All
+> entries below use whichever name was current at the time. `appId`/`objectId` are untouched, and the
+> rename propagated to the service-principal object automatically (verified — `00_vars.sh` resolves by
+> SP display name, so propagation is what keeps the scripts working). The Seqera credential keeps its
+> original name `azure_SP_cfb_ale_mutations_pipeline` — it binds by clientId, so it is functional
+> as-is; align it whenever the credential is next re-entered (e.g. the 2027 secret rotation).
 
 Lineage, in order:
 
@@ -1358,14 +1366,30 @@ revoke the token** — see the open item below.
       conditions, the likely cause is that Platform does not persist Nextflow's **cache DB** — the
       `stage-<sessionId>` directory in the work dir is a *staging* area, and it has not been confirmed
       to contain the hash→result mapping resume actually needs.
-- [ ] Rename the app registration to match its new purpose — the current display name describes the
-      *previous* tenant of this SP, which is an audit hazard when someone reads a role assignment six
-      months from now. `appId`/`objectId` survive a rename, so nothing downstream breaks. Scripts
-      resolve by display name, so update `SP_DISPLAY_NAME` in `00_vars.sh` at the same time.
-- [ ] Rotate the plaintext secret in `tmp/azure/azure_sp/.azure_sp.env` — it belongs to the *other* SP,
-      not this one, but it is a live secret sitting unencrypted in the working tree. (Gitignored via
-      `*.env`, so not committed.) 📌 As of 2026-08-13 **the file no longer exists on this machine**, so
-      the local exposure is gone — but the credential itself may still be live. Rotation is the task.
+- [x] Rename the app registration to match its new purpose — **done 2026-08-13**:
+      `cfb_ale_mutations_pipeline` → `sp-bright-recon-ale-mutations-pipeline-seqera-deploy` (see the
+      📛 note in *Context* above). Verified: the rename propagated to the SP object, exactly one SP
+      matches the new name, and `SP_DISPLAY_NAME` in `00_vars.sh` was updated in the same commit.
+      The operator is an app **owner** (with pasdom@dtu.dk, phaneuf@dtu.dk), so no admin was needed.
+      Seqera credential name deliberately kept — binds by clientId.
+- [ ] Rotate the exposed secret on `sp-bright-recon-ale-mutations-pipeline` (the *other* SP — the
+      sibling serving the migrated ALE-mutations service, `Contributor` on Batch `ale` + `Reader` on
+      `ensembleamp`). Its secret sat in plaintext in `tmp/azure/azure_sp/.azure_sp.env` from
+      ~2026-06-03 until the file was deleted 2026-08-13. **Scoping done 2026-08-13**: never committed
+      (verified — no commit in history touched `tmp/` or any `azure_sp` path), never left this VM, so
+      this is hygiene, not incident response. The SP holds exactly **one** secret (created 2026-06-03,
+      **expires 2026-11-02**), i.e. the exposed value is the live one. **Decision: live-swap; operator
+      will run it later.** Recipe — typed in the operator's own terminal, never through an agent/`tee`
+      (the secret prints to stdout):
+      1. `APP=$(az ad sp list --display-name sp-bright-recon-ale-mutations-pipeline --query "[0].appId" -o tsv)`
+      2. `az ad app credential list --id "$APP" -o table` — note the old `keyId`.
+      3. `az ad app credential reset --id "$APP" --append --years 1 --query password -o tsv` —
+         `--append` keeps the old secret working, so the service keeps running.
+      4. Swap the new value into the ALE-mutations service's config (off this machine) and verify it.
+      5. `az ad app credential delete --id "$APP" --key-id <old keyId>` — this step is the actual
+         revocation; until it runs, the rotation is not complete.
+      ⚠️ The app is co-owned with pasdom@dtu.dk and phaneuf@dtu.dk — coordinate before step 5.
+      ⏰ Backstop: the exposed secret self-expires **2026-11-02** even if rotation slips.
 - [ ] 🚨 **Make something reap a hung head job.** `jobMaxWallClockTime: "7d"` in
       `ce_import_template.json` does **not** apply — Azure reported `TimeSpan.MaxValue` on
       `nf-workflow-1XuapND2cN2oCO` (2026-08-13), so a head job that hangs after completing holds its

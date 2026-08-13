@@ -48,6 +48,8 @@ MODE="${2:-}"
 
 TEMPLATE="${TEMPLATE:-ce_import_template.json}"
 WORKSPACE="${SEQERA_WORKSPACE:-DTU-Biosustain/RECON-ALE}"
+# The credential name predates the SP's 2026-08-13 rename and is kept deliberately —
+# it binds by clientId, so the old name stays functional. See RUNBOOK.md.
 CREDENTIAL="${SEQERA_CREDENTIAL:-azure_SP_cfb_ale_mutations_pipeline}"
 
 # Token only — unlike 00_vars.sh this needs no `az login`, since everything here is Seqera-side.
