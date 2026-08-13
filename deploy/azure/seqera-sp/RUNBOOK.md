@@ -1197,12 +1197,22 @@ revoke the token** — see the open item below.
 
 ## Open items
 
-> 📋 **This file needs slimming.** ~1,900 lines across it, `azure_batch_execution.md`,
+> 📋 **This file needs slimming.** ~2,000 lines across it, `azure_batch_execution.md`,
 > `output_comparison.md` and `../README.md`, with the same findings written out in full in two or three
 > places (the DiskFull story, the dual-pool autoscale incident, the same-container rule). The
 > convention to restore is `CLAUDE.md`'s: dated record here, durable rules in `docs/`, summary +
-> pointer in `CLAUDE.md`. ⚠️ **Keep every ⚠️ that cost real time or money, and keep the corrections** —
-> entries recording claims that turned out wrong exist so the wrong conclusion is not re-derived.
+> pointer in `CLAUDE.md`. **This runbook should shrink the most**: entries should say *what was run,
+> when, and what was concluded* — then link to `azure_batch_execution.md` for the explanation.
+> Superseded sagas can collapse behind `<details>` or reduce to a line plus a pointer.
+> ⚠️ **Keep every ⚠️ that cost real time or money, and keep the corrections** —
+> entries recording claims that turned out wrong (the "~30 GB default OS disk", concurrency as the
+> DiskFull cause, the warm-node disk baseline) exist so the wrong conclusion is not re-derived; they
+> can be compressed to a line each, never deleted. Afterwards run
+> `python docs/dev-practices/check_docs.py` — broken links must be 0.
+> 📌 `NEXT_TASKS.md` (the 2026-08-07 handoff file) was **retired 2026-08-13**: its Task 1 (CE-as-code)
+> was closed 2026-08-11, this banner absorbed Task 2 (doc slimming), and every remaining item it
+> listed was already tracked in the list below. Its stale "live resources" table (pre-dating the
+> 2026-08-13 CE cleanup) died with it.
 
 - [x] Grant the two roles (`02_grant_roles.sh`) — done 2026-07-31, verified.
 - [x] Create a client secret (`03_create_secret.sh`) — done 2026-07-31.
