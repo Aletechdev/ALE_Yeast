@@ -6,7 +6,7 @@ sample counts, and Stage A pilot clone details.
 
 Usage:
     conda activate ottilie-benchmark
-    python bin/benchmarking/ottilie_xenobiotic_ale/inspect_supplementary.py
+    python docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/truth_set/inspect_supplementary.py
 """
 
 import os

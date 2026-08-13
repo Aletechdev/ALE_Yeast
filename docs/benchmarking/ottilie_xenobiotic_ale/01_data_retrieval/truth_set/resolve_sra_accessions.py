@@ -10,7 +10,7 @@ Prerequisites:
     esearch -db sra -query PRJNA590203 | efetch -format runinfo > data/ottilie/PRJNA590203_runinfo.csv
 
 Usage:
-    python bin/benchmarking/ottilie_xenobiotic_ale/resolve_sra_accessions.py
+    python docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/truth_set/resolve_sra_accessions.py
 
 Output:
     data/ottilie/sample_name_dictionary.csv

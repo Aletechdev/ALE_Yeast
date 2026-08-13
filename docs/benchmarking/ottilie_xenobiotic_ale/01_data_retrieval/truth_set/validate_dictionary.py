@@ -8,7 +8,7 @@ Prerequisites:
     First run resolve_sra_accessions.py to generate the dictionary.
 
 Usage:
-    python bin/benchmarking/ottilie_xenobiotic_ale/validate_dictionary.py
+    python docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/truth_set/validate_dictionary.py
 """
 
 import pandas as pd

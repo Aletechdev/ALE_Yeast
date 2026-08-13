@@ -83,7 +83,7 @@ All read alignment was to **R64-1-1** — this is the version we use for benchma
 
 ## Truth Set
 
-Downloaded via `01_data_retrieval/download_truth_set.sh` into `data/ottilie/supplementary/`.
+Downloaded via `01_data_retrieval/truth_set/download_truth_set.sh` into `data/ottilie/supplementary/`.
 
 | Supplementary | Description | Records | URL |
 |---|---|---|---|

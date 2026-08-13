@@ -21,7 +21,7 @@
 #
 # Requires: curl + tar. Content is public (PRJNA590203 SRA + public S288C reference) → no credentials.
 # Usage (from anywhere):
-#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/download_test_data.sh
+#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/download_test_data.sh
 # Host elsewhere / different version? override the base URL:
 #   BLOB_BASE=https://<acct>.blob.core.windows.net/<container>/ottilie/v1  bash .../download_test_data.sh
 #
@@ -32,7 +32,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 OUT="${OUT:-$REPO_ROOT/data/ottilie}"   # override to stage into an isolated dir (testing / CI)
 
 # Stable public base URL (container + versioned prefix). No SAS token needed.

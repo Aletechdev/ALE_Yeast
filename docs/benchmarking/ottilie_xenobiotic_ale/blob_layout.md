@@ -33,7 +33,7 @@ fastq_pilot_full/ NODRUG-GM2_SRR10985539_allchr_R1.fastq.gz      ← full depth,
 
 ⚠️ **Never stage pilot FASTQs under their bare SRA names.** `SRR10985539_1.fastq.gz` says nothing
 about sample, depth or chromosome coverage — it is the one naming that could sit beside the test
-files without looking wrong. [`upload_pilot_data.sh`](01_data_retrieval/upload_pilot_data.sh) does the
+files without looking wrong. [`upload_pilot_data.sh`](01_data_retrieval/release/upload_pilot_data.sh) does the
 renaming; use it rather than uploading by hand.
 
 ## What the pilot reference does and does not contain
@@ -74,7 +74,7 @@ chromosomes is the pilot's depth, which is why the two share sample names. Full 
 ⚠️ **Nothing else belongs on the public account** — in particular no real project data (dicarboxylic
 acids / CENPK), which is not public. The pilot set stays private too. `upload_pilot_data.sh` refuses
 to run against the public account or any container whose `publicAccess` is not `None`;
-[`publish_test_data.sh`](01_data_retrieval/publish_test_data.sh) is the only script that writes there.
+[`publish_test_data.sh`](01_data_retrieval/release/publish_test_data.sh) is the only script that writes there.
 
 ### Why the pilot set is private even though its source is public — decided 2026-08-12
 
@@ -82,7 +82,7 @@ PRJNA590203 is public, so this is a **cost-and-purpose** decision, not a governa
 publicly was considered and rejected:
 
 - **It would duplicate two things that already exist.** SRA serves the reads, and
-  [`download_pilot_fastq.sh`](01_data_retrieval/download_pilot_fastq.sh) already fetches exactly these
+  [`download_pilot_fastq.sh`](01_data_retrieval/fastq/download_pilot_fastq.sh) already fetches exactly these
   four accessions. A public copy gives an external user nothing new.
 - **It is the wrong artifact for external validation.** The pilot has **no truth set**, so running it
   proves only that the pipeline finished. The published test set carries 4 SNVs + a chr I duplication

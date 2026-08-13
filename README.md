@@ -37,7 +37,7 @@ git clone git@github.com:Aletechdev/ALE_Yeast.git
 cd ALE_Yeast
 
 # fetch the 2-sample test dataset from public blob storage (no credentials needed)
-bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/download_test_data.sh
+bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/download_test_data.sh
 ```
 
 **Step 1 — tell the pipeline how big your machine is.** `conf/base.config` sizes every task for the

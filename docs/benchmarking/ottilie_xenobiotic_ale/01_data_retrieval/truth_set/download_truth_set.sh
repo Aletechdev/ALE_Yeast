@@ -6,12 +6,12 @@
 #
 # Usage:
 #   cd <repo_root>
-#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/download_truth_set.sh
+#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/truth_set/download_truth_set.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 OUTDIR="$REPO_ROOT/data/ottilie/supplementary"
 mkdir -p "$OUTDIR"
 

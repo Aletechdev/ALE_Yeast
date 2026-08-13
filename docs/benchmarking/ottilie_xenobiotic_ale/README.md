@@ -10,8 +10,14 @@ For formal deliverables and acceptance criteria, see [statement_of_work.md](docs
 | Tier | Samples | Purpose | Size | Status |
 |------|---------|---------|------|--------|
 | **1 — Pilot** | 4 (1 parent + 3 evolved) | Pipeline smoke test | ~4 GB | Complete |
-| **2 — CRISPR + CNV** | 85 clones + parent | High-confidence SNV + CNV benchmark | ~40 GB | Planned |
+| **2 — CRISPR + CNV** | 85 clones + parent | High-confidence SNV + CNV benchmark | ~40 GB | Deferred — may be retired |
 | **3 — Full cohort** | 355 clones + parents | Comprehensive benchmark | ~170 GB | Future |
+
+**Current focus (2026-08):** day-to-day development and release validation run on the **2-sample
+chr-subset test set** derived from the pilot (`01_data_retrieval/release/`, the `ottilie_test`
+profile); the **4-sample full-depth pilot** is staged on Azure (`az://aletest/ottilie/v1/`) and is
+the near-term target for cloud-scale runs. Tier 2 is pushed out accordingly and may be retired —
+its retrieval/selection scripts below remain functional but are not on the active path.
 
 ## Quick Start
 
@@ -19,18 +25,18 @@ For formal deliverables and acceptance criteria, see [statement_of_work.md](docs
 # Prerequisites: conda activate nf-env, Docker running
 
 # 1. Download truth set (supplementary xlsx files)
-bash 01_data_retrieval/download_truth_set.sh
+bash 01_data_retrieval/truth_set/download_truth_set.sh
 
 # 2. Prepare S288C reference genome + SnpEff cache
 bash 02_reference_prep/prepare_s288c_reference.sh
 
 # --- Tier 1: Pilot (4 samples) ---
-bash 01_data_retrieval/download_pilot_fastq.sh
+bash 01_data_retrieval/fastq/download_pilot_fastq.sh
 bash 03_pipeline/run_ottilie_pilot.sh
 
 # --- Tier 2: CRISPR-validated (85 samples) ---
-python 01_data_retrieval/select_tier2_crispr_validated.py  # generates clone list
-bash 01_data_retrieval/download_tier2_fastq.sh             # download from SRA
+python 01_data_retrieval/truth_set/select_tier2_crispr_validated.py  # generates clone list
+bash 01_data_retrieval/fastq/download_tier2_fastq.sh                 # download from SRA
 # bash 03_pipeline/run_ottilie_tier2.sh                     # TODO
 ```
 
@@ -41,22 +47,26 @@ ottilie_xenobiotic_ale/
 ├── 01_data_retrieval/                    # SRA data download and sample resolution
 │   ├── environment_data_retrieval.yml    # Conda env (sra-tools pinned to 3.2.1)
 │   │
-│   │  ── Step 1: Truth set ──
-│   ├── download_truth_set.sh            # Download Sup 4/5/7 xlsx from PMC
+│   ├── truth_set/                        # Truth set download + sample resolution + tier selection
+│   │   ├── download_truth_set.sh         # Download Sup 4/5/7 xlsx from PMC
+│   │   ├── resolve_sra_accessions.py     # Build sample_name_dictionary.csv
+│   │   ├── validate_dictionary.py        # QC: check dictionary completeness
+│   │   ├── inspect_supplementary.py      # QC: explore supplementary data structure
+│   │   └── select_tier2_crispr_validated.py  # Select 85 Tier 2 clones (CRISPR + CNV)
 │   │
-│   │  ── Step 2: Sample resolution ──
-│   ├── resolve_sra_accessions.py         # Build sample_name_dictionary.csv
-│   ├── validate_dictionary.py            # QC: check dictionary completeness
-│   ├── inspect_supplementary.py          # QC: explore supplementary data structure
+│   ├── fastq/                            # FASTQ download (SRA / Azure Blob)
+│   │   ├── download_pilot_fastq.sh       # Tier 1: 4 pilot samples
+│   │   ├── download_tier2_fastq.sh       # Tier 2: 85 benchmark samples
+│   │   ├── download_tier2_from_blob.sh   # Tier 2: fetch from the Azure Blob archive
+│   │   ├── download_all_fastq.sh         # Tier 3: all 363 samples
+│   │   └── subsample_fastq.sh            # Optional: subsample for quick testing
 │   │
-│   │  ── Step 3: Tier selection ──
-│   ├── select_tier2_crispr_validated.py  # Select 85 Tier 2 clones (CRISPR + CNV)
-│   │
-│   │  ── Step 4: FASTQ download ──
-│   ├── download_pilot_fastq.sh          # Tier 1: 4 pilot samples
-│   ├── download_tier2_fastq.sh          # Tier 2: 85 benchmark samples
-│   ├── download_all_fastq.sh            # Tier 3: all 363 samples
-│   └── subsample_fastq.sh              # Optional: subsample for quick testing
+│   └── release/                          # Test-set generation + blob publishing
+│       ├── generate_test_data.sh         # Build the 2-sample chr-subset test set
+│       ├── publish_test_data.sh          # Publish the test set to the public blob
+│       ├── download_test_data.sh         # Fetch the published test set (no creds)
+│       ├── upload_pilot_data.sh          # Upload the pilot set to the private blob
+│       └── bundle_README.md              # README shipped inside the data bundle
 │
 ├── 02_reference_prep/                    # S288C R64-1-1 reference setup
 │   ├── prepare_s288c_reference.sh        # Master script (all 5 steps, idempotent)

@@ -9,7 +9,7 @@
 #   .env file in repo root with AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY
 #
 # Usage:
-#   bash bin/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/download_all_fastq.sh [batch_size] [start_from]
+#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/fastq/download_all_fastq.sh [batch_size] [start_from]
 #
 # Arguments:
 #   batch_size  - Number of samples per batch (default: 50)
@@ -21,7 +21,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 RUNINFO="${REPO_ROOT}/data/ottilie/PRJNA590203_runinfo.csv"
 OUTDIR="${REPO_ROOT}/data/ottilie/fastq_all"
 LOGFILE="${OUTDIR}/download_log.txt"

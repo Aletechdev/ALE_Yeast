@@ -30,13 +30,13 @@
 # data/ottilie/ (fastq/ + S288C_reference/).
 #
 # Usage (from anywhere):
-#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/upload_pilot_data.sh
+#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/upload_pilot_data.sh
 #   DRY_RUN=1 bash .../upload_pilot_data.sh        # print what would upload, touch nothing
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 SRC="$REPO_ROOT/data/ottilie"
 
 ACCOUNT="${ACCOUNT:-aledata}"
@@ -85,7 +85,7 @@ fi
 for pair in "${PAIRS[@]}"; do
     for r in 1 2; do
         f="$SRC/fastq/${pair##*:}_${r}.fastq.gz"
-        [[ -f "$f" ]] || { echo "ERROR: missing $f — run download_pilot_fastq.sh first." >&2; exit 1; }
+        [[ -f "$f" ]] || { echo "ERROR: missing $f — run ../fastq/download_pilot_fastq.sh first." >&2; exit 1; }
     done
 done
 for f in "${REF_FILES[@]}"; do
@@ -187,5 +187,5 @@ Staged under: az://$CONTAINER/$PREFIX
   S288C_reference/**         full-genome fasta + genbank + snpeff_cache + chromosomes
   samplesheet_pilot_az.csv   az:// samplesheet for Seqera / Azure Batch
 
-Layout + how to tell the two ottilie datasets apart: ../blob_layout.md
+Layout + how to tell the two ottilie datasets apart: ../../blob_layout.md
 EOF

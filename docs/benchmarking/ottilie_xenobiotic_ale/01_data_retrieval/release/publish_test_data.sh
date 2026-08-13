@@ -38,14 +38,14 @@
 #    bundle) are safe. REMOVING or RENAMING a published file is not — bump PREFIX for that.
 #
 # Usage (from repo root):
-#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/publish_test_data.sh
+#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/publish_test_data.sh
 # Override target (a breaking change needing a new version, or a different host):
 #   ACCOUNT=aletestdatapublic CONTAINER=releases PREFIX=ottilie/v2  bash .../publish_test_data.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 SRC="$REPO_ROOT/data/ottilie"
 
 ACCOUNT="${ACCOUNT:-aletestdatapublic}"

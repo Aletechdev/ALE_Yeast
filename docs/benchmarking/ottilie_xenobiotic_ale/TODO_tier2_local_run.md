@@ -1,5 +1,9 @@
 # TODO: Tier 2 Local Run
 
+> **⚠️ ON HOLD (2026-08):** Tier 2 is deferred and may be retired. Current focus is the 2-sample
+> chr-subset test set, with the 4-sample full-depth pilot (already staged on Azure) next. Do not
+> action this checklist until Tier 2 is re-confirmed — see the tier table in [README.md](README.md).
+
 ## 1. Free Up Storage
 
 Current: 242 GB free, need ~380 GB for Tier 2 (FASTQs + work dir + output).
@@ -24,7 +28,7 @@ Current: 242 GB free, need ~380 GB for Tier 2 (FASTQs + work dir + output).
 
 - [ ] **Download 86 samples from Azure Blob** (~40 GB, ~15-30 min)
       ```bash
-      bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/download_tier2_from_blob.sh
+      bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/fastq/download_tier2_from_blob.sh
       ```
       Source: `aledata/aledata/Yeast/ottilie_xenobiotic_ale/fastq/`
       8 already downloaded, 78 remaining.

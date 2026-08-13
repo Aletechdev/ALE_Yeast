@@ -159,7 +159,7 @@ NXF_VER=25.10.4 nextflow config -profile ottilie_test,docker >/dev/null && echo 
 Public Azure Blob, no credentials, no `az login`:
 
 ```bash
-bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/download_test_data.sh
+bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/download_test_data.sh
 ```
 
 Downloads ~400 MB into `data/ottilie/` (gitignored), verifies a SHA256 checksum, and **writes

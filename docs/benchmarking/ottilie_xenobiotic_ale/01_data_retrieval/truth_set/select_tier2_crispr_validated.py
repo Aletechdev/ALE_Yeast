@@ -41,7 +41,7 @@ Why not all Sup 7 clones?
 Usage
 -----
     cd <repo_root>
-    python docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/select_tier2_crispr_validated.py
+    python docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/truth_set/select_tier2_crispr_validated.py
 
 Requires: pandas, openpyxl
 """
@@ -53,7 +53,7 @@ from pathlib import Path
 import pandas as pd
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]
+REPO_ROOT = SCRIPT_DIR.parents[4]
 DATA_DIR = REPO_ROOT / "data" / "ottilie"
 SUP_DIR = DATA_DIR / "supplementary"
 

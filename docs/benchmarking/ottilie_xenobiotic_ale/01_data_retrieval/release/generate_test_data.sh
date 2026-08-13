@@ -23,15 +23,15 @@
 #
 # Usage:
 #   cd <repo_root>
-#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/generate_test_data.sh
-#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/generate_test_data.sh --from-sra
+#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/generate_test_data.sh
+#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/generate_test_data.sh --from-sra
 
 set -euo pipefail
 
 # ---------- Configuration ----------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
 # Source data
 FULL_REF="$REPO_ROOT/data/ottilie/S288C_reference/S288C_R64.fa"
@@ -227,7 +227,7 @@ elif [[ "$MODE" == "from-sra" ]]; then
 
             if ! command -v fasterq-dump &> /dev/null; then
                 echo "  ERROR: fasterq-dump not found."
-                echo "  Install: conda create -n ottilie-benchmark -f $SCRIPT_DIR/environment_data_retrieval.yml"
+                echo "  Install: conda create -n ottilie-benchmark -f $SCRIPT_DIR/../environment_data_retrieval.yml"
                 exit 1
             fi
 

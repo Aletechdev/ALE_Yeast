@@ -57,18 +57,18 @@ data scripts use (`deploy.sh` prints it at the end).
 ### Wire it into the data scripts
 
 Account / container / prefix must line up across the template and the publish/fetch scripts
-(`docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/`). Note the container is `releases`
+(`docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/`). Note the container is `releases`
 (not the scripts' current default `ale-test-data`) — pass `CONTAINER=releases` until the defaults are baked in:
 
 ```bash
 # Publish both shapes (tarball + individual tree + cache-tar + SHA256SUMS + url-samplesheet).
 # Account already has public access from the template → no ENABLE_PUBLIC_ACCESS needed.
 ACCOUNT=<account> CONTAINER=releases PREFIX=ottilie/v1 \
-  bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/publish_test_data.sh
+  bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/publish_test_data.sh
 
 # Fetch on a fresh machine (no creds):
 BLOB_BASE=https://<account>.blob.core.windows.net/releases/ottilie/v1 \
-  bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/download_test_data.sh
+  bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/download_test_data.sh
 ```
 
 Once the account name is fixed, bake `ACCOUNT`/`CONTAINER` into `publish_test_data.sh` and the default

@@ -49,7 +49,7 @@ BioProject PRJNA590203
 
 ## Stages
 
-### [1] Download raw FASTQs — `01_data_retrieval/download_all_fastq.sh`
+### [1] Download raw FASTQs — `01_data_retrieval/fastq/download_all_fastq.sh`
 Reads SRR accessions from `PRJNA590203_runinfo.csv`, downloads from SRA in batches
 (`prefetch`/`fasterq-dump`), and **uploads each batch to Azure Blob** (keeps local disk
 under control). Sample↔SRR mapping via `resolve_sra_accessions.py`. Subset variants:
@@ -79,7 +79,7 @@ nextflow run main.nf -profile azureD4as,docker \
 - Output: `output_ottilie/preprocessing/markduplicates/{CBR110-15-R3a,Carmaphycin-R9-2,Doxorubicin16-R2b,NODRUG-GM2}/*.md.cram` — gitignored.
 - The 2 test samples' CRAMs (CBR110-15-R3a ~245 MB, NODRUG-GM2 ~218 MB) are the fast-path input for stage [3].
 
-### [3] Generate test dataset — `01_data_retrieval/generate_test_data.sh`
+### [3] Generate test dataset — `01_data_retrieval/release/generate_test_data.sh`
 Extracts reads on chromosomes I/IV/VII/XV for the 2 test samples and subsets the
 S288C reference to match. Two modes:
 - `--from-cram` (default): extract from the stage-[2] CRAMs (fast; needs `output_ottilie/`).
@@ -123,7 +123,7 @@ bundle tarball from the **public** blob URL — no credentials, no SAS. The scri
 writes the machine-correct samplesheet:
 
 ```bash
-bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/download_test_data.sh
+bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/download_test_data.sh
 # → data/ottilie/{fastq_test, S288C_reference_test, S288C_reference/S288C_R64.gff3} + samplesheet_test.csv
 ```
 
@@ -141,7 +141,7 @@ The data is published in **BOTH shapes** under a **versioned prefix** so each co
 
 | Object (under `…/ottilie/v1/`) | For | Notes |
 |---|---|---|
-| `README.md` | **anyone handed the URL** | sample↔FASTQ↔SRA mapping, the truth set, and the reference-pairing rule. Ships inside the bundle too. Source: `01_data_retrieval/bundle_README.md` |
+| `README.md` | **anyone handed the URL** | sample↔FASTQ↔SRA mapping, the truth set, and the reference-pairing rule. Ships inside the bundle too. Source: `01_data_retrieval/release/bundle_README.md` |
 | `ottilie_test_data.tar.gz` | **local onboarding + CI** (download-then-run) | one atomic ~399 MB bundle; `download_test_data.sh` uses this. Carries **both** references + `README.md` |
 | `files/**` | **Seqera/Batch** per-file URL staging | mirrors `data/ottilie/` — fastq_test, S288C_reference_test, **and the full S288C_reference** (fa, gb, gff3, chromosomes/, snpeff_cache/) |
 | `snpeff_cache.tar.gz` | Seqera + URL-streaming **fallback** | cache-only; untar → point `--snpeff_cache` at the `snpeff_cache/` dir. **Required**, not optional, for the streaming profile — see below |
@@ -224,7 +224,7 @@ tarball + cache-tar + `SHA256SUMS` + URL-samplesheet, uploads both shapes under 
 the public GET:
 
 ```bash
-bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/publish_test_data.sh
+bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/publish_test_data.sh
 ```
 
 Overrides: `ACCOUNT` (default `aletestdatapublic`), `CONTAINER` (default `releases`), `PREFIX` (default

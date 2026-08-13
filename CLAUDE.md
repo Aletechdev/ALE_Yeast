@@ -137,7 +137,7 @@ non-obvious rules, each learned by running it — full detail in the same doc:
   4 SNVs + a chr I duplication. Lives under `data/ottilie/` (gitignored). Profile:
   [`conf/test/ottilie_test.config`](conf/test/ottilie_test.config) → run
   `nextflow run main.nf -profile ottilie_test,azureD4as,docker`. Generate locally with
-  `docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/generate_test_data.sh`; on a fresh machine
+  `docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/generate_test_data.sh`; on a fresh machine
   fetch from the public blob (no creds) with `download_test_data.sh`. Full lineage/prep:
   [`docs/benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md`](docs/benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md).
 - **Launchers**: `bin/test_ottilie.sh` (minimal 2-sample test) · `bin/test_ottilie_blob.sh` (same test, `ottilie_test_ci` profile — inputs streamed from the public blob, **no local `data/ottilie/`**; `snpeff_cache` is a directory param and can't come from an https URL, so the script untars the published `snpeff_cache.tar.gz` locally first) · `docs/benchmarking/ottilie_xenobiotic_ale/03_pipeline/run_ottilie_pilot.sh` (full-depth **4-sample** run, same S288C data). The 2-sample test set is a **chromosome subset** (chr I/IV/VII/XV) of **2 of** the pilot's 4 `--save_mapped` CRAMs, extracted by `generate_test_data.sh` — not a read-subsample. Both use `-profile azureD4as,docker`.

@@ -1,34 +1,35 @@
 #!/usr/bin/env bash
-# Download Tier 2 FASTQ files from Azure Blob Storage (aledata account).
+# Download FASTQ files for Tier 2 benchmark samples from SRA.
 #
-# Source: aledata (account) / aledata (container) / Yeast/ottilie_xenobiotic_ale/fastq/
-# The blob contains all 363 samples; this script downloads only the 86 Tier 2 SRRs.
+# Tier 2 = 85 clones: 64 CRISPR-validated (Sup 7→4) + 21 CNV-only (Sup 5)
+# Selected by: select_tier2_crispr_validated.py
+# Input:       data/ottilie/tier2_crispr_validated_clones.csv
 #
 # Prerequisites:
-#   az login  (must be authenticated to Azure CLI)
-#   python select_tier2_crispr_validated.py  (generates the clone CSV)
+#   conda activate ottilie-benchmark  (sra-tools=3.2.1 required; 3.4.1 segfaults)
+#   python docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/truth_set/select_tier2_crispr_validated.py  (generates the clone CSV)
 #
 # Usage:
 #   cd <repo_root>
-#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/download_tier2_from_blob.sh
+#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/fastq/download_tier2_fastq.sh
 #
 # Options:
 #   --dry-run    Show what would be downloaded without downloading
+#   --resume     Skip already-downloaded samples (default behavior)
 #
-# Disk space: ~40 GB gzipped FASTQs (no temp space needed unlike SRA download)
-# Runtime:    ~15-30 min (same-region Azure transfer)
+# Disk space:
+#   ~40 GB gzipped FASTQs + ~120 GB peak temp during fasterq-dump (sequential)
+#   Ensure ≥160 GB free before starting.
+#
+# Runtime: ~3-5 hours for 85 samples (depends on network speed)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 OUTDIR="$REPO_ROOT/data/ottilie/fastq"
 CLONE_CSV="$REPO_ROOT/data/ottilie/tier2_crispr_validated_clones.csv"
 PARENT_SRR="SRR10985539"  # NODRUG--GM2, shared with Tier 1
-
-STORAGE_ACCOUNT="aledata"
-CONTAINER="aledata"
-BLOB_PREFIX="Yeast/ottilie_xenobiotic_ale/fastq"
 
 DRY_RUN=false
 for arg in "$@"; do
@@ -40,23 +41,19 @@ done
 # --- Validate inputs ---
 if [[ ! -f "$CLONE_CSV" ]]; then
     echo "ERROR: $CLONE_CSV not found."
-    echo "Run: python docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/select_tier2_crispr_validated.py"
-    exit 1
-fi
-
-# Check az login
-if ! az account show &>/dev/null; then
-    echo "ERROR: Not logged in to Azure CLI. Run: az login"
+    echo "Run: python docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/truth_set/select_tier2_crispr_validated.py"
     exit 1
 fi
 
 mkdir -p "$OUTDIR"
 
-# --- Parse SRR accessions from CSV (skip header, skip empty) ---
+# --- Parse SRR accessions from CSV (skip header, skip empty/NA) ---
 SRRS=()
 NAMES=()
 while IFS=, read -r clone_name eaw_id compound total_mutations crispr_validated selection_reason srr_accession rest; do
+    # Skip header
     [[ "$clone_name" == "clone_name" ]] && continue
+    # Skip rows without SRR
     [[ -z "$srr_accession" || "$srr_accession" == "" ]] && continue
     SRRS+=("$srr_accession")
     NAMES+=("$clone_name")
@@ -65,14 +62,17 @@ done < "$CLONE_CSV"
 # Add parent if not already in list
 parent_found=false
 for srr in "${SRRS[@]}"; do
-    [[ "$srr" == "$PARENT_SRR" ]] && parent_found=true && break
+    if [[ "$srr" == "$PARENT_SRR" ]]; then
+        parent_found=true
+        break
+    fi
 done
 if [[ "$parent_found" == "false" ]]; then
     SRRS=("$PARENT_SRR" "${SRRS[@]}")
     NAMES=("NODRUG--GM2(parent)" "${NAMES[@]}")
 fi
 
-# Deduplicate
+# Deduplicate (some SRRs may appear twice if a sample has multiple clone names)
 declare -A SEEN
 UNIQUE_SRRS=()
 UNIQUE_NAMES=()
@@ -88,13 +88,22 @@ done
 TOTAL=${#UNIQUE_SRRS[@]}
 ALREADY=0
 TO_DOWNLOAD=0
+TOTAL_SIZE_MB=0
 
 echo "============================================"
-echo "Tier 2 FASTQ Download (from Azure Blob)"
-echo "  Source:  ${STORAGE_ACCOUNT}/${CONTAINER}/${BLOB_PREFIX}/"
+echo "Tier 2 FASTQ Download"
 echo "  Samples: $TOTAL (from $CLONE_CSV)"
 echo "  Output:  $OUTDIR"
 echo "============================================"
+
+# --- Check disk space ---
+AVAIL_GB=$(df --output=avail -BG "$OUTDIR" | tail -1 | tr -d ' G')
+echo "  Available disk: ${AVAIL_GB} GB"
+if [[ "$AVAIL_GB" -lt 160 ]]; then
+    echo "  WARNING: <160 GB free. fasterq-dump needs ~120 GB temp space."
+    echo "  Consider freeing disk or using --dry-run first."
+fi
+echo ""
 
 # --- Count what needs downloading ---
 for i in "${!UNIQUE_SRRS[@]}"; do
@@ -148,49 +157,56 @@ for i in "${!UNIQUE_SRRS[@]}"; do
         continue
     fi
 
+    echo "============================================"
     echo "[$NUM/$TOTAL] $NAME ($SRR)  [downloaded: $DOWNLOADED, skipped: $SKIPPED, failed: $FAILED]"
+    echo "============================================"
 
-    FAIL=false
-    for READ in 1 2; do
-        BLOB_NAME="${BLOB_PREFIX}/${SRR}_${READ}.fastq.gz"
-        DEST="$OUTDIR/${SRR}_${READ}.fastq.gz"
+    # Clean up any partial files from previous attempts
+    rm -f "$OUTDIR/${SRR}_1.fastq" "$OUTDIR/${SRR}_2.fastq" \
+          "$OUTDIR/${SRR}_1.fastq.gz" "$OUTDIR/${SRR}_2.fastq.gz"
+    rm -rf "$OUTDIR/fasterq.tmp."*
 
-        if ! az storage blob download \
-            --account-name "$STORAGE_ACCOUNT" \
-            --container-name "$CONTAINER" \
-            --name "$BLOB_NAME" \
-            --file "$DEST" \
-            --auth-mode login \
-            --no-progress \
-            -o none 2>/dev/null; then
-            echo "  ERROR: Failed to download $BLOB_NAME"
-            rm -f "$DEST"
-            FAIL=true
-            break
-        fi
-    done
-
-    if [[ "$FAIL" == "true" ]]; then
+    # Download and convert to FASTQ
+    echo "  Downloading and converting to FASTQ..."
+    if ! fasterq-dump "$SRR" \
+        --split-files \
+        --outdir "$OUTDIR" \
+        --threads 4; then
+        echo "  ERROR: fasterq-dump failed for $SRR"
         FAILED=$((FAILED + 1))
-        rm -f "$OUTDIR/${SRR}_1.fastq.gz" "$OUTDIR/${SRR}_2.fastq.gz"
         continue
     fi
 
+    # Verify both files exist before compressing
+    if [[ ! -f "$OUTDIR/${SRR}_1.fastq" || ! -f "$OUTDIR/${SRR}_2.fastq" ]]; then
+        echo "  ERROR: Expected paired-end files not found after fasterq-dump"
+        ls -la "$OUTDIR/${SRR}"* 2>/dev/null || true
+        FAILED=$((FAILED + 1))
+        continue
+    fi
+
+    # Compress sequentially (parallel gzip causes issues in some shell contexts)
+    echo "  Compressing R1..."
+    gzip -f "$OUTDIR/${SRR}_1.fastq"
+    echo "  Compressing R2..."
+    gzip -f "$OUTDIR/${SRR}_2.fastq"
+
     DOWNLOADED=$((DOWNLOADED + 1))
-    R1_SIZE=$(ls -lh "$OUTDIR/${SRR}_1.fastq.gz" | awk '{print $5}')
-    R2_SIZE=$(ls -lh "$OUTDIR/${SRR}_2.fastq.gz" | awk '{print $5}')
-    echo "  Done: R1=${R1_SIZE}, R2=${R2_SIZE}"
+
+    # Report
+    echo "  Done:"
+    ls -lh "$OUTDIR/${SRR}_1.fastq.gz" "$OUTDIR/${SRR}_2.fastq.gz"
+    echo ""
 done
 
-echo ""
 echo "============================================"
 echo "Tier 2 download complete."
 echo "  Total:      $TOTAL"
 echo "  Downloaded: $DOWNLOADED"
 echo "  Skipped:    $SKIPPED (already existed)"
 echo "  Failed:     $FAILED"
+echo ""
 if [[ "$FAILED" -gt 0 ]]; then
-    echo ""
     echo "WARNING: $FAILED samples failed. Rerun to retry (idempotent)."
 fi
 echo ""

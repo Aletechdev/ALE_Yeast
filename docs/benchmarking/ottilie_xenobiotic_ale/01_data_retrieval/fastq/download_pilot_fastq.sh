@@ -6,7 +6,7 @@
 #
 # Usage:
 #   cd <repo_root>
-#   bash bin/benchmarking/ottilie_xenobiotic_ale/download_pilot_fastq.sh
+#   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/fastq/download_pilot_fastq.sh
 #
 # Samples:
 #   Parent:  NODRUG--GM2         (SRR10985539) - ABC16-Green Monster un-evolved control
@@ -20,7 +20,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 OUTDIR="$REPO_ROOT/data/ottilie/fastq"
 mkdir -p "$OUTDIR"
 
