@@ -96,6 +96,13 @@ repository, so a GitHub App or PAT credential is required. See
 [`deploy/azure/seqera-sp/RUNBOOK.md`](deploy/azure/seqera-sp/RUNBOOK.md) for the credential in use and
 its expiry.
 
+⏰ **Credential expiry is watched by a SessionStart hook** — `.claude/settings.json` runs
+[`bin/check_credential_expiry.sh`](bin/check_credential_expiry.sh) at the start of every Claude Code
+session. It stays silent until a tracked credential is within its warning window (Azure SP secret
+**2027-07-31**, GitHub PAT **2027-08-07**, both 60-day lead; plus any pending one-off rotations).
+**When a warning appears, treat it as the session's first priority.** After any rotation, update the
+script's dates and [`deploy/azure/seqera-sp/RUNBOOK.md`](deploy/azure/seqera-sp/RUNBOOK.md).
+
 **Before changing any Azure setting, read the orientation section** —
 [`azure_batch_execution.md` → why this config isn't the five-line example](docs/dev-practices/azure_batch_execution.md#orientation--why-this-config-isnt-the-five-line-example).
 Only 4 settings differ from the stock tutorial config (auth, `vmType`, image pin, `workDir`

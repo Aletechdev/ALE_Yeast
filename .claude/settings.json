@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/bin/check_credential_expiry.sh",
+            "timeout": 10,
+            "statusMessage": "Checking credential expiry dates"
+          }
+        ]
+      }
+    ]
+  }
+}

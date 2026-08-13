@@ -594,6 +594,12 @@ The secret value was never written to this repo.
 > ⏰ **Set a calendar reminder for ~2027-06-30** (one month before expiry). An expired secret fails at
 > launch with an opaque Azure auth error, a year from now, when nobody has touched this in months —
 > this is the single most likely cause of a future "it just stopped working".
+>
+> 📌 **Since 2026-08-13 the repo also self-warns**: a Claude Code SessionStart hook
+> (`.claude/settings.json`) runs `bin/check_credential_expiry.sh` each session and starts warning 60
+> days out — for this secret AND the GitHub PAT. It backs up the personal-calendar reminder rather
+> than replacing it (it only fires for whoever opens sessions in this repo). After any rotation,
+> update the script's dates alongside this file.
 
 ### 2026-08-06 — ✅ PHASE 6 COMPLETE: Platform head job runs end-to-end and reproduces the baseline
 
