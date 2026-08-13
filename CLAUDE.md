@@ -116,8 +116,10 @@ non-obvious rules, each learned by running it — full detail in the same doc:
   a shared-key credential gives nodes account-wide access and has no such rule (verified: the
   `aledev4test_e4ds_v4` CE runs `workDir` and inputs in different containers). Granting the SP more RBAC
   does **not** help: it already holds `Storage Blob Data Contributor` on the whole account; the limit is
-  what Nextflow *delegates*, not what the SP *may* do. **`outdir` is exempt** — `publishDir` runs in the
-  head process using the full credential (verified for a local head job; unproven under Platform).
+  what Nextflow *delegates*, not what the SP *may* do. **Fusion does not lift it either** (verified
+  2026-08-13 — same rejected SAS through the FUSE path, though the 403 is at least visible in
+  `.command.err`/`.fusion.log` there). **`outdir` is exempt** — `publishDir` runs in the head process
+  using the full credential (verified locally and, for `pipeline_info/` publishes, under Platform).
 - **Every declared input path must exist.** `file('SENTINEL')` for a missing file works locally
   (symlink) but fails on a remote work dir, which must physically copy. Use `checkIfExists: true`.
   `projectDir` assets are fine — nf-core relies on them too.

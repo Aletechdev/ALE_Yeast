@@ -195,15 +195,23 @@ az storage blob download -c <workdir-container> --name "<path>/<hash>/.command.l
 
 | Constraint | Status |
 |---|---|
-| inputs ↔ `workDir` same container | ✅ **Confirmed for BOTH local and Platform head jobs.** Not a convention — a requirement. |
-| `outdir` may be in another container | **Still unproven under Platform.** Verified locally (195 blobs published to `az://debugging/…` while `workDir` was in `aletest`). The cross-container run above died before publishing, so it says nothing about `outdir`. |
+| inputs ↔ `workDir` same container | ✅ **Confirmed for local and Platform head jobs, AND under Fusion.** Not a convention — a requirement. |
+| `outdir` may be in another container | ✅ **Confirmed under Platform for `publishDir` writes (2026-08-13)** — run `3AJ4JRNkb7D2dG` published `pipeline_info/` into `aletest` while `workDir` was in `debugging`; verified locally earlier (195 blobs to `az://debugging/…`). Task-output publishing uses the same head-side mechanism, but a *successful* cross-container run cannot exist to demonstrate it end-to-end — the rule above kills the tasks first. |
 
-**Open question — does Fusion lift this?** Fusion may use per-container tokens rather than one delegated
-SAS. That is untested and load-bearing, so **do not design around it**. The test is now cheap and
-unambiguous, because the run above is a clean predicted-failure baseline: repeat that exact launch
-against a Fusion-enabled CE (`ale-ottilie-nf25104-bigdisk_fusion`). If it succeeds where this failed,
-Fusion genuinely relaxes the constraint. ⚠️ Use a Fusion CE that also carries `--dual-pool` and the
-enlarged worker disk (§9–§10), or `DiskFull` confounds the result.
+### ✅ Fusion does NOT lift this (2026-08-13)
+
+Answered by repeating the predicted-failure launch above on a Fusion CE (run `3AJ4JRNkb7D2dG`,
+`yAMP-ce-fusion-256` — dual-pool + 256 GB per §9–§10, so `DiskFull` could not confound): **failed
+identically**, 0/6, the same six `aletest`-reading tasks, ~5 min in. Fusion consumes the same single
+container-scoped user-delegation SAS and presents it against the other container; the server rejects
+it, and Fusion says so plainly. **The rule is a property of the credential delegation, indifferent to
+the data path (azcopy staging or FUSE mount). Do not design around Fusion lifting it.**
+
+⚠️ The failure *signature* differs under Fusion — and is friendlier: `.command.err` is **non-empty**
+(the tool's own `Permission denied`), and `.fusion.log` in the task work dir holds the underlying
+`403 AuthenticationFailed` complete with the SAS scope mismatch and the line *"Fusion authenticated
+successfully but lacks permission to access this resource."* The empty-stderr trap above is
+non-Fusion-specific.
 
 Terminology, since the distinction is the whole point: `aledata` is the **storage account**;
 `aletest` and `debugging` are **containers** within it. `az://<container>/<path>` — the account comes

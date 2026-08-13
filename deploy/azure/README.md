@@ -39,7 +39,7 @@ in a private VNet.
 | Path | Purpose |
 |---|---|
 | `seqera-sp/00_vars.sh` | Every account name / ID / scope as a shell variable. **No secrets.** Sourced by all other scripts. |
-| `seqera-sp/NN_*.sh` | Numbered, run in order. Odd-numbered = read-only checks; even-numbered = mutations. |
+| `seqera-sp/NN_*.sh` | Numbered, run in order. The early scripts (01–05) alternate read-only checks and mutations; from 08 on the numbers are chronological only — read each script's header. (07 is a deliberate gap: the deploy-key script was deleted with its dead route.) |
 | `seqera-sp/RUNBOOK.md` | The audit record: dated entry per script actually executed, with outcome. Committed. |
 | `seqera-sp/logs/` | Raw `tee` transcripts. **Gitignored** — they can contain tokens. `RUNBOOK.md` is the committed summary. |
 

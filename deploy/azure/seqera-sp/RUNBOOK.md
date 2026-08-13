@@ -164,59 +164,26 @@ the GitHub deploy-key route in plan Phase 2 workable.
 
 ### ⚠️ Workspace differs from the plan
 
-The cloud-run plan hardcodes workspace `zhlia-wsp` = `148627246605113` in its Phase 3/4/6 commands.
-Work is actually happening in **`DTU-Biosustain/RECON-ALE` = `79597273081110`** — a different, org-level
-workspace. Every `-w` in the plan must be changed. Consequences:
-
-- Assets the plan lists as "existing" (the `aledev4test` shared-key credential `182ger…`, CE
-  `4zcbSAL…`) live in `zhlia-wsp` and are **not** available here.
-- `RECON-ALE` has its own six `azure-batch` compute environments (`aledev4test`, `aledev4test_copy`,
-  `aledev4test_singlepool`, `aledev4test_e4ds_v4`, `ALE_E4ds_v4`, `ALE_E4ds_v4_16workers`), all
-  predating this work and all still on the **shared-key** credential `rgALE_batch_aledev4test`
-  (provider `azure`). The plan's "create a NEW CE, do not mutate an existing one" rule therefore still
-  holds, and now for a second reason: these are shared with other people's work in an org workspace.
-- A GitHub credential `github_Aletechdev` exists here, refreshed 2026-07-30 — **newer than the expired
-  token the plan flagged in Phase 2**. Worth testing before generating a deploy key; Phase 2 may
-  already be satisfied.
+The cloud-run plan's commands hardcode `zhlia-wsp`; work actually happens in
+**`DTU-Biosustain/RECON-ALE` = `79597273081110`** — org-level and **shared**. Every `-w` in the plan
+must be changed, the plan's "existing" assets (shared-key credential, CE) live in the other workspace
+and are not available here, and `RECON-ALE`'s six pre-existing shared-key CEs belong to other people's
+work — "create a NEW CE, never mutate an existing one" therefore holds for a second reason. (Those six
+CEs were eventually retired and deleted 2026-08-13, after this work had replaced them.)
 
 | 2026-07-31 08:43Z | `07_github_deploy_key.sh` | zhlia@dtu.dk | ✅ ed25519 deploy keypair generated at `~/.ssh/seqera_ale_yeast_deploy` (0600). |
 
-### 2026-07-31 — GitHub auth: deploy key, not a PAT
+### 2026-07-31 — GitHub auth: deploy key chosen (💀 superseded 2026-08-05)
 
-The previous `github_Aletechdev` credential expired. Chosen route: an **SSH deploy key** rather than
-either PAT option.
+The expired `github_Aletechdev` credential forced a choice, and an **SSH deploy key** won on merit:
+repo-scoped, read-only, no expiry to lapse, org-owned rather than person-tied (the workspace is
+shared, so a personal token breaks the team on one person's expiry). Generated passphrase-less at
+`~/.ssh/seqera_ale_yeast_deploy`, verified end-to-end (`ssh -T` answers `Hi Aletechdev/ALE_Yeast!` —
+authenticating as the *repository*, which is the proof it is a deploy key; `git ls-remote` lists
+`main` and `v1.0.0`), and registered as Seqera `ssh` credential `github_ALE_Yeast_deploykey`.
 
-Facts that decided it:
-
-- `Aletechdev` is a GitHub **Organization** (ALEtech), so org-owned PATs were genuinely available.
-- The Seqera workspace is now **org-level and shared** (`DTU-Biosustain/RECON-ALE`), which is what
-  rules out a personal PAT: the team's launches would break on one person's token expiry, and runs
-  would be attributed to that person.
-- `tw credentials add ssh -k <keyfile>` exists, so the route is supported, not theoretical.
-- `tw credentials add github` accepts only username + token — a GitHub-*provider* credential is
-  necessarily a PAT.
-
-A deploy key is attached to the **repository**, so it is scoped to one repo, read-only, has no expiry
-to lapse silently, needs no org-approval flow, and survives personnel changes — nobody's account grants
-the access. Cost: the launch URL must be the SSH form (`git@github.com:Aletechdev/ALE_Yeast.git`);
-a deploy key cannot authenticate an HTTPS clone.
-
-Generated without a passphrase deliberately: Seqera stores the private key and must use it unattended,
-so a passphrase would have to be stored beside it — ceremony, not security.
-
-**Verified end-to-end 2026-07-31:**
-
-- `ssh -T -i ~/.ssh/seqera_ale_yeast_deploy git@github.com` → `Hi Aletechdev/ALE_Yeast!` — it
-  authenticates as the **repository**, not as a user, which is the confirmation that a deploy key (not
-  a personal key) was used. Exit code 1 is normal for this message.
-- `git ls-remote` over that key lists `refs/heads/main` and `refs/tags/v1.0.0`, so read access and the
-  launch revision are both reachable.
-- Registered as Seqera credential **`github_ALE_Yeast_deploykey`** (provider `ssh`) in
-  `DTU-Biosustain/RECON-ALE`.
-
-**Plan Phase 2 is complete.** The expired `github_Aletechdev` credential was left in place rather than
-deleted — the six pre-existing compute environments in this shared org workspace may reference it, and
-removing it is not ours to decide.
+**All of it invalidated 2026-08-05** — Platform cannot use an SSH key for a pipeline repository (see
+that entry). The keypair survives for local/CI clones; the Seqera registration was deleted 2026-08-07.
 
 | 2026-07-31 | `08_upload_test_data.sh` | zhlia@dtu.dk | ✅ 19 blobs → `az://aletest/ottilie/v1/` (new prefix, no collision). |
 
@@ -308,274 +275,86 @@ A `snpeff_cache` untar path remains a reasonable robustness idea for https-only 
 
 </details>
 
-### 2026-08-05 15:44Z — compute environments forged (plan Phase 4)
+### 2026-08-05 15:44Z — compute environments forged (plan Phase 4) — 💀 CEs since superseded
 
-Two **new** CEs created in `DTU-Biosustain/RECON-ALE`, both on the Entra credential
-`azure_SP_cfb_ale_mutations_pipeline`. None of the six pre-existing shared CEs was touched.
+Two new CEs on the Entra credential (`ale-ottilie-nf25104` and `…-fusion` — single-pool, default boot
+disks; both later replaced by the dual-pool/256 GB generation and deleted). None of the six
+pre-existing shared CEs was touched. Durable findings, each verified at the time:
 
-| Name | Id | Fusion / Wave | Status |
-|---|---|---|---|
-| `ale-ottilie-nf25104` | `5CR3jOkRBI58YXWtDIAAtu` | off / off | AVAILABLE |
-| `ale-ottilie-nf25104-fusion` | `5ncp4rI8GezvoPBnpvnTEk` | on / on | AVAILABLE |
-
-Identical otherwise: `workDir az://aletest/nf-work`, `northeurope`, forge pool
-`Standard_E4ds_v4` ×4 autoscaling, `disposeOnDeletion: true`.
-
-```bash
-tw compute-envs add azure-batch forge -n ale-ottilie-nf25104 \
-    -w DTU-Biosustain/RECON-ALE -c azure_SP_cfb_ale_mutations_pipeline \
-    -l northeurope --work-dir az://aletest/nf-work \
-    -e NXF_VER=25.10.4 --vm-type Standard_E4ds_v4 --vm-count 4
-# ...and the same again with `-n ale-ottilie-nf25104-fusion --fusion-v2 --wave`
-```
-
-**Results worth keeping:**
-
-- ✅ **`-e NXF_VER=25.10.4` stored exactly as intended** — readback shows
-  `{"name":"NXF_VER","value":"25.10.4","head":true,"compute":false}`. Head-job-only is what the pin
-  needs. That it *stored* is not proof it *takes*: the head job must invoke `nextflow` through the
-  self-fetching launcher. Still verify the run log reports 25.10.x, not 26.x.
-- ✅ **Batch Forge works with an Entra service principal.** `Azure Batch Data Contributor` on the
-  account was sufficient — no `AuthorizationFailed`, no extra grant, no subscription-level role.
-- ⚠️ **Fusion + Entra forged with `managedIdentity*` all `null`.** This contradicts the research lead
-  that Entra + Forge + Fusion *requires* a user-assigned managed identity — at least at forge time.
-  Whether Fusion **mounts** at task runtime is still untested.
-- ⚠️ **`tw` 0.26 `--wait AVAILABLE` fails with `Error reading entity from input stream` /
-  `Connection error`.** The CE is created correctly regardless — this is the known 0.26-vs-API-1.193
-  response-parsing bug, on the *poll*, not the request. **Do not re-run the command on this error**;
-  you would create a duplicate CE. Check status via the REST API instead:
-  ```bash
-  curl -s -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" \
-    "https://api.cloud.seqera.io/compute-envs?workspaceId=<ws-id>" | python -m json.tool
-  ```
-- ✅ **The forged pools carry a *verified* image — checked, not assumed.** Forge creates the pool at
-  **CE-creation time**: two new pools appear with `creationTime` equal to the CE timestamps
-  (`15:43:57`, `15:45:26`), both `microsoft-dsvm / ubuntu-hpc / 2404`, agent `batch.node.ubuntu 24.04`
-  — the same verified combination `conf/azure_batch.config` pins for Nextflow's autopool. Platform's
-  own default is current, so Phase 3.5 finding #4 does **not** bite here. All 15 pools on the account
-  are on `2404`. Re-check after any region change:
-  ```bash
-  az batch account login -g rg-aledb -n aledev4test
-  az batch pool list --query "sort_by([].{id:id,created:creationTime,sku:virtualMachineConfiguration.imageReference.sku}, &created)" -o table
-  ```
-
-### 2026-08-05 — `NXF_VER` on the head job is correct; do NOT set it to `both:`
-
-Asked whether the pin should also target compute tasks. **No — it would be a no-op.** Evidence from an
-actual task wrapper (`work/*/.command.run`): the payload is invoked as
-`/usr/bin/env bash … .command.sh` inside `docker run`, and the only NXF_* variables forwarded into the
-container are `NXF_TASK_WORKDIR` and `NXF_DEBUG`, each enumerated explicitly with `-e`. **No `nextflow`
-binary ever executes on a Batch node**, so nothing on a compute node reads `NXF_VER`. The variable
-selects which engine the *launcher* self-fetches, and the launcher runs only in the head job.
-
-### 2026-08-05 — `tw` upgraded 0.26.0 → 0.38.0
-
-The plan called this "worth doing eventually; does not help here". **That is now superseded** — 0.26's
-response-parsing bug broke `compute-envs add --wait` and `compute-envs view`, which are the readback
-path for this work. Client-side only: it cannot change what runs in the cloud.
-
-Installed to `/usr/local/bin/tw` (user-owned, no sudo). SHA-256 verified against the release
-`checksums_sha256.txt`. **Roll back** by restoring the saved 0.26 binary if anything regresses.
-
-Re-verified on 0.38 after upgrading:
-
-- ✅ `compute-envs view` now parses — the exact call 0.26 could not make.
-- ✅ **`tw launch` still has no single-param option** (`--params-file`, `--config`, `--profile` only),
-  so the "`outdir` must live in the params file" conclusion holds unchanged.
-- 🆕 **`--pre-run` and `--launch-container` are available per launch.** The `NXF_VER` fallback no
-  longer requires rebuilding the CE — a failed pin can be patched on the launch command itself.
-- 🆕 `--wait=SUBMITTED|RUNNING|SUCCEEDED|FAILED|…` on launch, and `--stub-run`.
-- ⚠️ `--version-id` / `--version-name` render with a required marker (`*`) in the help output; they are
-  part of a mutually-exclusive group, not genuinely required. Expect this if launch complains.
+- ✅ **Batch Forge works with an Entra SP** — `Azure Batch Data Contributor` on the account sufficed;
+  no subscription-level role, no `AuthorizationFailed`.
+- ✅ **`-e NXF_VER=25.10.4` stores as head-only** (`head:true, compute:false`), which is all a pin can
+  need: **no `nextflow` binary ever executes on a Batch node** (verified from a task wrapper — only
+  `NXF_TASK_WORKDIR`/`NXF_DEBUG` are forwarded into containers), so a `both:`/compute pin is a no-op.
+  Storing is not taking — always confirm the run log reports the pinned version.
+- ⚠️ **Fusion + Entra forged with `managedIdentity*` all `null`** — contradicting the research lead
+  that a user-assigned managed identity is required. Runtime proof came 2026-08-07 (`XFwlgZnKvUvpu`).
+- ✅ **Forge pools carried the verified `ubuntu-hpc/2404` image** — checked against every pool on the
+  account rather than assumed. Re-pinning rules: [`azure_batch_execution.md` §4](../../../docs/dev-practices/azure_batch_execution.md).
+- ⚠️ **`tw` 0.26 `--wait AVAILABLE` fails on the *poll*** (`Error reading entity from input stream`)
+  while the CE is created fine — re-running creates a **duplicate CE**; read back via the REST API
+  instead. Fixed by upgrading to **0.38.0** the same day (SHA-256-verified; the 0.26 binary kept for
+  rollback). 0.38 also brought `--pre-run`/`--launch-container` and `--wait` on launch; `tw launch`
+  still has no single-param option, so `outdir` must travel in a params file.
 
 ### 2026-08-05 — 🚨 the SSH deploy key CANNOT be used to clone the pipeline repo
 
-**Seqera Platform does not support SSH-key authentication for pipeline repositories.** This
-invalidates the Phase 2 decision recorded above ("deploy key, not a PAT"). The deploy key is genuinely
-valid — `ssh -T` and `git ls-remote` both pass — but it authenticates *your machine* to GitHub, and
-Platform never uses it.
-
-Found by trying to launch. Bisected with `tw pipelines add`, which validates the repo at add time and
-so is a cheap probe (no run is started):
-
-| Repository URL | Result |
-|---|---|
-| `git@github.com:Aletechdev/ALE_Yeast.git` (scp-style) | `Unexpected error … Error ID: …` — an internal 500; Platform cannot even parse this form |
-| `ssh://git@github.com/Aletechdev/ALE_Yeast.git` | parses, then `Unknown pipeline repository or expired Git credentials` |
-| `https://github.com/Aletechdev/ALE_Yeast` | same `Unknown pipeline repository or expired Git credentials` — Platform reached for it and found no usable credential |
-
-Three independent confirmations that this is by design, not a misconfiguration:
-
-1. **Docs** — the Git integration page lists the supported providers as Azure DevOps, GitHub (PAT or
-   **GitHub App**), GitLab, Gitea, Bitbucket and AWS CodeCommit. SSH keys are absent, and every
-   documented repository base URL is `https://`.
-2. **`ssh` credentials are for something else entirely** — "the key pair is used to authenticate a
-   connection with your SSH-enabled environment", i.e. **HPC compute environments**, not Git.
-3. **Structural** — `tw credentials add github` has `--base-url` (how Platform matches a credential to
-   a repository host); `tw credentials add ssh` has **no such option**, so an `ssh` credential cannot
-   be bound to `github.com` even in principle. Confirmed by readback: `baseUrl: null`.
-
-**Also learned:** `tw launch <ssh-url>` fails with the misleading `Pipeline 'git@github.com:…' not
-found on this workspace`. `tw launch` takes *a workspace pipeline name or a URL*, and since it does not
-recognise the scp-style string as a URL it falls back to a name lookup. The message describes the
-fallback, not the real problem.
-
-The deploy key itself is **not** wasted — it stays useful for local clones and CI checkouts. It is only
-useless *to Platform*. Consider revoking it if no such use materialises.
-
-Demonstrated directly, same key (`SHA256:1VRUK9eZMJAPilP6UZO/1fOqZFVqWkzBnlRTUF+2kfs`,
-`~/.ssh/seqera_ale_yeast_deploy`) against the same repo:
-
-```
-$ GIT_SSH_COMMAND="ssh -i ~/.ssh/seqera_ale_yeast_deploy -o IdentitiesOnly=yes" \
-    git ls-remote git@github.com:Aletechdev/ALE_Yeast.git
-1c20c4b…  refs/heads/main                      # ← reads fine
-
-$ git ls-remote https://github.com/Aletechdev/ALE_Yeast
-remote: Repository not found.                  # ← same key, HTTPS, denied
-```
-
 **Two independent constraints whose intersection is empty:** a GitHub deploy key is an SSH credential
-*by definition* (GitHub accepts it only on SSH connections), and Platform's Git integration is
-HTTPS-only. No URL form bridges that. The key reads the **repository** perfectly; what it cannot read
-is the **`https://` URL**, which is the only form Platform accepts.
+*by definition*, and Seqera Platform's Git integration is **HTTPS-only** — no URL form bridges that.
+The key is genuinely valid (`git ls-remote` over SSH reads the repo fine; the same repo over HTTPS:
+`Repository not found`), but Platform never consults it. This invalidates the Phase 2 decision above.
+Three independent confirmations it is by design: the docs list only HTTPS providers (PAT / GitHub
+App / …); Seqera `ssh` credentials exist to reach **SSH-enabled compute environments**, not Git; and
+`tw credentials add ssh` has no `--base-url`, so an ssh credential cannot be bound to a Git host even
+in principle (readback: `baseUrl: null`).
 
-#### Registering to the Launchpad is not a way around this
-
-**The Launchpad *is* `tw pipelines`** — same object, same API, and `tw pipelines add` is exactly the
-call that fails. Platform validates the repository at registration time, so registration is gated by
-the same missing credential as a launch; "register now, fix launching later" is not an available
-sequencing. Nor would registering first help: Platform does not cache pipeline code, so the head job
-clones at run time and needs a *live* credential either way. The existing `ALE-Yeast-aledev4test`
-entry (`181498121471668`) exists only because it was registered on **2026-04-20**, when a working
-GitHub credential was available.
-
-#### Where the credentials actually are — the gap is workspace scope
-
-| Scope | GitHub credential |
-|---|---|
-| `DTU-Biosustain/RECON-ALE` (the workspace in use) | **none** — only `azure_entra`, `ssh`, `azure` |
-| user / personal workspace | none |
-| `zhlia-org-ALE-beta/zhlia-wsp` | `seqera-platform-ale-16april2026` (provider `github`, last activity 2026-04-20, believed expired) |
-
-**Seqera credentials are workspace-scoped**, so the `zhlia-wsp` credential cannot serve a pipeline in
-`RECON-ALE`. `github_Aletechdev` — recorded in the plan as "expired, left in place" — is **not present
-in `RECON-ALE` at all**; that note described the other workspace. ⚠️ Token values **cannot be recovered
-from Platform** (the API returns `null` for every secret field), so an existing credential cannot be
-copied across workspaces — only re-entered from the original token.
-
-**The repository is genuinely private**, so a credential is unavoidable: an unauthenticated
-`git ls-remote https://github.com/Aletechdev/ALE_Yeast` returns `Repository not found`.
+Also learned, kept because the errors mislead: `tw launch <scp-style-url>` reports `Pipeline '…' not
+found on this workspace` (it fell back to a *name* lookup, the message describes the fallback);
+**registering to the Launchpad is not a way around** (the Launchpad *is* `tw pipelines` — same
+validation, and the head job clones at run time anyway, so a live credential is needed either way);
+**Seqera credentials are workspace-scoped** and secret values read back as `null`, so a credential in
+another workspace can only be re-entered from the original token, never copied; and the repo is
+genuinely private, so *some* credential is unavoidable.
 
 ### 2026-08-05 — GitHub App ruled out (no org ownership) → classic PAT
 
-**Decision: classic PAT**, because the better options are blocked by org permissions, not by merit.
+**Decision: classic PAT**, because the better options were blocked by org permissions, not by merit:
 
 | Option | Verdict |
 |---|---|
-| **GitHub App**, org-owned, scoped to `ALE_Yeast` | **The right answer, and unavailable.** It preserves every property the deploy key was chosen for — org-owned not person-owned, scopable to one repo, `Contents: Read` only, installation tokens auto-rotate so there is no expiry to miss. Platform supports it (manifest flow, or App ID + Installation ID + App slug + private key + client secret + webhook secret). **Blocked: creating an org-owned App and installing it requires org-owner rights on `Aletechdev`, which the operator does not have.** A *personally*-owned App installed on the org would work technically but reintroduces the person-tied dependency, i.e. it buys nothing over a PAT for much more effort. |
-| **Fine-grained PAT** | Gives exactly `Contents: Read` on `ALE_Yeast` alone — real least privilege. **Also needs an org owner**, but only to *approve a request*, not to build anything. Far smaller ask than the App; worth requesting even while unblocked by the classic token. This org has refused/queued these before ("approval pending"). |
-| **Machine-user + classic PAT** | Bot account added to `ALE_Yeast` as a read-only collaborator; use *its* token. Effective privilege is repo-scoped **and** not person-tied, and it needs only **repo-admin**, not org-owner. ⚠️ On paid org plans an outside collaborator on a private repo consumes a seat. |
-| **Classic PAT (chosen)** | Only option needing no one else's permission. ⚠️ **Cannot be fine-grained** — `repo` is all-or-nothing across every repo the user can reach, and there is no read-only scope for private repos (`public_repo` covers public only). Strictly broader than the deploy key it replaces; that is the price of the fallback, not a tuning oversight. |
+| **GitHub App**, org-owned | **The right answer, and unavailable** — creating and installing one needs org-owner rights on `Aletechdev`, which the operator lacks. A *personally*-owned App buys nothing over a PAT. |
+| **Fine-grained PAT** | Real least privilege (`Contents: Read`, one repo) but needs an org owner's *approval*. Submitted in parallel — approved in ~1 day; see 2026-08-07. |
+| **Machine-user + PAT** | Repo-scoped and person-free, needs only repo-admin. ⚠️ An outside collaborator on a private repo consumes a paid seat. |
+| **Classic PAT (chosen)** | The only option needing nobody's permission. ⚠️ **Cannot be narrowed** — `repo` is all-or-nothing read+write across every reachable repo; strictly broader than the deploy key. The price of the fallback, not a tuning oversight. |
 
-Creating it: Settings → Developer settings → Personal access tokens → **Tokens (classic)** →
-`repo` scope → **set an explicit expiry** (never "no expiration"). If `Aletechdev` enforces SAML SSO,
-**Configure SSO → Authorize** on the token afterwards or it fails silently against org repos.
+> ⏰ **Record any token's owner and expiry in the table below when it is created** — a shared org
+> workspace on one person's token fails, a year later, for someone who doesn't know who to chase.
+> 🔁 **Swap to an org-owned GitHub App when an org owner is available** — a credential change and
+> nothing else.
 
-Registering it — run it yourself so the token never enters a transcript or shell history:
+### 2026-08-06 — ✅ classic PAT registered; repo clones; first Launchpad entry live (💀 both since replaced)
 
-```bash
-read -rsp 'GitHub token: ' GH_TOKEN && export GH_TOKEN
-tw credentials add github -n github_ALE_Yeast_pat -w DTU-Biosustain/RECON-ALE \
-    -u <github-username> -p "$GH_TOKEN" --base-url https://github.com/Aletechdev
-```
+`personal_token_classic_ALE_yeast` unblocked the clone — proven by `tw pipelines add` succeeding,
+since it validates the repository at registration time. Entry `yAMP-ottilie-test` registered (CE
+`ale-ottilie-nf25104`, profile `docker`, params pasted from `conf/params_ottilie_test_blob.yml`).
+Both since replaced: the PAT by the fine-grained token (2026-08-07), the entry by
+`yAMP-ottilie-test-az` (2026-08-12/13). Durable findings:
 
-Then the Launchpad entry and the launch are one command each:
-
-```bash
-tw pipelines add https://github.com/Aletechdev/ALE_Yeast \
-    -n ale-ottilie-contract-test -w DTU-Biosustain/RECON-ALE \
-    -c ale-ottilie-nf25104 --revision main -p docker \
-    --params-file conf/params_ottilie_test_blob.yml
-```
-
-> ⏰ **Record the token's owner and expiry in the table below when it is created.** This is a *shared
-> org workspace* on *one person's* token — a teammate hitting an opaque launch failure in a year needs
-> to know who to chase. The same reasoning already applies to the Azure client secret.
->
-> 🔁 **Swap to a GitHub App when an org owner is available.** Nothing depends on which credential
-> authenticated the clone, so it is a credential change and nothing else.
-
-### 2026-08-06 — ✅ classic PAT registered; repo clones; Launchpad entry live
-
-**The blocker above is cleared.** A personal **classic** PAT was registered in `RECON-ALE` as
-`personal_token_classic_ALE_yeast` (`Z3yo4zFgy1xfdW0Ts11kI`, provider `github`), and Platform
-successfully cloned the private repo over HTTPS — proven by `tw pipelines add` succeeding, since it
-validates the repository at registration time.
-
-A **fine-grained** PAT (`Contents: Read` on `ALE_Yeast`, resource owner `Aletechdev`) was submitted in
-parallel and is **pending org-owner approval**. → ✅ **Approved the next day and swapped in; the classic
-PAT is retired — see the `2026-08-07` entry below.** ⚠️ Note for anyone repeating this: the org *does*
-appear in the fine-grained token's **Resource owner** dropdown — if the repo seems missing, the cause
-is Resource owner still set to the personal account, not the org disallowing it.
-
-**Launchpad pipeline registered:**
-
-| Field | Value |
-|---|---|
-| Name / id | `yAMP-ottilie-test` / `227651105760023` |
-| Repository | `https://github.com/Aletechdev/ALE_Yeast` (HTTPS — the only form Platform accepts) |
-| Revision / profile / labels | `main` / `docker` / `dev` |
-| Compute env | `ale-ottilie-nf25104` |
-| workDir / outdir | `az://aletest/nf-work` (from the CE) / `az://aletest/seqera-runs/2026-08-06-01` |
-
-⚠️ **`tw pipelines update` is broken** — HTTP 500 (`Unexpected error while processing request`) with
-`-n` or `-i`, full or partial options, while `add` with the *same* arguments succeeds. Work around it
-by deleting and re-adding (the pipeline id changes), or edit in the web UI.
-
-**One pipeline entry, not one per compute environment.** The CE is a single field at registration but
-is **overridable per launch** (`tw launch -c …`, or the dropdown on the UI launch form). So the Fusion
-comparison runs from this same entry against `ale-ottilie-nf25104-fusion` — which is also the
-methodologically better choice, since launching one record against two CEs guarantees nothing else
-differs between the two runs. ⚠️ Give the second run its own `outdir`.
-
-**Params stay dataset-specific and ready-to-run.** `conf/params_ottilie_test_blob.yml` is deliberately a
-filled-in, launch-without-editing file rather than a template with placeholders — splitting it into a
-generic template is explicitly deferred. Note that Platform stores params as a single `paramsText`
-blob, so launch-time params **replace** the saved set rather than merging key-by-key; saved params are
-an editable template, never inherited defaults.
-
-> 📛 **Renamed 2026-08-12: `params_ottilie_blob.yml` → `params_ottilie_test_blob.yml`.** The unmarked
-> name read as the generic default when it is in fact the narrow 2-sample, 4-chromosome subset. `_test`
-> matches the convention already used by `fastq_test/`, `S288C_reference_test/`,
-> `samplesheet_test_az.csv` and the `ottilie_test` profile. It survives because
-> `bin/test_ottilie_azure_batch.sh` reads it for the **local** head-job path.
->
-> 🚨 **A Launchpad entry does NOT reference a params file — it stores a pasted COPY.** The
-> `yAMP-ottilie-test` entry holds the params as `paramsText`, captured 2026-08-07 and never re-read.
-> **Editing the repo file does not change what that entry launches**; the two drift in silence, and
-> nothing warns you. The same applies to the *Nextflow config* box — see the same pattern recorded for
-> `ALE-Sarek-3.5.1` in [`../../../docs/seqera_cloud/seqera_cloud_deployment_checklist.md`](../../../docs/seqera_cloud/seqera_cloud_deployment_checklist.md)
-> ("Parameters | Content of `conf/params_seqera_test.yml`"), where it was written down as a setup step
-> rather than as a hazard.
->
-> ✅ **The fix is a profile, not a better paste.** `-p docker,ottilie_test_az` makes Platform read
-> [`conf/test/ottilie_test_az.config`](../../../conf/test/ottilie_test_az.config) from the cloned repo
-> on **every** launch, so there is no copy to rot. Only `outdir` stays in the parameters box, because
-> it must change per run anyway.
->
-> ⚠️ Two conditions, or the profile silently does nothing:
-> 1. **Empty the parameters box down to `outdir`.** Nextflow precedence is config < params-file < CLI,
->    and Platform passes `paramsText` as a params file — a full `paramsText` shadows the profile
->    entirely, and the run looks like the profile never took effect.
-> 2. **Push.** Platform clones from GitHub at the registered revision, so an unpushed profile edit does
->    not exist as far as a Launchpad run is concerned.
->
-> ⚠️ **`tw pipelines update` cannot be used to switch an existing entry over.** It returns HTTP 500,
-> reproduced on 0.38.0 (2026-08-12) — and unlike the `tw`-vs-API split in the autoscale case, going
-> under the CLI does **not** help: `PUT /pipelines/{id}` returns 400 both with `name` added and with the
-> full launch object round-tripped from `GET`. `add` is the only working path, so switching means
-> registering a new entry (new pipeline id) and deleting the old one.
+- ⚠️ **Fine-grained PAT gotcha**: the org *does* appear in the token's **Resource owner** dropdown —
+  if the repo seems missing, the cause is Resource owner still set to the personal account.
+- ⚠️ **`tw pipelines update` is broken** (HTTP 500; every alternative route fails too — the full
+  four-route table is in the 2026-08-12 entry). Every edit is delete-and-re-add, minting a new id.
+- **One entry serves many CEs and profiles** — both are overridable per launch, which is also the
+  methodologically clean way to compare two CEs with nothing else varying. Separate `outdir` per run.
+- 🚨 **An entry stores a pasted COPY of params (`paramsText`), never a reference** — editing the repo
+  file changes nothing that entry launches, and the copy rots in silence (the same hazard is written
+  into [`seqera_cloud_deployment_checklist.md`](../../../docs/seqera_cloud/seqera_cloud_deployment_checklist.md)
+  as if it were a setup step). The fix is profiles + a generated box — see 2026-08-12. Two conditions
+  or the profile silently does nothing: the box must not shadow it (`paramsText` is passed as a
+  params file, which beats config), and the profile edit must be **pushed** (Platform clones GitHub).
+- 📛 Renamed 2026-08-12: `params_ottilie_blob.yml` → `params_ottilie_test_blob.yml` (it is the
+  2-sample subset, not a generic default; still read by `bin/test_ottilie_azure_batch.sh` for the
+  local head-job path).
 
 ## Client secret
 
@@ -658,41 +437,21 @@ many tool images (GATK, snpEff, CNVkit, Manta, TIDDIT, igv-reports, MultiQC, Fas
   a run that is 98% done. This is the durable fix, and it is *cheaper* (head on `Standard_D2s_v3`).
 - **`--worker-boot-disk-size 256`** stops the workers filling in the first place.
 
-CE `ale-ottilie-nf25104-bigdisk` = `6buIkRXLMZFgDXs5NkyuH`. Verified at the Azure level — Forge built
-two pools with `diskSizeGb` **64** (head) and **256** (worker); the earlier CEs show `null` (Azure
-default), so the flag genuinely applied.
+CE `ale-ottilie-nf25104-bigdisk` (💀 since deleted): the first dual-pool + 256 GB CE, forged with
+`tw add … forge` flags — a route later found to silently create **fixed-size** pools (see the
+2026-08-07 cost incident); CEs are forged from a template now (`13_create_compute_env.sh`). Verified
+at the Azure level that the disk flags genuinely applied (64 GB head / 256 GB worker vs `null` on the
+older CEs).
 
-```bash
-tw compute-envs add azure-batch forge -n ale-ottilie-nf25104-bigdisk \
-    -w DTU-Biosustain/RECON-ALE -c azure_SP_cfb_ale_mutations_pipeline \
-    -l northeurope --work-dir az://aletest/nf-work -e NXF_VER=25.10.4 \
-    --dual-pool \
-    --head-vm-type Standard_D2s_v3    --head-vm-count 1   --head-boot-disk-size 64 \
-    --worker-vm-type Standard_E4ds_v4 --worker-vm-count 4 --worker-boot-disk-size 256
-```
+⚠️ **Dual pool requires explicit per-pool VM counts** — omitting `--head-vm-count`/`--worker-vm-count`
+fails despite the help text claiming a default. ⚠️ **Dual pool cold-starts slower** — ~17 min for the
+head pool to provision vs ~4 min single-pool, because the head job waits on its *own* VM.
 
-⚠️ **Dual pool requires explicit per-pool VM counts.** `--vm-count` is single-pool only; omitting
-`--head-vm-count`/`--worker-vm-count` fails with `Missing VM count parameter for head pool`, despite the
-help text saying the head count defaults to 1.
-
-⚠️ **Dual pool starts slower** — measured **4 min** (single-pool) vs **~17 min** for the head pool to
-provision a node. The head job waits on its *own* VM allocation instead of using whichever shared node
-came up first; worker nodes sit `idle` meanwhile. Cold-start only. `--head-no-auto-scale` would keep a
-head node warm at the cost of a `D2s_v3` running continuously.
-
-> **Better long-term fix (not yet applied):** relocate Docker's data-root to the ephemeral disk via a
-> Batch **pool start task** — `/mnt` on `Standard_E4ds_v4` is 150 GB of local NVMe, free with the VM and
-> faster than a managed OS disk:
-> ```
-> systemctl stop docker && mkdir -p /mnt/docker && rsync -aP /var/lib/docker/ /mnt/docker &&
-> sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/dockerd --data-root=/mnt/docker|" /lib/systemd/system/docker.service &&
-> systemctl daemon-reexec && systemctl start docker
-> ```
-> ⚠️ **`preRunScript` cannot do this** — it runs in the nf-launch script inside the *head job*, not as a
-> pool start task on every worker node. A start task requires a **pre-created pool** plus
-> `tw compute-envs add azure-batch manual --compute-pool-name/--worker-pool`, which means taking over
-> the autoscale formula, the verified `ubuntu-hpc/2404` image pin, and node lifecycle from Forge — and
-> the head pool must ship `azcopy`.
+> The nicer long-term fix — Docker's data-root on `/mnt` (150 GB ephemeral NVMe) via a pool start
+> task — is **deliberately parked** (2026-08-13, see Open items): it needs a `manual` CE that takes
+> pool lifecycle, the image pin and `azcopy` back from Forge, to solve a problem dual-pool + 256 GB
+> already solved. `preRunScript` cannot do it (head-job scope, not a start task). Detail: §9–§10 of
+> [`azure_batch_execution.md`](../../../docs/dev-practices/azure_batch_execution.md).
 
 ### 2026-08-06 — other Platform behaviours worth not rediscovering
 
@@ -721,74 +480,27 @@ head node warm at the cost of a `D2s_v3` running continuously.
 
 ### 2026-08-07 — ✅ swapped classic PAT → **fine-grained PAT**; org approval landed in ~1 day
 
-The fine-grained PAT submitted 2026-08-06 was **approved**, and the credential was swapped the same
-morning. `personal_token_classic_ALE_yeast` was deleted from `RECON-ALE` and replaced by
-**`github_ALE_Yeast_finegrained`** (`2NhER3hJHchursPHekAV1P`, provider `github`).
+`github_ALE_Yeast_finegrained` swapped in; `personal_token_classic_ALE_yeast` deleted from the
+workspace **and revoked at GitHub** — two separate actions, and only the second retires the `repo`
+read+write reach (a workspace readback looks identical either way). **Correction** to the 2026-08-05
+framing ("this org has refused/queued these before"): approval took **about one day**, so the next
+person should submit the fine-grained request first and wait a day before reaching for a classic token.
 
-**Correction to the 2026-08-05 option table:** it warned that *"this org has refused/queued these
-before (approval pending)"*, which framed the fine-grained route as slow enough to need a stopgap. The
-approval in fact took **about one day**. The classic PAT was still the right call — it unblocked Phase 6
-immediately and the approval time was unknowable in advance — but the next person facing this should
-**submit the fine-grained request first and wait a day** before reaching for a classic token.
+✅ **Verified in live use without spending a run** — reusable technique: note the credential's
+`lastUsed` via the API (a genuine usage stamp, distinct from `dateCreated`/`lastUpdated` — all three
+differ), open the pipeline's Launchpad form, re-read: `lastUsed` advances, because rendering the form
+fetches repo content with the credential live rather than replaying the stored pipeline record. The
+`ssh` deploy-key credential read **`never`** under the same test — empirical confirmation that
+Platform structurally cannot consult it for a pipeline repo — and was **deleted the same day** (the
+keypair survives for local/CI clones). 🗑️ `07_github_deploy_key.sh` was deleted with it (it handed
+out dead instructions; recoverable from git history), leaving a deliberate gap in the numbered
+sequence. **There is deliberately no replacement script for the GitHub credential**: the token is
+minted in the GitHub UI and registered with the hand-typed one-liner under *GitHub PAT* below, so the
+secret never enters a transcript or shell history.
 
-**Verified in use, without launching a run** — the `yAMP-ottilie-test` Launchpad form renders its
-parameters, i.e. Platform resolved `nextflow_schema.json` / `nextflow.config` for the private repo.
-`tw credentials list` shows the credential carrying activity:
-
-| ID | Provider | Name | Last activity |
-|---|---|---|---|
-| `2NhER3hJHchursPHekAV1P` | `github` | `github_ALE_Yeast_finegrained` | 2026-08-07 08:01:57 GMT |
-| `2nZYlDlUj2hutarvPunhRb` | `ssh` | `github_ALE_Yeast_deploykey` | **never** |
-
-⚠️ **`Last activity` is worth understanding before leaning on it**, because the obvious objection — that
-it is just the creation timestamp — has to be ruled out. The API (`GET /credentials?workspaceId=…`)
-exposes three separate fields, and for this credential they are all different: `dateCreated 07:49:50`,
-`lastUpdated 08:00:56`, **`lastUsed 08:01:57`**. `lastUsed` is therefore a genuine usage stamp, 12
-minutes after creation. The two Azure credentials confirm the semantics from the other direction —
-created in March and July, both showing `lastUsed` moving *today*, which is Platform's periodic
-compute-environment health check.
-
-It is also the **only** `github` credential in the workspace, so there is no ambiguity about which one
-Platform matched to `github.com`.
-
-✅ **Proven by a repeat, not by inference.** The first `lastUsed` (08:01:57) landed 61 s after
-`lastUpdated`, which left one loophole — a save-time validation of the just-edited credential, rather
-than a repo fetch. Closed by re-opening the Launchpad form at 12:29 and re-reading the API:
-`lastUsed` advanced to **12:29:12**, 30 s before the query, while `dateCreated`/`lastUpdated` stayed
-put. So **rendering the launch form consults this credential live** — Platform is fetching repo content
-over HTTPS with the fine-grained PAT, and is not replaying the pipeline record stored at
-`tw pipelines add` time (2026-08-06, under the classic PAT).
-
-**Reusable technique:** to test *any* Seqera Git credential without spending a run, note `lastUsed`,
-open the pipeline's launch form, and re-read it. A credential that cannot authenticate leaves it
-unchanged — which is exactly the `never` in the `ssh` row above.
-
-⚠️ The `ssh` deploy-key credential reads **`never`**, which is the empirical confirmation of the
-2026-08-05 finding: Platform structurally cannot use an SSH credential for a pipeline repository, so it
-was never consulted and never would be. **Deleted the same day** — readback then shows three
-credentials (`github`, `azure_entra`, `azure`), all with recent activity. The keypair itself is
-untouched and stays useful for local and CI clones.
-
-🗑️ **`07_github_deploy_key.sh` was deleted with it**, leaving a deliberate gap in the numbered
-sequence. Its STEP 2 registered the very `ssh` credential removed above and its STEP 3 instructed
-launching from `git@github.com:…` — both dead routes, so the script's remaining value (an `ssh-keygen`
-line) did not justify a file that hands out obsolete instructions. It is in git history if the deploy
-key ever needs regenerating; the key already on the repo is unaffected.
-
-**There is deliberately no replacement script for the GitHub credential.** The token is minted by the
-operator in the GitHub UI (org approval is a UI flow with no CLI equivalent) and registered with the
-one-liner under *GitHub PAT* below, typed by hand so the secret never enters a transcript or shell
-history. Scripting it would only move the token into a file.
-
-**The classic token was also revoked at GitHub on 2026-08-07**, not merely unregistered from Seqera.
-Those are two separate actions and only the second one actually retires the `repo` read+write reach —
-worth stating explicitly, because a workspace readback showing the credential gone looks identical in
-both cases.
-
-**What this fixes, and what it does not.** Blast radius: closed — `Contents: Read` on one repository
-replaces `repo` read+write across every repository the operator can reach. Person-tied dependency and
-finite expiry: **unchanged**. A shared org workspace still runs on one person's token; it now lapses in
-2027 instead of 2026. The org-owned GitHub App remains the durable answer and its open item stays open.
+**What this fixes, and what it does not.** Blast radius: closed (`Contents: Read` on one repo replaces
+`repo` read+write on everything). Person-tied dependency and finite expiry: **unchanged** — the
+org-owned GitHub App remains the durable answer and its open item stays open.
 
 ### 2026-08-07 — ✅ same-container rule CONFIRMED under a Platform head job (falsification test)
 
@@ -829,15 +541,11 @@ unverified. A pass proves both halves — the edited value is what the pipeline 
 else moved, since the `stable_path` md5 layer would have failed otherwise. The snapshot file is
 unchanged on disk after the run.
 
-### 2026-08-07 — Fusion CE re-forged with the dual-pool + disk fixes
+### 2026-08-07 — Fusion CE re-forged with the dual-pool + disk fixes (💀 since deleted)
 
-`ale-ottilie-nf25104-bigdisk_fusion` = `5acBaUVwry7j0DJmLnwyh0` — **AVAILABLE**. Fusion v2 + Wave **on**,
-dual-pool (head `Standard_D2s_v3`/64 GB, worker `Standard_E4ds_v4`/256 GB), `NXF_VER=25.10.4` on the head
-job, Entra credential, `workDir az://aletest/nf-work`.
-
-The original `ale-ottilie-nf25104-fusion` was single-pool with the default boot disk, so a run against it
-would have hit `DiskFull` (§9) and told us nothing about Fusion. Carrying the §9–§10 fixes over means a
-Fusion run now isolates **Fusion** as the single variable. The superseded CEs were disabled.
+`ale-ottilie-nf25104-bigdisk_fusion`: Fusion v2 + Wave, dual-pool, 256 GB workers — carrying the
+§9–§10 fixes over so a Fusion run isolates **Fusion** as the single variable instead of re-hitting
+`DiskFull`. The original single-pool `…-fusion` was disabled.
 
 ### 2026-08-07 — ✅ Fusion + Entra verified, and node disk usage MEASURED (one run, `XFwlgZnKvUvpu`)
 
@@ -883,48 +591,24 @@ Only the `root:` line is usable there.
 
 ### 2026-08-07 — 🚨 COST INCIDENT: `tw --dual-pool` creates FIXED-SIZE pools (~$66/day)
 
-**Ten nodes ran idle for hours.** Both dual-pool CEs forged with `tw` had
-`headPool.autoScale: null` / `workerPool.autoScale: null`, which Azure built as
-`enableAutoScale: False` — fixed at 1 head + 4 workers, billing regardless of load:
-**8× `E4ds_v4` + 2× `D2s_v3` ≈ $2.75/hr compute, plus ~$324/month of managed disks.**
-
-Noticed only because a *cold pool* was wanted for a disk baseline and the pools would not drain.
-
-**Reproduced deliberately** with a throwaway CE (`ale-ottilie-autoscale-test`, since deleted): same
-flags, same result. Repeatable CLI behaviour, not a one-off.
-
-**Root cause.** `tw compute-envs add azure-batch forge` exposes only flags to *disable* autoscaling —
-`--no-auto-scale`, `--head-no-auto-scale`, `--worker-no-auto-scale` — which reads as "enabled by
-default", and *is* true for **single-pool** (`autoScale: true`, pools sit at 0). For **dual-pool** it is
-not, and nothing warns you: `tw` reports success.
-
-✅ **The web UI CAN set it.** `ale-ottilie-nf25104-bigdisk_autoScale_manual` (`6zsRCxeGmUoiae4OVOGSKO`),
-created through the UI, reads back `headPool.autoScale: true` / `workerPool.autoScale: true`, and Azure
-confirms `enableAutoScale: True` with the pools draining to 0. So this is a **CLI gap, not a Platform
-limitation** — **create dual-pool CEs in the UI.**
-
-> ⚠️ **Superseded 2026-08-11** — the diagnosis holds, but "use the UI" and "`tw` cannot" were both too
-> strong. See the 2026-08-11 entry below: CEs are now created by script.
-
-**Remediation performed:** all four pinned pools resized to 0 (`az batch pool resize
---target-dedicated-nodes 0`), the test CE deleted (deletion disposes pools *and* disks). Two correct
-CEs now exist — `…_autoScale_manual` (Fusion) and `…_autoScale_manual_noFusion`.
-
-⚠️ **Still to do:** the `yAMP-ottilie-test` Launchpad entry points at `ale-ottilie-nf25104-bigdisk`,
-one of the **fixed-size** CEs. Repoint it to the `_noFusion` keeper before anyone launches, then delete
-both fixed-size CEs.
+**Ten nodes ran idle for hours.** Both dual-pool CEs forged with `tw` read back
+`autoScale: null`, which Azure builds as `enableAutoScale: False` — fixed at 1 head + 4 workers:
+**8× `E4ds_v4` + 2× `D2s_v3` ≈ $2.75/hr compute plus ~$324/month of managed disks**, billing
+regardless of load. Noticed only because a cold pool was wanted for a disk baseline and the pools
+would not drain; **reproduced deliberately** with a throwaway CE — repeatable CLI behaviour, not a
+one-off. Root cause: for dual-pool the CLI **omits** the `autoScale` field (single-pool is
+unaffected), nothing warns, and `tw` reports success. The web UI *can* set it — but "use the UI" was
+**superseded 2026-08-11**: CEs are created from a template now (next entry). Remediation: pools
+resized to 0; the fixed-size CEs were eventually deleted 2026-08-13.
 
 **Guard added:** [`12_verify_compute_env.sh`](12_verify_compute_env.sh) asserts `autoScale` on both
-pools (plus workDir, `NXF_VER`, disk sizes) and exits non-zero with the resize/delete steps. Verified
-against both a good and a bad CE. ⚠️ **CEs are immutable** — a wrong setting can only be deleted and
-recreated, so verify *before* launching, not after the invoice.
+pools (plus workDir and disk sizes) and fails with the resize/delete steps. ⚠️ **CEs are immutable** —
+verify *before* launching, not after the invoice.
 
-⚠️ **A new pool shows 1 node for its first ~5 minutes and that is normal** — the Forge autoscale formula
-pins the first interval (`$TargetDedicatedNodes = lifespan < interval ? 1 : targetPoolSize`). `1 + 1`
-right after creation proves nothing; **`0 + 0` fifteen minutes later** is the real check. Confirmed
-unrelated to Wave/Fusion — a duplicate CE with both disabled behaves identically.
-⚠️ **`--worker-vm-count` is a CEILING under autoscale**, not an allocation: the autoscaling CE started
-at 1 + 1 and scales toward 4, while the fixed one went straight to 1 + 4 and stayed.
+⚠️ **A new pool shows 1 node for its first ~5 minutes by design** (the Forge formula pins the first
+interval) — `1 + 1` right after creation proves nothing; **`0 + 0` fifteen minutes later** is the real
+check. Unrelated to Wave/Fusion. ⚠️ **`--worker-vm-count` is a CEILING under autoscale**, not an
+allocation.
 
 ### 2026-08-11 — ✅ CEs are now created from code (`tw compute-envs import`)
 
@@ -971,40 +655,16 @@ flips only `fusion2Enabled`/`waveEnabled`). ⚠️ `tw` strips the template's tr
 labels go through `--labels`, not the config body. The script refuses to run if the template's
 `autoScale` is not `true`.
 
-### 2026-08-12 — ✅ Launchpad params come from the repo now, not a pasted copy
-
-**New entry `yAMP-ottilie-test-az` (`227711052831937`)**, registered with `tw pipelines add` because
-`update` is dead (see the note under *Params stay dataset-specific* above). Readback:
-
-| Field | Value |
-|---|---|
-| Compute env | `ale-ottilie-nf25104-bigdisk_autoScale_manual_noFusion` (`5u0qeS7p3cNmOITd5Gdhe1`) |
-| Repo / revision | `https://github.com/Aletechdev/ALE_Yeast` @ `main` |
-| **Config profiles** | **`docker`, `ottilie_test_az`** ← the params live in the repo |
-| **paramsText** | **one line** — `outdir: "az://aletest/seqera-runs/2026-08-12-01"` |
-| `nextflowVersion` / `configText` | unset |
-
-**One entry, not one per dataset.** Profiles are overridable per launch, exactly as the CE is, so the
-full-depth pilot runs from this same entry with `-p docker,ottilie_pilot_az` plus its own `outdir`.
-
-⚠️ **`nextflowVersion` is deliberately left unset**, unlike the old entry which stored `26.04`. That
-value never took effect — the CE's `NXF_VER=25.10.4` wins (§12) — and it contradicts what actually
-runs, since 26.x cannot parse `nextflow.config`. Pinning the engine per *pipeline* rather than per *CE*
-is arguably the better model (one CE could then serve entries on different versions), but it is not
-usable yet: neither `tw pipelines add` nor `tw launch` has a `--nextflow-version` flag, so it is
-UI-only, and the CE-level pin additionally covers ad-hoc launches that name no entry. Revisit if `tw`
-gains the flag.
-
-✅ **The old `yAMP-ottilie-test` (`227651105760023`) was kept as a fallback until the new entry was
-proven by a run, then deleted 2026-08-13.** A readback proves *configuration*; only a real run proves
-the profile resolves on Platform — and since neither entry can be renamed or patched, there was no cost
-to waiting. Run `1XuapND2cN2oCO` provided that proof (see the 2026-08-13 entry).
-
 ### 2026-08-12 — Launchpad params moved into the repo, and the one default that refuses to move
 
 **New entry `yAMP-ottilie-test-az` (`172614290773283`)**, registered by
-[`14_register_pipeline.sh`](14_register_pipeline.sh). Config profiles `docker, ottilie_test_az`; the CE
-is the autoscaling non-Fusion keeper; `nextflowVersion` and `configText` unset.
+[`14_register_pipeline.sh`](14_register_pipeline.sh) because `update` is dead (four-route table
+below). Config profiles **`docker, ottilie_test_az`** — the params live in the repo, read from the
+clone at every launch, so there is no pasted copy to rot. The CE is the autoscaling non-Fusion keeper;
+`nextflowVersion` and `configText` unset. **One entry, not one per dataset** — profiles are
+overridable per launch, exactly as the CE is, so the full-depth pilot runs from this same entry with
+`-p docker,ottilie_pilot_az` plus its own `outdir`. (An earlier same-day registration of this entry
+under id `227711052831937` was itself replaced within hours — the id churn below is why.)
 
 ⚠️ **There is NO way to change a registered entry in place — all four routes were tried (2026-08-12):**
 
@@ -1192,6 +852,43 @@ Traps found while doing it, each verified:
 - ✅ **The head job exited cleanly** — status `SUCCEEDED`, pools drained to 0 unaided. The
   `1XuapND2cN2oCO` hang is therefore intermittent, not systematic; the reaper open item stays open.
 
+### 2026-08-13 — ✅ Fusion does NOT lift the same-container rule; cross-container `outdir` publish DOES work (run `3AJ4JRNkb7D2dG`)
+
+`ottilie-xcontainer-fusion-01` repeated the `48kJmc9QY6Q3h9` predicted-failure launch on a freshly
+forged Fusion CE (`yAMP-ce-fusion-256`, forged and deleted the same day by `13_create_compute_env.sh
+… --fusion`): inputs in `aletest`, `--work-dir az://debugging/nf-work-xcontainer-fusion-20260813`,
+explicit `outdir` back in `aletest`, `conf/disk_probe.config` attached. **FAILED — 0/6 tasks, the
+same six `aletest`-reading processes as the baseline, ~5 min in** (engine 25.10.4, `commitId 0a9e65c`).
+A cheap test, and each of its four findings is one the baseline could not give:
+
+1. **The same-container rule is a property of the credential delegation, not of the data path.**
+   Fusion consumed the same single container-scoped user-delegation SAS Nextflow mints for the
+   work-dir container and presented it against `aletest` — `.fusion.log` records the server's
+   `403 AuthenticationFailed` with the string-to-sign scoped to the work-dir container, plus Fusion's
+   own summary: *"Fusion authenticated successfully but lacks permission to access this resource."*
+   The rule is now confirmed under both the azcopy (non-Fusion) and FUSE (Fusion) data paths —
+   **do not design around Fusion lifting it.** §3 of
+   [`azure_batch_execution.md`](../../../docs/dev-practices/azure_batch_execution.md) updated.
+2. **Debuggability is better under Fusion.** `.command.err` is non-empty (`Permission denied` from
+   samtools) and `.fusion.log` carries the full 403 — unlike the non-Fusion signature, where the only
+   evidence is `Unable to download path` in `.command.log` and stderr is empty.
+3. **Cross-container `outdir` under a Platform head job: proven for `publishDir` writes.** The head
+   job published five `pipeline_info/` files into
+   `az://aletest/seqera-runs/yAMP-out-xcontainer-fusion-20260813/` (kept as evidence) while `workDir`
+   sat in `debugging` — publishing runs in the head process under the full SP credential, exempt from
+   the node SAS rule, now verified under Platform and not only locally. Task-output publishing uses
+   the same head-side mechanism but has not been demonstrated end-to-end by a successful
+   cross-container run.
+4. **The disk probe is `root:`-only under Fusion, `/mnt` line included.** Cold node: 47.4 G of
+   246.9 G ≈ the ~45 G base + first image pulls. The `work:` line reports Fusion's synthetic
+   `8.0P /fusion`; the `mnt:` line reports the **container overlay**, not the host `/mnt` — so
+   Fusion-cache-vs-Docker competition for the ephemeral disk remains unmeasurable from inside a
+   container. No cache-growth data from this run (it died before real I/O); that needs a successful
+   same-container Fusion run with the probe attached.
+
+Cleanup: CE deleted (pools and disks disposed — the Batch account is back to only
+`yAMP-ce-nofusion-256`'s two pools); the `debugging` work dir purged; the outdir evidence blobs kept.
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |
@@ -1249,22 +946,15 @@ revoke the token** — see the open item below.
 
 ## Open items
 
-> 📋 **This file needs slimming.** ~2,000 lines across it, `azure_batch_execution.md`,
-> `output_comparison.md` and `../README.md`, with the same findings written out in full in two or three
-> places (the DiskFull story, the dual-pool autoscale incident, the same-container rule). The
-> convention to restore is `CLAUDE.md`'s: dated record here, durable rules in `docs/`, summary +
-> pointer in `CLAUDE.md`. **This runbook should shrink the most**: entries should say *what was run,
-> when, and what was concluded* — then link to `azure_batch_execution.md` for the explanation.
-> Superseded sagas can collapse behind `<details>` or reduce to a line plus a pointer.
-> ⚠️ **Keep every ⚠️ that cost real time or money, and keep the corrections** —
-> entries recording claims that turned out wrong (the "~30 GB default OS disk", concurrency as the
-> DiskFull cause, the warm-node disk baseline) exist so the wrong conclusion is not re-derived; they
-> can be compressed to a line each, never deleted. Afterwards run
+> 📋 **Slimmed 2026-08-13** (from ~1,440 lines: superseded sagas compressed, 💀 marks entries whose
+> resources no longer exist, every ⚠️ and correction kept). The standing convention (`CLAUDE.md`'s):
+> dated record here — *what was run, when, what was concluded* — durable rules in
+> `azure_batch_execution.md`, summary + pointer in `CLAUDE.md`. Write new entries in that shape, keep
+> corrections (so wrong conclusions are not re-derived), and after edits run
 > `python docs/dev-practices/check_docs.py` — broken links must be 0.
 > 📌 `NEXT_TASKS.md` (the 2026-08-07 handoff file) was **retired 2026-08-13**: its Task 1 (CE-as-code)
-> was closed 2026-08-11, this banner absorbed Task 2 (doc slimming), and every remaining item it
-> listed was already tracked in the list below. Its stale "live resources" table (pre-dating the
-> 2026-08-13 CE cleanup) died with it.
+> was closed 2026-08-11, this banner absorbed Task 2 (doc slimming, executed the same day), and every
+> remaining item it listed was already tracked in the list below.
 
 - [x] Grant the two roles (`02_grant_roles.sh`) — done 2026-07-31, verified.
 - [x] Create a client secret (`03_create_secret.sh`) — done 2026-07-31.
@@ -1313,16 +1003,17 @@ revoke the token** — see the open item below.
 - [x] **Does the pipeline still work under Fusion?** — done 2026-08-07, run `XFwlgZnKvUvpu`: 170/170,
       0 `DiskFull`, all nine cohort deliverables byte-identical to `seqera-runs/2026-08-06-04`. See the
       entry above.
-- [ ] **Does Fusion lift the same-container rule?** Repeat the `48kJmc9QY6Q3h9` launch exactly —
-      `--work-dir az://debugging/…`, inputs in `aletest`. That run is a clean **predicted-failure**
-      baseline (0/6 tasks, `Unable to download path`), so success here is unambiguous evidence Fusion
-      uses per-container tokens. ⚠️ Until then, **do not design around it**.
-      ⚠️ Launch against **`ale-ottilie-nf25104-bigdisk_autoScale_manual`** (`6zsRCxeGmUoiae4OVOGSKO`),
-      the autoscaling Fusion keeper. This item previously named `…-bigdisk_fusion`, which is one of the
-      two **fixed-size** CEs on the delete list below — launching there would bill 24/7.
-      📌 Predicted failure ⇒ **no disk data**; it cannot double as the cold-pool disk run.
-- [ ] Still unproven: **`outdir` in a different container under a Platform head job.** Verified locally
-      only; the cross-container run died before publishing, so it tested nothing about `outdir`.
+- [x] **Does Fusion lift the same-container rule?** — **answered 2026-08-13: NO.** Run
+      `3AJ4JRNkb7D2dG` repeated the `48kJmc9QY6Q3h9` launch on a fresh Fusion CE and failed
+      identically (0/6, same six tasks); `.fusion.log` shows the container-scoped SAS being rejected
+      with a 403 against `aletest`. The rule tracks the **credential delegation**, indifferent to the
+      data path. See the 2026-08-13 entry.
+- [x] **`outdir` in a different container under a Platform head job** — **proven 2026-08-13 for
+      `publishDir` writes**: the same run published `pipeline_info/` into `aletest` while `workDir`
+      sat in `debugging`. Task-output publishing uses the same head-side mechanism; an end-to-end
+      demonstration by a successful cross-container run has not happened (and cannot, given the rule
+      above blocks task *reads* — the only way to see it would be inputs+workDir together in one
+      container and `outdir` in another).
 - [x] 📏 **Measure actual node disk usage** — done 2026-08-07: **peak 65.2 G of 246.9 G (26%)**.
       ⚠️ Measured on **warm** nodes (already ~340 tasks across two runs), so it is a multi-run
       accumulation, and the base-OS vs pipeline-image split is **still unknown**. → split settled by
