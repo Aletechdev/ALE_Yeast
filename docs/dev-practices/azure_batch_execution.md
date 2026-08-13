@@ -22,7 +22,7 @@ Azure/SP provisioning: [`deploy/azure/`](../../deploy/azure/).
 Everything below was found by *running* it. None of it is visible to the local test suite, and several
 items produce errors that point at the wrong thing entirely.
 
-📌 **§15 is a register of claims that were believed and then disproved.** Read it before concluding
+📌 **§16 is a register of claims that were believed and then disproved.** Read it before concluding
 that some tool "cannot" do something — several entries here were once confidently written the other way.
 
 ---
@@ -697,7 +697,57 @@ id — observed three times on 2026-08-12. Compare `commitId`s, never hashes.
 
 ---
 
-## 15. Corrections — claims that were believed, then disproved
+## 15. 🚨 Platform's run status can be wrong in BOTH directions — and nothing reaps a hung head job
+
+**Observed 2026-08-13, run `1XuapND2cN2oCO`.** Platform showed **`UNKNOWN`**, frozen at 132 succeeded /
+9 running. The run had in fact **finished successfully**: the head job's own log ends with
+`[Aletechdev/ALE_Yeast] Pipeline completed successfully`, 534 blobs were published, and all nine
+cohort deliverables were byte-identical to the `2026-08-06-04` baseline.
+
+**What actually happened.** The head job completed the pipeline and then **hung instead of exiting** —
+most likely blocked in the Tower plugin posting its terminal status, which fits the heartbeats stopping
+at the same moment (`lastUpdated` froze at 11:47:31Z, the last log line was 11:48:13Z, and the Batch
+task was still `running` 40 minutes later). Platform never received the completion event, so it fell
+back to `UNKNOWN`.
+
+⚠️ **Cancelling then makes the record wrong the other way.** `tw runs cancel` does reach Azure — the
+head task ended `exitCode 137` (SIGKILL) and the pools drained within 5 minutes — but Platform now
+records the run as **`CANCELLED`**, for a run whose outputs are complete and verified. So:
+
+| Platform says | Can actually mean |
+|---|---|
+| `UNKNOWN` | finished successfully but could not report it |
+| `CANCELLED` | finished successfully, then someone killed the hung process |
+| `RUNNING` | finished; the head job simply has not exited |
+
+**Never treat Platform status as the outcome.** Two sources that are authoritative:
+
+```bash
+# 1. the head job's own log — the only place "Pipeline completed successfully" appears
+az batch task file download --job-id nf-workflow-<runId> --task-id nf-workflow-<runId> \
+    --file-path stdout.txt --destination /tmp/head.txt && tail -3 /tmp/head.txt
+
+# 2. what actually landed (see also output_comparison.md — contentMd5 is NOT populated)
+az storage blob list -c aletest --account-name aledata --auth-mode login \
+    --prefix "seqera-runs/<outdir>" --query "length(@)" -o tsv
+```
+
+⚠️ **Worker nodes going `leavingpool` is not a symptom.** They drain because the work finished — during
+this incident that reading looked like a stall and it was the opposite.
+
+🚨 **`jobMaxWallClockTime` does NOT apply to the head job.** `ce_import_template.json` sets `"7d"`, but
+Azure reported `P10675199DT2H48M5.4775807S` — .NET `TimeSpan.MaxValue`, i.e. **no limit** — on
+`nf-workflow-1XuapND2cN2oCO`. So a hung head job holds its node **indefinitely**; nothing reaps it. The
+head pool cannot scale to 0 while a task is `running`, so the node bills until someone notices. Check
+after any run that ends in a non-terminal state:
+
+```bash
+az batch pool list --query "[?contains(id,'<ce-id>')].[id,currentDedicatedNodes]" -o tsv
+```
+
+---
+
+## 16. Corrections — claims that were believed, then disproved
 
 **Read this before re-deriving anything.** Each line is a conclusion that was written down as fact and
 later shown to be wrong. They are kept because the wrong answer is reachable from the same evidence

@@ -981,14 +981,14 @@ usable yet: neither `tw pipelines add` nor `tw launch` has a `--nextflow-version
 UI-only, and the CE-level pin additionally covers ad-hoc launches that name no entry. Revisit if `tw`
 gains the flag.
 
-⚠️ **The old `yAMP-ottilie-test` (`227651105760023`) is deliberately still there.** The readback proves
-the *configuration*; only a real run proves the profile resolves on Platform. Keep the old entry as a
-fallback until a contract-test run passes on the new one, then delete it — there is no cost to waiting
-and no way to rename or patch either entry if the new one turns out wrong.
+✅ **The old `yAMP-ottilie-test` (`227651105760023`) was kept as a fallback until the new entry was
+proven by a run, then deleted 2026-08-13.** A readback proves *configuration*; only a real run proves
+the profile resolves on Platform — and since neither entry can be renamed or patched, there was no cost
+to waiting. Run `1XuapND2cN2oCO` provided that proof (see the 2026-08-13 entry).
 
 ### 2026-08-12 — Launchpad params moved into the repo, and the one default that refuses to move
 
-**New entry `yAMP-ottilie-test-az` (`117050096653477`)**, registered by
+**New entry `yAMP-ottilie-test-az` (`172614290773283`)**, registered by
 [`14_register_pipeline.sh`](14_register_pipeline.sh). Config profiles `docker, ottilie_test_az`; the CE
 is the autoscaling non-Fusion keeper; `nextflowVersion` and `configText` unset.
 
@@ -1084,9 +1084,9 @@ evaluated when the head node parses the config, so a `-resume` publishes to a **
 an explicit `outdir` when resuming. ⚠️ `workflow.runName` is **not** available in config on 25.10.4
 (`Unknown config attribute`), which is why this uses a timestamp rather than the Platform run name.
 
-⚠️ **The old `yAMP-ottilie-test` (`227651105760023`) is deliberately still there.** The readback proves
-configuration, not behaviour — only a successful run proves the profile resolves on Platform. Keep it
-as a fallback until a contract-test run passes on the new entry.
+✅ **The old `yAMP-ottilie-test` (`227651105760023`) was deleted 2026-08-13**, once run
+`1XuapND2cN2oCO` proved the new entry end to end. It was kept until then precisely because a readback
+proves configuration, not behaviour.
 
 **Registration is now scripted:** [`14_register_pipeline.sh`](14_register_pipeline.sh) +
 [`launchpad_params_ottilie_test_az.yml`](launchpad_params_ottilie_test_az.yml). The box content lives
@@ -1103,6 +1103,42 @@ a minimal box breaks the launch-page UX, and no box at all breaks the run outrig
 The duplication is at least *generated and drift-checked* rather than hand-maintained. A genuinely
 elegant fix needs one of: Platform reading profiles when rendering the form, Platform not injecting
 schema defaults, or `tw pipelines update` working so the box can be refreshed without a new id.
+
+### 2026-08-13 — ✅ the profile/box change set VALIDATED by a run, and two new traps
+
+**Run `1XuapND2cN2oCO`**, launched from the UI on `yAMP-ottilie-test-az` → CE `yAMP-ce-nofusion-256`,
+`outdir az://aletest/seqera-runs/yAMP-out-test-20260813`. **All nine cohort deliverables byte-identical
+to the `2026-08-06-04` baseline** (downloaded and md5'd — `contentMd5` is not populated on
+Nextflow-published blobs), 534 blobs.
+
+| Proved by this run | Evidence |
+|---|---|
+| Config refactor (`ottilie_common` + `_az` profiles) is behaviour-preserving **in the cloud** | 9/9 deliverables identical; local `nextflow config` equality had only proved it on paper |
+| Params via the generated box, not a pasted copy | 17 submitted params, 16 ours + `custom_config_base` |
+| `snpeff_cache` repeated in the box fixes §13 | ran past the point that killed `2eiGBEA0NXagap`; **no `s3://` injection** |
+| **Engine pin moved CE → Launchpad entry** | head job ran **25.10.4** with **no `NXF_VER` on the CE** |
+| `import` carries `nextflowVersion` where `add` cannot | that pin arrived via `14_register_pipeline.sh` |
+| A CE forged by `13_create_compute_env.sh` runs real work | dual-pool, autoscaled, no `DiskFull` |
+| `main` is resolved at launch (§14) | run recorded `commitId 2fc5ccf3`, which the entry never names |
+
+🚨 **Trap 1 — the run was reported `UNKNOWN` while succeeding.** Platform froze at 132/9 (`lastUpdated`
+11:47:31Z) because the head job **completed the pipeline and then hung instead of exiting**, so the
+terminal status was never sent. `tw runs cancel` killed it (`exitCode 137`) and pools drained to `0+0`
+within 5 minutes — but the run is now filed as **`CANCELLED`**, for a run whose outputs are complete
+and verified. ⚠️ **Cite this run by evidence, never by its Platform status.** Mechanism, both failure
+directions, and the two authoritative sources:
+[`azure_batch_execution.md` §15](../../../docs/dev-practices/azure_batch_execution.md).
+
+🚨 **Trap 2 — `jobMaxWallClockTime` does not apply to the head job.** `ce_import_template.json` sets
+`"7d"`; Azure reported `TimeSpan.MaxValue` (no limit) on `nf-workflow-1XuapND2cN2oCO`. A hung head job
+therefore holds its node **indefinitely** — the head pool cannot scale to 0 while a task is `running`.
+Only noticed because the pool was being watched. **Added to Open items.**
+
+**Also changed today:** `NXF_VER` removed from `ce_import_template.json`; `12_verify_compute_env.sh`
+no longer requires it (`EXPECT_NXF_VER` defaults empty — set it to re-assert on an older CE);
+`14_register_pipeline.sh` registers via `import` with `NEXTFLOW_VERSION` and asserts it on readback.
+⚠️ The trade: a launch that does **not** come from an entry carrying the pin now gets Platform's
+default engine, and 26.x cannot parse `nextflow.config`.
 
 ## GitHub PAT (fine-grained — current credential)
 
@@ -1240,7 +1276,7 @@ revoke the token** — see the open item below.
       sizing, and whether Fusion's cache competes with Docker for `/mnt` before Docker is moved there.
 
       **Inputs — full-depth ottilie pilot, 4 samples. ✅ STAGED 2026-08-12** by
-      [`upload_pilot_data.sh`](../../../docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/upload_pilot_data.sh):
+      [`upload_pilot_data.sh`](../../../docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/upload_pilot_data.sh):
       8 FASTQs (4.0 G, verified byte-for-byte) → `az://aletest/ottilie/v1/fastq_pilot_full/`, full
       reference (~79 M: fasta, genbank, snpeff_cache, chromosomes) → `…/S288C_reference/`, plus
       `…/samplesheet_pilot_az.csv`. All in the **private** `aletest` container — same container as
@@ -1318,4 +1354,18 @@ revoke the token** — see the open item below.
       resolve by display name, so update `SP_DISPLAY_NAME` in `00_vars.sh` at the same time.
 - [ ] Rotate the plaintext secret in `tmp/azure/azure_sp/.azure_sp.env` — it belongs to the *other* SP,
       not this one, but it is a live secret sitting unencrypted in the working tree. (Gitignored via
-      `*.env`, so not committed.)
+      `*.env`, so not committed.) 📌 As of 2026-08-13 **the file no longer exists on this machine**, so
+      the local exposure is gone — but the credential itself may still be live. Rotation is the task.
+- [ ] 🚨 **Make something reap a hung head job.** `jobMaxWallClockTime: "7d"` in
+      `ce_import_template.json` does **not** apply — Azure reported `TimeSpan.MaxValue` on
+      `nf-workflow-1XuapND2cN2oCO` (2026-08-13), so a head job that hangs after completing holds its
+      node until a human notices; the head pool cannot scale to 0 while a task is `running`. Options:
+      find where the setting is actually honoured (job vs task constraints), set
+      `constraints.maxWallClockTime` on the Batch job directly, or add a cheap post-run check. Until
+      then: **after any run that ends in a non-terminal state, check
+      `az batch pool list --query "[?contains(id,'<ce-id>')].[id,currentDedicatedNodes]" -o tsv`.**
+- [ ] Delete the six DISABLED compute environments — including the two **fixed-size** ones
+      (`ale-ottilie-nf25104-bigdisk`, `…-bigdisk_fusion`) from the 2026-08-07 cost incident. All are at
+      0 nodes, so nothing is billing, but deletion also disposes their pools and disks.
+      `yAMP-ce-nofusion-256` is the only keeper. ⚠️ It is **warm** after run `1XuapND2cN2oCO`, so the
+      cold-pool disk baseline needs a freshly forged CE, not this one.

@@ -25,7 +25,7 @@
 # Config reference (each value established by running it — see
 # docs/dev-practices/azure_batch_execution.md):
 #   workDir  az://aletest/nf-work   §3  MUST share a container with the inputs
-#   NXF_VER  25.10.4                §12 26.x cannot parse nextflow.config
+#   NXF_VER  (no longer on the CE)  §12 moved to the Launchpad entry 2026-08-12; see EXPECT_NXF_VER
 #   head     Standard_D2s_v3  64GB  §10 head job isolated from worker churn
 #   worker   Standard_E4ds_v4 256GB §9  peak measured 65.2 G; the default overflows
 
@@ -45,7 +45,13 @@ API="${SEQERA_API:-https://api.cloud.seqera.io}"
 
 EXPECT_WORKER_DISK="${EXPECT_WORKER_DISK:-256}"
 EXPECT_HEAD_DISK="${EXPECT_HEAD_DISK:-64}"
-EXPECT_NXF_VER="${EXPECT_NXF_VER:-25.10.4}"
+# ⚠️ EMPTY BY DEFAULT since 2026-08-12 — the engine pin MOVED OFF the compute environment and onto
+# the Launchpad entry's Nextflow-version field. A CE created from ce_import_template.json no longer
+# carries NXF_VER, so requiring it here would fail every new CE.
+# Set EXPECT_NXF_VER=25.10.4 to re-assert it on a CE that is supposed to have one.
+# ⚠️ The trade this accepts: with no CE-level pin, a launch that does NOT come from an entry with the
+# version set gets Platform's default engine — and 26.x cannot parse nextflow.config (§12).
+EXPECT_NXF_VER="${EXPECT_NXF_VER:-}"
 EXPECT_WORKDIR="${EXPECT_WORKDIR:-az://aletest/nf-work}"
 
 # Resolve name -> id (accepts either).
@@ -79,8 +85,12 @@ def chk(ok, msg):
 
 print(f"{c['name']}  ({ce_id})  status={c['status']}")
 chk(g.get('workDir') == workdir, f"workDir = {workdir} (got {g.get('workDir')})")
-chk(any(e.get('name')=='NXF_VER' and e.get('value')==nxf and e.get('head')
-        for e in (g.get('environment') or [])), f"NXF_VER={nxf} on the head job")
+if nxf:
+    chk(any(e.get('name')=='NXF_VER' and e.get('value')==nxf and e.get('head')
+            for e in (g.get('environment') or [])), f"NXF_VER={nxf} on the head job")
+else:
+    have = [e.get('value') for e in (g.get('environment') or []) if e.get('name')=='NXF_VER']
+    print(f"  info  NXF_VER on the CE: {have or 'none — engine pinned on the Launchpad entry instead'}")
 
 if f.get('dualPoolConfig'):
     chk(worker.get('bootDiskSizeGB')==wdisk, f"worker boot disk {wdisk} GB (got {worker.get('bootDiskSizeGB')})")

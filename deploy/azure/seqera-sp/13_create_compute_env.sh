@@ -66,7 +66,11 @@ fi
 [[ -r "$TEMPLATE" ]] || { echo "FATAL: template '$TEMPLATE' not readable" >&2; exit 1; }
 
 # Fusion is the ONLY axis this script varies: two booleans in an otherwise verbatim template.
-# Everything else (workDir, NXF_VER, VM types, disk sizes, autoScale) is deliberately fixed —
+# ⚠️ The template no longer carries NXF_VER (removed 2026-08-12): the engine pin lives on the
+# Launchpad entry's Nextflow-version field instead, so it travels with the pipeline rather than
+# with the compute resources. A launch that does not come from such an entry gets Platform's
+# default engine — and 26.x cannot parse nextflow.config.
+# Everything else (workDir, VM types, disk sizes, autoScale) is deliberately fixed —
 # each of those values was established by running it, see docs/dev-practices/azure_batch_execution.md.
 FUSION=false
 [[ "$MODE" == "--fusion" ]] && FUSION=true

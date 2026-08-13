@@ -1,43 +1,37 @@
 {
-  "discriminator" : "azure-batch",
-  "deleteJobsOnCompletion" : "never",
-  "deleteJobsOnCompletionEnabled" : false,
-  "deleteTasksOnCompletion" : true,
-  "forge" : {
-    "bootDiskSizeGB" : null,
-    "disposeOnDeletion" : true,
-    "dualPoolConfig" : true,
-    "headPool" : {
-      "autoScale" : true,
-      "bootDiskSizeGB" : 64,
-      "vmCount" : 1,
-      "vmType" : "Standard_D2s_v3"
+  "discriminator": "azure-batch",
+  "deleteJobsOnCompletion": "never",
+  "deleteJobsOnCompletionEnabled": false,
+  "deleteTasksOnCompletion": true,
+  "forge": {
+    "bootDiskSizeGB": null,
+    "disposeOnDeletion": true,
+    "dualPoolConfig": true,
+    "headPool": {
+      "autoScale": true,
+      "bootDiskSizeGB": 64,
+      "vmCount": 1,
+      "vmType": "Standard_D2s_v3"
     },
-    "workerPool" : {
-      "autoScale" : true,
-      "bootDiskSizeGB" : 256,
-      "vmCount" : 4,
-      "vmType" : "Standard_E4ds_v4"
+    "workerPool": {
+      "autoScale": true,
+      "bootDiskSizeGB": 256,
+      "vmCount": 4,
+      "vmType": "Standard_E4ds_v4"
     }
   },
-  "fusion2Enabled" : false,
-  "headJobCpus" : null,
-  "headJobMemoryMb" : null,
-  "jobMaxWallClockTime" : "7d",
-  "managedIdentityClientId" : null,
-  "managedIdentityHeadResourceId" : null,
-  "managedIdentityPoolClientId" : null,
-  "managedIdentityPoolResourceId" : null,
-  "region" : "northeurope",
-  "subnetId" : null,
-  "terminateJobsOnCompletion" : true,
-  "waveEnabled" : false,
-  "environment" : [ {
-    "compute" : false,
-    "head" : true,
-    "name" : "NXF_VER",
-    "value" : "25.10.4"
-  } ],
-  "workDir" : "az://aletest/nf-work",
-  "labels" : [ ]
+  "fusion2Enabled": false,
+  "headJobCpus": null,
+  "headJobMemoryMb": null,
+  "jobMaxWallClockTime": "7d",
+  "managedIdentityClientId": null,
+  "managedIdentityHeadResourceId": null,
+  "managedIdentityPoolClientId": null,
+  "managedIdentityPoolResourceId": null,
+  "region": "northeurope",
+  "subnetId": null,
+  "terminateJobsOnCompletion": true,
+  "waveEnabled": false,
+  "workDir": "az://aletest/nf-work",
+  "labels": []
 }

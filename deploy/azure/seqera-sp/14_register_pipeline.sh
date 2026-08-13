@@ -33,24 +33,23 @@
 # launchpad_params_ottilie_test_az.yml and applying them from here makes that copy
 # reproducible and reviewable, instead of living only in a browser field.
 #
-# ⚠️ THIS DELETES AND RE-ADDS. `tw pipelines update` returns HTTP 500 on 0.38.0, and the
-#    underlying API PUT returns 400 both with `name` supplied and with the full launch
-#    object round-tripped from GET (tested 2026-08-12). `add` is the only working path, so
-#    every change to a stored field mints a NEW pipeline id. Nothing in this repo depends
-#    on the id — only RUNBOOK.md records it — but a bookmarked Launchpad URL will break.
+# ⚠️ EVERY RUN REPLACES THE ENTRY. No route updates one in place: `tw pipelines update`
+#    returns HTTP 500 on 0.38.0, `PUT /pipelines/{id}` returns 400 both with `name` supplied
+#    and with the full launch object round-tripped from GET, `versions manage` only renames,
+#    and `import --overwrite` reports "New pipeline added" with a changed id (all tested
+#    2026-08-12). So a NEW pipeline id is minted each time. Nothing in this repo depends on
+#    the id — only RUNBOOK.md records it — but a bookmarked Launchpad URL will break.
 #
 # WHAT LIVES WHERE, and why it is split:
 #
-#   conf/test/ottilie_test_az.config   the PROFILE — input, fasta, genbank, chr_dir,
-#                                      snpeff_db, tools, joint-germline, timestamped
-#                                      outdir. Read from the repo at EVERY launch, so a
-#                                      commit + push changes what runs. No copy to rot.
+#   conf/test/ottilie_test_az.config   the PROFILE — the single source of truth. Input,
+#                                      reference, tools, joint-germline settings, and a
+#                                      timestamped outdir. What local runs and nf-test use.
 #   launchpad_params_ottilie_test_az.yml
-#                                      the BOX — only what the profile cannot deliver.
-#                                      Today that is `snpeff_cache`, because the launch
-#                                      form injects schema defaults that beat config
-#                                      (azure_batch_execution.md §13), plus an inert
-#                                      `step` so the box is a valid YAML object.
+#                                      the BOX — GENERATED from that profile, carrying the
+#                                      full param set so the launch form is populated. It
+#                                      overrides the profile at launch, which is why it is
+#                                      generated and drift-checked rather than hand-written.
 #
 # ⚠️ The profile is only as current as the REGISTERED REVISION on GitHub. Platform clones
 #    it; your working tree is invisible. Push before launching, always.
@@ -62,11 +61,15 @@ NAME="${PIPELINE_NAME:-yAMP-ottilie-test-az}"
 WORKSPACE="${SEQERA_WORKSPACE:-DTU-Biosustain/RECON-ALE}"
 REPO="${PIPELINE_REPO:-https://github.com/Aletechdev/ALE_Yeast}"
 REVISION="${PIPELINE_REVISION:-main}"
-COMPUTE_ENV="${SEQERA_COMPUTE_ENV:-ale-ottilie-nf25104-bigdisk_autoScale_manual_noFusion}"
+COMPUTE_ENV="${SEQERA_COMPUTE_ENV:-yAMP-ce-nofusion-256}"
 WORK_DIR="${SEQERA_WORK_DIR:-az://aletest/nf-work}"
 PROFILES="${SEQERA_PROFILES:-docker,ottilie_test_az}"
 PARAMS_FILE="${PARAMS_FILE:-launchpad_params_ottilie_test_az.yml}"
 DESCRIPTION="${PIPELINE_DESCRIPTION:-yAMP, params from the ottilie_test_az profile}"
+# The engine pin lives HERE, on the pipeline, since 2026-08-12 — the compute environment no longer
+# carries NXF_VER. ⚠️ 26.x cannot parse nextflow.config, so this is not cosmetic: an entry without it
+# runs on Platform's default engine. Set to empty only if you deliberately want that default.
+NEXTFLOW_VERSION="${NEXTFLOW_VERSION:-25.10.4}"
 DRY_RUN="${DRY_RUN:-}"
 
 SECRET_FILE="${SECRET_FILE:-$HOME/.config/ale-seqera/sp.env}"
@@ -211,14 +214,35 @@ if tw pipelines view -n "$NAME" -w "$WORKSPACE" >/dev/null 2>&1; then
     tw pipelines delete -n "$NAME" -w "$WORKSPACE"
 fi
 
-tw pipelines add "$REPO" \
-    -n "$NAME" -w "$WORKSPACE" \
-    --revision "$REVISION" --labels dev \
-    -c "$COMPUTE_ENV" \
-    --work-dir "$WORK_DIR" \
-    -p "$PROFILES" \
-    --params-file "$PARAMS_FILE" \
-    -d "$DESCRIPTION"
+# ⚠️ REGISTERED VIA `import`, NOT `add`. `tw pipelines add` has no --nextflow-version flag, so an
+# entry it creates carries no engine pin — and since 2026-08-12 the compute environment no longer
+# carries NXF_VER either, which would leave the run on Platform's default engine (26.x cannot parse
+# nextflow.config). `import` accepts `launch.nextflowVersion` in its JSON and preserves it, verified
+# by readback. That is the only scriptable way to pin the engine per pipeline; the alternative is a
+# manual UI edit repeated after every re-registration.
+CE_ID=$(tw -o json compute-envs list -w "$WORKSPACE" 2>/dev/null | python -c "
+import json,sys
+for c in json.load(sys.stdin)['computeEnvs']:
+    if c['name']=='$COMPUTE_ENV': print(c['id']); break")
+: "${CE_ID:?compute environment '$COMPUTE_ENV' not found in $WORKSPACE}"
+
+IMPORT_JSON=$(mktemp --suffix=.json)
+python - "$IMPORT_JSON" "$REPO" "$REVISION" "$CE_ID" "$WORK_DIR" "$PROFILES" \
+         "$PARAMS_FILE" "$DESCRIPTION" "$NEXTFLOW_VERSION" <<'PY'
+import json, sys
+dst, repo, rev, ce, wd, profiles, params_file, desc, nfver = sys.argv[1:10]
+launch = {"pipeline": repo, "revision": rev, "computeEnvId": ce, "workDir": wd,
+          "configProfiles": profiles.split(','), "paramsText": open(params_file).read(),
+          "pullLatest": False, "stubRun": False, "resume": False}
+if nfver:
+    launch["nextflowVersion"] = nfver
+json.dump({"description": desc, "launch": launch}, open(dst, "w"), indent=2)
+PY
+
+# ⚠️ `import` takes no --labels (only `add` does), so the entry carries none. Add them in the UI
+# if you want them; they are cosmetic and would be lost on the next re-registration anyway.
+tw pipelines import -n "$NAME" -w "$WORKSPACE" --overwrite "$IMPORT_JSON"
+rm -f "$IMPORT_JSON"
 
 # Readback. The API accepts unvalidated payloads elsewhere, so assert rather than assume.
 echo
@@ -245,7 +269,7 @@ RESP=$(mktemp); trap 'rm -f "$TMP" "$RESP"' EXIT
 curl -sS -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" \
      "$API/pipelines/$PID/launch?workspaceId=$WS_ID" > "$RESP"
 
-python - "$RESP" "$PID" "$PROFILES" <<'PY'
+python - "$RESP" "$PID" "$PROFILES" "$NEXTFLOW_VERSION" <<'PY'
 import json, sys, yaml
 l = json.load(open(sys.argv[1]))['launch']
 pid, want_profiles = sys.argv[2], sys.argv[3].split(',')
@@ -259,8 +283,10 @@ box = yaml.safe_load(l.get('paramsText') or '') or {}
 chk(isinstance(box, dict) and bool(box), f"params box is a non-empty object: {box}")
 chk('snpeff_cache' in box,
     "snpeff_cache present in the box — the launch form injects the schema default otherwise (§13)")
-chk(l.get('nextflowVersion') is None,
-    f"nextflowVersion unset (got {l.get('nextflowVersion')!r}) — the CE's NXF_VER wins anyway (§12)")
+want_nf = sys.argv[4] or None
+chk(l.get('nextflowVersion') == want_nf,
+    f"nextflowVersion = {want_nf!r} (got {l.get('nextflowVersion')!r}) — the CE no longer pins the "
+    f"engine, so this is the only pin; 26.x cannot parse nextflow.config")
 print(f"  info  computeEnv = {l['computeEnv']['name']}")
 print(f"  info  {l['pipeline']} @ {l.get('revision')}")
 if bad:
