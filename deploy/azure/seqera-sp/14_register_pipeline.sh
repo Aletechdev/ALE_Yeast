@@ -79,16 +79,24 @@ fi
 # Generate the params box from the profile — one source of truth, two artifacts
 # ---------------------------------------------------------------------------
 # EXCLUDED on purpose:
-#   outdir              computed per run by the profile (timestamped); freezing it here
-#                       would defeat that and re-create the reused-directory hazard.
+#   outdir              replaced below by DEFAULT_OUTDIR rather than taken from the profile —
+#                       the profile's value is a Groovy timestamp, and freezing one evaluation
+#                       of it into the box would publish every future run to one stale second.
 #   genomes             an empty-list artifact of igenomes_ignore, not a real input.
 #   config_profile_*    nf-core display strings, not run parameters.
 EXCLUDE="outdir genomes config_profile_name config_profile_description"
 
+# A deliberately DISPOSABLE default, so the launch form's outdir field is populated (the whole
+# point of generating this box) without ever looking like a destination worth keeping. Runs that
+# leave it overwrite each other here — publishDir overwrites but never deletes, so this directory
+# accumulates a mixture and is not citable. That is what "DUMP" is announcing.
+# ⚠️ Change it in the launch form for anything you intend to compare, publish or cite.
+DEFAULT_OUTDIR="${DEFAULT_OUTDIR:-az://aletest/seqera-runs/yAMP-out-test-DUMP}"
+
 generate_box() {
-    python - "$PROFILES" "$EXCLUDE" <<'PY'
+    python - "$PROFILES" "$EXCLUDE" "$DEFAULT_OUTDIR" <<'PY'
 import subprocess, re, sys
-profiles, exclude = sys.argv[1], set(sys.argv[2].split())
+profiles, exclude, default_outdir = sys.argv[1], set(sys.argv[2].split()), sys.argv[3]
 base_profile = profiles.split(',')[0]
 
 def params(p):
@@ -125,9 +133,12 @@ print(f"""# GENERATED — do not edit by hand. Regenerate with:
 # here, commit, and re-register. `tw pipelines update` is broken, so re-registering mints a
 # new pipeline id.
 #
-# ⚠️ `outdir` is deliberately absent: the profile computes a timestamped one per run
-# (yAMP-out-test-<YYYYMMDD-HHMMSS>), so two launches cannot publish into the same directory.
-# Supply one here or in the form only when you want a specific destination.
+# ⚠️ `outdir` below is a DISPOSABLE DEFAULT, not a destination. Runs that leave it publish
+# on top of each other there — publishDir overwrites but never deletes, so it accumulates a
+# mixture and is not citable. CHANGE IT IN THE LAUNCH FORM for anything you intend to
+# compare, publish or cite. (The profile's own timestamped default,
+# yAMP-out-test-<YYYYMMDD-HHMMSS>, applies to local runs, which have no params box; a
+# params-file value always wins over it.)
 #
 # ⚠️ RUNNING THE FULL-DEPTH PILOT FROM THIS ENTRY? Switch the profile to
 # `docker,ottilie_pilot_az` AND change every path below from S288C_reference_test/ to
@@ -135,6 +146,7 @@ print(f"""# GENERATED — do not edit by hand. Regenerate with:
 """)
 for k in sorted(diff):
     print(f"{k}: {to_yaml(diff[k])}")
+print(f'outdir: "{default_outdir}"')
 PY
 }
 

@@ -13,9 +13,12 @@
 # here, commit, and re-register. `tw pipelines update` is broken, so re-registering mints a
 # new pipeline id.
 #
-# ⚠️ `outdir` is deliberately absent: the profile computes a timestamped one per run
-# (yAMP-out-test-<YYYYMMDD-HHMMSS>), so two launches cannot publish into the same directory.
-# Supply one here or in the form only when you want a specific destination.
+# ⚠️ `outdir` below is a DISPOSABLE DEFAULT, not a destination. Runs that leave it publish
+# on top of each other there — publishDir overwrites but never deletes, so it accumulates a
+# mixture and is not citable. CHANGE IT IN THE LAUNCH FORM for anything you intend to
+# compare, publish or cite. (The profile's own timestamped default,
+# yAMP-out-test-<YYYYMMDD-HHMMSS>, applies to local runs, which have no params box; a
+# params-file value always wins over it.)
 #
 # ⚠️ RUNNING THE FULL-DEPTH PILOT FROM THIS ENTRY? Switch the profile to
 # `docker,ottilie_pilot_az` AND change every path below from S288C_reference_test/ to
@@ -36,3 +39,4 @@ snpeff_db: "R64-1-1.105"
 split_fastq: 0
 split_haplotypecaller_joint_vcf: true
 tools: "snpeff,cnvkit,tiddit,manta,haplotypecaller"
+outdir: "az://aletest/seqera-runs/yAMP-out-test-DUMP"

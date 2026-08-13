@@ -988,7 +988,7 @@ and no way to rename or patch either entry if the new one turns out wrong.
 
 ### 2026-08-12 — Launchpad params moved into the repo, and the one default that refuses to move
 
-**New entry `yAMP-ottilie-test-az` (`73451879466603`)**, registered by
+**New entry `yAMP-ottilie-test-az` (`117050096653477`)**, registered by
 [`14_register_pipeline.sh`](14_register_pipeline.sh). Config profiles `docker, ottilie_test_az`; the CE
 is the autoscaling non-Fusion keeper; `nextflowVersion` and `configText` unset.
 
@@ -1031,8 +1031,16 @@ re-derives it and **aborts on drift** — so the two artifacts cannot silently d
 ⚠️ **Consequence: a Launchpad run is now driven by the box, not the profile** (`-params-file` beats
 config). Changing a param means edit profile → `--generate` → commit → re-register, and re-registering
 mints a **new pipeline id** every time. The profile remains the single source of truth and is what local
-runs and nf-test actually execute. `outdir` is excluded from generation so the profile's timestamped
-value still applies per run.
+runs and nf-test actually execute.
+
+**`outdir` is emitted as a deliberately disposable default:** `az://aletest/seqera-runs/yAMP-out-test-DUMP`.
+It is *not* taken from the profile — the profile's value is a Groovy timestamp, and freezing one
+evaluation of it into the box would send every future run to one stale second. A populated field was the
+whole point of generating the box, so the compromise is a destination whose **name announces that it is
+not one**: runs that leave it publish on top of each other, and since `publishDir` overwrites but never
+deletes, that directory accumulates a mixture and is not citable. ⚠️ **Change it in the launch form for
+anything you intend to compare, publish or cite.** The profile's timestamped
+`yAMP-out-test-<YYYYMMDD-HHMMSS>` still governs local runs, which have no params box.
 
 **🚨 First launch failed, and the cause is worth knowing.** Run `2eiGBEA0NXagap`, `-profile
 docker,ottilie_test_az`, died with `No such file or directory: s3://annotation-cache/snpeff_cache/R64-1-1.105`
