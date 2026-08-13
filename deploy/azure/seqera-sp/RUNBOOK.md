@@ -1342,7 +1342,12 @@ revoke the token** — see the open item below.
       than a larger OS disk; see the note above. ✅ **Unblocked 2026-08-13**: the cold-pool baseline
       measured the image set at ~15 G and task scratch at ≤ 2.7 G, so the 150 GB ephemeral disk has
       ample headroom. Still open: whether Fusion's cache would compete for `/mnt` (unmeasurable from
-      inside a container — see the §9 probe caveat).
+      inside a container — see the §9 probe caveat). 📌 **Deliberately parked, not queued** (decided
+      2026-08-13): at 4 autoscaling workers the managed-disk cost is cents per run, while a manual CE
+      means taking pool lifecycle, the image pin and `azcopy` back from Forge. Interim: attach
+      `conf/disk_probe.config` to Fusion dev runs and to the first run after adding a tool — the
+      `root:` line shows both Fusion cache pressure and image-set creep. Revisit if the image set
+      nears ~100 G, worker counts scale well past 4, or Fusion becomes the default.
 - [x] GitHub auth decided and keypair generated (`07_github_deploy_key.sh`) — the pre-existing
       `github_Aletechdev` credential had in fact expired. ⚠️ **That script was deleted 2026-08-07**
       (obsolete route; see the entry above) — the numbered sequence skips 07 by design.

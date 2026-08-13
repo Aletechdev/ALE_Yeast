@@ -475,6 +475,13 @@ What this settles:
    2.7 G, so the 150 G ephemeral disk is ample for both.
 5. ❓ **Whether Fusion's cache competes for `/mnt` is still open** — this was a non-Fusion run, and
    the probe cannot see the host's `/mnt` from inside a container anyway (see the ⚠️ above).
+   **Interim monitoring:** attach `--config conf/disk_probe.config` to routine **Fusion dev runs**.
+   The `root:` line is still valid under Fusion, so if Fusion's cache lands on the OS disk it shows
+   up as `/` usage well above the ~60 G non-Fusion ceiling; a flat `root:` means the cache lives
+   somewhere the probe cannot see (host `/mnt` or memory), which needs a node-level measurement
+   (pool start task or a native, non-container Batch task running `df`). ⚠️ Only on runs where
+   losing `-resume`/cache reuse is acceptable — the probe perturbs task hashes — and never on a run
+   whose outputs you intend to byte-compare against a no-probe baseline run's task cache.
 
 ```bash
 az batch node reboot --pool-id <pool> --node-id <node> --node-reboot-option terminate
