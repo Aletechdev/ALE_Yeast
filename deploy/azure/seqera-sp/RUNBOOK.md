@@ -889,6 +889,42 @@ A cheap test, and each of its four findings is one the baseline could not give:
 Cleanup: CE deleted (pools and disks disposed — the Batch account is back to only
 `yAMP-ce-nofusion-256`'s two pools); the `debugging` work dir purged; the outdir evidence blobs kept.
 
+### 2026-08-13 — 🧊✅ FUSION CACHE FOOTPRINT MEASURED (run `47xZrJ3vg4avR9`): ≲3 G on the OS disk at test-set scale
+
+`ottilie-fusion-cache-01` executed the open item's recipe as written: fresh **cold** Fusion CE
+(`yAMP-ce-fusion-256`, second forge of that name, deleted after harvest), inputs + `workDir` together
+in `aletest` (`nf-work-fusion-cache-20260813`), `conf/disk_probe.config` attached, explicit
+`outdir az://aletest/seqera-runs/yAMP-out-fusion-cache-20260813`. **SUCCEEDED — 170/170 tasks, 0
+failed**, engine 25.10.4, `commitId 35e170a`, head job exited cleanly. All 170 `.command.log`s
+harvested — a census, not a sample.
+
+| `root:` usage (170 readings) | value |
+|---|---|
+| min (first task on a cold node) | **45.4 G** — the `ubuntu-hpc` base, matching the non-Fusion cold baseline exactly |
+| median / p90 | 53.5 G / 55.5 G |
+| **peak** | **63.0 G of 246.9 G (26%)** |
+
+**Conclusion: at test-set scale Fusion adds ≲3 G of OS-disk pressure** — the non-Fusion cold picture
+is base ~45 G + images ~15 G ⇒ ~60 G, and the Fusion peak with the same image set is 63.0 G. The
+sizing conclusions are unchanged (256 GB ample, 128 GB would still suffice), and the parked `/mnt`
+relocation stays parked — Fusion adds no reason to revisit it at this scale.
+
+Caveats, so the number is not over-read:
+
+- **No per-node attribution under Fusion**: the probe's `host=` is the *container* id there — 170
+  distinct values across ≤5 nodes — where non-Fusion runs showed node-stable ids (21 hosts across
+  340 tasks on 2026-08-07). The peak is a fleet-wide max, not a per-node trajectory.
+- **Cache growth may scale with data volume.** The test set stages ~400 MB of inputs; eviction was
+  not probed. Re-measure at pilot scale if Fusion ever becomes the default — the standing interim
+  policy (probe attached to Fusion dev runs) covers exactly this.
+- Readings are point-in-time at task start (`beforeScript`), so intra-task growth is invisible —
+  the same limitation as every probe run.
+
+Outputs published to the outdir are **diagnostic, not citable** (probe perturbs task hashes; no
+baseline comparison — Fusion output identity was already proven by `XFwlgZnKvUvpu`). Cleanup: CE
+deleted with pools and disks; work dir purged after harvest; the Batch account is back to only
+`yAMP-ce-nofusion-256`'s two pools.
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |
@@ -1003,16 +1039,11 @@ revoke the token** — see the open item below.
 - [x] **Does the pipeline still work under Fusion?** — done 2026-08-07, run `XFwlgZnKvUvpu`: 170/170,
       0 `DiskFull`, all nine cohort deliverables byte-identical to `seqera-runs/2026-08-06-04`. See the
       entry above.
-- [ ] 🧊 **Fusion cache footprint on the OS disk — the one Fusion measurement still missing.** Needs a
-      *successful* Fusion run (inputs + `workDir` together in `aletest`) on a **freshly forged** Fusion
-      CE (`./13_create_compute_env.sh <name> --fusion`) with `conf/disk_probe.config` attached, fresh
-      dated outdir + work dir; compare the cold `root:` trajectory against the non-Fusion cold
-      baseline (base ~45 G + images ~15 G). Neither existing Fusion run answers it:
-      `XFwlgZnKvUvpu` (170/170, probe attached) ran on **warm** nodes, so cache is conflated with
-      multi-run Docker accumulation, and the 2026-08-13 cross-container run died before Fusion did
-      any real I/O. ⚠️ Under Fusion only the `root:` line is readable (`work:` synthetic, `mnt:`
-      reports the container overlay), so OS-disk pressure is measurable but `/mnt` competition is
-      not — which is the standing caveat on the parked `/mnt` relocation below.
+- [x] 🧊 **Fusion cache footprint on the OS disk** — **measured 2026-08-13: ≲3 G at test-set scale.**
+      Run `47xZrJ3vg4avR9` executed the recipe as written (fresh cold Fusion CE, same-container,
+      probe attached); peak `root:` 63.0 G vs the non-Fusion cold expectation of ~60 G with the same
+      image set. Disk sizing conclusions unchanged; the `/mnt` relocation stays parked. Full census
+      + caveats in the dated entry.
 - [x] **Does Fusion lift the same-container rule?** — **answered 2026-08-13: NO.** Run
       `3AJ4JRNkb7D2dG` repeated the `48kJmc9QY6Q3h9` launch on a fresh Fusion CE and failed
       identically (0/6, same six tasks); `.fusion.log` shows the container-scoped SAS being rejected
