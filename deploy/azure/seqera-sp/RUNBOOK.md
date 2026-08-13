@@ -1364,8 +1364,15 @@ revoke the token** — see the open item below.
       `constraints.maxWallClockTime` on the Batch job directly, or add a cheap post-run check. Until
       then: **after any run that ends in a non-terminal state, check
       `az batch pool list --query "[?contains(id,'<ce-id>')].[id,currentDedicatedNodes]" -o tsv`.**
-- [ ] Delete the six DISABLED compute environments — including the two **fixed-size** ones
-      (`ale-ottilie-nf25104-bigdisk`, `…-bigdisk_fusion`) from the 2026-08-07 cost incident. All are at
-      0 nodes, so nothing is billing, but deletion also disposes their pools and disks.
-      `yAMP-ce-nofusion-256` is the only keeper. ⚠️ It is **warm** after run `1XuapND2cN2oCO`, so the
-      cold-pool disk baseline needs a freshly forged CE, not this one.
+- [x] Delete the six DISABLED compute environments — **done 2026-08-13**, including both **fixed-size**
+      ones (`ale-ottilie-nf25104-bigdisk`, `…-bigdisk_fusion`) from the 2026-08-07 cost incident. All
+      were at 0 nodes first; deletion disposed their pools and disks.
+      **`yAMP-ce-nofusion-256` (`4xdBRYm1K1rbql3g5CgnSg`) is now the only compute environment.**
+      Checked first that no Launchpad entry depended on them — `ALE-Yeast-aledev4test` and
+      `ALE_Sarek_dev` already pointed at previously-deleted CEs.
+      📌 Two Azure pools survive with no CE behind them, both at 0 nodes and therefore free:
+      `nf-pool-21b27…-Standard_E4ds_v4` (a Nextflow **auto-pool** from local head-job runs — keep it,
+      §2: ids are content-addressed, so deleting breaks `-resume`) and `tower-pool-4bPUf5SLRHx9gllkj29reo`
+      (orphan of an earlier deletion).
+      ⚠️ `yAMP-ce-nofusion-256` is **warm** after run `1XuapND2cN2oCO`, so the cold-pool disk baseline
+      still needs a freshly forged CE — not this one.
