@@ -1370,9 +1370,14 @@ revoke the token** — see the open item below.
       **`yAMP-ce-nofusion-256` (`4xdBRYm1K1rbql3g5CgnSg`) is now the only compute environment.**
       Checked first that no Launchpad entry depended on them — `ALE-Yeast-aledev4test` and
       `ALE_Sarek_dev` already pointed at previously-deleted CEs.
-      📌 Two Azure pools survive with no CE behind them, both at 0 nodes and therefore free:
-      `nf-pool-21b27…-Standard_E4ds_v4` (a Nextflow **auto-pool** from local head-job runs — keep it,
-      §2: ids are content-addressed, so deleting breaks `-resume`) and `tower-pool-4bPUf5SLRHx9gllkj29reo`
-      (orphan of an earlier deletion).
+      📌 The two Azure pools with no CE behind them were **also deleted** (2026-08-13), for a clean
+      starting point: `nf-pool-21b27…-Standard_E4ds_v4` — a Nextflow **auto-pool** from *local*
+      head-job runs, which no CE owns and CE deletion therefore never touches — and
+      `tower-pool-4bPUf5SLRHx9gllkj29reo`, orphan of an earlier deletion. Both were at 0 nodes and free.
+      ⚠️ This gives up `-resume` on the affected local runs (§2: a resumed run asks for its pool by id
+      and fails with *"not in active state"*). Accepted deliberately — those runs are short enough to
+      redo. Note the auto-pool is **not** permanently lost: its id is a hash of the pool spec, so the
+      next local Batch run with the same `conf/azure_batch.config` recreates the identical id.
+      **The Batch account now holds only `yAMP-ce-nofusion-256`'s two pools.**
       ⚠️ `yAMP-ce-nofusion-256` is **warm** after run `1XuapND2cN2oCO`, so the cold-pool disk baseline
       still needs a freshly forged CE — not this one.
