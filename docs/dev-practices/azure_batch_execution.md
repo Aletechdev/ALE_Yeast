@@ -143,13 +143,19 @@ az batch pool list --query "[?starts_with(id,'nf-pool')].id" -o tsv | xargs -r -
 
 > **This rule tracks the CREDENTIAL, not local-vs-cloud.** A **shared-key** credential gives Batch
 > nodes account-wide access and has no such restriction — verified 2026-08-04: the Seqera CE
-> `aledev4test_e4ds_v4` runs `workDir = az://debugging` against inputs in `aletest` and works. A *cloud*
-> run on the **Entra** credential would hit this rule exactly as a local one does.
+> `aledev4test_e4ds_v4` (credential `rgALE_batch_aledev4test`; CE since deleted 2026-08-13) ran
+> `workDir = az://debugging` against inputs in `aletest` and worked. A *cloud* run on the **Entra**
+> credential hits this rule exactly as a local one does.
 >
-> **More RBAC will not fix it.** The SP already holds `Storage Blob Data Contributor` on the entire
-> `aledata` account, so it can read both containers. Batch nodes never authenticate as the SP — they
-> receive one delegated, container-scoped token. The limit is what Nextflow *delegates*, not what the SP
-> *may* do. Granting the SP Owner on the subscription would change nothing.
+> **⛔ No bypass exists under the SP credential — every candidate has been tested:**
+>
+> | Candidate bypass | Verdict |
+> |---|---|
+> | More RBAC on the SP | ✗ — the SP already holds `Storage Blob Data Contributor` account-wide and can read both containers itself. Nodes never authenticate as the SP; they get one delegated container-scoped token. The limit is what Nextflow *delegates*, not what the SP *may* do — Owner on the subscription would change nothing. |
+> | Fusion (per-container tokens?) | ✗ — verified 2026-08-13 (run `3AJ4JRNkb7D2dG`): same single SAS through the FUSE path, rejected 403. See below. |
+> | **Switch credential type: shared key** | ✓ works (2026-08-04, above) — **the only lever**, and it is a *trade*, not a free fix: every Batch node gets account-wide blob access, which is the blast radius the Entra SP path was chosen to avoid. |
+>
+> So under the SP: keep inputs and `workDir` in one container — it is a requirement, not a tuning knob.
 
 **Symptom.** A task exits 1 with **empty stderr**. The real message appears only in `.command.log` in
 blob: `Unable to download path: https://<account>.blob.core.windows.net/<container>/...`
