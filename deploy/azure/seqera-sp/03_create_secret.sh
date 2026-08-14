@@ -8,6 +8,11 @@
 #
 #   ./03_create_secret.sh
 #
+# Rotating a DIFFERENT app registration (e.g. the sister SP's 2026 live-swap — see
+# RUNBOOK.md open items): override both the target and the label so the new secret
+# is not stamped as Seqera's:
+#   SP_DISPLAY_NAME=sp-bright-recon-ale-mutations-pipeline SECRET_LABEL=rotated-2026-08 ./03_create_secret.sh
+#
 # Uses --append: existing credentials are KEPT. (Plain `az ad app credential reset`
 # DELETES all existing secrets — that would break any other consumer mid-flight.)
 
@@ -16,6 +21,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 source ./00_vars.sh
 
 YEARS="${YEARS:-1}"
+SECRET_LABEL="${SECRET_LABEL:-seqera-platform}"
 
 if [[ -n "${TEE_GUARD:-}" ]] || [[ ! -t 1 ]]; then
     echo "REFUSING: stdout is not a terminal — the secret would be written to a file or pipe." >&2
@@ -38,7 +44,7 @@ az ad app credential reset \
     --id "$SP_APP_ID" \
     --append \
     --years "$YEARS" \
-    --display-name "seqera-platform" \
+    --display-name "$SECRET_LABEL" \
     --query password -o tsv
 echo "==================================================================="
 echo

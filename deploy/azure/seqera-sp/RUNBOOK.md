@@ -1136,6 +1136,9 @@ revoke the token** — see the open item below.
       2. `az ad app credential list --id "$APP" -o table` — note the old `keyId`.
       3. `az ad app credential reset --id "$APP" --append --years 1 --query password -o tsv` —
          `--append` keeps the old secret working, so the service keeps running.
+         📌 Steps 1–3 also exist as a guarded script (TTY check, confirmation, keeps existing
+         creds): `SP_DISPLAY_NAME=sp-bright-recon-ale-mutations-pipeline SECRET_LABEL=rotated-2026-08
+         ./03_create_secret.sh` — still typed in your own terminal, never through an agent.
       4. Swap the new value into the ALE-mutations service's config (off this machine) and verify it.
       5. `az ad app credential delete --id "$APP" --key-id <old keyId>` — this step is the actual
          revocation; until it runs, the rotation is not complete.
