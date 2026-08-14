@@ -41,7 +41,18 @@ in a private VNet.
 | `seqera-sp/00_vars.sh` | Every account name / ID / scope as a shell variable. **No secrets.** Sourced by all other scripts. |
 | `seqera-sp/NN_*.sh` | Numbered, run in order. The early scripts (01–05) alternate read-only checks and mutations; from 08 on the numbers are chronological only — read each script's header. (07 is a deliberate gap: the deploy-key script was deleted with its dead route.) |
 | `seqera-sp/RUNBOOK.md` | The audit record: dated entry per script actually executed, with outcome. Committed. |
+| `seqera-sp/ce_import_template.json` | Readback of a known-good CE — the single template `13_*` patches and imports. |
+| `seqera-sp/launchpad_params_ottilie_test_az.yml` | Generated params box for the Launchpad entry (`14_* --generate`; do not hand-edit). |
 | `seqera-sp/logs/` | Raw `tee` transcripts. **Gitignored** — they can contain tokens. `RUNBOOK.md` is the committed summary. |
+
+**Which scripts are live tools vs. completed one-shots** (the numbering deliberately never changes —
+the RUNBOOK's dated entries reference these names, so this table is the index, not a reorganisation):
+
+| Status | Scripts |
+|---|---|
+| **Live tools** — run these today | `12_verify_compute_env.sh` (assert a CE before launching) · `13_create_compute_env.sh` (create/delete CEs from the template) · `14_register_pipeline.sh` (register the Launchpad entry + regenerate its params box) · `11_check_cost.sh` · `10_store_secret.sh` · `03_create_secret.sh` (any rotation — parameterized for other SPs too) · `06_seqera_readback.sh` |
+| **One-shot, executed** — kept for audit + re-provisioning | `01_preflight.sh` · `02_grant_roles.sh` · `05_verify_sp_access.sh` (2026-07-31) · `08_upload_test_data.sh` · `09_test_az_dir_param.sh` (2026-07-31; 09's finding is recorded in the RUNBOOK) |
+| **Teardown** — only when retiring the whole setup | `04_revoke_roles.sh` |
 
 ## Conventions
 
