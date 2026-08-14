@@ -1021,6 +1021,13 @@ revoke the token** — see the open item below.
       lives in *one person's* calendar, which is the same single-point dependency as the token itself;
       it fires two weeks early because re-issuing a fine-grained PAT on an org-owned repo needs a fresh
       org-owner approval, empirically ~1 day.
+- [ ] 📌 **(optional, when a citable pilot artifact is needed)** Validation-grade cloud pilot run,
+      lightweight form: one clean run from `yAMP-ottilie-test-az` with `-p docker,ottilie_pilot_az`
+      (plus the pilot `snpeff_cache` path per the params-box comment), **no probe**, fresh outdir —
+      then a **truth-set spot-check** (the known ottilie mutations present in the cohort
+      deliverables), *not* a byte comparison against the months-old local pilot (different tool set,
+      older commit — reconciling would cost more than it proves; decided 2026-08-13). Until then the
+      pilot's cloud viability rests on `18wEWW90THA2Ek` (310/310, diagnostic).
 - [ ] 🔁 **Swap to an org-owned GitHub App** when an org owner is available — still the durable answer.
       The fine-grained PAT closed the *blast-radius* half of the problem (`Contents: Read` on one repo,
       not `repo` on everything) but **not** the *person-tied* half: a shared org workspace still depends
