@@ -1123,7 +1123,15 @@ revoke the token** — see the open item below.
       matches the new name, and `SP_DISPLAY_NAME` in `00_vars.sh` was updated in the same commit.
       The operator is an app **owner** (with pasdom@dtu.dk, phaneuf@dtu.dk), so no admin was needed.
       Seqera credential name deliberately kept — binds by clientId.
-- [ ] Rotate the exposed secret on `sp-bright-recon-ale-mutations-pipeline` (the *other* SP — the
+- [x] Rotate the exposed secret on `sp-bright-recon-ale-mutations-pipeline` — **done 2026-08-14, all
+      five steps.** New secret `rotated-2026-08` (key id `0026e21c…`) minted by the operator with the
+      parameterized `03_create_secret.sh`, swapped into the ALE-mutations service and tested; the
+      exposed 2026-06-03 secret (key id `8af5a144…`) then **deleted** — verified: the app now holds
+      exactly one credential, expiring **2027-08-14**, which
+      [`bin/check_credential_expiry.sh`](../../../bin/check_credential_expiry.sh) now tracks with the
+      standard 60-day lead (the every-session nag is retired). Original scoping kept below for the
+      record:
+- [x] ~~(scoping)~~ Rotate the exposed secret on `sp-bright-recon-ale-mutations-pipeline` (the *other* SP — the
       sibling serving the migrated ALE-mutations service, `Contributor` on Batch `ale` + `Reader` on
       `ensembleamp`). Its secret sat in plaintext in `tmp/azure/azure_sp/.azure_sp.env` from
       ~2026-06-03 until the file was deleted 2026-08-13. **Scoping done 2026-08-13**: never committed

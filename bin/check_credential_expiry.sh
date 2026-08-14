@@ -35,10 +35,9 @@ check "GitHub fine-grained PAT (github_ALE_Yeast_finegrained)" \
       "2027-08-07" 60 \
       "re-issue at github.com/settings/tokens and swap into the Seqera credential; org-owner re-approval takes ~1 day, so start early. Expired = Seqera cannot clone the pipeline repo."
 
-# Pending one-off, not a renewal: fires every session until done, then delete this entry.
-check "Sister-SP secret awaiting rotation (sp-bright-recon-ale-mutations-pipeline)" \
-      "2026-11-02" 9999 \
-      "operator live-swap pending; recipe in deploy/azure/seqera-sp/RUNBOOK.md open items. REMOVE this entry once rotated."
+check "Sister-SP secret 'rotated-2026-08' (sp-bright-recon-ale-mutations-pipeline — the ALE-mutations service, not Seqera)" \
+      "2027-08-14" 60 \
+      "mint + swap per the live-swap recipe in deploy/azure/seqera-sp/RUNBOOK.md (03_create_secret.sh with SP_DISPLAY_NAME/SECRET_LABEL overrides); coordinate with the app's co-owners. Expired = the ALE-mutations service loses Azure auth."
 
 if (( warned )); then
     echo "(bin/check_credential_expiry.sh — update its dates after any rotation)"
