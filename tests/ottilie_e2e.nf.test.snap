@@ -1,7 +1,7 @@
 {
     "ottilie 2-sample: full ALE workflow + mutation report": {
         "content": [
-            170,
+            174,
             {
                 "BCFTOOLS_FILTER": {
                     "bcftools": 1.21
@@ -317,7 +317,9 @@
                 "mutation_reports",
                 "mutation_reports/cohort_report.html",
                 "mutation_reports/data",
+                "mutation_reports/data/CBR110-15-R3a.manta.pass_stats.tsv",
                 "mutation_reports/data/CBR110-15-R3a.tiddit.pass_stats.tsv",
+                "mutation_reports/data/NODRUG-GM2.manta.pass_stats.tsv",
                 "mutation_reports/data/NODRUG-GM2.tiddit.pass_stats.tsv",
                 "mutation_reports/data/cn_cohort_collapsed.csv",
                 "mutation_reports/data/cn_cohort_full.csv",
@@ -330,6 +332,10 @@
                 "mutation_reports/data/cn_matrices/cn_matrices/cn_segments_germline.csv",
                 "mutation_reports/data/sv_cohort_matrix_union.csv",
                 "mutation_reports/data/sv_cohort_matrix_union_pass.csv",
+                "mutation_reports/data/sv_cohort_merged_union.vcf.gz",
+                "mutation_reports/data/sv_cohort_merged_union.vcf.gz.tbi",
+                "mutation_reports/data/sv_cohort_merged_union_pass.vcf.gz",
+                "mutation_reports/data/sv_cohort_merged_union_pass.vcf.gz.tbi",
                 "mutation_reports/data/sv_merged",
                 "mutation_reports/data/sv_merged/CBR110-15-R3a",
                 "mutation_reports/data/sv_merged/CBR110-15-R3a/CBR110-15-R3a.survivor.union.vcf.gz",
@@ -680,7 +686,9 @@
                 "samtools-stats-dp.txt:md5,c8c277d250bc4d58b8e525f8d8e21207",
                 "samtools_alignment_plot.txt:md5,55ac0136b72708cb4d34c20af6b78ade",
                 "vcftools_tstv_by_count.txt:md5,df16d4e7235509a460dd28afc7ac8dd1",
+                "CBR110-15-R3a.manta.pass_stats.tsv:md5,0c99ce6318d92d3753058a743dc0618b",
                 "CBR110-15-R3a.tiddit.pass_stats.tsv:md5,86a1b8006d13cce1c7f3d5eddd282c86",
+                "NODRUG-GM2.manta.pass_stats.tsv:md5,928ae64a432655e9e9f9aa953ddbffcb",
                 "NODRUG-GM2.tiddit.pass_stats.tsv:md5,80e93fd280f2aef6760b83422a773c19",
                 "cn_cohort_collapsed.csv:md5,e38eb9958764962dfd3824d96c084981",
                 "cn_cohort_full.csv:md5,e905fc6e335e04fc309e4a0f604d62ca",
@@ -689,8 +697,8 @@
                 "cn_chr_summary_germline.csv:md5,83aa6ce6df3a3cd9862313b8137503a7",
                 "cn_segments_call.csv:md5,7cf3210eb53398e7b748b85babcbc632",
                 "cn_segments_germline.csv:md5,1c40806b57e3292d8ac99fc2fbbccf22",
-                "sv_cohort_matrix_union.csv:md5,7d8e994ef3e20a70724dbc6edd264411",
-                "sv_cohort_matrix_union_pass.csv:md5,729ccfab91409385c1555599672d27f4",
+                "sv_cohort_matrix_union.csv:md5,a6cc0b60e81cfb9bf9794736ed56cc5e",
+                "sv_cohort_matrix_union_pass.csv:md5,74632a10b28c61b7ff04baff4d61e230",
                 "README.md:md5,4c89f46831204250f187896d81299fa2",
                 "CBR110-15-R3a.cnvcall.bcftools_stats.txt:md5,9cfb764049fcb85793f043bd51c5edaa",
                 "NODRUG-GM2.cnvcall.bcftools_stats.txt:md5,04711ca4b2d63ff56370f492f617b6fe",
@@ -788,6 +796,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-07-27T13:36:06.093466889"
+        "timestamp": "2026-08-25T23:51:46.714056092"
     }
 }

@@ -5,7 +5,7 @@ the cohort SV matrix. This is the **maintainer** view (parameters, `SUPP_VEC`,
 `proximity_match`, CSV schema, gotchas).
 
 > **Keep in sync** with the user-facing "SV event matrix (Manta + TIDDIT)" section of
-> the report Methodology in `docs/igvreports/templates/index.html.j2` (~L531-553).
+> the report Methodology in `docs/igvreports/templates/index.html.j2` (~L538-595).
 > That section explains *how to read* the matrix; this doc explains *how it is built*.
 > The two are intentionally separate sources today — a single shared Jinja include is
 > deferred (see `docs/dev-practices/roadmap.md`). If you change the merge parameters,
@@ -15,11 +15,13 @@ the cohort SV matrix. This is the **maintainer** view (parameters, `SUPP_VEC`,
 
 ```
 SURVIVOR_SV_MERGE      (per-sample: Manta + TIDDIT → 2-char SUPP_VEC)
+   → BGZIPTABIX_SV_*         (publish data/sv_merged/<sample>/<sample>.survivor.<mode>.vcf.gz)
    → SURVIVOR_COHORT_MERGE   (cross-sample: N samples → N-char SUPP_VEC)
+   → BGZIPTABIX_SV_COHORT_*  (publish data/sv_cohort_merged_<mode>.vcf.gz — the joint SV VCF)
    → BUILD_SV_MATRIX         (parse + proximity_match → sv_cohort_matrix_{union,union_pass}.csv)
 ```
 
-Wired in `subworkflows/local/mutation_report/main.nf` (the SV section, ~L175-233). Two
+Wired in `subworkflows/local/mutation_report/main.nf` (the SV section, ~L191-262). Two
 **fully parallel** paths run this chain end to end:
 
 | Mode | Per-sample input | Meaning |
@@ -30,8 +32,23 @@ Wired in `subworkflows/local/mutation_report/main.nf` (the SV section, ~L175-233
 Files:
 - `modules/local/survivor_sv_merge/main.nf` — `SURVIVOR_SV_MERGE`
 - `modules/local/survivor_cohort_merge/main.nf` — `SURVIVOR_COHORT_MERGE`
+- `modules/nf-core/tabix/bgziptabix` — aliased `BGZIPTABIX_SV_{PASS,UNION}` (per-sample) and
+  `BGZIPTABIX_SV_COHORT_{PASS,UNION}` (cohort); the only publish points of the chain
 - `bin/sv_cohort_matrix.py` — `BUILD_SV_MATRIX` (the parser + matrix builder)
-- `conf/modules/mutation_report.config` — process config (`ext.min_callers`, prefixes)
+- `conf/modules/mutation_report.config` — process config (`ext.min_callers`, prefixes, publishDir)
+
+Published outputs (all under `<outdir>/mutation_reports/data/`):
+
+| File | Producer | Content |
+|------|----------|---------|
+| `sv_merged/<sample>/<sample>.survivor.{union,union_pass}.vcf.gz` (+ `.tbi`) | `BGZIPTABIX_SV_*` | per-sample Manta ∪ TIDDIT |
+| `sv_cohort_merged_{union,union_pass}.vcf.gz` (+ `.tbi`) | `BGZIPTABIX_SV_COHORT_*` | cohort VCF — one record per event, one GT column per sample (SURVIVOR names the columns after the first sample column of each input, e.g. `Ottilie_test_CBR110-15-R3a`) |
+| `sv_cohort_matrix_{union,union_pass}.csv` | `BUILD_SV_MATRIX` | the matrix (below) |
+| `<sample>.{manta,tiddit}.pass_stats.tsv` | `FILTER_PASS_VCF` (not part of the merge) | `total` / `pass` record counts → Sample Overview "PASS / all" |
+
+The cohort VCF filename is **load-bearing**: `generate_index.py` (`load_cnv_sv_data`) probes
+`data/sv_cohort_merged_union_pass.vcf.gz` to decide whether to render the "VCF" download button
+beside the ensemble SV table. Rename it in `mutation_report.config` and in `generate_index.py` together.
 
 ## SURVIVOR CLI parameters
 
@@ -102,7 +119,7 @@ For every cohort event, each sample's cell is resolved by an **independent
 `SUPP_VEC`). The gate (`sv_cohort_matrix.py:85-104`):
 
 ```
-same chrom  AND  same svtype  AND  same chrom2  AND  (|Δpos| ≤ 1000  OR  |Δend| ≤ 1000)
+same chrom  AND  same svtype  AND  same chrom2  AND  |Δpos| ≤ 1000  AND  |Δend| ≤ 1000
 ```
 
 Best match = smallest `|Δpos| + |Δend|`. The cell then shows that per-sample record's
@@ -114,9 +131,15 @@ if no per-sample event matches.
 (`sv_cohort_matrix.py:173-176`); it does not drive the matrix cells. The matrix cells come
 from the independent per-sample proximity matches.
 
-⚠️ **OR-endpoint proximity gate.** Matching a *single* breakpoint (`|Δpos| ≤ 1000` **or**
-`|Δend| ≤ 1000`) is enough to match an event. For a large SV where one breakpoint lines up
-but the other is far off, this can still match.
+**Both breakpoints must agree** (`|Δpos| ≤ 1000` **and** `|Δend| ≤ 1000`) — the same rule
+SURVIVOR applied when it created the cohort event, so the lookup can never be looser than the
+merge it annotates. Until 2026-08-25 the gate was **OR** (one close breakpoint sufficed), which
+cross-credited distinct events that share an anchor: on the ottilie 2-sample test set,
+NODRUG-GM2's private ADH1↔AUS1 inversion (XV:159644–349748) was stamped `Manta` for
+CBR110-15-R3a because that sample's *own* ADH1↔PDR5 inversion (XV:159651–619873) starts 7 bp
+away — right ends 270 kb apart. In `union` mode the same bug also cross-credited TIDDIT
+telomere↔telomere TRA calls between chr I and chr XV. Genuine matches agree within tens of bp
+at both ends, so the AND gate loses nothing.
 
 ## CSV schema
 
@@ -143,4 +166,7 @@ merge. Do not place them in the merge path.
   `survivor_sv_merge/main.nf`, not read from the VCF.
 - Cohort `SUPP_VEC` (summary counts) and per-sample `proximity_match` (matrix cells) are
   **independent** and can diverge.
-- Proximity gate is **OR** on the two endpoints — one matching breakpoint suffices.
+- Proximity gate is **AND** on the two endpoints (since 2026-08-25; was OR — see above). Keep
+  it at least as strict as SURVIVOR's own `max_dist` merge rule.
+- Manta BND-type events (TRA, INV) are **breakend pairs** — two VCF records per junction, both
+  kept by SURVIVOR — so one event is **two matrix rows** (`pos`/`end` swapped).

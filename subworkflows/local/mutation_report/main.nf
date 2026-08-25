@@ -30,6 +30,8 @@ include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_PASS  } from '../../../modules/
 include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_UNION } from '../../../modules/local/survivor_sv_merge/main'
 include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_PASS  } from '../../../modules/nf-core/tabix/bgziptabix/main'
 include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_UNION } from '../../../modules/nf-core/tabix/bgziptabix/main'
+include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_COHORT_PASS  } from '../../../modules/nf-core/tabix/bgziptabix/main'
+include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_COHORT_UNION } from '../../../modules/nf-core/tabix/bgziptabix/main'
 include { SURVIVOR_COHORT_MERGE as SURVIVOR_COHORT_MERGE_PASS  } from '../../../modules/local/survivor_cohort_merge/main'
 include { SURVIVOR_COHORT_MERGE as SURVIVOR_COHORT_MERGE_UNION } from '../../../modules/local/survivor_cohort_merge/main'
 include { BUILD_SV_MATRIX as BUILD_SV_MATRIX_PASS  } from '../../../modules/local/build_sv_matrix/main'
@@ -238,20 +240,41 @@ workflow MUTATION_REPORT {
         BUILD_SV_MATRIX_UNION(SURVIVOR_COHORT_MERGE_UNION.out.vcf, ch_union_plain, 'union')
         versions = versions.mix(BUILD_SV_MATRIX_PASS.out.versions)
 
+        // Publish the cohort-level SURVIVOR VCF next to the matrix CSV: one record per merged
+        // event with a genotype column per sample — the joint SV call set the matrix is built
+        // from. Named sv_cohort_merged_<mode>.vcf.gz because that is the file generate_index.py
+        // looks for in data/ to offer the "VCF" download beside the ensemble SV table.
+        BGZIPTABIX_SV_COHORT_PASS(
+            SURVIVOR_COHORT_MERGE_PASS.out.vcf.map  { vcf -> [ [ id: 'sv_cohort_merged', merge_mode: 'union_pass' ], vcf ] })
+        BGZIPTABIX_SV_COHORT_UNION(
+            SURVIVOR_COHORT_MERGE_UNION.out.vcf.map { vcf -> [ [ id: 'sv_cohort_merged', merge_mode: 'union' ], vcf ] })
+        versions = versions.mix(BGZIPTABIX_SV_COHORT_PASS.out.versions)
+
         ch_sv_data = BUILD_SV_MATRIX_PASS.out.csv
             .mix(BUILD_SV_MATRIX_UNION.out.csv)
+            .mix(BGZIPTABIX_SV_COHORT_PASS.out.gz_tbi.flatMap  { meta, gz, tbi -> [ gz, tbi ] })
+            .mix(BGZIPTABIX_SV_COHORT_UNION.out.gz_tbi.flatMap { meta, gz, tbi -> [ gz, tbi ] })
             .collect()
     } else {
         ch_sv_data = Channel.empty()
     }
 
     // =========================================================================
-    // 6. TIDDIT PASS filtering (for per-sample reports)
+    // 6. PASS filtering — TIDDIT and Manta
     // =========================================================================
+    //
+    // FILTER_PASS_VCF emits a PASS-only VCF plus a "total / PASS" stats TSV per input.
+    //   - TIDDIT: both are used — the per-sample TIDDIT IGV report shows the PASS VCF.
+    //   - Manta:  only the stats are used (the "PASS / all" count in the Sample Overview);
+    //             the Manta IGV report keeps every call so Manta's own FILTER tags stay visible.
 
-    if (has_tiddit) {
-        FILTER_PASS_VCF(ch_tiddit_vcfs)
-        ch_tiddit_pass = FILTER_PASS_VCF.out.vcf
+    ch_pass_filter_in = Channel.empty()
+    if (has_tiddit) { ch_pass_filter_in = ch_pass_filter_in.mix(ch_tiddit_vcfs) }
+    if (has_manta)  { ch_pass_filter_in = ch_pass_filter_in.mix(ch_manta_vcfs) }
+
+    if (has_tiddit || has_manta) {
+        FILTER_PASS_VCF(ch_pass_filter_in)
+        ch_tiddit_pass = FILTER_PASS_VCF.out.vcf.filter { meta, vcf, tbi -> meta.caller == 'tiddit' }
         ch_pass_stats  = FILTER_PASS_VCF.out.stats.collect().ifEmpty(file("NO_FILE"))
         versions = versions.mix(FILTER_PASS_VCF.out.versions)
     } else {

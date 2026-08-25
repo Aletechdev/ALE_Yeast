@@ -540,6 +540,11 @@ def build_context(
         tiddit_total = tiddit_ps.get("total", counts.get("TIDDIT", 0))
         tiddit_pass = tiddit_ps.get("pass")  # None if no pass stats
 
+        # Manta: same PASS/all split (the Manta IGV report itself keeps all calls)
+        manta_ps = pass_stats.get((sample, "manta"), {})
+        manta_total = manta_ps.get("total", counts.get("Manta", 0))
+        manta_pass = manta_ps.get("pass")
+
         entry = {
             "sample": sample,
             "type": info["type"],
@@ -553,7 +558,8 @@ def build_context(
             "cnvkit_events": counts.get("CNVKit", 0),
             "tiddit_svs": tiddit_total,
             "tiddit_pass": tiddit_pass,
-            "manta_svs": counts.get("Manta", 0),
+            "manta_svs": manta_total,
+            "manta_pass": manta_pass,
             "igv_link": igv_links.get(sample, {}).get("hc"),
             "cnvkit_igv_link": igv_links.get(sample, {}).get("cnvkit"),
             "manta_igv_link": igv_links.get(sample, {}).get("manta"),

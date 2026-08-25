@@ -332,8 +332,10 @@
             Click linked counts to open per-sample IGV reports.
             CNVKit reports show read depth and log2 ratio tracks (~5 kb bins, ±50 kb context).
             Manta and TIDDIT reports include read alignment views at breakpoints (±500 bp).
-            TIDDIT is pre-filtered to PASS variants only (shown as "PASS / raw" in the table);
-            both raw and PASS-filtered VCFs are available for download from each report.
+            SV counts are shown as "PASS / all" using each caller's own FILTER column. The TIDDIT report
+            is pre-filtered to PASS calls; the Manta report keeps all calls with the FILTER tag visible.
+            Note that Manta reports translocations and inversions as breakend <em>pairs</em> (two records
+            per junction), so those counts are records, not events.
         </p>
         <div id="summary-table"></div>
     </div>
@@ -540,16 +542,53 @@
                     SVs detected independently by
                     <a href="https://github.com/Illumina/manta">Manta</a> and
                     <a href="https://github.com/SciLifeLab/TIDDIT">TIDDIT</a>,
-                    merged into a cohort matrix by <code>build_sv_matrix.py</code>.
-                    Per-sample columns show caller(s): <code>Manta</code>, <code>TIDDIT</code>, or <code>Manta+TIDDIT</code>.
+                    merged into one cohort matrix (<code>sv_cohort_matrix.py</code>).
+                    Per-sample columns show the caller(s) that detected the event in that sample:
+                    <code>Manta</code>, <code>TIDDIT</code>, <code>Manta+TIDDIT</code>, or <code>-</code> (no matching call).
                 </p>
+                <h4>How events are merged</h4>
+                <ol>
+                    <li><strong>Per sample</strong> &mdash; PASS calls from Manta and TIDDIT are merged with
+                        <a href="https://github.com/fritzsedlazeck/SURVIVOR">SURVIVOR</a>
+                        (<code>max_dist</code> = 1,000 bp, same SV type required, strand ignored, minimum size 50 bp,
+                        minimum support 1 = union). Two calls whose breakpoints both lie within 1 kb become one record.
+                        Output: <code>data/sv_merged/&lt;sample&gt;/&lt;sample&gt;.survivor.union_pass.vcf.gz</code>.</li>
+                    <li><strong>Across samples</strong> &mdash; the per-sample merged VCFs are merged again with the same
+                        SURVIVOR settings into a single cohort VCF: one record per event, one genotype column per sample.
+                        This is the "VCF" download beside the Ensemble SV table
+                        (<code>data/sv_cohort_merged_union_pass.vcf.gz</code>). Its coordinates are those of the
+                        representative record SURVIVOR kept, so they can differ by a few bp from any one sample's own call.</li>
+                    <li><strong>Caller labels</strong> &mdash; each cohort event is looked up in every sample's per-sample
+                        merged VCF. A call is accepted as the same event only if it has the same SV type and chromosome(s)
+                        and <strong>both</strong> breakpoints are within 1 kb (the same rule SURVIVOR used to merge).
+                        The matched call's caller(s) fill the cell. Distinct events that merely share one breakpoint
+                        &mdash; e.g. several inversions or translocations radiating from a single hotspot &mdash;
+                        are therefore <em>not</em> conflated.</li>
+                </ol>
+                <h4>Reading the matrix</h4>
+                <ul>
+                    <li>Translocations (<code>TRA</code>) and inversions (<code>INV</code>) come from Manta as
+                        <em>breakend pairs</em> &mdash; two records, one per junction end. SURVIVOR keeps both, so one such
+                        event occupies <strong>two rows</strong> with <code>pos</code>/<code>end</code> swapped.
+                        Count events, not rows, when comparing against per-sample totals.</li>
+                    <li>"Union" means an event is listed if <em>either</em> caller reported it in at least one sample;
+                        <code>Manta+TIDDIT</code> marks the subset supported by both callers in that sample.</li>
+                    <li>A <code>-</code> cell means no PASS call of that type within 1 kb at both ends in that sample &mdash;
+                        the call may still exist with a non-PASS filter, or with a different breakpoint (compare the
+                        <code>sv_cohort_matrix_union.csv</code> download, which is built the same way from all calls).</li>
+                </ul>
                 <h4>Why counts differ</h4>
                 <ul>
-                    <li><strong>SV Events card + matrix</strong>: PASS-filtered, deduplicated across callers (<code>sv_cohort_matrix_union_pass.csv</code>)</li>
-                    <li><strong>Sample Overview CNVKit/TIDDIT/Manta columns</strong>: raw unfiltered per-sample VCF counts from bcftools stats. TIDDIT shows "PASS / raw" when PASS stats are available. CNVKit IGV reports show read depth and log2 ratio tracks (~5 kb bins, ±50 kb context); Manta and TIDDIT IGV reports include read alignment views at breakpoints (±500 bp)</li>
+                    <li><strong>SV Events card + matrix</strong>: PASS-filtered, deduplicated across callers and samples
+                        (<code>sv_cohort_matrix_union_pass.csv</code>)</li>
+                    <li><strong>Sample Overview TIDDIT/Manta columns</strong>: per-sample record counts shown as
+                        "PASS / all" from each caller's own VCF &mdash; not deduplicated across callers, and breakend pairs
+                        count twice. <strong>CNVKit column</strong>: raw unfiltered count. CNVKit IGV reports show read depth
+                        and log2 ratio tracks (~5 kb bins, ±50 kb context); Manta and TIDDIT IGV reports include read
+                        alignment views at breakpoints (±500 bp)</li>
                 </ul>
                 <p>
-                    Per-sample counts are much higher because they include non-PASS calls
+                    Per-sample "all" counts are much higher because they include non-PASS calls
                     and are not deduplicated. TIDDIT in particular generates many low-confidence calls.
                 </p>
             </div>
@@ -639,10 +678,10 @@
                     <tr><td>Map % / Mapped (M)</td><td>Samtools flagstat</td><td>&mdash;</td></tr>
                     <tr><td>HaplotypeCaller</td><td>bcftools stats (<code>*_snpEff.ann</code>)</td><td>Soft-filtered, annotated (all non-ref variants)</td></tr>
                     <tr><td>CNVKit</td><td>bcftools stats (<code>*.cnvcall</code>)</td><td>Raw (unfiltered)</td></tr>
-                    <tr><td>TIDDIT</td><td>bcftools stats (<code>*.tiddit</code>)</td><td>Table shows "PASS / raw"; IGV report uses PASS-only</td></tr>
-                    <tr><td>Manta</td><td>bcftools stats (<code>*.manta.diploid_sv</code>)</td><td>Raw (unfiltered)</td></tr>
+                    <tr><td>TIDDIT</td><td><code>bcftools view -f PASS</code> record counts (<code>data/*.tiddit.pass_stats.tsv</code>)</td><td>Table shows "PASS / all"; IGV report uses PASS-only</td></tr>
+                    <tr><td>Manta</td><td><code>bcftools view -f PASS</code> record counts (<code>data/*.manta.pass_stats.tsv</code>)</td><td>Table shows "PASS / all"; IGV report shows all calls (FILTER column visible)</td></tr>
                 </table>
-                <p>All parsed from <code>multiqc_data/</code> (<code>multiqc_general_stats.txt</code> + <code>multiqc_bcftools_stats.txt</code>).</p>
+                <p>QC and HaplotypeCaller/CNVKit counts are parsed from <code>multiqc_data/</code> (<code>multiqc_general_stats.txt</code> + <code>multiqc_bcftools_stats.txt</code>); the SV "PASS / all" counts come from the <code>pass_stats.tsv</code> files in <code>data/</code> (falling back to the bcftools-stats total when absent).</p>
             </div>
         </details>
     </div>
@@ -779,7 +818,7 @@
                     title: "SV",
                     columns: [
                         { title: "TIDDIT", field: "tiddit_svs", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 PASS / raw</span>'; },
+                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 PASS / all</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var total = cell.getValue();
@@ -794,17 +833,20 @@
                         },
                         { title: "TIDDIT PASS", field: "tiddit_pass", visible: false },
                         { title: "Manta", field: "manta_svs", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 all variants</span>'; },
+                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 PASS / all</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
-                              var v = cell.getValue();
-                              if (v == null) return "";
+                              var total = cell.getValue();
+                              if (total == null) return "";
+                              var pass = row.manta_pass;
+                              var label = (pass != null) ? pass + ' / ' + total : '' + total;
                               if (row.manta_igv_link) {
-                                  return '<a class="igv-link" href="' + row.manta_igv_link + '" target="_blank">' + v + '</a>';
+                                  return '<a class="igv-link" href="' + row.manta_igv_link + '" target="_blank" title="IGV report shows ALL Manta calls with the FILTER column visible; the first number is the PASS subset.">' + label + '</a>';
                               }
-                              return v;
+                              return label;
                           }
                         },
+                        { title: "Manta PASS", field: "manta_pass", visible: false },
                     ]
                 },
                 { title: "IGV Report", field: "igv_link", visible: false },

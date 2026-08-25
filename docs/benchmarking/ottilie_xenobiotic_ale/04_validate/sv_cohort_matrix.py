@@ -140,7 +140,11 @@ def proximity_match(cohort_rec, sample_records, max_dist=MAX_DIST):
         # Check pos and end independently (SURVIVOR can shift both during merge)
         pos_dist = abs(rec["pos"] - cohort_rec["pos"])
         end_dist = abs(rec["end"] - cohort_rec["end"])
-        if pos_dist > max_dist and end_dist > max_dist:
+        # BOTH breakpoints must agree within max_dist — the same rule SURVIVOR applied
+        # when it merged the event. A one-breakpoint match is not enough: distinct SVs
+        # that share an anchor (e.g. several inversions/translocations radiating from
+        # one hotspot) would otherwise be credited to samples that never called them.
+        if pos_dist > max_dist or end_dist > max_dist:
             continue
         dist = pos_dist + end_dist
         if dist < best_dist:
