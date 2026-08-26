@@ -39,6 +39,8 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
+from sample_names import resolve_sample
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 DEFAULT_DICTIONARY = REPO_ROOT / "data/ottilie/sample_name_dictionary.csv"
@@ -87,12 +89,10 @@ def find_parent_samples(dictionary_path, output_dir):
             if row.get("is_parent", "").strip() != "True":
                 continue
             lib = row.get("library_name_sra", "").strip()
-            # Pipeline may normalize double-dash to single-dash
-            candidates = [lib, lib.replace("--", "-")]
-            for c in candidates:
-                if c and c in available:
-                    parents.append(c)
-                    break
+            # Pipeline spelling may differ in punctuation (see sample_names.py)
+            match = resolve_sample([lib], available)
+            if match:
+                parents.append(match)
     return parents
 
 

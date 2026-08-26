@@ -32,6 +32,8 @@ import csv
 import sys
 from pathlib import Path
 
+from sample_names import resolve_sample
+
 try:
     import openpyxl
 except ImportError:
@@ -77,11 +79,11 @@ def build_sup5_map(dictionary_path, output_dir):
             if not sup5 or is_parent:
                 continue
 
-            # Try library name first (pipeline uses this), then sup5, then sup4
-            for candidate in [lib, sup5, sup4]:
-                if candidate and candidate in available:
-                    sup5_map[sup5] = candidate
-                    break
+            # Try library name first (pipeline uses this), then sup5, then sup4;
+            # exact match first, then punctuation-insensitive (see sample_names.py)
+            match = resolve_sample([lib, sup5, sup4], available)
+            if match:
+                sup5_map[sup5] = match
 
     return sup5_map
 

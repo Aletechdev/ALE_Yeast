@@ -20,6 +20,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from sample_names import resolve_sample
+
 try:
     import openpyxl
 except ImportError:
@@ -64,11 +66,11 @@ def build_sup4_map(dictionary_path, output_dir):
             if not sup4 or is_parent:
                 continue
 
-            # Try sup5 first (simplified name), then sup4, then library name
-            for candidate in [sup5, sup4, lib]:
-                if candidate and candidate in available:
-                    sup4_map[sup4] = candidate
-                    break
+            # Try sup5 first (simplified name), then sup4, then library name;
+            # exact match first, then punctuation-insensitive (see sample_names.py)
+            match = resolve_sample([sup5, sup4, lib], available)
+            if match:
+                sup4_map[sup4] = match
 
     return sup4_map
 
