@@ -107,6 +107,31 @@ the VCFs appear in `filelist.txt`.
 (`sv_cohort_matrix.py:58-62`) decodes `supp_vec[0]→Manta`, `supp_vec[1]→TIDDIT`. If the
 `echo` order in the module ever changes, the parser labels silently invert. Keep them coupled.
 
+## Which coordinates the merged record keeps — last file in the list wins
+
+When SURVIVOR collapses several calls into one record, the record's `POS`/`END`/`ID` (and so
+the `pos`/`end` in the CSV) are copied from **one** member of the cluster: the call from the
+**last input file in `filelist.txt`** that supports the event. It is *not* the larger position,
+the higher QUAL, or a consensus. Verified 2026-08-26 on the ottilie 2-sample outputs — of the 32
+shared cohort events whose two samples disagreed on coordinates, all 32 took the second file's
+(NODRUG-GM2's) values, 12 of them the *smaller* position. The other members' offsets survive only
+as `CIPOS`/`CIEND` and in each column's `FORMAT/CO`.
+
+| Merge step | File-list order | Whose coordinates end up in the record |
+|------------|-----------------|----------------------------------------|
+| Per sample (Manta ∪ TIDDIT) | Manta, then TIDDIT (fixed `echo` order) | **TIDDIT's** whenever TIDDIT called the event; Manta's only when TIDDIT did not |
+| Cohort (samples) | `ls *.vcf` → alphabetical by sample id | the **alphabetically last sample** carrying the event |
+
+Consequences:
+
+- Matrix rows for shared events show the last sample's breakpoints, never the first sample's own
+  call, even when the first sample's call is the better-supported one (e.g. the XV:722257 DEL row
+  carries TIDDIT's `722257-722440`, not Manta's split-read `722249-722439`).
+- The choice **depends on sample naming**: rename a sample so it sorts differently and shared-row
+  coordinates shift by a few bp although the events are unchanged. Byte-comparisons of
+  `sv_cohort_matrix_*.csv` across runs are only meaningful with identical sample ids.
+- With >2 inputs the expectation is "last supporting file"; verified here for two inputs only.
+
 ## BUILD_SV_MATRIX — how cells are populated
 
 `sv_cohort_matrix.py` parses the cohort VCF and each per-sample VCF using
@@ -153,6 +178,57 @@ Note **`chrom2` sits before `end`**. Rows are sorted by yeast chromosome order
 (`I`…`XVI`, `sv_cohort_matrix.py:28-29`), then `pos`, `end`, `svtype`. Each sample column
 holds `Manta` / `TIDDIT` / `Manta+TIDDIT` / `-`.
 
+## Known issue — revisit: cross-type swallowing in `union` mode (found 2026-08-26)
+
+`take_type=1` does **not** stop SURVIVOR from folding a DEL into a breakend-derived INV/TRA
+cluster. Observed on the ottilie 2-sample test set, `union` (raw) mode, chr XV ~722 kb:
+
+```
+NODRUG-GM2 raw TIDDIT:  722257-722440 <DEL>  QUAL 80  PASS                  ← real event
+                        721969<->722440 BND  QUAL 15  BelowExpectedLinks     ← junk breakend pair
+NODRUG-GM2 raw Manta:   722249-722439 DEL    QUAL 999 PASS
+
+per-sample union record:  POS=721969  SVTYPE=INV  SUPP_VEC=11
+     TIDDIT column: TY=INV,DEL,INV  CO=XV_721969-XV_722440,XV_722257-XV_722440,XV_722440-XV_721969
+     (all three TIDDIT records + the Manta DEL collapsed into ONE record that took the breakend's identity)
+
+cohort union record:      POS=721969  SVTYPE=INV  — CBR110-15-R3a's clean DEL (722257-722440,
+     PASS in both callers, 112 split reads) was merged into it too, despite take_type=1.
+
+sv_cohort_matrix_union.csv:  XV,721969,XV,722440,INV,259,-,Manta+TIDDIT
+     CBR110-15-R3a shows "-" because proximity_match requires svtype equality (DEL != INV).
+```
+
+Net effect: in the `union` matrix a sample's PASS, two-caller deletion is invisible. `union_pass`
+(the dashboard table) is unaffected *here* only because the breakend pair is non-PASS; the mechanism
+is latent for `union_pass` whenever a PASS breakend sits within `max_dist` of a real event.
+
+Nothing is lost **across the two VCF levels together**, but neither level alone holds everything:
+
+- **Per-sample VCF** (where the clustering happened): the TIDDIT column keeps all three clustered
+  records comma-joined in `TY=INV,DEL,INV`, `CO=…721969-722440,…722257-722440,…722440-721969`,
+  `QV=15,80,15` — so NODRUG's deletion (`722257-722440`, QUAL 80) is recoverable here. Only `TY`,
+  `CO`, `QV` are joined; `ID`, `LN`, `GT` carry the representative's value only (`ID=SV_1_2`).
+- **Cohort VCF**: each sample column carries just that sample's *representative*. CBR110's column
+  still says `TY=DEL CO=XV_722257-XV_722440 ID=SV_1_1` (its deletion identity survives), but
+  NODRUG's column says `TY=INV CO=XV_721969-XV_722440` — NODRUG's deletion is **not** in the
+  cohort VCF; you must drop to its per-sample VCF to see it.
+
+So this is a matrix-derivation problem for CBR110 (the cohort VCF knows it is a DEL; the CSV
+blanks it), and a representative-selection problem for NODRUG (its DEL is one level down).
+
+Options on the table (decision deferred — see `docs/dev-practices/roadmap.md`):
+
+1. **Decode cells from the cohort VCF's per-sample `PSV`** (`10`→Manta, `01`→TIDDIT, `11`→both,
+   `./.`→`-`) instead of re-deriving them with `proximity_match`. Removes the proximity heuristic
+   and its `max_dist` entirely, and makes the CSV agree with SURVIVOR's merge by construction; the
+   swallowed sample would read `Manta+TIDDIT`. The sample's own `TY`/`CO` could go in a companion
+   long-format CSV (one row per event × sample × caller) so a DEL-inside-an-INV-row is visible.
+2. Drop non-PASS breakends before the raw `union` merge (or retire `union` mode).
+3. Keep as is and treat `union` as an exploratory download only (current state).
+
+Until this is revisited: **trust `union_pass` for counts; treat `union` cells as approximate.**
+
 ## Not part of this chain
 
 `PREPARE_VCF` and `FILTER_PASS_VCF` serve the **igv-reports display VCFs**, not the SURVIVOR
@@ -168,5 +244,7 @@ merge. Do not place them in the merge path.
   **independent** and can diverge.
 - Proximity gate is **AND** on the two endpoints (since 2026-08-25; was OR — see above). Keep
   it at least as strict as SURVIVOR's own `max_dist` merge rule.
+- `union` mode: a junk breakend pair within `max_dist` can absorb a real DEL and retype the
+  cluster INV/TRA; the matrix then hides the DEL sample (svtype check). See "Known issue".
 - Manta BND-type events (TRA, INV) are **breakend pairs** — two VCF records per junction, both
   kept by SURVIVOR — so one event is **two matrix rows** (`pos`/`end` swapped).

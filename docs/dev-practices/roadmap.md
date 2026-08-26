@@ -99,6 +99,23 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   inherent (no gain/loss relative to a haploid baseline) or a window/config issue that yeast-tuned
   parameters would resolve.
 
+## SV — Manta + TIDDIT → SURVIVOR → cohort matrix
+
+- **[medium] Derive SV-matrix cells from the cohort VCF's `PSV` instead of `proximity_match`.**
+  Found 2026-08-26: SURVIVOR (`take_type=1` notwithstanding) can fold a PASS deletion into a
+  breakend-derived INV/TRA cluster seeded by a junk non-PASS breakend within `max_dist`; the
+  matrix's svtype check then blanks that sample (`union` mode on ottilie, chr XV ~722 kb — CBR110's
+  two-caller, 112-split-read DEL shows `-`). The cohort VCF already carries the answer per sample
+  (`PSV` = caller vector, plus `TY`/`CO`/`ID`/`QV`), so cells can be decoded directly, retiring the
+  proximity heuristic and its 1 kb gate. Pair with a long-format companion CSV (event × sample ×
+  caller, with each caller's own breakpoints from the per-sample VCF `CO`) so per-caller coordinates
+  are exported — today the CSV shows only SURVIVOR's representative record. Decide at the same time
+  whether raw `union` mode should drop non-PASS breakends first or be retired. Worked example +
+  options: `docs/variant-calling/sv_merge.md` § "Known issue — revisit". Schema change → e2e snapshot
+  re-record.
+- **[low] Collapse Manta breakend pairs (TRA/INV) into one matrix row** with a `breakend_pair`
+  flag; today each such event occupies two mirror rows (documented in the report Methodology).
+
 ## Robustness / infrastructure
 
 - **[med] `generate_mutation_report.nf` CRAM suffixes are wrong for 2 of 3 preprocessing layouts.**
