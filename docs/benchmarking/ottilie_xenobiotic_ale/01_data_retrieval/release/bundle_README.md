@@ -76,6 +76,23 @@ That is 21 SNVs, 21 INDELs and 1 CNV, covering every consequence class the paper
 (missense, nonsense, frameshift, synonymous, intergenic, mitochondrial) but **no focal
 amplification** — for that class use a Data 5 clone such as `Doxorubicin-135-R2b` (SRR10985529).
 
+**Where the truth set comes from.** Three supplementary tables of the paper (PMC 8837787), not
+shipped here because they are the paper's own files:
+
+| Table | Holds | |
+|---|---|---|
+| [Data 4](https://pmc.ncbi.nlm.nih.gov/articles/instance/8837787/bin/42003_2022_3076_MOESM6_ESM.xlsx) | every SNV/INDEL called — 1,405 across 355 clones | `pilot_truth_set.csv` rows with `source = Sup Data 4` |
+| [Data 5](https://pmc.ncbi.nlm.nih.gov/articles/instance/8837787/bin/42003_2022_3076_MOESM7_ESM.xlsx) | every CNV called — 24 events in 23 clones | `source = Sup Data 5` |
+| [Data 7](https://pmc.ncbi.nlm.nih.gov/articles/instance/8837787/bin/42003_2022_3076_MOESM9_ESM.xlsx) | CRISPR/Cas9 validation — 68 mutations knocked into the parent, 45 confirmed causal by IC50 shift | not a sample list — see below |
+
+Data 7 is **not** a list of sequenced samples: its EAW strains are engineered knock-ins with no
+reads, identified only by gene + amino-acid change, so it has to be joined back to Data 4 on that.
+It is the only *method-independent* ground truth in the paper — Data 4/5 are the authors' own GATK
+calls, so agreement with them measures concordance with their pipeline, not correctness, and a
+low "precision" against them is expected rather than a defect. For the pilot exactly one event is
+Data 7-confirmed: `Doxorubicin16-R2b` *PMS1* p.Lys724\* (XIV:475560). *ELO2* is also a confirmed
+doxorubicin-resistance gene, via a different allele (Q7\*) than the frameshift this clone carries.
+
 ⚠️ **Names differ between the paper's tables, SRA and this bundle.** Sup Data 4 and the SRA library
 write `Doxorubicin-16--R2b`, the samplesheet here `Doxorubicin16-R2b`; Data 4/5 write `CBR110-15R3a`,
 SRA and the samplesheet `CBR110-15-R3a`; and so on. An exact-string join silently drops clones. `sample_name_dictionary.csv` reconciles all 363 runs (columns
