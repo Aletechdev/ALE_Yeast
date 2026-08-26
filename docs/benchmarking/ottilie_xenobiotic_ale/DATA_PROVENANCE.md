@@ -6,7 +6,7 @@ artifacts are gitignored (see [Storage & durability](#storage--durability)).
 
 ## Source
 
-- **Publication:** Ottilie et al., *Commun Biol* 5:128 (2022) — https://doi.org/10.1038/s42003-022-03076-z
+- **Publication:** Ottilie et al., *Commun Biol* 5:128 (2022) — https://doi.org/10.1038/s42003-022-03076-7
 - **BioProject:** PRJNA590203 (363 yeast ALE runs)
 - **Run table:** `data/ottilie/PRJNA590203_runinfo.csv` (all SRR accessions)
 - **Test samples (2):**

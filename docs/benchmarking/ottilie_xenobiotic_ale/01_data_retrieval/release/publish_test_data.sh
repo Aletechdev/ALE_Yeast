@@ -10,6 +10,11 @@
 #   6. README.md                  — what the data IS: sample↔FASTQ↔SRA mapping, the truth set, and the
 #                                   reference-pairing rule. Shipped INSIDE the bundle and published
 #                                   standalone. Source of truth is bundle_README.md, next to this script.
+#   7. download_pilot_fastq.sh    — the 4-sample pilot RECIPE (reads stay on SRA; see blob_layout.md for
+#                                   why the pilot data itself is not re-hosted). In the bundle and standalone.
+#   8. pilot_truth_set.csv        — the paper's published events for the pilot clones (Sup Data 4 + 5), keyed
+#      sample_name_dictionary.csv   by pipeline sample names; and the clone-name dictionary that reconciles
+#                                   the paper's tables with SRA. Both tracked in git under data/ottilie/.
 #
 # BOTH REFERENCES ARE PUBLISHED, and both go in the bundle:
 #   S288C_reference_test/   slimmed — chromosomes I, IV, VII, XV. Pairs with the 2-sample test reads.
@@ -41,6 +46,8 @@
 #   bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/publish_test_data.sh
 # Override target (a breaking change needing a new version, or a different host):
 #   ACCOUNT=aletestdatapublic CONTAINER=releases PREFIX=ottilie/v2  bash .../publish_test_data.sh
+# Build everything locally and upload NOTHING (no az needed; stage dir is kept for inspection):
+#   DRY_RUN=1 bash .../publish_test_data.sh
 
 set -euo pipefail
 
@@ -53,12 +60,14 @@ CONTAINER="${CONTAINER:-releases}"
 PREFIX="${PREFIX:-ottilie/v1}"                  # rolling: updated in place (see Phase 0). Bump for a breaking change.
 AUTH="${AUTH:-key}"                             # 'key' = shared-key (default, needs no data-plane role); 'login' = AAD
 STAGE="${STAGE:-$REPO_ROOT/.ottilie_publish}"   # small: tarballs + SHA + url-samplesheet only (not the 402 MB copied)
+DRY_RUN="${DRY_RUN:-}"                          # set to build + verify locally without az or any upload
+PILOT_SCRIPT="$SCRIPT_DIR/../fastq/download_pilot_fastq.sh"
 BASE_URL="https://${ACCOUNT}.blob.core.windows.net/${CONTAINER}/${PREFIX}"
 
 # ---------------------------------------------------------------------------
 # Phase 0 — preflight (data present + container provisioned)
 # ---------------------------------------------------------------------------
-command -v az >/dev/null || { echo "ERROR: az CLI not found (az login required)." >&2; exit 1; }
+[[ -n "$DRY_RUN" ]] || command -v az >/dev/null || { echo "ERROR: az CLI not found (az login required)." >&2; exit 1; }
 [[ -d "$SRC/fastq_test" && -d "$SRC/S288C_reference_test" && -f "$SRC/S288C_reference/S288C_R64.gff3" ]] || {
     echo "ERROR: data/ottilie/ not populated. Run generate_test_data.sh (or download_test_data.sh) first." >&2
     exit 1
@@ -75,11 +84,23 @@ done
     echo "ERROR: missing S288C_reference/chromosomes/ or snpeff_cache/." >&2; exit 1; }
 [[ -f "$SCRIPT_DIR/bundle_README.md" ]] || {
     echo "ERROR: bundle_README.md not found next to this script — it ships inside the bundle." >&2; exit 1; }
+[[ -f "$PILOT_SCRIPT" ]] || {
+    echo "ERROR: $PILOT_SCRIPT not found — the pilot recipe ships inside the bundle." >&2; exit 1; }
+for f in pilot_truth_set.csv sample_name_dictionary.csv; do
+    [[ -f "$SRC/$f" ]] || {
+        echo "ERROR: missing data/ottilie/$f — both are tracked in git; regenerate with" >&2
+        echo "       truth_set/extract_pilot_truth_set.py / truth_set/resolve_sra_accessions.py." >&2; exit 1; }
+done
 
 # The account + container are provisioned by infra/azure/deploy.sh — verify the container exists rather
 # than creating it here (keeps provisioning in one place, and preserves the deployed public-access level).
+if [[ -n "$DRY_RUN" ]]; then
+    EXISTS=true; N_EXISTING=0
+    echo "DRY-RUN: skipping the container check and every upload; artefacts stay in $STAGE"
+else
 EXISTS="$(az storage container exists --account-name "$ACCOUNT" --name "$CONTAINER" \
     --auth-mode "$AUTH" --query exists -o tsv 2>/dev/null || echo error)"
+fi
 if [[ "$EXISTS" != "true" ]]; then
     echo "ERROR: container '$CONTAINER' not found on account '$ACCOUNT' (exists=$EXISTS)." >&2
     echo "       Provision it first: bash infra/azure/deploy.sh   (see infra/azure/README.md)" >&2
@@ -101,7 +122,7 @@ fi
 # ⚠️ BUMP THE PREFIX (PREFIX=ottilie/v2) for a change that would BREAK a consumer — removing or
 #    renaming a published file, or changing the content of one that already exists. Growing the set
 #    is additive and safe; taking things away is not.
-N_EXISTING="$(az storage blob list --account-name "$ACCOUNT" --auth-mode "$AUTH" \
+[[ -n "$DRY_RUN" ]] || N_EXISTING="$(az storage blob list --account-name "$ACCOUNT" --auth-mode "$AUTH" \
     -c "$CONTAINER" --prefix "$PREFIX/" --query "length(@)" -o tsv 2>/dev/null || echo 0)"
 if [[ "${N_EXISTING:-0}" -gt 0 ]]; then
     echo "⚠️  '$PREFIX/' already holds $N_EXISTING blobs — republishing IN PLACE (rolling prefix)."
@@ -127,6 +148,8 @@ PUBLISH_PATHS=(
     S288C_reference/S288C_R64_ensembl_chrnames.gb
     S288C_reference/chromosomes
     S288C_reference/snpeff_cache
+    pilot_truth_set.csv                             # ↓ 4-sample pilot: published truth + name dictionary
+    sample_name_dictionary.csv                      #   (tracked in git; the recipe script is staged below)
 )
 
 # --- Per-FASTQ .md5 sidecars, staged ONCE and used twice ------------------------------------
@@ -160,9 +183,12 @@ echo "Building bundle + cache tarball ..."
 # it came from — the source file stays version-agnostic and cannot go stale on the next bump.
 sed "s|<base>|$BASE_URL|g" "$SCRIPT_DIR/bundle_README.md" > "$STAGE/README.md"
 grep -q '<base>' "$STAGE/README.md" && { echo "ERROR: unsubstituted <base> in README." >&2; exit 1; }
+# The pilot recipe is a repo script, not data — stage it beside the README so it lands in the
+# tarball root and at $PREFIX/download_pilot_fastq.sh, the same way README.md does.
+cp "$PILOT_SCRIPT" "$STAGE/download_pilot_fastq.sh"
 tar -czf "$STAGE/ottilie_test_data.tar.gz" \
     -C "$SRC" "${PUBLISH_PATHS[@]}" \
-    -C "$STAGE" README.md \
+    -C "$STAGE" README.md download_pilot_fastq.sh \
     -C "$STAGE/files" fastq_test
 tar -czf "$STAGE/snpeff_cache.tar.gz" -C "$SRC/S288C_reference_test" snpeff_cache
 
@@ -176,7 +202,7 @@ for algo in sha256 md5; do
         # individual files → mirror the 'files/…' blob layout
         ( cd "$SRC" && find "${PUBLISH_PATHS[@]}" -type f -print0 \
             | sort -z | xargs -0 "${algo}sum" ) | awk '{print $1"  files/"$2}'
-        ( cd "$STAGE" && "${algo}sum" ottilie_test_data.tar.gz snpeff_cache.tar.gz README.md )
+        ( cd "$STAGE" && "${algo}sum" ottilie_test_data.tar.gz snpeff_cache.tar.gz README.md download_pilot_fastq.sh )
     } > "$STAGE/$(echo "$algo" | tr '[:lower:]' '[:upper:]')SUMS"
 done
 
@@ -199,6 +225,16 @@ CSV
 # ---------------------------------------------------------------------------
 # Phase 2 — upload BOTH shapes under the versioned prefix
 # ---------------------------------------------------------------------------
+if [[ -n "$DRY_RUN" ]]; then
+    echo ""
+    echo "DRY-RUN: bundle contents (top two levels):"
+    tar -tzf "$STAGE/ottilie_test_data.tar.gz" | awk -F/ 'NF<=2' | sort -u | sed 's/^/  /'
+    echo "DRY-RUN: staged artefacts:"; ls -la "$STAGE" | sed 's/^/  /'
+    echo "DRY-RUN: SHA256SUMS entries: $(wc -l < "$STAGE/SHA256SUMS")"
+    ( cd "$STAGE" && sha256sum -c SHA256SUMS --ignore-missing --quiet ) && echo "DRY-RUN: staged artefacts match SHA256SUMS."
+    echo "DRY-RUN: nothing uploaded. Stage kept at $STAGE (delete it, or rerun without DRY_RUN to publish)."
+    exit 0
+fi
 echo "Uploading individual file tree → $PREFIX/files/ ..."
 # Driven by PUBLISH_PATHS so files/ and the tarball cannot diverge: a directory goes up as a batch,
 # a single file as one blob. Anything not in that list is not published, by construction.
@@ -230,7 +266,8 @@ echo "Verifying public read (no credentials) ..."
 # 4-sample run silently paired with the slimmed reference.
 VFAIL=0
 for obj in SHA256SUMS MD5SUMS README.md ottilie_test_data.tar.gz \
-           ottilie_test_data.tar.gz.md5 \
+           ottilie_test_data.tar.gz.md5 download_pilot_fastq.sh \
+           files/pilot_truth_set.csv files/sample_name_dictionary.csv \
            files/fastq_test/NODRUG-GM2_chrI_IV_VII_XV_R1.fastq.gz.md5 \
            files/S288C_reference/S288C_R64.fa \
            files/S288C_reference/chromosomes/Mito.fa \
@@ -268,6 +305,9 @@ Published under: $BASE_URL
   SHA256SUMS / MD5SUMS         integrity for both shapes, same file set
   *.tar.gz.md5, *.fastq.gz.md5 sidecars — check one big file without fetching a manifest
   samplesheet_test_blob.csv    Seqera samplesheet (per-file public URLs)
+  download_pilot_fastq.sh      4-sample pilot recipe (also inside the bundle)
+  files/pilot_truth_set.csv    pilot truth set (Sup Data 4+5, pipeline sample names) — also inside the bundle
+  files/sample_name_dictionary.csv  paper↔SRA clone-name dictionary — also inside the bundle
 
 ⚠️ This is a ROLLING prefix — every consumer of $PREFIX is now serving the content above, with no
    repointing needed. Who that is:

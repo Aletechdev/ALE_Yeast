@@ -15,6 +15,10 @@ Base URL for everything below — versioned, so a bundle always names the versio
 <base>
 ```
 
+**Revision 2026-08-26** — added the 4-sample pilot recipe (`download_pilot_fastq.sh`), its
+published truth set (`pilot_truth_set.csv`) and the clone-name dictionary
+(`sample_name_dictionary.csv`). The reads and references are unchanged from the first release.
+
 ## What is in this bundle
 
 | Path | Size | What |
@@ -22,6 +26,9 @@ Base URL for everything below — versioned, so a bundle always names the versio
 | `fastq_test/` | ~356 MB | 2 samples × paired reads, **chromosomes I, IV, VII, XV only** |
 | `S288C_reference_test/` | ~41 MB | **slimmed** reference — those 4 chromosomes, + `.fai`, `.dict`, `.gb`, `snpeff_cache/` |
 | `S288C_reference/` | ~84 MB | **full** reference — all 16 chromosomes + Mito, + `.gb`, `.gff3`, `chromosomes/`, `snpeff_cache/` |
+| `download_pilot_fastq.sh` | 4 KB | fetches the **4-sample pilot** reads from SRA and writes their samplesheet (see below) |
+| `pilot_truth_set.csv` | 6 KB | the paper's published mutations for the pilot's 3 evolved clones — 43 events, one per row |
+| `sample_name_dictionary.csv` | 42 KB | clone names across the paper's tables ↔ SRA run/library ↔ EAW id, for all 363 runs |
 
 Both references are included so either is ready to use without a second download. Neither ships
 BWA indices; the full one also has no `.fai`/`.dict` (build them with `samtools faidx` and
@@ -43,28 +50,52 @@ tumor-normal pairing here, which is what puts a germline caller into joint-cohor
 **Truth set:** 4 SNVs + a whole-chromosome duplication of **chr I** in `CBR110-15-R3a`. This is what
 makes the set a correctness test rather than a "did it finish" test.
 
-## The bigger 4-sample set
+## The bigger 4-sample set — the pilot
 
-Same experiment at full depth across all 16 chromosomes, ~4.2 GB. **No truth set** — a successful
-run proves the pipeline finished, not that it is correct. Use it for benchmarking and scaling.
-
-The reads are **not** re-hosted here; pull them from SRA. The full reference in this bundle is the
-one they need.
-
-| Sample | SRA | Role |
-|---|---|---|
-| `NODRUG-GM2` | SRR10985539 | parent, un-evolved control |
-| `Doxorubicin16-R2b` | SRR10985527 | 23 mutations |
-| `Carmaphycin-R9-2` | SRR10985678 | 15 mutations |
-| `CBR110-15-R3a` | SRR10985585 | chr I aneuploidy |
+Same experiment at full depth across all 16 chromosomes, ~4.2 GB of reads. The reads are **not**
+re-hosted here; `download_pilot_fastq.sh` (in this bundle) pulls the four SRA runs and writes a
+`samplesheet_pilot.csv` for them. The full reference in this bundle is the one they need.
 
 ```bash
 # sra-tools 3.2.1 — do NOT use 3.4.1, it segfaults
 conda create -n sra -c bioconda -c conda-forge sra-tools=3.2.1 && conda activate sra
-for s in SRR10985539 SRR10985527 SRR10985678 SRR10985585; do
-    fasterq-dump "$s" --split-files --threads 4 && gzip "${s}_1.fastq" "${s}_2.fastq"
-done
+OUT=/path/for/pilot bash download_pilot_fastq.sh     # → $OUT/fastq/SRR*.fastq.gz + $OUT/samplesheet_pilot.csv
 ```
+
+**It does have a truth set** — the paper's own calls (Supplementary Data 4 for SNV/INDEL, Data 5 for
+CNV), extracted for these clones into `pilot_truth_set.csv`:
+
+| Sample | SRA | Paper's clone name | Published events |
+|---|---|---|---|
+| `NODRUG-GM2` | SRR10985539 | `NODRUG--GM2` | parent, un-evolved control — none by definition |
+| `CBR110-15-R3a` | SRR10985585 | `CBR110-15R3a` | 4 SNVs + whole-chromosome duplication of chr I |
+| `Carmaphycin-R9-2` | SRR10985678 | `Carmaphycin--R9-2` | 15 SNVs (all substitutions; YRM1 N660I is the likely driver) |
+| `Doxorubicin16-R2b` | SRR10985527 | `Doxorubicin-16--R2b` | 2 SNVs + 21 INDELs — a *PMS1* K724\* mismatch-repair mutator (CRISPR-confirmed causal in Data 7); the indels are mostly 1-bp homopolymer deletions |
+
+That is 21 SNVs, 21 INDELs and 1 CNV, covering every consequence class the paper reports
+(missense, nonsense, frameshift, synonymous, intergenic, mitochondrial) but **no focal
+amplification** — for that class use a Data 5 clone such as `Doxorubicin-135-R2b` (SRR10985529).
+
+⚠️ **Names differ between the paper's tables, SRA and this bundle.** Sup Data 4 and the SRA library
+write `Doxorubicin-16--R2b`, the samplesheet here `Doxorubicin16-R2b`; Data 4/5 write `CBR110-15R3a`,
+SRA and the samplesheet `CBR110-15-R3a`; and so on. An exact-string join silently drops clones. `sample_name_dictionary.csv` reconciles all 363 runs (columns
+`clone_name_sup4`, `clone_name_sup5`, `library_name_sra`, `srr_accession`, `eaw_id`, `is_parent`);
+`pilot_truth_set.csv` is already keyed by the sample names used in the samplesheet.
+
+Two of the 43 are hard for any short-read pipeline, and are worth knowing before calling them misses:
+
+- **`XIV:781921` PAU6 G>A** (Doxorubicin16-R2b) — *PAU6* is one of 24 near-identical seripauperin
+  genes; most reads over the site have MAPQ 0. Expect a call that fails mapping-quality filters.
+- **`Mito:53278` 14-bp deletion** (Doxorubicin16-R2b) — the reads carry no such deletion. Instead the
+  clone's mtDNA is at ~10–40× across roughly 47–58 kb (the parent is at ~300× there) with
+  clipped, chimeric reads at the edge: a large mitochondrial deletion/rearrangement, which the
+  paper's caller apparently represented as a small indel. A coverage or SV view shows it; an
+  indel caller will not.
+
+The parent is a sequencing of the **ABC16-Green Monster** strain — an engineered background with
+16 ABC-transporter deletions. Its differences from the S288C reference are strain construction,
+not mutations; only evolved-minus-parent is biology. (Four later re-sequencings of the same parent
+exist as `ParentStrain--GM*`, SRR14327619–22, if you want a parent-vs-parent noise baseline.)
 
 ⚠️ The two sets **share two sample names**. The 2-sample reads are a chromosome subset of these
 same libraries — a subset of the *alignments*, not a read-level downsample, so per-base depth on
@@ -141,7 +172,8 @@ staged along with the real data. `MD5SUMS` covers their contents instead.
 
 | File | For |
 |---|---|
-| `files/**` | the same content as individual blobs, for per-file staging |
+| `files/**` | the same content as individual blobs, for per-file staging (the two CSVs are at `files/pilot_truth_set.csv` and `files/sample_name_dictionary.csv`) |
+| `download_pilot_fastq.sh` | the pilot recipe, standalone — same file as in the bundle |
 | `snpeff_cache.tar.gz` | cache-only, when a `snpeff_cache` *directory* will not stage from a URL |
 | `samplesheet_test_blob.csv` | a ready-made sample sheet whose FASTQ paths are the public URLs |
 | `SHA256SUMS`, `MD5SUMS` | integrity for all of the above — same file set, pick either |

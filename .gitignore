@@ -72,6 +72,13 @@ credentials.json
 
 # Pipeline outputs (large files)
 data/*
+# Two small, derived, PUBLIC files under data/ottilie/ are tracked: the clone-name dictionary
+# (paper tables <-> SRA, with manual overrides that are not cheaply reproducible) and the pilot
+# truth set extracted from the paper's supplements. Both ship in the public release bundle.
+!data/ottilie/
+data/ottilie/*
+!data/ottilie/sample_name_dictionary.csv
+!data/ottilie/pilot_truth_set.csv
 # Track dicarboxylic acids mutation analysis (scripts + raw literature files)
 !data/dicarboxylic_acids/
 !data/dicarboxylic_acids/**

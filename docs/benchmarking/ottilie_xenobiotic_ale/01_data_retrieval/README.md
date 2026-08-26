@@ -27,6 +27,11 @@ SRA RunInfo) into a sample dictionary, then selects the Tier 2 clone list.
 | `resolve_sra_accessions.py` | Reconcile naming across sup_4, sup_5, and SRA RunInfo into a sample name dictionary | `PRJNA590203_runinfo.csv` + sup xlsx → `data/ottilie/sample_name_dictionary.csv` |
 | `validate_dictionary.py` | QC the dictionary: match completeness across sources, clones in both tables, naming differences | `data/ottilie/sample_name_dictionary.csv` |
 | `select_tier2_crispr_validated.py` | Select ~85 Tier 2 clones: CRISPR-validated SNV/INDEL clones (Sup 7→4) + CNV clones (Sup 5) | sup xlsx + dictionary → `data/ottilie/tier2_crispr_validated_clones.csv` |
+| `extract_pilot_truth_set.py` | Extract the 4-sample pilot's published events (Sup 4 SNV/INDEL + Sup 5 CNV, 43 rows) keyed by pipeline sample names — ships in the public bundle | sup xlsx → `data/ottilie/pilot_truth_set.csv` (**tracked in git**) |
+
+`sample_name_dictionary.csv` and `pilot_truth_set.csv` are the two files under `data/ottilie/` that
+**are tracked in git** (`.gitignore` exceptions): small, derived from public data, and both published
+in the release bundle. Regenerate with the scripts above rather than editing by hand.
 
 ## fastq/ — FASTQ acquisition
 
@@ -35,7 +40,7 @@ blob (needs `az login`), plus optional subsampling for quick tests.
 
 | Script | What it does | Key inputs / outputs |
 |---|---|---|
-| `download_pilot_fastq.sh` | Download the 4 Tier 1 pilot samples from SRA (parent + 2 SNV + 1 CNV benchmark clones) | → `data/ottilie/fastq/` (~2 GB gzipped) |
+| `download_pilot_fastq.sh` | Download the 4 Tier 1 pilot samples from SRA (parent + 3 evolved clones with 43 published events) and write `samplesheet_pilot.csv`. Self-contained — also ships in the public bundle; `OUT=` relocates it | → `data/ottilie/fastq/` (~2 GB gzipped) + `data/ottilie/samplesheet_pilot.csv` |
 | `download_tier2_fastq.sh` | Download the 85 Tier 2 samples from SRA (resumable; ≥160 GB free needed for temp) | `tier2_crispr_validated_clones.csv` → `data/ottilie/fastq/` |
 | `download_tier2_from_blob.sh` | Download the 86 Tier 2 SRRs from the private `aledata` blob instead of SRA (~15–30 min, no temp space) | `tier2_crispr_validated_clones.csv` → `data/ottilie/fastq/` |
 | `download_all_fastq.sh` | Download all 363 samples from SRA in ~50-sample batches, uploading each batch to Azure Blob before deleting locally | `PRJNA590203_runinfo.csv` → blob; `data/ottilie/fastq_all/` scratch |
@@ -49,7 +54,7 @@ machine, and stages the full-depth 4-sample pilot set for Azure Batch.
 | Script | What it does | Key inputs / outputs |
 |---|---|---|
 | `generate_test_data.sh` | Generate the minimal test set: extract chr I/IV/VII/XV reads from 2 pilot samples + slim the S288C reference (`--from-cram` fast path or `--from-sra` fully reproducible) | pilot CRAMs or SRA → `data/ottilie/fastq_test/`, `S288C_reference_test/` |
-| `publish_test_data.sh` | Publish the test data to the public blob in both shapes: one atomic bundle tarball + individual `files/**` tree, with `SHA256SUMS`, blob samplesheet, and README | `data/ottilie/` → `aletestdatapublic/releases` (PUBLIC, no SAS) |
+| `publish_test_data.sh` | Publish the test data to the public blob in both shapes: one atomic bundle tarball + individual `files/**` tree, with `SHA256SUMS`, blob samplesheet, README, the pilot recipe (`download_pilot_fastq.sh`), `pilot_truth_set.csv` and `sample_name_dictionary.csv`. `DRY_RUN=1` builds and verifies locally without uploading | `data/ottilie/` → `aletestdatapublic/releases` (PUBLIC, no SAS) |
 | `bundle_README.md` | Canonical copy of the README shipped inside `ottilie_test_data.tar.gz` — edit here, then re-run `publish_test_data.sh` | — |
 | `download_test_data.sh` | Fetch the published bundle from the stable public URL (curl + tar, no credentials) and write the machine-correct samplesheet | public blob → `data/ottilie/` |
 | `upload_pilot_data.sh` | Stage the full-depth 4-sample pilot (renamed FASTQs, full reference, `az://` samplesheet) to the private `aletest` container for Azure Batch / Seqera runs | `data/ottilie/` → `aledata/aletest` (PRIVATE) |

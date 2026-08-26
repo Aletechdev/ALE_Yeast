@@ -18,7 +18,7 @@ re-upload** (command at the bottom) so the two never drift.
 | Samples | `NODRUG-GM2`, `CBR110-15-R3a` | those two **+** `Doxorubicin16-R2b`, `Carmaphycin-R9-2` |
 | Chromosomes | **I, IV, VII, XV only** | all 16 |
 | Size | ~356 MB FASTQ · ~41 MB reference | ~4.0 GB FASTQ · ~79 MB reference |
-| Truth set | 4 SNVs + a chr I duplication | — not a contract test |
+| Truth set | 4 SNVs + a chr I duplication | 43 published events (Sup Data 4+5: 21 SNV, 21 INDEL, 1 CNV) — `pilot_truth_set.csv`; a benchmark, not the release contract test |
 | Purpose | the **release contract test** | benchmarking · the cold-pool disk measurement |
 | Also published publicly? | ✅ yes, see *Access* below | ❌ **no** — private only |
 
@@ -84,9 +84,11 @@ publicly was considered and rejected:
 - **It would duplicate two things that already exist.** SRA serves the reads, and
   [`download_pilot_fastq.sh`](01_data_retrieval/fastq/download_pilot_fastq.sh) already fetches exactly these
   four accessions. A public copy gives an external user nothing new.
-- **It is the wrong artifact for external validation.** The pilot has **no truth set**, so running it
-  proves only that the pipeline finished. The published test set carries 4 SNVs + a chr I duplication
-  and therefore actually tests correctness — that is what an outside user wants.
+- **It is the wrong artifact for external onboarding.** The pilot is a 4 GB benchmark, not a smoke
+  test: the published test set (356 MB, 4 SNVs + a chr I duplication) is what an outside user needs to
+  prove a pipeline runs correctly. The pilot's own truth set — 43 events from the paper's Sup Data 4+5
+  — *is* published, as `pilot_truth_set.csv` in the same bundle, together with the recipe to fetch the
+  reads from SRA (`download_pilot_fastq.sh`, revision 2026-08-26).
 - **Egress and support.** ~4 GB per download at ~$0.087/GB, unthrottled and unattributable behind a
   no-SAS URL, versus ~$0.03 for the test set. Publishing also implies `SHA256SUMS`, a public-URL
   samplesheet, version discipline, and an artifact that can no longer be restructured quietly.
@@ -95,6 +97,8 @@ This set exists to **stress-test Azure resource usage** — node disks, pool sca
 — which is an internal question about our own infrastructure. If external stress-testing ever becomes a
 goal, publish the *recipe* (`download_pilot_fastq.sh` + `upload_pilot_data.sh`) rather than the data:
 anyone running it on their own Batch pool needs it in their own storage account regardless.
+(`download_pilot_fastq.sh` ships in the public bundle since 2026-08-26; `upload_pilot_data.sh` stays
+repo-only — it targets our private account.)
 
 ⚠️ **`workDir` must live in this same container** whenever a run uses the Entra service principal:
 Nextflow mints one container-scoped SAS and reuses it for every blob URL, so a node cannot read
