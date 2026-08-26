@@ -303,9 +303,7 @@ def main():
             python, BIN_DIR / "build_cn_matrix.py",
             "--output-dir", args.output_dir,
             "--fai", args.fai,
-            "--ploidy", str(args.ploidy),
-            "--skip-cnr",
-        ], "CN Matrix Builder")
+        ], "CN Matrix Builder")   # bin-level cn_bins_continuous.csv feeds the CN cohort matrix step
     else:
         print("\nSkipping CN matrix builder")
 
@@ -313,8 +311,10 @@ def main():
     if "sv_matrix" not in args.skip:
         sv_merged_dir = Path(args.output_dir) / "sv_merged"
         if sv_merged_dir.exists():
+            # The standalone version (this directory) reads sv_merged/; bin/sv_cohort_matrix.py
+            # is the pipeline-mode variant that takes pre-merged VCFs from the report subworkflow.
             success["sv_matrix"] = run_script([
-                python, BIN_DIR / "sv_cohort_matrix.py",
+                python, SCRIPT_DIR / "sv_cohort_matrix.py",
                 "--output-dir", args.output_dir,
                 "--csv", results_dir / "sv_cohort_matrix.csv",
             ], "SV Cohort Matrix")

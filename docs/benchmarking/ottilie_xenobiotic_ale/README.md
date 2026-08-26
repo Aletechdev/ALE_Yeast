@@ -9,7 +9,7 @@ For formal deliverables and acceptance criteria, see [statement_of_work.md](docs
 
 | Tier | Samples | Purpose | Size | Status |
 |------|---------|---------|------|--------|
-| **1 — Pilot** | 4 (1 parent + 3 evolved) | Pipeline smoke test | ~4 GB | Complete |
+| **1 — Pilot** | 4 (1 parent + 3 evolved) | Benchmark: 43 published events (`data/ottilie/pilot_truth_set.csv`) — 41/42 SNV/INDEL + 1/1 CNV detected (2026-08-26, `04_validate/pilot_results_v2/`) | ~4 GB | Complete |
 | **2 — CRISPR + CNV** | 85 clones + parent | High-confidence SNV + CNV benchmark | ~40 GB | Deferred — may be retired |
 | **3 — Full cohort** | 355 clones + parents | Comprehensive benchmark | ~170 GB | Future |
 

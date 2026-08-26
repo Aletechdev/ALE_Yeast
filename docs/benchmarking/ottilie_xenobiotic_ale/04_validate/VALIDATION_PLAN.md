@@ -109,6 +109,7 @@ Functions (reuse patterns from `docs/benchmarking/marko_sv/sv_comparison/generat
    - **Script**: `04_validate/validate_all.py --output-dir <dir> --results-dir <dir> --ploidy <N> [--skip snv cnv sv matrix]`
    - Calls: `snv_indel_concordance.py`, `cnv_concordance.py`, `sv_characterization.py`, `build_cn_matrix.py`
 6. ✅ **Run on pilot** (`output_ottilie`) — verified all 4 sections pass, report at `pilot_results/VALIDATION_REPORT.md`
+   - ⚠️ Those runs scored only CBR110-15-R3a: exact-string sample matching dropped the two clones whose Sup Data 4 spelling differs from the samplesheet. Fixed 2026-08-26 (`sample_names.py`); re-run on a fresh pilot output → **41/42 SNV/INDEL + 1/1 CNV** across all 3 evolved clones, `pilot_results_v2/` (+ `NOTES.md` for PASS-only figures and the two hard sites).
 7. Run on Tier 2 (`output_ottilie_tier2`) — full 86-sample validation
 
 ## Verification
