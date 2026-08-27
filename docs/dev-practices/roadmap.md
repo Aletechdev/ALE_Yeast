@@ -115,6 +115,13 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   0.30–0.70, not overridable; yeast mtDNA is 17 % GC, so all 17 Mito bins are dropped at `fix` in
   every sample. Options: a dedicated per-kb mtDNA depth-ratio track in the report, or a patched
   `params.py` in a custom container (not recommended). Do not expect CNVKit output for `Mito`.
+- **[low] `delly cnv` as a second read-depth CNV opinion** (companion to the Delly SV item under
+  SV below). Segments with per-sample `FORMAT/CN`, emitted as `SVTYPE=CNV` BCF — it belongs beside
+  `cn_segments_*.csv` / `cn_cohort_matrix.csv` (BCF → the same segment schema), **not** in the SV
+  merge. Needs a mappability map for the custom yeast genome (a prep step like the SnpEff cache);
+  can take Delly's own SV BCF (`-l`) to refine breakpoints. Check before relying on it for Mito:
+  whether its GC correction keeps the ~17 % GC contig (CNVKit's does not), and whether its
+  baseline-ploidy option honours `meta.ploidy` — that would make it the first CNV tool here to do so.
 
 ## SV — Manta + TIDDIT → SURVIVOR → cohort matrix
 
@@ -158,6 +165,35 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   re-record.
 - **[low] Collapse Manta breakend pairs (TRA/INV) into one matrix row** with a `breakend_pair`
   flag; today each such event occupies two mirror rows (documented in the report Methodology).
+- **[low] Delly SV (`delly call`) as a third caller — keep the SVDB refactor Delly-ready.** Delly's
+  germline recipe (call per sample → `delly merge` sites → re-genotype every sample at the merged
+  sites with `-v` → `bcftools merge` → `delly filter -f germline`) already yields a cohort BCF with
+  every sample genotyped at every candidate, i.e. the same property joint Manta buys. It genotypes
+  with a diploid model (no ploidy flag) and carries per-sample `FORMAT/FT` — exactly the two rules
+  the generalised Manta split needs (hard-coded `0/0`+`./.` hom-ref pattern, FT → FILTER). Two
+  choices to make *while* doing the SVDB refactor so Delly later is a config entry, not a rewrite:
+  key the split rules on `meta.variantcaller` / `ext.args` rather than on "manta"; and group N
+  callers into `SVDB_MERGE --priority manta,delly,tiddit` via a caller list instead of the current
+  Manta+TIDDIT `join` by `meta.id`. Whatever grouping is chosen for joint Manta (per `experiment`
+  vs all samples) applies unchanged to Delly's merge/genotype step. With three callers, the TIDDIT
+  sensitivity question gains a majority-vote option on the `INFO/set` count. Spike items: BCF →
+  VCF before SVDB; confirm SVDB parses Delly's BND representation (`CHR2`/`POS2` + breakend ALT);
+  check `delly filter -f germline`'s cohort thresholds (fraction genotyped, alt-AF — tuned for human
+  cohorts) on a 2–4 sample ALE cohort. nf-core ships `delly/call` (with the `-v` sites input);
+  `merge`/`filter`/`cnv`/`classify` would be local modules on the same biocontainer.
+- **[low] Cohort all-class mutation table (CSV, deliberately not a VCF).** One cohort object holding
+  SNV/INDEL + SV + CNV per sample is what ALE work actually consumes — breseq's genome-diff
+  (`gdtools COMPARE`) and ALEdb-style mutation tables hold every class in one record type. Decided
+  2026-08-27: deliver this as a table, not a merged VCF. An all-class multi-sample VCF is spec-valid
+  and has precedent (1000 Genomes phase 3 integrated set; GATK-SV's SV+CNV cohort VCF), but SNV+SV
+  in one file is rare in practice — incompatible INFO/FORMAT schemas (`AD/DP/PL` vs
+  `PR/SR/END/CIPOS`), header clashes on `bcftools concat -a`, and class-specific filtering/annotation
+  — so per-class cohort VCFs stay the machine-readable deliverable (joint HC exists; SVDB cohort
+  arrives with the SV refactor; CNVKit has `cnvkit.py export vcf` if ever needed). The table is a
+  long-format union of the existing per-class cohort matrices (event × sample × class × caller ×
+  evidence) once SV and SNV share identical sample columns — i.e. after joint Manta + SVDB. One
+  substantive rule to settle: small indels (~8–50 bp) can appear in both HaplotypeCaller and Manta,
+  so the union needs a dedup/precedence rule or it double-counts.
 
 ## Robustness / infrastructure
 
