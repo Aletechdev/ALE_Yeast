@@ -5,7 +5,7 @@ the cohort SV matrix. This is the **maintainer** view (parameters, `SUPP_VEC`,
 `proximity_match`, CSV schema, gotchas).
 
 > **Keep in sync** with the user-facing "SV event matrix (Manta + TIDDIT)" section of
-> the report Methodology in `docs/igvreports/templates/index.html.j2` (~L538-595).
+> the report Methodology in `docs/igvreports/templates/index.html.j2` (~L547-620).
 > That section explains *how to read* the matrix; this doc explains *how it is built*.
 > The two are intentionally separate sources today — a single shared Jinja include is
 > deferred (see `docs/dev-practices/roadmap.md`). If you change the merge parameters,

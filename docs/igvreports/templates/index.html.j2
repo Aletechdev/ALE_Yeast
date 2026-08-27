@@ -347,6 +347,15 @@
     <div class="section" id="sv-section">
         <h2>All Samples: Ensemble SV Events (Manta + TIDDIT)</h2>
         <p class="note">{{ sv_pass.both_caller_count }} / {{ sv_pass.row_count }} PASS-filtered events detected by both Manta and TIDDIT. Remaining events called by a single caller.</p>
+        <p class="note">
+            <strong>Treat this table as an overview, not a final call set.</strong> Rows are SURVIVOR merges: any calls whose
+            breakpoints fall within 1 kb are collapsed into one row that takes the type and coordinates of a single member
+            (see Methodology &rarr; <em>SV event matrix</em>). A low-confidence breakend near a real event can therefore absorb it,
+            retype the row (e.g. a deletion listed as an inversion) and blank the affected sample's cell. For any locus that
+            matters, go back to the per-caller VCFs in <code>vcf/manta/</code> and <code>vcf/tiddit/</code> (raw and PASS) and
+            re-merge them yourself (e.g. with SURVIVOR at your own distance/type settings); the per-sample and cohort SURVIVOR
+            VCFs in <code>data/</code> keep every clustered call in their FORMAT columns for auditing.
+        </p>
         {% if sv_downloads %}
         <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
             {% if sv_downloads.pass_csv %}<a href="{{ sv_downloads.pass_csv }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>{% endif %}
@@ -565,8 +574,24 @@
                         &mdash; e.g. several inversions or translocations radiating from a single hotspot &mdash;
                         are therefore <em>not</em> conflated.</li>
                 </ol>
+                <h4>Which coordinates a merged row shows</h4>
+                <p>
+                    When calls are merged, SURVIVOR copies <code>pos</code>/<code>end</code>/<code>svtype</code> from <strong>one</strong>
+                    member of the cluster: the call from the <strong>last input in the merge order</strong>. It is not the larger
+                    position, the higher quality, or a consensus. Per sample the order is Manta then TIDDIT, so a row shows
+                    <strong>TIDDIT's</strong> breakpoints whenever TIDDIT called the event and Manta's only otherwise; across samples
+                    the order is alphabetical by sample id, so a shared row shows the <strong>alphabetically last sample's</strong>
+                    breakpoints. Each caller's own breakpoints are preserved in the <code>CO</code> FORMAT field of the per-sample
+                    SURVIVOR VCF (<code>data/sv_merged/</code>), and each sample's in the cohort VCF.
+                </p>
                 <h4>Reading the matrix</h4>
                 <ul>
+                    <li><strong>Merging can swallow a real event.</strong> SURVIVOR clusters by distance first; a low-confidence
+                        breakend within 1 kb of a genuine deletion can absorb it and the merged row inherits the breakend's type
+                        and coordinates. The caller-label step then fails the type check for that sample and shows <code>-</code>.
+                        With PASS-filtered input this needs a PASS breakend nearby, so it is rare but possible; in the
+                        <code>sv_cohort_matrix_union.csv</code> download (all calls) it is more likely. Verify important loci
+                        from the per-caller VCFs.</li>
                     <li>Translocations (<code>TRA</code>) and inversions (<code>INV</code>) come from Manta as
                         <em>breakend pairs</em> &mdash; two records, one per junction end. SURVIVOR keeps both, so one such
                         event occupies <strong>two rows</strong> with <code>pos</code>/<code>end</code> swapped.
