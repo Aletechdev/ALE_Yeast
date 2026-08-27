@@ -328,6 +328,38 @@ def load_cn_chr(path: Path) -> dict | None:
             "change_count": change_count}
 
 
+def load_contig_cn(path: Path) -> dict | None:
+    """Load the contig copy-number CSV (from TIDDIT per-contig coverage, contig_copy_number.py)."""
+    if not path.exists():
+        return None
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        return None
+    samples = _get_sample_columns(list(rows[0].keys()), "_log2")
+    out = []
+    for r in rows:
+        entry = {"chromosome": r["chromosome"]}
+        for s in samples:
+            log2_raw = r.get(f"{s}_log2", "")
+            entry[f"{s}_log2"] = round(float(log2_raw), 4) if log2_raw else None
+            fc = r.get(f"{s}_fold_change", "")
+            entry[f"{s}_fold_change"] = round(float(fc), 2) if fc else None
+            tp = r.get(f"{s}_tiddit_ploidy", "")
+            entry[f"{s}_tiddit_ploidy"] = round(float(tp), 2) if tp else None
+            cov = r.get(f"{s}_median_cov", "")
+            entry[f"{s}_median_cov"] = round(float(cov), 1) if cov else None
+            n = r.get(f"{s}_n", "")
+            entry[f"{s}_n"] = float(n) if n else None
+        out.append(entry)
+    # Same thresholds as the CNVKit tables (log2 < -0.4 loss, > 0.3 gain)
+    change_count = sum(
+        1 for r in out
+        if any(_has_cn_change(r.get(f"{s}_log2", 0) or 0) for s in samples)
+    )
+    return {"rows": out, "samples": samples, "row_count": len(out), "change_count": change_count}
+
+
 def load_cn_regions(path: Path) -> dict | None:
     """Load collapsed CN region matrix CSV. Display value is log2 ratio."""
     if not path.exists():
@@ -399,6 +431,7 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
     """Load all CN/SV data from a directory. Returns dict for template context."""
     cn_chr = load_cn_chr(data_dir / "cn_chr_summary_germline.csv")
     cn_reg = load_cn_regions(data_dir / "cn_cohort_collapsed.csv")
+    contig_cn = load_contig_cn(data_dir / "contig_copy_number.csv")
     sv_pass = load_sv_matrix(data_dir / "sv_cohort_matrix_union_pass.csv")
     sv_all = load_sv_matrix(data_dir / "sv_cohort_matrix_union.csv")
 
@@ -427,6 +460,7 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
         ("regions", "cn_cohort_collapsed.csv"),
         ("chr", "cn_chr_summary_germline.csv"),
         ("matrix", "cn_cohort_full.csv"),
+        ("contig", "contig_copy_number.csv"),
     ]:
         csv_path = data_dir / csv_name
         if csv_path.exists():
@@ -435,6 +469,7 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
     return {
         "cn_chr": cn_chr,
         "cn_reg": cn_reg,
+        "contig_cn": contig_cn,
         "sv_pass": sv_pass,
         "sv_all": sv_all,
         "sv_downloads": sv_downloads,
@@ -609,6 +644,7 @@ def build_context(
         # CN/SV data (None if not provided)
         "cn_chr": cnv_sv.get("cn_chr"),
         "cn_reg": cnv_sv.get("cn_reg"),
+        "contig_cn": cnv_sv.get("contig_cn"),
         "sv_pass": cnv_sv.get("sv_pass"),
         "sv_all": cnv_sv.get("sv_all"),
         "sv_downloads": cnv_sv.get("sv_downloads", {}),

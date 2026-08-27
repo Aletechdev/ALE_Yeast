@@ -22,6 +22,7 @@ include { PUBLISH_VCFS       } from '../../../modules/local/publish_vcfs/main'
 include { GENERATE_INDEX     } from '../../../modules/local/generate_index/main'
 include { BUILD_CN_MATRIX    } from '../../../modules/local/build_cn_matrix/main'
 include { BUILD_CN_COHORT    } from '../../../modules/local/build_cn_cohort/main'
+include { BUILD_CONTIG_CN    } from '../../../modules/local/build_contig_cn/main'
 include { BCFTOOLS_VIEW as FILTER_SV_VCF_MANTA  } from '../../../modules/nf-core/bcftools/view/main'
 include { BCFTOOLS_VIEW as FILTER_SV_VCF_TIDDIT } from '../../../modules/nf-core/bcftools/view/main'
 include { BCFTOOLS_VIEW as DECOMPRESS_SV_MANTA  } from '../../../modules/nf-core/bcftools/view/main'
@@ -44,6 +45,7 @@ workflow MUTATION_REPORT {
     cram                // channel: [ meta, cram, crai ]  per-sample alignments (meta.id = sample)
     vcf_manta_raw       // channel: [ meta, vcf ]  RAW manta (SURVIVOR SV merge — always raw, see D4)
     vcf_tiddit_raw      // channel: [ meta, vcf ]  RAW tiddit (SURVIVOR SV merge — always raw, see D4)
+    tiddit_ploidy       // channel: [ meta, .tiddit.ploidies.tab ]  per-contig coverage; meta.ploidy = the -n it ran with
     cnvkit_cnr          // channel: [ meta, .md.cnr ]  bin-level coverage (bedgraph + CN matrix)
     cnvkit_cns_batch    // channel: [ meta, [*.cns] ]   batch segments incl .md.call.cns (CN matrix)
     cnvkit_cns_germline // channel: [ meta, .md.germline.call.cns ]  CI-filtered segments (CN matrix)
@@ -185,6 +187,26 @@ workflow MUTATION_REPORT {
             .collect()
     } else {
         ch_cn_data = Channel.empty()
+    }
+
+    // =========================================================================
+    // 4b. Contig-level copy number (TIDDIT per-contig coverage) — whole-contig only,
+    //     and the only quantification of the mitochondrial contig (CNVKit's GC mask
+    //     drops every Mito bin).
+    // =========================================================================
+
+    if (has_tiddit) {
+        // The .tab does not record the -n ploidy TIDDIT ran with; carry it from meta so the
+        // script can divide it back out (ratio = Ploidy / n) and make samples comparable.
+        ch_contig_cn_in = tiddit_ploidy.map { meta, tab -> [ tab, "${meta.id}=${meta.ploidy ?: 2}" ] }
+        BUILD_CONTIG_CN(
+            ch_contig_cn_in.map { tab, p -> tab }.collect(),
+            ch_contig_cn_in.map { tab, p -> p   }.collect()
+        )
+        versions = versions.mix(BUILD_CONTIG_CN.out.versions)
+        ch_contig_cn = BUILD_CONTIG_CN.out.csv
+    } else {
+        ch_contig_cn = Channel.empty()
     }
 
     // =========================================================================
@@ -409,6 +431,7 @@ workflow MUTATION_REPORT {
 
         ch_cnv_sv_data = ch_cn_data
             .mix(ch_sv_data)
+            .mix(ch_contig_cn)
             .mix(ch_pass_stats)
             .collect()
             .ifEmpty(file("NO_FILE"))

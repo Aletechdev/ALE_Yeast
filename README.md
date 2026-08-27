@@ -248,6 +248,7 @@ mutation_reports/
 ├── samples/                 # <sample>_{hc,cnvkit,manta,tiddit}_report.html
 ├── data/                    # cn_cohort_{full,collapsed}.csv, sv_cohort_matrix_union{,_pass}.csv,
 │                            # sv_cohort_merged_union{,_pass}.vcf.gz (joint SV VCF, one GT column per sample),
+│                            # contig_copy_number.csv (TIDDIT per-contig coverage ratio — the only Mito quantification),
 │                            # cn_matrices/, sv_merged/ (per-sample SURVIVOR VCFs), *.{manta,tiddit}.pass_stats.tsv
 └── vcf/                     # curated per-caller VCFs (see vcf/README.md in the bundle)
 ```

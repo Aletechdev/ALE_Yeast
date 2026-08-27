@@ -101,8 +101,10 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 
 ## CNV — contig-level copy number and the mitochondrial genome
 
-- **[medium] Surface per-contig copy number in the report** (TIDDIT `<sample>.tiddit.ploidies.tab`
-  — `Ploidy`/`Mean_coverage` per contig — or mosdepth per-contig mean ÷ nuclear median). Found
+- **[done 2026-08-27] Surface per-contig copy number in the report** — `BUILD_CONTIG_CN` +
+  `bin/contig_copy_number.py` → `data/contig_copy_number.csv` (ratio = TIDDIT Ploidy ÷ samplesheet n)
+  and a "Contig Copy Number" table + Methods entry in `index.html`. Original note: TIDDIT
+  `<sample>.tiddit.ploidies.tab` — `Ploidy`/`Mean_coverage` per contig. Found
   2026-08-27: the pilot's one unmatched truth event (`Doxorubicin16-R2b Mito:53278`) is a
   whole-mtDNA loss (TIDDIT ploidy 10.1 → 0.34) plus an intra-Mito depletion/amplification — a
   coverage-only event with **no mappable breakpoints** (the clip pile-ups are Nextera adapter

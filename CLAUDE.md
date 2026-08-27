@@ -334,7 +334,9 @@ germline mode (April 2026) is implemented — see
 were removed during the v1.0.0 code cleanup. Their role — cross-sample / multi-tool variant tables, cohort matrices, and gene /
 tool-comparison views — is now delivered by the **`MUTATION_REPORT` subworkflow + `GENERATE_INDEX`**
 (igv-reports HTML dashboard backed by `cn_cohort_matrix.csv` / `sv_cohort_matrix_*.csv` /
-`cn_segments_*.csv`). See [`docs/igvreports/`](docs/igvreports/) and
+`cn_segments_*.csv` / `contig_copy_number.csv` — the last from TIDDIT's per-contig coverage table,
+whole-contig only, and the **only** place the mitochondrial contig is quantified: CNVKit's hard-coded
+0.30–0.70 GC mask drops every Mito bin). See [`docs/igvreports/`](docs/igvreports/) and
 [`subworkflows/local/mutation_report/`](subworkflows/local/mutation_report/main.nf). The original design
 writeup (kept for future mutation-report work) is archived at
 [`docs/archive/variant_dashboard_system.md`](docs/archive/variant_dashboard_system.md).

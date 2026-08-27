@@ -142,6 +142,17 @@ workflow {
         ? ch_samples.map { s -> [ [ id: s, variantcaller: 'tiddit' ], file("${outdir}/variant_calling/tiddit/${s}/${s}.tiddit.vcf.gz") ] }
         : Channel.empty()
 
+    // TIDDIT per-contig coverage table + the samplesheet ploidy it was run with (-n), for the
+    // contig copy-number table. Ploidy comes from the samplesheet because TIDDIT does not
+    // record -n in the .tab.
+    ch_sample_ploidy = Channel.fromPath(params.input)
+        .splitCsv(header: true)
+        .map { row -> [ row.sample, row.ploidy ?: '2' ] }
+        .unique()
+    tiddit_ploidy = has_tiddit
+        ? ch_sample_ploidy.map { s, n -> [ [ id: s, ploidy: n ], file("${outdir}/variant_calling/tiddit/${s}/${s}.tiddit.ploidies.tab") ] }
+        : Channel.empty()
+
     cnvkit_cnr = has_cnvkit
         ? ch_samples.map { s -> [ [ id: s ], file("${outdir}/variant_calling/cnvkit/${s}/${s}.md.cnr") ] }
         : Channel.empty()
@@ -168,6 +179,7 @@ workflow {
         cram,
         vcf_manta_raw,
         vcf_tiddit_raw,
+        tiddit_ploidy,
         cnvkit_cnr,
         cnvkit_cns_batch,
         cnvkit_cns_germline,

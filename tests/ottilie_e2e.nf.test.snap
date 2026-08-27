@@ -1,7 +1,7 @@
 {
     "ottilie 2-sample: full ALE workflow + mutation report": {
         "content": [
-            174,
+            175,
             {
                 "BCFTOOLS_FILTER": {
                     "bcftools": 1.21
@@ -330,6 +330,7 @@
                 "mutation_reports/data/cn_matrices/cn_matrices/cn_chr_summary_germline.csv",
                 "mutation_reports/data/cn_matrices/cn_matrices/cn_segments_call.csv",
                 "mutation_reports/data/cn_matrices/cn_matrices/cn_segments_germline.csv",
+                "mutation_reports/data/contig_copy_number.csv",
                 "mutation_reports/data/sv_cohort_matrix_union.csv",
                 "mutation_reports/data/sv_cohort_matrix_union_pass.csv",
                 "mutation_reports/data/sv_cohort_merged_union.vcf.gz",
@@ -690,6 +691,7 @@
                 "cn_chr_summary_germline.csv:md5,83aa6ce6df3a3cd9862313b8137503a7",
                 "cn_segments_call.csv:md5,7cf3210eb53398e7b748b85babcbc632",
                 "cn_segments_germline.csv:md5,1c40806b57e3292d8ac99fc2fbbccf22",
+                "contig_copy_number.csv:md5,1ea1360ceac25d23cc6f0d829411a6e8",
                 "sv_cohort_matrix_union.csv:md5,a6cc0b60e81cfb9bf9794736ed56cc5e",
                 "sv_cohort_matrix_union_pass.csv:md5,74632a10b28c61b7ff04baff4d61e230",
                 "README.md:md5,4c89f46831204250f187896d81299fa2",
@@ -789,6 +791,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-08-27T12:34:48.773777772"
+        "timestamp": "2026-08-27T16:17:34.844917597"
     }
 }

@@ -78,6 +78,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     vcf_strelka              = Channel.empty()
     vcf_tiddit               = Channel.empty()
 
+    ploidy_tiddit                      = Channel.empty()
     // BCFTOOLS MPILEUP (also needed for controlfreec)
     if (tools.split(',').contains('mpileup') || tools.split(',').contains('controlfreec')) {
         BAM_VARIANT_CALLING_MPILEUP(
@@ -428,6 +429,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
         )
 
         vcf_tiddit = BAM_VARIANT_CALLING_SINGLE_TIDDIT.out.vcf
+        ploidy_tiddit = BAM_VARIANT_CALLING_SINGLE_TIDDIT.out.ploidy   // [ meta, .tiddit.ploidies.tab ] per-contig coverage → report
         versions = versions.mix(BAM_VARIANT_CALLING_SINGLE_TIDDIT.out.versions)
     }
 
@@ -462,6 +464,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     vcf_sentieon_dnascope
     vcf_sentieon_haplotyper
     vcf_tiddit
+    ploidy_tiddit             // channel: [ meta, .tiddit.ploidies.tab ]  contig copy number for the report
 
     versions
 }

@@ -408,6 +408,26 @@
     {% endif %}
 
     {# ================================================================== #}
+    {# Section 8b: Contig copy number from TIDDIT coverage (conditional)   #}
+    {# ================================================================== #}
+    {% if contig_cn %}
+    <div class="section" id="contig-cn-section">
+        <h2>All Samples: Contig Copy Number (TIDDIT fold change)</h2>
+        <p class="note">{{ contig_cn.change_count }} / {{ contig_cn.row_count }} contigs with log2 ratio outside &minus;0.4 to 0.3 (fold change &lt; 0.76 or &gt; 1.23) in any sample.
+            Fold change = median read depth of the contig &divide; median depth of the whole genome, per sample
+            (TIDDIT <code>ploidies.tab</code>, with the samplesheet ploidy divided back out). Whole-contig only; the fold change / log2 toggle in the CN Windows section (when present) applies here too.
+            <strong>This is the only place the mitochondrial contig is quantified</strong> &mdash; CNVKit excludes it (see Methodology).
+            mtDNA is multi-copy, so its fold change is normally &gt; 1; compare it <em>across samples</em>.</p>
+        {% if cn_downloads.contig %}
+        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
+            <a href="{{ cn_downloads.contig }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
+        </div>
+        {% endif %}
+        <div id="contig-cn-table"></div>
+    </div>
+    {% endif %}
+
+    {# ================================================================== #}
     {# Methodology / Audit                                                 #}
     {# ================================================================== #}
     <div class="section">
@@ -659,7 +679,42 @@
                     Chromosomes shorter than ~150kb may be absent from CN results.
                     In WGS mode, CNVKit skips the first ~150kb of each chromosome for antitarget bin generation;
                     chromosomes entirely below this threshold receive no antitarget bins and cannot be normalized.
+                    The <strong>mitochondrial contig is always absent</strong>: CNVKit's <code>fix</code> step drops bins whose GC content is
+                    outside a hard-coded 0.30&ndash;0.70 window (<code>cnvlib/params.py</code>, not overridable), and yeast mtDNA is
+                    ~17&nbsp;% GC. Read Mito from the contig copy-number table instead.
                 </p>
+            </div>
+        </details>
+        {% endif %}
+
+        {% if contig_cn %}
+        <details>
+            <summary>Contig copy number (TIDDIT fold change)</summary>
+            <div class="audit-content">
+                <p>
+                    Built from <a href="https://github.com/SciLifeLab/TIDDIT">TIDDIT</a>'s per-contig coverage table
+                    (<code>&lt;sample&gt;.tiddit.ploidies.tab</code>), written by every TIDDIT run and exported as
+                    <code>data/contig_copy_number.csv</code>.
+                </p>
+                <h4>How the number is computed</h4>
+                <p>
+                    TIDDIT reports <code>Ploidy = n &times; median depth(contig) &divide; median depth(genome)</code>, where <code>n</code> is the
+                    organism ploidy the pipeline passes from the samplesheet <code>ploidy</code> column (<code>-n</code>) and the medians are over
+                    50&nbsp;bp bins (zero-coverage bins excluded). The table shows <strong>fold change = Ploidy &divide; n</strong> (and its log2), i.e. depth
+                    relative to that sample's own genome-wide median, so values mean the same thing whatever ploidy each sample was labelled
+                    with, and are presented exactly like the CNVKit tables (same toggle, colours and thresholds).
+                    Hover a cell for TIDDIT's raw ploidy, the <code>n</code> used, and the contig's median depth.
+                </p>
+                <h4>Reading it</h4>
+                <ul>
+                    <li><strong>Whole-contig only.</strong> A partial-chromosome gain or an intra-contig deletion shows as a fractional value
+                        (1.28 may be "every cell carries 1.28 copies" or "28&nbsp;% of cells carry two"); use the CNVKit windows for sub-chromosomal detail.</li>
+                    <li><strong>Mitochondrial DNA is multi-copy</strong>, so <code>Mito</code> is normally well above 1 (about 10 in a healthy haploid
+                        cell) and is the number to compare between parent and evolved clones; a drop towards 0 is loss of the mitochondrial genome.
+                        This table is the only mtDNA quantification in the report (CNVKit excludes the contig by its GC mask).</li>
+                    <li>Colours and the fold change / log2 toggle are shared with the CNVKit tables (log2 &lt; &minus;0.4 loss, &gt; 0.3 gain, &ge; 2.3 amplification).</li>
+                    <li>The genome-wide median is dominated by the nuclear genome, so a small contig cannot shift its own baseline.</li>
+                </ul>
             </div>
         </details>
         {% endif %}
@@ -882,7 +937,8 @@
         });
 
         // --- CN/SV tables (conditional) ---
-        {% if cn_reg %}
+        {# Shared by every copy-number table (CNVKit windows, CNVKit chromosomes, TIDDIT contigs) #}
+        {% if cn_reg or cn_chr or contig_cn %}
         var cnMetric = "abs"; // "abs" or "log2"
 
         // Color always by log2 — ploidy-independent
@@ -908,7 +964,9 @@
             }
             return '<span class="' + cls + '" style="display:inline-block;padding:1px 6px;border-radius:3px">' + display + '</span>';
         }
+        {% endif %}
 
+        {% if cn_reg %}
         var cnRegSamples = {{ cn_reg.samples | tojson }};
         function buildCnRegColumns(samples) {
             var cols = [
@@ -958,6 +1016,35 @@
         });
         {% endif %}
 
+        {% if contig_cn %}
+        // --- Contig copy number (TIDDIT fold change) ---
+        var contigCnSamples = {{ contig_cn.samples | tojson }};
+        // Same columns/formatter as the CNVKit chromosome table (fields <sample>_log2, display via
+        // the shared fold-change/log2 toggle); the TIDDIT-specific values go in the cell tooltip.
+        function buildContigCnColumns(samples) {
+            var cols = [
+                { title: "Contig", field: "chromosome", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, width: 70 },
+            ];
+            samples.forEach(function(s) {
+                cols.push({
+                    title: s.replace(/-/g, '\u2011'), field: s + "_log2", hozAlign: "center", sorter: "number",
+                    formatter: cnCellFormatter,
+                    tooltip: function(e, cell) {
+                        var row = cell.getRow().getData();
+                        if (row[s + '_log2'] == null) return '';
+                        return 'TIDDIT ploidy ' + row[s + '_tiddit_ploidy'] + ' (n=' + row[s + '_n'] + '), median depth ' + row[s + '_median_cov'] + 'x';
+                    }
+                });
+            });
+            return cols;
+        }
+        var contigCnTable = new Tabulator("#contig-cn-table", {
+            data: {{ contig_cn.rows | tojson }},
+            layout: "fitDataFill", height: 420,
+            headerSortTristate: true, columns: buildContigCnColumns(contigCnSamples),
+        });
+        {% endif %}
+
         {% if cn_reg or cn_chr %}
         // Toggle: update all CN Tabulator tables (color stays log2-based)
         document.querySelectorAll('.cn-metric-btn').forEach(function(btn) {
@@ -967,6 +1054,7 @@
                 cnMetric = btn.getAttribute('data-metric');
                 {% if cn_reg %}cnRegTable.redraw(true);{% endif %}
                 {% if cn_chr %}cnChrTable.redraw(true);{% endif %}
+                {% if contig_cn %}contigCnTable.redraw(true);{% endif %}
             });
         });
         {% endif %}
