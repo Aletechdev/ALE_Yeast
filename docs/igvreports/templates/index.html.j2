@@ -400,13 +400,8 @@
     <div class="section" id="contig-cn-section">
         <h2>All Samples: Contig Copy Number &mdash; TIDDIT whole-contig coverage (incl. Mito)</h2>
         <p class="note">{{ contig_cn.change_count }} / {{ contig_cn.row_count }} contigs with log2 ratio outside &minus;0.4 to 0.3 (fold change &lt; 0.76 or &gt; 1.23) in any sample.
-            Fold change = median read depth of the contig &divide; median depth of the whole genome, per sample
-            (TIDDIT <code>ploidies.tab</code>, with the samplesheet ploidy divided back out). Whole-contig only; the fold change / log2 toggle in the CN Windows section (when present) applies here too.
-            <strong>This is the only place the mitochondrial contig is quantified</strong> &mdash; CNVKit excludes it (see Methodology).
-            mtDNA is multi-copy, so its fold change is normally &gt; 1; compare it <em>across samples</em>.
-            {% if cn_chr %}The two tables answer the same question with different instruments: CNVKit (below) is segment-based and can
-            see sub-chromosomal changes; this one is one median per contig, but covers every contig. On nuclear chromosomes they
-            should broadly agree.{% endif %}</p>
+            Whole-contig median depth ratio per sample (TIDDIT) &mdash; <strong>the only table that includes Mito</strong>
+            (multi-copy: compare across samples, not against 1). Details &amp; formula: Methodology.</p>
         {% if cn_downloads.contig %}
         <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
             <a href="{{ cn_downloads.contig }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
@@ -724,6 +719,11 @@
                         This table is the only mtDNA quantification in the report (CNVKit excludes the contig by its GC mask).</li>
                     <li>Colours and the fold change / log2 toggle are shared with the CNVKit tables (log2 &lt; &minus;0.4 loss, &gt; 0.3 gain, &ge; 2.3 amplification).</li>
                     <li>The genome-wide median is dominated by the nuclear genome, so a small contig cannot shift its own baseline.</li>
+                    <li><strong>Versus the CNVKit chromosome table</strong>: the two answer the same question with different
+                        instruments &mdash; CNVKit is segment-based and can see sub-chromosomal changes but drops Mito (GC mask)
+                        and any contig it cannot bin; this table is one median per contig but covers every contig. On nuclear
+                        chromosomes they should broadly agree; the fold change / log2 toggle in the CN Windows section applies
+                        to both.</li>
                 </ul>
             </div>
         </details>
