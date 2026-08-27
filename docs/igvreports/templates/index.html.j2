@@ -301,7 +301,12 @@
                 <div class="label">Collapsed CN Windows</div>
             </a>
             {% endif %}
-            {% if cn_chr %}
+            {% if contig_cn %}
+            <a class="card card-link" href="#contig-cn-section">
+                <div class="value">{{ contig_cn.change_count }}</div>
+                <div class="label">Aneuploid Contigs &mdash; TIDDIT (fold change &lt; 0.76 or &gt; 1.23)</div>
+            </a>
+            {% elif cn_chr %}
             <a class="card card-link" href="#cn-section">
                 <div class="value">{{ cn_chr.change_count }}</div>
                 <div class="label">Aneuploid Chromosomes &mdash; CNVKit (fold change &lt; 0.76 or &gt; 1.23)</div>
@@ -389,28 +394,7 @@
     {% endif %}
 
     {# ================================================================== #}
-    {# Section 8: Chromosome Level Copy Number (conditional)               #}
-    {# ================================================================== #}
-    {% if cn_chr %}
-    <div class="section" id="cn-section">
-        <h2>All Samples: Chromosome Copy Number &mdash; CNVKit segments (Aneuploidy)</h2>
-        <p class="note">{{ cn_chr.change_count }} / {{ cn_chr.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23).
-            Segment-weighted average per chromosome from CNVKit; excludes the mitochondrial contig and any contig CNVKit cannot bin
-            {% if contig_cn %}&mdash; those are covered by the TIDDIT table below{% endif %}.</p>
-        {% if cn_downloads.chr %}
-        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
-            <a href="{{ cn_downloads.chr }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
-        </div>
-        {% endif %}
-        <p class="note">
-            CN per chromosome. Toggle above switches both tables.
-        </p>
-        <div id="cn-chr-table"></div>
-    </div>
-    {% endif %}
-
-    {# ================================================================== #}
-    {# Section 8b: Contig copy number from TIDDIT coverage (conditional)   #}
+    {# Section 8: Contig copy number from TIDDIT coverage (conditional)    #}
     {# ================================================================== #}
     {% if contig_cn %}
     <div class="section" id="contig-cn-section">
@@ -420,7 +404,7 @@
             (TIDDIT <code>ploidies.tab</code>, with the samplesheet ploidy divided back out). Whole-contig only; the fold change / log2 toggle in the CN Windows section (when present) applies here too.
             <strong>This is the only place the mitochondrial contig is quantified</strong> &mdash; CNVKit excludes it (see Methodology).
             mtDNA is multi-copy, so its fold change is normally &gt; 1; compare it <em>across samples</em>.
-            {% if cn_chr %}The two tables answer the same question with different instruments: CNVKit (above) is segment-based and can
+            {% if cn_chr %}The two tables answer the same question with different instruments: CNVKit (below) is segment-based and can
             see sub-chromosomal changes; this one is one median per contig, but covers every contig. On nuclear chromosomes they
             should broadly agree.{% endif %}</p>
         {% if cn_downloads.contig %}
@@ -429,6 +413,27 @@
         </div>
         {% endif %}
         <div id="contig-cn-table"></div>
+    </div>
+    {% endif %}
+
+    {# ================================================================== #}
+    {# Section 8b: Chromosome-level CN from CNVKit segments (conditional)  #}
+    {# ================================================================== #}
+    {% if cn_chr %}
+    <div class="section" id="cn-section">
+        <h2>All Samples: Chromosome Copy Number &mdash; CNVKit segments (Aneuploidy)</h2>
+        <p class="note">{{ cn_chr.change_count }} / {{ cn_chr.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23).
+            Segment-weighted average per chromosome from CNVKit; excludes the mitochondrial contig and any contig CNVKit cannot bin
+            {% if contig_cn %}&mdash; those are covered by the TIDDIT table above{% endif %}.</p>
+        {% if cn_downloads.chr %}
+        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
+            <a href="{{ cn_downloads.chr }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
+        </div>
+        {% endif %}
+        <p class="note">
+            CN per chromosome. Toggle above switches both tables.
+        </p>
+        <div id="cn-chr-table"></div>
     </div>
     {% endif %}
 
