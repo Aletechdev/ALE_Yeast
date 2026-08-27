@@ -2,8 +2,12 @@
 //   - Multi-allelic splitting (bcftools norm -m-)
 //   - FILTER column promotion to INFO/VCF_FILTER
 //   - Per-sample VAF calculation
+//
+// Runs once per (sample x caller) - HC joint, HC per-sample, CNVKit, Manta, TIDDIT - so the tag and
+// the output name carry BOTH ids. A meta.id-only name made the tasks indistinguishable in the trace
+// and let four tasks race for one publish target (see conf/modules/mutation_report.config).
 process PREPARE_VCF {
-    tag "$meta.id"
+    tag "${meta.id}_${meta.caller}"
     label 'process_low'
 
     conda 'bioconda::bcftools=1.20'
@@ -13,13 +17,14 @@ process PREPARE_VCF {
     tuple val(meta), path(vcf), path(tbi)
 
     output:
-    tuple val(meta), path("${meta.id}.prepared.vcf.gz"), path("${meta.id}.prepared.vcf.gz.tbi"), emit: vcf
-    path "versions.yml",                                                                          emit: versions
+    tuple val(meta), path("${prefix}.prepared.vcf.gz"), path("${prefix}.prepared.vcf.gz.tbi"), emit: vcf
+    path "versions.yml",                                                                        emit: versions
 
     when:
     task.ext.when == null || task.ext.when
 
     script:
+    prefix = "${meta.id}.${meta.caller}"
     """
     # Step 1: Split multi-allelic sites into biallelic rows
     bcftools norm -m- --old-rec-tag ORIG_ALT --force ${vcf} -Oz -o tmp_split_raw.vcf.gz
@@ -51,8 +56,8 @@ process PREPARE_VCF {
     tabix -p vcf tmp_with_filter.vcf.gz
 
     # Step 3: Add per-sample VAF
-    bcftools +fill-tags tmp_with_filter.vcf.gz -Oz -o ${meta.id}.prepared.vcf.gz -- -t FORMAT/VAF
-    tabix -p vcf ${meta.id}.prepared.vcf.gz
+    bcftools +fill-tags tmp_with_filter.vcf.gz -Oz -o ${prefix}.prepared.vcf.gz -- -t FORMAT/VAF
+    tabix -p vcf ${prefix}.prepared.vcf.gz
 
     rm -f tmp_split_raw.vcf.gz tmp_split_raw.vcf.gz.tbi tmp_split.vcf.gz tmp_split.vcf.gz.tbi tmp_with_filter.vcf.gz tmp_with_filter.vcf.gz.tbi
 
