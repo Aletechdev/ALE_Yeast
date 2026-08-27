@@ -304,7 +304,7 @@
             {% if cn_chr %}
             <a class="card card-link" href="#cn-section">
                 <div class="value">{{ cn_chr.change_count }}</div>
-                <div class="label">Aneuploid Chromosomes (fold change &lt; 0.76 or &gt; 1.23)</div>
+                <div class="label">Aneuploid Chromosomes &mdash; CNVKit (fold change &lt; 0.76 or &gt; 1.23)</div>
             </a>
             {% endif %}
             {% if multiqc_report_path %}
@@ -393,8 +393,10 @@
     {# ================================================================== #}
     {% if cn_chr %}
     <div class="section" id="cn-section">
-        <h2>All Samples: Chromosome Level Copy Number Change (Aneuploidy)</h2>
-        <p class="note">{{ cn_chr.change_count }} / {{ cn_chr.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23)</p>
+        <h2>All Samples: Chromosome Copy Number &mdash; CNVKit segments (Aneuploidy)</h2>
+        <p class="note">{{ cn_chr.change_count }} / {{ cn_chr.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23).
+            Segment-weighted average per chromosome from CNVKit; excludes the mitochondrial contig and any contig CNVKit cannot bin
+            {% if contig_cn %}&mdash; those are covered by the TIDDIT table below{% endif %}.</p>
         {% if cn_downloads.chr %}
         <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
             <a href="{{ cn_downloads.chr }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
@@ -412,12 +414,15 @@
     {# ================================================================== #}
     {% if contig_cn %}
     <div class="section" id="contig-cn-section">
-        <h2>All Samples: Contig Copy Number (TIDDIT fold change)</h2>
+        <h2>All Samples: Contig Copy Number &mdash; TIDDIT whole-contig coverage (incl. Mito)</h2>
         <p class="note">{{ contig_cn.change_count }} / {{ contig_cn.row_count }} contigs with log2 ratio outside &minus;0.4 to 0.3 (fold change &lt; 0.76 or &gt; 1.23) in any sample.
             Fold change = median read depth of the contig &divide; median depth of the whole genome, per sample
             (TIDDIT <code>ploidies.tab</code>, with the samplesheet ploidy divided back out). Whole-contig only; the fold change / log2 toggle in the CN Windows section (when present) applies here too.
             <strong>This is the only place the mitochondrial contig is quantified</strong> &mdash; CNVKit excludes it (see Methodology).
-            mtDNA is multi-copy, so its fold change is normally &gt; 1; compare it <em>across samples</em>.</p>
+            mtDNA is multi-copy, so its fold change is normally &gt; 1; compare it <em>across samples</em>.
+            {% if cn_chr %}The two tables answer the same question with different instruments: CNVKit (above) is segment-based and can
+            see sub-chromosomal changes; this one is one median per contig, but covers every contig. On nuclear chromosomes they
+            should broadly agree.{% endif %}</p>
         {% if cn_downloads.contig %}
         <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
             <a href="{{ cn_downloads.contig }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
