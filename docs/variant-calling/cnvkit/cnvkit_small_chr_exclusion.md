@@ -21,7 +21,13 @@ CNVKit also excludes chromosomes matching non-canonical name patterns, including
 
 ## Example: Yeast S288C (Ottilie pipeline)
 
-In our yeast S288C reference, the mitochondrial chromosome (Mito, 85,779 bp) is excluded by the 150kb threshold. All nuclear chromosomes (chr I at 230kb is the smallest) are above the threshold and included normally.
+> **Correction (2026-08-27).** For our WGS + flat-reference runs the Mito exclusion is **not**
+> caused by this mechanism: the antitarget files are empty for *every* contig in WGS mode and
+> `reference.cnn` has `spread = 0` for every bin, yet only the Mito bins are dropped. The verified
+> cause is the hard-coded **GC mask** in `cnvkit.py fix` (bins outside 0.30–0.70 GC; yeast mtDNA is
+> ~17 % GC) — see [`cnvkit_gc_bin_mask.md`](cnvkit_gc_bin_mask.md). The outcome described below
+> (Mito absent from `.cnr`/`.cns`) is real; the attribution to the 150 kb threshold is superseded
+> for this pipeline. Nuclear chromosomes (chr I at 230 kb the smallest) are unaffected either way.
 
 ```
 # Mito present in target coverage (coverage calculated)

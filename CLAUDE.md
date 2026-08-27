@@ -281,7 +281,10 @@ channel-based metadata propagation (no string parsing). Enable with
 CNVKit is the **Tier-1 CNV deliverable**. No explicit `--ploidy` is passed (that was reverted
 May 2026 — CNVKit defaults to 2); CN matrices use `fold_change = 2^log2` (ploidy-agnostic depth
 ratio). **Caveat**: CNVKit's integer `cn` always uses `cn=2` as baseline regardless of ploidy,
-so use `fold_change`/`log2` for the true signal. Details:
+so use `fold_change`/`log2` for the true signal. **Second caveat**: `cnvkit.py fix` drops every bin
+outside 0.30–0.70 GC (hard-coded, no override) — the whole mitochondrial contig (~17 % GC) is
+therefore absent from ALL CNVKit output; read Mito from the TIDDIT contig copy-number table instead
+([`cnvkit_gc_bin_mask.md`](docs/variant-calling/cnvkit/cnvkit_gc_bin_mask.md)). Details:
 [`docs/variant-calling/cnvkit/`](docs/variant-calling/cnvkit/).
 
 ### VCFtools Compatibility
