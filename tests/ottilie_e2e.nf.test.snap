@@ -349,13 +349,6 @@
                 "mutation_reports/data/sv_merged/NODRUG-GM2/NODRUG-GM2.survivor.union_pass.vcf.gz.tbi",
                 "mutation_reports/index.html",
                 "mutation_reports/multiqc_report.html",
-                "mutation_reports/prepare",
-                "mutation_reports/prepare/CBR110-15-R3a.prepared.vcf.gz",
-                "mutation_reports/prepare/CBR110-15-R3a.prepared.vcf.gz.tbi",
-                "mutation_reports/prepare/NODRUG-GM2.prepared.vcf.gz",
-                "mutation_reports/prepare/NODRUG-GM2.prepared.vcf.gz.tbi",
-                "mutation_reports/prepare/cohort.prepared.vcf.gz",
-                "mutation_reports/prepare/cohort.prepared.vcf.gz.tbi",
                 "mutation_reports/samples",
                 "mutation_reports/samples/CBR110-15-R3a_cnvkit_report.html",
                 "mutation_reports/samples/CBR110-15-R3a_hc_report.html",
@@ -796,6 +789,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-08-25T23:51:46.714056092"
+        "timestamp": "2026-08-27T12:34:48.773777772"
     }
 }
