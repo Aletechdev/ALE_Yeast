@@ -156,6 +156,31 @@ Three categories of `*.nf.test` files exist in the repo; only the first is ours 
 | **Upstream pipeline-level** | `tests/*.nf.test` (inherited) | whole-pipeline scenarios on human test data | triaged out — see the next section |
 | **Upstream component-level** | `modules/nf-core/*/tests/`, `subworkflows/*/tests/` | one module/subworkflow in isolation | **leave untouched** — co-located with upstream code; deleting them creates a rebase patch per upgrade, and they don't fail from our fork changes |
 
+### What a name-only entry cannot tell you: publish collisions
+
+Files excluded from content hashing via `.nftignore` (bgzipped VCFs, igv-report HTML, …) are still
+guarded by **name** in `stable_name` — but a name check is satisfied by *any* file of that name.
+Learned 2026-08-27: `PREPARE_VCF` named its output `<sample>.prepared.vcf.gz` and ran once per caller
+per sample, so four tasks (HC, CNVKit, Manta, TIDDIT) each published a different file to the same
+`mutation_reports/prepare/<sample>.prepared.vcf.gz`; whichever finished last won. Every recorded run
+passed, because HaplotypeCaller happened to finish last each time and the snapshot only knew the name.
+(Fixed by not publishing the intermediate at all — `conf/modules/mutation_report.config`.)
+
+Rules that follow:
+
+- **A `publishDir` target must be unique across every task that publishes to it.** If a process
+  runs once per (sample × caller), its output name — or its `publishDir` path / `saveAs` — must
+  carry both. Nextflow does **not** warn about publish overwrites; the last copy silently wins.
+- This is a *publish* problem, not a channel problem. Inside the DAG every task has its own work
+  dir, and channels carry paths, so same-named outputs from different tasks never touch each other
+  — with one exception: when several same-named files are **staged into one downstream task**
+  (`.collect()`, `.groupTuple()`, a multi-path input). Nextflow then logs
+  `input file name collision` and only one survives. `grep -i collision .nextflow.log` after any
+  change that collects files is a cheap guard; the e2e logs currently show none.
+- When you add a name-only file to the tree, ask "how many tasks produce this name?" If the answer
+  is more than one, the snapshot cannot protect it — hash something that can (a deterministic
+  derivative, a record count, the `tableJson` blob) or make the name unique.
+
 ### Updating the snapshot after an intentional pipeline change
 
 `tests/ottilie_e2e.nf.test.snap` (~790 lines of JSON) is the recorded expectation for the e2e run:
