@@ -101,7 +101,33 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 
 ## SV — Manta + TIDDIT → SURVIVOR → cohort matrix
 
-- **[medium] Derive SV-matrix cells from the cohort VCF's `PSV` instead of `proximity_match`.**
+- **[medium] Replace the SURVIVOR merge chain, raredisease-style: joint Manta → SVDB.** Decided
+  2026-08-27 after reviewing upstream: Sarek 3.10.0/dev has no joint germline Manta and uses SVDB only
+  for somatic TIDDIT; **nf-core/raredisease** is the blueprint — one joint Manta run per case, TIDDIT
+  per sample merged across samples with `SVDB_MERGE --same_order`, then `SVDB_MERGE --pass_only
+  --priority <caller,...>` across callers. SVDB is type-strict by default, `--no_intra` forbids
+  within-file clustering (the swallowing trigger), matching is reciprocal overlap / `--bnd_distance`,
+  provenance lands in `INFO/set`+`VARID`, and the module is already in this repo (used by the somatic
+  TIDDIT path). This supersedes the PSV / per-type-merge plan below. Do it in two steps:
+  - **Step 1 — joint Manta + per-sample split (~1 day).** The nf-core `manta/germline` module already
+    accepts a CRAM list (`input.collect{"--bam ${it}"}`); only `bam_variant_calling_germline_manta`
+    feeds it one sample. Mirror the HC joint pattern (`id:'joint_sv_calling', patient:'all_samples'`),
+    then generalise `SPLIT_JOINT_VCF` to emit per-sample Manta VCFs so every downstream consumer is
+    unchanged. **Spike 2026-08-27 on the 2-sample test CRAMs (19 s):** 18 records, all PASS, all 14
+    breakends mate-paired, every per-sample call recovered, no sample-specific event (consistent with
+    the truth set). Joint genotyping recovered the ADH1↔AUS1 inversion in CBR110-15-R3a as `0/1` with
+    8 supporting pairs — per-sample Manta had not called it there — so presence/absence becomes a
+    genotype with evidence rather than a merge miss. Haploid samples genotype `1/1` for clean events
+    (XV:722249 DEL, VII:530034 INS) and `0/1` for the cassette-junction breakends (ref reads present
+    at ADH1); treat GT as presence/absence, not zygosity. Coordinates are re-estimated from pooled
+    reads (e.g. 349,748 → 349,693), identical across samples by construction.
+  - **Step 2 — SVDB for TIDDIT-across-samples and Manta+TIDDIT (report side).** Retires
+    `SURVIVOR_SV_MERGE`, `SURVIVOR_COHORT_MERGE`, `proximity_match`/`MAX_DIST` and most of
+    `sv_cohort_matrix.py` (becomes a parse of `INFO/set` + FORMAT/GT). Spike first: `svdb --merge
+    --no_intra --priority manta,tiddit` on the current raw VCFs; confirm the XV:722 kb DEL survives as
+    DEL in both samples and read the emitted tags. Jasmine (`jasminesv` module exists) is the
+    fallback merger if SVDB disappoints.
+- **[superseded by the above — kept for context] Derive SV-matrix cells from the cohort VCF's `PSV` instead of `proximity_match`.**
   Found 2026-08-26: SURVIVOR (`take_type=1` notwithstanding) can fold a PASS deletion into a
   breakend-derived INV/TRA cluster seeded by a junk non-PASS breakend within `max_dist`; the
   matrix's svtype check then blanks that sample (`union` mode on ottilie, chr XV ~722 kb — CBR110's
