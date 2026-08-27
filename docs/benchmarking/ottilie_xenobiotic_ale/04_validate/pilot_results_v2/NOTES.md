@@ -60,9 +60,31 @@ Whole-contig mean depth: 76× (Doxorubicin16-R2b) vs 455× (parent). The evolved
 of its mtDNA copy number and, within it, a ~47–58 kb region is at 10–40× — a large mitochondrial
 deletion/rearrangement, with clipped reads at ~53.2 kb. Sup Data 4 lists the same `Mito:53278`
 deletion in the sibling clone `Doxorubicin-135--R2b`, which suggests the authors' caller emitted a
-small indel at the breakpoint of a larger event. CNVKit and the SV callers see this region (coverage
-collapse; clipped/discordant reads); an indel caller cannot, and should not, call it as a 14-bp
-deletion. This is a truth-set representation issue, not a pipeline miss.
+small indel at the breakpoint of a larger event. An indel caller cannot, and should not, call it
+as a 14-bp deletion. This is a truth-set representation issue, not a pipeline miss.
+
+**Follow-up 2026-08-27 — none of the report's tracks can see it either, and here is why.**
+
+- *It is a coverage-only event; there are no mappable breakpoints.* The clipped-read pile-ups at
+  46.7 / 48.2 / 58.6 / 59.5 kb are **Nextera adapter read-through** (`CTGTCTCTTATACACATCT…`, the Tn5
+  mosaic end) on short fragments, not junctions: at the 59.5 kb cluster 440 clipped reads drop to
+  12 once adapter-bearing clips are excluded, and no clipped half has a supplementary alignment.
+  Discordant pairs across 45–60 kb: 24 mate-unmapped, 3 cross-contig, 6 long-insert of 11,051 —
+  noise. Manta run on Mito alone yields **zero candidates** (not merely zero PASS); TIDDIT zero
+  records. Joint calling or a different merger would not change this.
+- *What the data show:* whole-contig mtDNA loss — 76× vs 455× in the parent, i.e. TIDDIT per-contig
+  ploidy 0.34 vs 10.1 (`<sample>.tiddit.ploidies.tab`, Mean_coverage 30 vs 441) — plus, within the
+  remaining copies, 47–58 kb depleted a further ~5× and 59–61 kb amplified 2–3×. A petite-type (ρ⁻)
+  sub-genomic mtDNA, in effect.
+- *CNVKit is blind to Mito by construction.* Its bins cover Mito (17 × 5 kb in `target.bed` and
+  `targetcoverage.cnn`), but `fix` drops all 17 in **every** sample ("Keeping 2414 of 2431 bins"):
+  `cnvlib/fix.py::mask_bad_bins` discards bins whose reference GC is outside the hard-coded
+  `GC_MIN_FRACTION=0.30`–`GC_MAX_FRACTION=0.70` (`cnvlib/params.py`, no CLI override; `--no-gc`
+  skips the *correction*, not the mask). Yeast mtDNA is 17 % GC (nuclear bins 38 %). So the CN
+  summary's empty `Mito` row is CNVKit's human-genome default, not missing data.
+- *Already measured, never shown:* TIDDIT's `ploidies.tab` and mosdepth per-contig depth both carry
+  the 10.1 → 0.34 collapse. Surfacing per-contig copy number in the report is the cheap fix — see
+  `docs/dev-practices/roadmap.md`.
 
 ## What changed in this directory vs the June results
 

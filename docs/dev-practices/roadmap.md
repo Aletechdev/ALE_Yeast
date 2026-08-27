@@ -99,6 +99,21 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   inherent (no gain/loss relative to a haploid baseline) or a window/config issue that yeast-tuned
   parameters would resolve.
 
+## CNV — contig-level copy number and the mitochondrial genome
+
+- **[medium] Surface per-contig copy number in the report** (TIDDIT `<sample>.tiddit.ploidies.tab`
+  — `Ploidy`/`Mean_coverage` per contig — or mosdepth per-contig mean ÷ nuclear median). Found
+  2026-08-27: the pilot's one unmatched truth event (`Doxorubicin16-R2b Mito:53278`) is a
+  whole-mtDNA loss (TIDDIT ploidy 10.1 → 0.34) plus an intra-Mito depletion/amplification — a
+  coverage-only event with **no mappable breakpoints** (the clip pile-ups are Nextera adapter
+  read-through), so no SV caller can ever report it, while the number that shows it is already
+  computed and never displayed. The same table shows the chr I duplication (1.28) at a glance.
+  Details: `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/pilot_results_v2/NOTES.md`.
+- **[low] CNVKit excludes the mitochondrial contig by design** — `cnvlib/params.py` GC mask
+  0.30–0.70, not overridable; yeast mtDNA is 17 % GC, so all 17 Mito bins are dropped at `fix` in
+  every sample. Options: a dedicated per-kb mtDNA depth-ratio track in the report, or a patched
+  `params.py` in a custom container (not recommended). Do not expect CNVKit output for `Mito`.
+
 ## SV — Manta + TIDDIT → SURVIVOR → cohort matrix
 
 - **[medium] Replace the SURVIVOR merge chain, raredisease-style: joint Manta → SVDB.** Decided

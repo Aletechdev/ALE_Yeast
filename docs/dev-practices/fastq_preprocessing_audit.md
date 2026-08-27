@@ -89,6 +89,20 @@ preprocessing schema should absorb that fix rather than work around it.
 
 ---
 
+### 1.3 A concrete consequence (2026-08-27): adapter read-through masquerading as SV breakpoints
+
+With no adapter removal, short library fragments carry Nextera adapter into the read, and bwa
+soft-clips it. In the pilot clone `Doxorubicin16-R2b`, four positions on the mitochondrial contig
+(46.7 / 48.2 / 58.6 / 59.5 kb) each show 150–440 reads clipped at the same base — exactly what a
+rearrangement junction looks like in IGV, and what the validation notes initially took for one.
+The clipped tails are `CTGTCTCTTATACACATCT…` (Tn5 mosaic end) and its partner; at the 59.5 kb
+cluster 440 clipped reads fall to 12 once adapter-bearing clips are excluded, and none has a
+supplementary alignment. No caller was fooled (the clips carry no mate/SA evidence), so **no call
+changes today** — but anyone reading alignments by eye will be, and adapter-derived clips inflate
+the soft-clip counts that SV-evidence heuristics use. Trimming (Plan A/B) would remove the
+artefact at source; until then, treat soft-clip pile-ups whose tails start with the Tn5 sequence
+as adapter, not breakpoints.
+
 ## 2. Plan A — expose fastp quality trimming
 
 The cheap half. Reproduces Trimmomatic's quality behaviour without adding a tool.
