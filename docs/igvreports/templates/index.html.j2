@@ -655,8 +655,9 @@
                 </p>
                 <h4>Card counts</h4>
                 <p>
-                    <strong>Aneuploidy</strong> card: chromosomes where any sample's log2 ratio
-                    is &lt; &minus;0.4 (loss) or &gt; 0.3 (gain) &mdash; same thresholds as heatmap coloring.
+                    <strong>Aneuploid Contigs/Chromosomes</strong> card: contigs (from the TIDDIT table, when TIDDIT runs;
+                    otherwise chromosomes from this CNVKit table) where any sample's log2 ratio is &lt; &minus;0.4 (loss) or
+                    &gt; 0.3 (gain) &mdash; same thresholds as the heatmap coloring.
                     <strong>CN Windows</strong> card: total number of collapsed regions.
                 </p>
                 <h4>Display values</h4>
@@ -675,19 +676,25 @@
                 <p>
                     <strong>Collapsed CN Windows</strong>: adjacent bins merged where all samples
                     share the same rounded log2 value; a new row starts where any sample differs.<br>
-                    <strong>Chromosome Level (Aneuploidy)</strong>: one row per chromosome,
+                    <strong>Chromosome Copy Number (CNVKit segments)</strong>: one row per chromosome,
                     weighted-average log2 across segments. Fold change is derived from the
                     averaged log2 (<code>2<sup>log2</sup></code>).
                 </p>
                 <h4>Missing chromosomes</h4>
                 <p>
-                    Chromosomes shorter than ~150kb may be absent from CN results.
-                    In WGS mode, CNVKit skips the first ~150kb of each chromosome for antitarget bin generation;
-                    chromosomes entirely below this threshold receive no antitarget bins and cannot be normalized.
-                    The <strong>mitochondrial contig is always absent</strong>: CNVKit's <code>fix</code> step drops bins whose GC content is
-                    outside a hard-coded 0.30&ndash;0.70 window (<code>cnvlib/params.py</code>, not overridable), and yeast mtDNA is
-                    ~17&nbsp;% GC. Read Mito from the contig copy-number table instead.
+                    A contig absent from the CNVKit tables was <strong>not evaluated</strong> &mdash; absence is not a "no change" call.
+                    Two known causes:
                 </p>
+                <ul>
+                    <li><strong>The mitochondrial contig is always absent.</strong> CNVKit's <code>fix</code> step drops every bin whose
+                        GC content is outside a hard-coded 0.30&ndash;0.70 window (<code>cnvlib/params.py</code>; no CLI override &mdash;
+                        <code>--no-gc</code> does not lift it), and yeast mtDNA is ~17&nbsp;% GC. The mask acts upstream of segmentation,
+                        so it removes Mito from <em>every</em> CNVKit view &mdash; CN windows, this chromosome table, the CNV VCF and the
+                        IGV log2 track. Read Mito from the TIDDIT contig table above. The mask is not Mito-specific: any region outside
+                        30&ndash;70&nbsp;% GC vanishes the same silent way (none exist on S288C nuclear chromosomes).</li>
+                    <li><strong>Very short contigs (&lt; ~150&nbsp;kb)</strong> may additionally be dropped by CNVKit's WGS binning
+                        heuristics (telomeric skip during antitarget generation).</li>
+                </ul>
             </div>
         </details>
         {% endif %}
