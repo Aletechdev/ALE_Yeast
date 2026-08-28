@@ -18,6 +18,7 @@ include { BAM_VARIANT_CALLING_SINGLE_TIDDIT                                     
 include { BAM_VARIANT_CALLING_GERMLINE_CONTROLFREEC                                    } from '../bam_variant_calling_germline_controlfreec/main'
 include { SENTIEON_DNAMODELAPPLY                                                       } from '../../../modules/nf-core/sentieon/dnamodelapply/main'
 include { SPLIT_JOINT_VCF                                                              } from '../split_joint_vcf/main'
+include { SPLIT_JOINT_VCF as SPLIT_JOINT_VCF_MANTA                                     } from '../split_joint_vcf/main'
 include { VCF_FILTER_HAPLOTYPECALLER_JOINT                                             } from '../vcf_filter_haplotypecaller_joint/main'
 include { VCF_VARIANT_FILTERING_GATK                                                   } from '../vcf_variant_filtering_gatk/main'
 include { VCF_VARIANT_FILTERING_GATK as SENTIEON_HAPLOTYPER_VCF_VARIANT_FILTERING_GATK } from '../vcf_variant_filtering_gatk/main'
@@ -270,6 +271,20 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
 
         vcf_manta = BAM_VARIANT_CALLING_GERMLINE_MANTA.out.vcf
         versions = versions.mix(BAM_VARIANT_CALLING_GERMLINE_MANTA.out.versions)
+
+        // Joint mode yields one per-patient VCF (published raw by manta.config). Every downstream
+        // consumer (annotation, reports, SV merge) expects one VCF per sample, so split it back:
+        // same per-sample paths/names as per-sample Manta, genotype-aware (hom-ref rows dropped,
+        // FORMAT/FT promoted to FILTER — rules in conf/modules/split_joint_vcf.config).
+        if (joint_manta) {
+            SPLIT_JOINT_VCF_MANTA(
+                BAM_VARIANT_CALLING_GERMLINE_MANTA.out.vcf
+                    .join(BAM_VARIANT_CALLING_GERMLINE_MANTA.out.tbi, failOnDuplicate: true, failOnMismatch: true),
+                cram)
+
+            vcf_manta = SPLIT_JOINT_VCF_MANTA.out.vcf
+            versions = versions.mix(SPLIT_JOINT_VCF_MANTA.out.versions)
+        }
     }
 
     // INDEXCOV, for WGS only

@@ -31,7 +31,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 | `subworkflows/local/` | 7 | 11 |
 | `modules/local/` | 16 | 0 |
 | `modules/nf-core/` | 5 (installed) | **3 patched** ⚠️ |
-| `conf/` | 9 | 7 |
+| `conf/` | 10 | 7 |
 
 ---
 
@@ -71,7 +71,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 
 | Subworkflow | ALE change (why) |
 |-------------|------------------|
-| `bam_variant_calling_germline_all` | ⚠️ Core ALE wiring: CNVKit `.cnr/.cns` emits + 4 `hc_kind` lineage tags; FreeBayes somatic disabled; Control-FREEC germline; split/hard-filter HC. |
+| `bam_variant_calling_germline_all` | ⚠️ Core ALE wiring: CNVKit `.cnr/.cns` emits + 4 `hc_kind` lineage tags; FreeBayes somatic disabled; Control-FREEC germline; split/hard-filter HC; split of the joint Manta VCF (`SPLIT_JOINT_VCF_MANTA`, ALE-only — not part of the `joint_manta` PR candidate). |
 | `bam_variant_calling_germline_manta` | `joint_manta` input + one `groupTuple` branch (per-patient multi-sample run). Deliberately mirrors upstream `joint_mutect2`; new lines in 3.10 strict-syntax dialect, no versions plumbing → pastes onto sarek `dev` unchanged. **Upstream PR candidate** — keep free of ALE-specific logic. |
 | `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report. |
 | `bam_joint_calling_germline_gatk` | `VARIANTFILTRATION_FALLBACK` when VQSR can't run (custom genomes, no known-sites). |
@@ -108,8 +108,11 @@ Upstream-managed modules (clean installs, low rebase cost).
 
 ---
 
-## `conf/` — ADDED (9)
+## `conf/` — ADDED (10)
 
+- **Split rules:** `modules/split_joint_vcf.config` — per-caller (HC, Manta) rules for `SPLIT_JOINT_VCF`,
+  keyed on `meta.variantcaller`; moved out of `joint_germline.config` so that upstream file only
+  carries the VARIANTFILTRATION_FALLBACK change.
 - **Report/filter:** `modules/mutation_report.config`, `modules/custom_freebayes_filter.config`,
   `modules/custom_mutect2_filter.config`, `modules/custom_haplotypecaller_joint_filter.config`,
   `modules/breseq.config`.
@@ -120,7 +123,7 @@ Upstream-managed modules (clean installs, low rebase cost).
 
 `base.config`, `modules/cnvkit.config` (ploidy on call+export; germline CNVKIT_CALL prefix),
 `modules/controlfreec.config` (ASSESS_SIGNIFICANCE skip on ploidy=1), `modules/joint_germline.config`
-(VARIANTFILTRATION_FALLBACK params, SPLIT_JOINT_VCF publish), `modules/freebayes.config`,
+(VARIANTFILTRATION_FALLBACK params only — the SPLIT_JOINT_VCF rules moved to `split_joint_vcf.config`), `modules/freebayes.config`,
 `modules/tiddit.config`, `modules/modules.config` (vcftools conditional `ext.when`).
 
 ---

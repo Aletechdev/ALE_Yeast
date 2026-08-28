@@ -14,8 +14,9 @@ nextflow_workflow {
     // only meta_sample), so no real CRAMs are needed. ploidy:1 = the ottilie samples are HAPLOID
     // (GTs are single-allele 0/1); the non-ref filter is ploidy-dependent, so this must match.
     //
-    // Requires the joint_germline.config selector fix (`.*SPLIT_JOINT_VCF:...`, no leading colon) so
-    // the ext.args (--samples, non-ref filter) apply to the bare process name in unit isolation.
+    // The split rules live in conf/modules/split_joint_vcf.config, keyed on meta.variantcaller and
+    // selected by `.*SPLIT_JOINT_VCF.*:...` (no leading colon) so they apply both to the pipeline's
+    // per-caller aliases and to the bare process name in unit isolation.
 
     // Parse a split VCF via nf-test's built-in linesGzip (no host bcftools dependency).
     // Returns the sample column(s), the record count, and how many records are still reference/missing.
@@ -26,7 +27,8 @@ nextflow_workflow {
         def records = lines.findAll { !it.startsWith('#') }
         def refGts  = records.count { def gt = it.split('\t')[9].split(':')[0]
                                       gt in ['0', '.', '0/0', '0|0', './.', '.|.'] }
-        [ samples: samples, count: records.size(), refGts: refGts ]
+        def nonPass = records.count { it.split('\t')[6] != 'PASS' }
+        [ samples: samples, count: records.size(), refGts: refGts, nonPass: nonPass ]
     }
 
     test("2-sample joint VCF splits into per-sample non-ref VCFs (69 / 89)") {
@@ -101,6 +103,55 @@ nextflow_workflow {
                 { assert out.samples == ['Ottilie_test_CBR110-15-R3a'] },
                 { assert out.count == 69 },
                 { assert out.refGts == 0 },
+            )
+        }
+    }
+
+    test("joint Manta VCF splits per sample: hom-ref/missing dropped, FT=MinGQ promoted to FILTER (16 / 18)") {
+
+        // Fixture = the real --joint_manta VCF of the 2-sample set (18 records, all PASS at record
+        // level) with two CBR110 genotypes edited to 0/0 and ./. so the drop rule is exercised.
+        // CBR110 also carries the two genuine 0/1 FT=MinGQ GQ=10 breakends (ADH1<->AUS1 pair).
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'Ottilie_test', patient:'Ottilie_test', variantcaller:'manta' ],
+                    file("\$projectDir/tests/fixtures/joint_manta_diploid_sv.vcf.gz"),
+                    file("\$projectDir/tests/fixtures/joint_manta_diploid_sv.vcf.gz.tbi")
+                ])
+                input[1] = Channel.of(
+                    [ [ patient:'Ottilie_test', sample:'CBR110-15-R3a', ploidy:1, status:0 ], [], [] ],
+                    [ [ patient:'Ottilie_test', sample:'NODRUG-GM2',    ploidy:1, status:0 ], [], [] ]
+                )
+                """
+            }
+        }
+
+        then {
+            def byId = workflow.out.vcf.collectEntries { meta, vcf -> [ (meta.id): probe(vcf) ] }
+
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.out.vcf.size() == 2 },
+                { assert workflow.out.tbi.size() == 2 },
+
+                { assert byId['CBR110-15-R3a'].samples == ['Ottilie_test_CBR110-15-R3a'] },
+                { assert byId['NODRUG-GM2'].samples   == ['Ottilie_test_NODRUG-GM2'] },
+
+                // Hom-ref and missing rows dropped for CBR110 (ploidy-agnostic: meta says ploidy 1,
+                // Manta genotypes diploid-model); NODRUG carries all 18.
+                { assert byId['CBR110-15-R3a'].count == 16 },
+                { assert byId['NODRUG-GM2'].count   == 18 },
+                { assert byId['CBR110-15-R3a'].refGts == 0 },
+                { assert byId['NODRUG-GM2'].refGts   == 0 },
+
+                // Per-sample FT promoted: exactly the two MinGQ genotypes are non-PASS in CBR110.
+                { assert byId['CBR110-15-R3a'].nonPass == 2 },
+                { assert byId['NODRUG-GM2'].nonPass   == 0 },
+
+                // Output keeps the per-sample Manta naming, so downstream consumers are unchanged.
+                { assert workflow.out.vcf.every { meta, vcf -> vcf.toString().endsWith("/${meta.id}.manta.diploid_sv.vcf.gz") } },
             )
         }
     }

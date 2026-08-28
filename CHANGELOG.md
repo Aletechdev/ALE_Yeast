@@ -10,6 +10,20 @@
   (per-sample runs, unchanged output). Output: `variant_calling/manta/{patient}/{patient}.manta.diploid_sv.vcf.gz`.
   Written in the shape of upstream `--joint_mutect2` (grouping inside the subworkflow, `manta.config`
   untouched) so it can be offered to nf-core/sarek.
+- **Per-sample split of the joint Manta VCF** (ALE-only, on by default in the ottilie profiles):
+  `SPLIT_JOINT_VCF` now also handles Manta — each sample gets back
+  `variant_calling/manta/{sample}/{sample}.manta.diploid_sv.vcf.gz` so annotation, IGV reports and
+  the SV merge are unchanged, with hom-ref/missing rows dropped (`--min-ac 1:nref`, ploidy-agnostic)
+  and Manta's per-sample `FORMAT/FT` promoted to `FILTER` (`MinGQ`), so a weak genotype is not read
+  as PASS because the cohort-level record is. Split rules for all callers now live in
+  `conf/modules/split_joint_vcf.config`, keyed on `meta.variantcaller`.
+
+### Changed
+
+- Shared SV events no longer read as clone-specific in the Manta outputs of a multi-sample
+  experiment: with joint calling every sample carries a genotype at every candidate (in the
+  2-sample test set, `I:206105 DEL` and `VII:530034 INS` become shared PASS calls; breakpoints are
+  estimated once from pooled reads, so coordinates shift slightly vs per-sample runs).
 
 ## v1.0.0 — first production release (on nf-core/sarek 3.5.1)
 

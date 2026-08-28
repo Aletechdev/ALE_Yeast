@@ -1,7 +1,7 @@
 {
     "ottilie 2-sample: full ALE workflow + mutation report": {
         "content": [
-            175,
+            178,
             {
                 "BCFTOOLS_FILTER": {
                     "bcftools": 1.21
@@ -627,6 +627,9 @@
                 "variant_calling/manta/NODRUG-GM2",
                 "variant_calling/manta/NODRUG-GM2/NODRUG-GM2.manta.diploid_sv.vcf.gz",
                 "variant_calling/manta/NODRUG-GM2/NODRUG-GM2.manta.diploid_sv.vcf.gz.tbi",
+                "variant_calling/manta/Ottilie_test",
+                "variant_calling/manta/Ottilie_test/Ottilie_test.manta.diploid_sv.vcf.gz",
+                "variant_calling/manta/Ottilie_test/Ottilie_test.manta.diploid_sv.vcf.gz.tbi",
                 "variant_calling/tiddit",
                 "variant_calling/tiddit/CBR110-15-R3a",
                 "variant_calling/tiddit/CBR110-15-R3a/CBR110-15-R3a.tiddit.ploidies.tab",
@@ -649,12 +652,12 @@
             [
                 "S288C_R64_test.bed:md5,68cf4a72eb430177d849bcff7308ea4a",
                 "bcftools-stats-subtypes.txt:md5,23b44137631870e23297cdc3a1c83e1e",
-                "bcftools_stats_indel-lengths.txt:md5,2882e2048b2d3ff5c4329b96b2c8a0f4",
+                "bcftools_stats_indel-lengths.txt:md5,63a26ae13c9dfba6a6ce4e8956abe7b1",
                 "bcftools_stats_variant_depths.txt:md5,68e7ed438ae5130156117cf3a7ea5bae",
-                "bcftools_stats_vqc_Count_Indels.txt:md5,f71431d53b7d3a724936c29735a483bb",
-                "bcftools_stats_vqc_Count_SNP.txt:md5,b0e3548e58777cbdb5bd83840cbf66b5",
-                "bcftools_stats_vqc_Count_Transitions.txt:md5,beaffc4865daec61c38c0b7dcef96995",
-                "bcftools_stats_vqc_Count_Transversions.txt:md5,d927b012d746f890b4f0cc5f79d673b6",
+                "bcftools_stats_vqc_Count_Indels.txt:md5,130ea957a613281184c572a7a82af387",
+                "bcftools_stats_vqc_Count_SNP.txt:md5,59f67c80b2a4c59d0f42b808689be4ad",
+                "bcftools_stats_vqc_Count_Transitions.txt:md5,9a9820eaaa95f19e49d80d599f909eb8",
+                "bcftools_stats_vqc_Count_Transversions.txt:md5,6a5a08527e67d797038bfd18b2da7bf7",
                 "fastqc-status-check-heatmap.txt:md5,e47e0dc87a3caa55beb3b404bbc32812",
                 "fastqc_adapter_content_plot.txt:md5,535aee477418150883406d3b5ccc10d6",
                 "fastqc_per_base_n_content_plot.txt:md5,9fb571f1a2f47304df4cfd7dd4ec0e66",
@@ -670,7 +673,7 @@
                 "mosdepth_cov_dist.txt:md5,5491836b868687b2c4e232bf9acd1a43",
                 "mosdepth_cumcov_dist.txt:md5,5491836b868687b2c4e232bf9acd1a43",
                 "mosdepth_perchrom.txt:md5,7f37dfc232f7e0b1fc06cb3074896550",
-                "multiqc_bcftools_stats.txt:md5,1a7bdd8c6c4e7a6b86efcd9d514399b8",
+                "multiqc_bcftools_stats.txt:md5,ec58475159dc280ec3f335ae4f8bd1dc",
                 "multiqc_citations.txt:md5,32ad6286db5479a1e4689540eccc022d",
                 "multiqc_fastqc.txt:md5,791e74343f22535c6893cfe344a6fd8b",
                 "multiqc_samtools_stats.txt:md5,21ec321870e1814103593cf7e46a6a6c",
@@ -680,9 +683,9 @@
                 "samtools-stats-dp.txt:md5,c8c277d250bc4d58b8e525f8d8e21207",
                 "samtools_alignment_plot.txt:md5,55ac0136b72708cb4d34c20af6b78ade",
                 "vcftools_tstv_by_count.txt:md5,df16d4e7235509a460dd28afc7ac8dd1",
-                "CBR110-15-R3a.manta.pass_stats.tsv:md5,0c99ce6318d92d3753058a743dc0618b",
+                "CBR110-15-R3a.manta.pass_stats.tsv:md5,33b11eb5d16a88a9b0fa3fb5e755875d",
                 "CBR110-15-R3a.tiddit.pass_stats.tsv:md5,86a1b8006d13cce1c7f3d5eddd282c86",
-                "NODRUG-GM2.manta.pass_stats.tsv:md5,928ae64a432655e9e9f9aa953ddbffcb",
+                "NODRUG-GM2.manta.pass_stats.tsv:md5,be803db4db024c3fa57440dea38d7484",
                 "NODRUG-GM2.tiddit.pass_stats.tsv:md5,80e93fd280f2aef6760b83422a773c19",
                 "cn_cohort_collapsed.csv:md5,e38eb9958764962dfd3824d96c084981",
                 "cn_cohort_full.csv:md5,e905fc6e335e04fc309e4a0f604d62ca",
@@ -692,8 +695,8 @@
                 "cn_segments_call.csv:md5,7cf3210eb53398e7b748b85babcbc632",
                 "cn_segments_germline.csv:md5,1c40806b57e3292d8ac99fc2fbbccf22",
                 "contig_copy_number.csv:md5,1ea1360ceac25d23cc6f0d829411a6e8",
-                "sv_cohort_matrix_union.csv:md5,a6cc0b60e81cfb9bf9794736ed56cc5e",
-                "sv_cohort_matrix_union_pass.csv:md5,74632a10b28c61b7ff04baff4d61e230",
+                "sv_cohort_matrix_union.csv:md5,c883423a3ccbf1bec4ad910e942c80a4",
+                "sv_cohort_matrix_union_pass.csv:md5,bd0fdebafbdd6b0a1b7bbfdf89696195",
                 "README.md:md5,4c89f46831204250f187896d81299fa2",
                 "CBR110-15-R3a.cnvcall.bcftools_stats.txt:md5,9cfb764049fcb85793f043bd51c5edaa",
                 "NODRUG-GM2.cnvcall.bcftools_stats.txt:md5,04711ca4b2d63ff56370f492f617b6fe",
@@ -702,8 +705,8 @@
                 "NODRUG-GM2.haplotypecaller.from_joint_calling.hard_filtered.bcftools_stats.txt:md5,9903eb61ef483d9bc5f54829deccafda",
                 "NODRUG-GM2.haplotypecaller.from_joint_calling.bcftools_stats.txt:md5,be79f4a0f21bd6c817a2b9e79d17e49d",
                 "HaplotypeCaller_joint_calling_soft_filtered.bcftools_stats.txt:md5,9426b0076ed223f594936524026515da",
-                "CBR110-15-R3a.manta.diploid_sv.bcftools_stats.txt:md5,38d4631b72767db9177e7626f5f05f7b",
-                "NODRUG-GM2.manta.diploid_sv.bcftools_stats.txt:md5,60057a7f00b119e32457f3f4650e86ae",
+                "CBR110-15-R3a.manta.diploid_sv.bcftools_stats.txt:md5,1d9d25fa47c4b0ac1c344dd7e606876a",
+                "NODRUG-GM2.manta.diploid_sv.bcftools_stats.txt:md5,7f73fbd018edd7c5ace0602e0460f17a",
                 "CBR110-15-R3a.tiddit.bcftools_stats.txt:md5,001f5d838e3f01897b7fe3097d54cdab",
                 "NODRUG-GM2.tiddit.bcftools_stats.txt:md5,1ea0c81db44ca30250e56b2240d89190",
                 "CBR110-15-R3a.md.mosdepth.global.dist.txt:md5,e4ae17c6f8da88b8464fb2ba0697f8a5",
@@ -723,8 +726,8 @@
                 "NODRUG-GM2.haplotypecaller.from_joint_calling.hard_filtered_snpEff.genes.txt:md5,c2751494e28bc5bc85c47a24d519793f",
                 "NODRUG-GM2.haplotypecaller.from_joint_calling_snpEff.genes.txt:md5,eb52526686fd9db63da77cde2dd890d0",
                 "HaplotypeCaller_joint_calling_soft_filtered_snpEff.genes.txt:md5,6bee924a3a702d0137e5d1c9913a18f8",
-                "CBR110-15-R3a.manta.diploid_sv_snpEff.genes.txt:md5,09e5769c7095f70ec016ce7b6ccb8fab",
-                "NODRUG-GM2.manta.diploid_sv_snpEff.genes.txt:md5,6f5b4e5cd38d08d47793cdfc4d7d7129",
+                "CBR110-15-R3a.manta.diploid_sv_snpEff.genes.txt:md5,51bb5dc47960e7ba152ce2e3691e3ba8",
+                "NODRUG-GM2.manta.diploid_sv_snpEff.genes.txt:md5,51bb5dc47960e7ba152ce2e3691e3ba8",
                 "CBR110-15-R3a.tiddit_snpEff.genes.txt:md5,a001a7210ceb127157e271c7a29d0c0e",
                 "NODRUG-GM2.tiddit_snpEff.genes.txt:md5,02d6e88e52bd24071c9d08d39d38c90f",
                 "CBR110-15-R3a.cnvcall.FILTER.summary:md5,7cbcc4a429829aa50424669e7f8d6d8b",
@@ -739,9 +742,9 @@
                 "NODRUG-GM2.haplotypecaller.from_joint_calling.hard_filtered.TsTv.count:md5,bfd88f1dbdbb58680dd38b2942b16f33",
                 "NODRUG-GM2.haplotypecaller.from_joint_calling.FILTER.summary:md5,d0ba7b52ee1568aeb6794a16407ecb6a",
                 "NODRUG-GM2.haplotypecaller.from_joint_calling.TsTv.count:md5,5dda1058dff7f51f3b9e9cf6f776ecb5",
-                "CBR110-15-R3a.manta.diploid_sv.FILTER.summary:md5,d36feab0a0bf5d117053ce6466366838",
+                "CBR110-15-R3a.manta.diploid_sv.FILTER.summary:md5,5500cf3e8d17a7d91e2135f2ddd603b6",
                 "CBR110-15-R3a.manta.diploid_sv.TsTv.count:md5,fa27f678965b7cba6a92efcd039f802a",
-                "NODRUG-GM2.manta.diploid_sv.FILTER.summary:md5,837a9bb8456030649070080c8f9a3586",
+                "NODRUG-GM2.manta.diploid_sv.FILTER.summary:md5,b225408025dd12a8d08c1f40888a6147",
                 "NODRUG-GM2.manta.diploid_sv.TsTv.count:md5,fa27f678965b7cba6a92efcd039f802a",
                 "CBR110-15-R3a.tiddit.FILTER.summary:md5,6cda021d085cd7a12fb39f9f38d7e0cd",
                 "CBR110-15-R3a.tiddit.TsTv.count:md5,fa27f678965b7cba6a92efcd039f802a",
@@ -778,11 +781,11 @@
                 "cohort_report.html": "071b7fb226d35311e2109b91dcb9bd9e",
                 "samples/CBR110-15-R3a_cnvkit_report.html": "8035bea4487caa03a220ca7d1f527a6d",
                 "samples/CBR110-15-R3a_hc_report.html": "1c4df5d901d3ff76271b9877f1bd6f49",
-                "samples/CBR110-15-R3a_manta_report.html": "1051e62e954e96f938124fa8040f532a",
+                "samples/CBR110-15-R3a_manta_report.html": "de3c7ca9719d3afe462e93f1bae297f9",
                 "samples/CBR110-15-R3a_tiddit_report.html": "0d3fa3a3628bd7e507a5bbbc8398eefb",
                 "samples/NODRUG-GM2_cnvkit_report.html": "501281d6211d3b4bd68d551ae69d9af5",
                 "samples/NODRUG-GM2_hc_report.html": "ae2e5ffd3dc566b5e3cc8a175434a018",
-                "samples/NODRUG-GM2_manta_report.html": "64eebee4dc10ad4e49a014dae5e320b4",
+                "samples/NODRUG-GM2_manta_report.html": "913bf2eec47df108815826b44cef7fec",
                 "samples/NODRUG-GM2_tiddit_report.html": "b77b87261ac1376f114bb5656d16593d"
             },
             "87e80422be2cb722adc9bfc26d9fdf1d"
@@ -791,6 +794,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-08-27T16:17:34.844917597"
+        "timestamp": "2026-08-28T12:18:00.116374343"
     }
 }

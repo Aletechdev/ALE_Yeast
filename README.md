@@ -165,7 +165,7 @@ nextflow -c conf/mymachine.config run main.nf -profile docker \
     --genome null --igenomes_ignore \
     --skip_tools baserecalibrator \
     --tools snpeff,haplotypecaller,cnvkit,manta,tiddit \
-    --joint_germline --split_haplotypecaller_joint_vcf --generate_reports
+    --joint_germline --split_haplotypecaller_joint_vcf --joint_manta --generate_reports
 ```
 
 `--skip_tools baserecalibrator` is **required**: BQSR needs known-sites VCFs, which custom microbial

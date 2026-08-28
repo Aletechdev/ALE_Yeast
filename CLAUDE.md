@@ -277,6 +277,11 @@ channel-based metadata propagation (no string parsing). Enable with
 `variant_calling/haplotypecaller/individual_from_joint/<sample>/<sample>.haplotypecaller.from_joint_calling.vcf.gz`
 (+ `.tbi`). Full architecture, channel flow, and manual bcftools recipe:
 [`docs/variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md`](docs/variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md).
+The same subworkflow splits the **joint Manta** VCF (`--joint_manta`) back to
+`variant_calling/manta/<sample>/<sample>.manta.diploid_sv.vcf.gz` — hom-ref rows dropped with
+`--min-ac 1:nref` (Manta genotypes diploid-model whatever `ploidy` says) and per-sample `FORMAT/FT`
+promoted to `FILTER` (`MinGQ`). All per-caller split rules are keyed on `meta.variantcaller` in
+[`conf/modules/split_joint_vcf.config`](conf/modules/split_joint_vcf.config).
 
 ### CNVKit (Tier-1 CNV deliverable)
 

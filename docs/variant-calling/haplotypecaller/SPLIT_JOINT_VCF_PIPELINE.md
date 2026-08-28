@@ -104,7 +104,7 @@ bcftools_sample_name = "${patient}_${meta_sample.sample}"
 
 ### Step 3: Sample Extraction with BCFTOOLS_VIEW
 
-**Configuration**: `conf/modules/joint_germline.config:112-118`
+**Configuration**: `conf/modules/split_joint_vcf.config` (BCFTOOLS_VIEW block; rules keyed on `meta.variantcaller`)
 
 ```groovy
 withName: '.*:SPLIT_JOINT_VCF:BCFTOOLS_VIEW' {
@@ -143,7 +143,7 @@ bcftools view \
 
 **What it does NOT do**: Does NOT filter based on quality (QUAL, DP, AF, MQ, etc.)
 
-**Configuration**: `conf/modules/joint_germline.config:122-138`
+**Configuration**: `conf/modules/split_joint_vcf.config` (BCFTOOLS_FILTER block; the HaplotypeCaller branch)
 
 ```groovy
 withName: '.*:SPLIT_JOINT_VCF:BCFTOOLS_FILTER' {
@@ -887,7 +887,7 @@ gatk SelectVariants \
 ### Pipeline Files
 - Subworkflow: `subworkflows/local/split_joint_vcf/main.nf`
 - Integration: `subworkflows/local/bam_variant_calling_germline_all/main.nf:163-175`
-- Configuration: `conf/modules/joint_germline.config:110-138`
+- Configuration: `conf/modules/split_joint_vcf.config` (HaplotypeCaller + Manta branches)
 
 ### Related Documentation
 - See `CLAUDE.md` section: "✅ IMPLEMENTED: Split Joint VCF into Individual Sample VCFs (Channel-Based)"
