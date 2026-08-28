@@ -1,0 +1,37 @@
+sample	direction	outcome	chrom	pos_single	pos_joint	shift	cipos_joint	shift_inside_cipos	svtype	filter_single	filter_joint	gt_single	gt_joint	ft_single	ft_joint	gq_single	gq_joint	pr_sr_alt_single	pr_sr_alt_joint
+Carmaphycin-R9-2	single->joint	found	III	84801	84801	0	0,0	True	DEL	PASS	PASS	1/1	1/1	PASS	PASS	606	639	104/174	112/181
+Carmaphycin-R9-2	single->joint	LOST	IV	465921					BND	MaxDepth		1/1		PASS		688		30/505	
+Carmaphycin-R9-2	single->joint	found	IV	727485	727486	1	-364,365	True	BND	PASS	PASS	0/1	0/0	PASS	HomRef;MinGQ	260	12	30/0	12/0
+Carmaphycin-R9-2	single->joint	found	IV	1279238	1279237	1	-413,414	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	378	111	34/0	19/0
+Carmaphycin-R9-2	single->joint	found	V	33467	33467	0	0,0	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	999	999	62/29	65/46
+Carmaphycin-R9-2	single->joint	found	VI	81173	81173	0	0,0	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	999	999	62/29	65/46
+Carmaphycin-R9-2	single->joint	found	VII	530034	530034	0	0,22	True	INS	PASS	PASS	1/1	1/1	PASS	PASS	577	651	0/235	0/263
+Carmaphycin-R9-2	single->joint	found	VII	1052935	1052934	1	-299,300	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	328	132	34/0	22/0
+Carmaphycin-R9-2	single->joint	found	VIII	32737	32738	1	-410,411	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	301	119	29/0	18/0
+Carmaphycin-R9-2	single->joint	found	IX	332515	332516	1	-496,497	True	BND	PASS	MinQUAL;SampleFT	0/1	0/0	PASS	HomRef	45	127	25/0	17/0
+Carmaphycin-R9-2	single->joint	LOST	XI	653082					BND	MaxDepth		1/1		PASS		546		19/473	
+Carmaphycin-R9-2	single->joint	found	XII	46203	46204	1	-375,375	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	225	23	27/0	16/0
+Carmaphycin-R9-2	single->joint	LOST	XII	116434					BND	MaxDepth		1/1		PASS		549		27/465	
+Carmaphycin-R9-2	single->joint	found	XII	732282	732282	0	0,0	True	DEL	PASS	PASS	1/1	1/1	PASS	PASS	409	444	76/104	83/111
+Carmaphycin-R9-2	single->joint	found	XII	1065062	1065062	0	0,16	True	DEL	MaxDepth	MaxDepth	0/1	0/1	PASS	PASS	783	800	0/29	0/30
+Carmaphycin-R9-2	single->joint	found	XIII	908138	908138	0	0,4	True	DUP	PASS	MaxDepth	0/1	0/1	PASS	PASS	999	999	39/121	44/135
+Carmaphycin-R9-2	single->joint	found	XIV	765379	765341	38	-435,435	True	BND	MaxDepth	PASS	1/1	0/1	PASS	PASS	704	147	35/510	20/0
+Carmaphycin-R9-2	single->joint	LOST	XV	159560					BND	MaxDepth		1/1		PASS		549		27/465	
+Carmaphycin-R9-2	single->joint	found	XV	159560	159685	125	-267,268	True	BND	MaxDepth	PASS	1/1	0/1	PASS	PASS	704	147	35/510	20/0
+Carmaphycin-R9-2	single->joint	LOST	XV	159560					BND	MaxDepth		1/1		PASS		546		19/473	
+Carmaphycin-R9-2	single->joint	LOST	XV	159560					BND	MaxDepth		1/1		PASS		609		28/485	
+Carmaphycin-R9-2	single->joint	LOST	XV	159560					BND	MaxDepth		1/1		PASS		688		30/505	
+Carmaphycin-R9-2	single->joint	LOST	XV	159655					BND	PASS		0/1		PASS		76		18/0	
+Carmaphycin-R9-2	single->joint	found	XV	159673	159672	1	-282,283	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	504	166	41/0	22/0
+Carmaphycin-R9-2	single->joint	found	XV	159684	159683	1	-285,285	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	328	132	34/0	22/0
+Carmaphycin-R9-2	single->joint	found	XV	159686	159684	2	-295,296	True	BND	PASS	MinQUAL;SampleFT	0/1	0/0	PASS	HomRef	45	127	25/0	17/0
+Carmaphycin-R9-2	single->joint	found	XV	159694	159693	1	-303,304	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	378	111	34/0	19/0
+Carmaphycin-R9-2	single->joint	found	XV	159697	159691	6	-293,294	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	301	119	29/0	18/0
+Carmaphycin-R9-2	single->joint	found	XV	159697	159693	4	-300,301	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	225	23	27/0	16/0
+Carmaphycin-R9-2	single->joint	found	XV	159702	159689	13	-296,297	True	BND	PASS	PASS	0/1	0/0	PASS	HomRef;MinGQ	260	12	30/0	12/0
+Carmaphycin-R9-2	single->joint	LOST	XV	349681					BND	MaxDepth		1/1		PASS		609		28/485	
+Carmaphycin-R9-2	single->joint	found	XV	722249	722249	0	0,7	True	DEL	PASS	PASS	1/1	1/1	PASS	PASS	445	501	0/165	0/184
+Carmaphycin-R9-2	single->joint	found	XV	931844	931843	1	-357,357	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	504	166	41/0	22/0
+Carmaphycin-R9-2	single->joint	LOST	XVI	450398					BND	PASS		0/1		PASS		76		18/0	
+Carmaphycin-R9-2	single->joint	found	Mito	83943	83943	0	0,8	True	DEL	PASS	PASS	1/1	1/1	PASS	PASS	941	999	0/457	0/592
+Carmaphycin-R9-2	joint-only	NEW_PRESENCE	XIV		6633		0,3		INS		MaxDepth;MaxMQ0Frac		1/1		PASS		100		1/57

@@ -25,6 +25,15 @@
   2-sample test set, `I:206105 DEL` and `VII:530034 INS` become shared PASS calls; breakpoints are
   estimated once from pooled reads, so coordinates shift slightly vs per-sample runs).
 
+### Known limitations
+
+- **Joint Manta at Manta's default settings drops high-depth junctions and hub-adjacent events.** On
+  the 4-sample pilot the pooled run loses the `MaxDepth`-tagged engineered-cassette breakends (Manta's
+  pooled-depth discovery skip; only `--exome` switches it off) and a shared 343-bp insertion
+  (`graphNodeMaxEdgeCount`). Per-sample calling has the same blind spot in the parent strain. Audit and
+  options: `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/pilot_results_v2/NOTES.md`; the calling
+  configuration is an open decision (roadmap → "SV — Manta + TIDDIT", step 1b).
+
 ## v1.0.0 — first production release (on nf-core/sarek 3.5.1)
 
 Yeast ALE (Adaptive Laboratory Evolution) variant-calling pipeline: HaplotypeCaller joint germline

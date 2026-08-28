@@ -95,3 +95,62 @@ as a 14-bp deletion. This is a truth-set representation issue, not a pipeline mi
 - `sv_characterization.csv`, `cnv_concordance.csv`: identical to June.
 - `validate_all.py` matrix steps had drifted from the `bin/` scripts' CLIs (`--ploidy` removed;
   the SV cohort matrix now uses the standalone `04_validate/sv_cohort_matrix.py`); fixed here.
+
+## Joint Manta vs per-sample Manta — loss audit (2026-08-28)
+
+Why: `--joint_manta` (commits `27d3d27` + `6cf7bfa`) replaces the per-sample Manta run with one run
+per experiment, split back per sample. Before that becomes the ALE default we need to know what the
+joint call loses. Per-sample side = this pilot's `variant_calling/manta/` (Manta 1.6.0 defaults, one
+`--callRegions` interval per contig). Joint side = standalone runs on the same four `--save_mapped`
+CRAMs, same reference and call regions, in four Manta configurations. Audit script
+`04_validate/manta_joint_vs_single.py`; launcher `run_manta_joint_audit_pilot.sh <MODE>`; tables +
+joint VCFs under `manta_joint_audit/<MODE>/`. A per-sample record counts as *found* when the joint VCF
+has a record of the same SVTYPE and mate contig whose CIPOS (+50 bp) covers it and whose second
+breakpoint agrees (needed at the ADH1 breakend star, where many BNDs share one position).
+
+| MODE | Manta settings | joint records (PASS) | per-sample PASS found | real losses | joint-only genotypes |
+|---|---|---|---|---|---|
+| `default` | as the pipeline runs today | 31 (26) | 50 / 62 | 4 cassette junctions in every evolved clone (170–505 split reads, all `MaxDepth` per sample), the 343-bp `XII:818469` INS, 5 weaker BNDs | 27 |
+| `noedgecap` | `graphNodeMaxEdgeCount = 0` | 32 (27) | 53 / 62 | as default minus the INS (the only record that changed) | 28 |
+| `exome` | `--exome` (Manta's depth filters off, nothing else) | 53 (52) | 54 / 62 | INS + 3 hub-adjacent junctions | 89 |
+| `both` | `--exome` + `graphNodeMaxEdgeCount = 0` | 58 (57) | 57 / 62 | 4 events: Doxo `I:205812↔VIII:526450` (110 SR, `MaxDepth`, Doxo-only, present in every joint candidate set only as an imprecise `I:205646↔VIII:526789` that is never scored), Doxo `IV:723088↔V:117150` (7 pairs), Carma `XV:159655↔XVI:450398` (18 pairs), CBR110 `Mito:39 DUP` (5 pairs) | 103 |
+| `cap30` | `--exome` + `graphNodeMaxEdgeCount = 30` | 58 (57) | 57 / 62 | **identical record set to `both`** — a moderate cap keeps every event cap 0 keeps | 103 |
+
+(62 = per-sample PASS records over the four samples; "found" excludes one matcher miss, CBR110
+`V:33319↔VI:81218`, which the joint run places at `V:33467↔VI:81173`, 148 bp away.)
+
+**Two mechanisms, each proved by a single-knob rerun.**
+
+1. *Pooled-depth discovery skip* (Manta's `maxDepthFactor`, not user-settable in 1.6.0; `--exome`
+   is the only switch and it turns off exactly the depth filters). Per sample the engineered
+   ADH1→ABC-transporter cassette junctions sit under the skip threshold and are merely tagged
+   `MaxDepth` at scoring; with four samples pooled they cross it and are discarded before scoring
+   (they are in `candidateSV.vcf.gz`, not in `diploidSV.vcf.gz`). `--exome` returns every one of
+   them as PASS and removes nothing (31 → 53 records).
+2. *Breakend-hub edge cap* (`graphNodeMaxEdgeCount = 10`). The ADH1 locus has 15 partners in the
+   pooled graph and `V:117 kb` is a second hub with 6. Cap off changes exactly one record: the
+   343-bp insertion, which then genotypes `1/1` in **all four** samples (Carmaphycin 102 pairs +
+   82 split reads — per-sample Manta had missed it there).
+   With depth filters off the cap hides five records, not one (the insertion, two DELs, two BNDs,
+   all hub-adjacent). Note the ini's encoding: `0` means *filter off*, not "no edges". A cap of
+   **30** gives the identical 58-record set — the engineered hubs have degree 15 (ADH1) and 6
+   (URA3), so 30 admits them while still pruning pathological repeat hubs.
+
+**The per-sample mode has the same blind spot, larger.** NODRUG-GM2 (the parent) has 8 per-sample
+records and *none* of the cassette junctions — the same depth skip removed the entire engineered
+background from the control, so per sample every cassette junction read as evolved-clone-specific.
+In `both`, NODRUG genotypes 45 joint-only events, 42 PASS, median 33 supporting reads. Across the
+four samples 103 joint-only genotypes have a median of 33–194 reads; 4 have fewer than 5.
+
+**What joint mode loses whatever the configuration** — per-sample breakpoint estimates (max shift
+101–125 bp, all inside the joint CIPOS), per-sample record-level FILTER (with `--exome`, no
+`MaxDepth` tag at all) and QUAL, and — at hub breakends only — per-sample PR/SR stability: pooling
+adds neighbouring candidates at the star and a sample's pairs are redistributed among them
+(Carmaphycin `IV:727485` 30/0 → 12/0, GQ 260 → 12). Away from hubs the counts agree to within a few
+reads. The audit's 2-sample known-answer run (test set, `manta_joint_vs_single.py` on
+`output_ottilie_test/`) had none of these effects: 0 losses, 3 joint-only genotypes with evidence.
+
+**Truth-set impact: none.** The paper reports no SVs; every event above is engineered background or
+noise. **Decision pending** (roadmap → "SV — Manta + TIDDIT"): the pipeline's joint run currently
+uses Manta defaults, i.e. the `default` row.
+

@@ -1,0 +1,5 @@
+sample	single_records	single_PASS	single_PASS_found_in_joint	single_PASS_LOST	single_nonPASS	single_nonPASS_found_in_joint	joint_present(GT alt)	joint_only_presences	joint_only_with_evidence	joint_only_without_evidence	matched_PR_SR_alt_differs	max_breakpoint_shift_bp	shifts_outside_joint_CIPOS
+NODRUG-GM2	8	8	8	0	0	0	53	45	45	0	4	0	0
+Doxorubicin16-R2b	21	15	13	2	6	4	30	14	14	0	15	101	0
+Carmaphycin-R9-2	35	24	22	2	11	11	54	21	21	0	31	125	0
+CBR110-15-R3a	22	15	14	1	7	6	40	23	23	0	18	104	1

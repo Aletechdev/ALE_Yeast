@@ -133,7 +133,10 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   within-file clustering (the swallowing trigger), matching is reciprocal overlap / `--bnd_distance`,
   provenance lands in `INFO/set`+`VARID`, and the module is already in this repo (used by the somatic
   TIDDIT path). This supersedes the PSV / per-type-merge plan below. Do it in two steps:
-  - **Step 1 — joint Manta + per-sample split (~1 day).** The nf-core `manta/germline` module already
+  - **Step 1 — joint Manta + per-sample split — DONE 2026-08-28** (`27d3d27` `--joint_manta`, upstream-shaped
+    per-patient grouping; `6cf7bfa` per-sample split with hom-ref drop + `FT`→`FILTER`; on in the ottilie
+    profiles). **Not yet the settled ALE default — see the loss audit below.** Original plan follows.
+  - **Step 1 (plan) — joint Manta + per-sample split (~1 day).** The nf-core `manta/germline` module already
     accepts a CRAM list (`input.collect{"--bam ${it}"}`); only `bam_variant_calling_germline_manta`
     feeds it one sample. Mirror the HC joint pattern (`id:'joint_sv_calling', patient:'all_samples'`),
     then generalise `SPLIT_JOINT_VCF` to emit per-sample Manta VCFs so every downstream consumer is
@@ -145,6 +148,20 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
     (XV:722249 DEL, VII:530034 INS) and `0/1` for the cassette-junction breakends (ref reads present
     at ADH1); treat GT as presence/absence, not zygosity. Coordinates are re-estimated from pooled
     reads (e.g. 349,748 → 349,693), identical across samples by construction.
+  - **Step 1b — joint Manta calling configuration (DECISION NEEDED before Step 2).** Loss audit on the
+    4-sample pilot (`04_validate/pilot_results_v2/NOTES.md` → "Joint Manta vs per-sample Manta";
+    `run_manta_joint_audit_pilot.sh <MODE>`): at Manta defaults the joint run drops the strongest
+    junctions in the data (the `MaxDepth`-tagged ADH1-cassette breakends, 170–505 split reads — Manta's
+    pooled-depth discovery skip, `maxDepthFactor`, only switchable via `--exome`) and a shared 343-bp
+    insertion (`graphNodeMaxEdgeCount = 10`, the ADH1 hub has 15 partners). With `--exome` +
+    `graphNodeMaxEdgeCount = 30` (≡ 0 on the pilot; Manta config ini via the module's unused `config` input) 57/62
+    per-sample PASS records are found, 4 events lost (one strong, Doxorubicin-only, 4× depth), and the
+    parent's whole engineered background becomes visible (per-sample Manta had hidden it — NODRUG had 8
+    records). Options: (a) adopt both settings for the joint run, drop per-sample Manta — recommended;
+    (b) (a) plus keep a per-sample run as a union safety net; (c) `--exome` for per-sample calling too.
+    Any of them is a calling-parameter change: pilot truth-set validation + snapshot re-record as its own
+    commit. Also worth carrying into the SVDB rewrite: per-sample PR/SR (or AF) into the long-format SV
+    table — the matrix cell `Manta` hides a 20 % vs 100 % allele fraction.
   - **Step 2 — SVDB for TIDDIT-across-samples and Manta+TIDDIT (report side).** Retires
     `SURVIVOR_SV_MERGE`, `SURVIVOR_COHORT_MERGE`, `proximity_match`/`MAX_DIST` and most of
     `sv_cohort_matrix.py` (becomes a parse of `INFO/set` + FORMAT/GT). Spike first: `svdb --merge

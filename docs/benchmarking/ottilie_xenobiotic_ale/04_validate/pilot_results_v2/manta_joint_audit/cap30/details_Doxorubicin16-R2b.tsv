@@ -1,0 +1,36 @@
+sample	direction	outcome	chrom	pos_single	pos_joint	shift	cipos_joint	shift_inside_cipos	svtype	filter_single	filter_joint	gt_single	gt_joint	ft_single	ft_joint	gq_single	gq_joint	pr_sr_alt_single	pr_sr_alt_joint
+Doxorubicin16-R2b	single->joint	LOST	I	205812					BND	MaxDepth		0/1		PASS		999		3/110	
+Doxorubicin16-R2b	single->joint	found	III	84801	84801	0	0,0	True	DEL	PASS	PASS	1/1	1/1	PASS	PASS	156	180	26/41	33/43
+Doxorubicin16-R2b	single->joint	found	IV	470387	470461	74	-465,466	True	BND	PASS	PASS	0/1	1/1	PASS	MinGQ	66	8	8/0	4/0
+Doxorubicin16-R2b	single->joint	LOST	IV	723088					BND	PASS		0/1		PASS		21		7/0	
+Doxorubicin16-R2b	single->joint	found	V	33467	33467	0	0,0	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	527	554	25/14	26/22
+Doxorubicin16-R2b	single->joint	found	V	33715	33715	0	0,0	True	BND	MaxDepth	PASS	0/1	0/1	PASS	PASS	556	544	34/61	36/64
+Doxorubicin16-R2b	single->joint	found	V	117116	117053	63	-421,422	True	BND	PASS	PASS	0/1	1/1	PASS	MinGQ	66	8	8/0	4/0
+Doxorubicin16-R2b	single->joint	LOST	V	117150					BND	PASS		0/1		PASS		21		7/0	
+Doxorubicin16-R2b	single->joint	found	VI	81173	81173	0	0,0	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	527	554	25/14	26/22
+Doxorubicin16-R2b	single->joint	found	VII	530034	530034	0	0,22	True	INS	MaxDepth	PASS	1/1	1/1	PASS	PASS	324	339	0/145	0/151
+Doxorubicin16-R2b	single->joint	found	VIII	32737	32738	1	-410,411	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	73	17	12/0	13/0
+Doxorubicin16-R2b	single->joint	LOST	VIII	526450					BND	MaxDepth		0/1		PASS		999		3/110	
+Doxorubicin16-R2b	single->joint	found	X	526945	526945	0	0,0	True	BND	MaxDepth	PASS	0/1	0/1	PASS	PASS	556	544	34/61	36/64
+Doxorubicin16-R2b	single->joint	found	XI	653082	653082	0	0,0	True	BND	PASS	PASS	1/1	1/1	PASS	PASS	188	327	5/141	5/191
+Doxorubicin16-R2b	single->joint	found	XII	732282	732282	0	0,0	True	DEL	PASS	PASS	1/1	1/1	PASS	PASS	175	175	31/48	31/48
+Doxorubicin16-R2b	single->joint	found	XII	818469	818469	0	0,5	True	INS	PASS	PASS	1/1	1/1	PASS	PASS	89	89	22/10	22/10
+Doxorubicin16-R2b	single->joint	found	XIII	908138	908138	0	0,4	True	DUP	MaxDepth	PASS	0/1	0/1	PASS	PASS	999	999	38/86	41/98
+Doxorubicin16-R2b	single->joint	found	XV	159560	159560	0	0,0	True	BND	PASS	PASS	1/1	1/1	PASS	PASS	188	327	5/141	5/191
+Doxorubicin16-R2b	single->joint	found	XV	159560	159661	101	-266,267	True	DEL	PASS	PASS	1/1	0/0	PASS	HomRef	360	359	10/207	3/0
+Doxorubicin16-R2b	single->joint	found	XV	159619	159691	72	-293,294	True	BND	PASS	PASS	0/1	0/1	PASS	PASS	73	17	12/0	13/0
+Doxorubicin16-R2b	single->joint	found	XV	722249	722249	0	0,7	True	DEL	PASS	PASS	1/1	1/1	PASS	PASS	276	305	0/115	0/126
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	IV		465921		0,0		BND		PASS		1/1		PASS		420		6/224
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	V		115948		0,0		DEL		PASS		1/1		PASS		129		20/36
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	V		117013		-440,441		BND		PASS		1/1		MinGQ		9		4/0
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	V		117050		0,0		BND		PASS		1/1		PASS		999		11/543
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	X		526222		-465,466		BND		PASS		0/1		PASS		787		49/0
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	XI		656734		0,0		BND		PASS		1/1		PASS		999		11/543
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	XII		116434		0,0		BND		PASS		1/1		PASS		322		4/190
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	XIV		6633		0,3		INS		MaxMQ0Frac		1/1		PASS		40		0/21
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	XV		159226		-303,303		BND		PASS		0/1		PASS		787		49/0
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	XV		159560		0,0		BND		PASS		1/1		PASS		322		4/190
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	XV		159560		0,0		BND		PASS		1/1		PASS		380		6/219
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	XV		159560		0,0		BND		PASS		1/1		PASS		420		6/224
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	XV		349681		0,0		BND		PASS		1/1		PASS		380		6/219
+Doxorubicin16-R2b	joint-only	NEW_PRESENCE	XV		353896		-439,439		BND		PASS		1/1		MinGQ		9		4/0

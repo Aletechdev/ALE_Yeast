@@ -339,6 +339,12 @@
             Manta and TIDDIT reports include read alignment views at breakpoints (±500 bp).
             SV counts are shown as "PASS / all" using each caller's own FILTER column. The TIDDIT report
             is pre-filtered to PASS calls; the Manta report keeps all calls with the FILTER tag visible.
+            Manta is run <em>jointly</em> over all samples of an experiment (<code>--joint_manta</code>): every
+            sample is genotyped at every candidate, and a sample's Manta VCF is its column of that joint call
+            with reference-only rows removed and Manta's per-sample filter (<code>FORMAT/FT</code>, e.g.
+            <code>MinGQ</code>) promoted to <code>FILTER</code> &mdash; so an event with strong support in one clone
+            and weak support in another appears in both VCFs, once as PASS and once as MinGQ, instead of being
+            absent from the second. Breakpoints are estimated once from the pooled reads and are identical across samples.
             Note that Manta reports translocations and inversions as breakend <em>pairs</em> (two records
             per junction), so those counts are records, not events.
         </p>
@@ -625,7 +631,17 @@
                         <code>Manta+TIDDIT</code> marks the subset supported by both callers in that sample.</li>
                     <li>A <code>-</code> cell means no PASS call of that type within 1 kb at both ends in that sample &mdash;
                         the call may still exist with a non-PASS filter, or with a different breakpoint (compare the
-                        <code>sv_cohort_matrix_union.csv</code> download, which is built the same way from all calls).</li>
+                        <code>sv_cohort_matrix_union.csv</code> download, which is built the same way from all calls).
+                        With joint Manta the common non-PASS case is a genotype Manta assigned to this sample at another
+                        sample's event but with few supporting reads (<code>MinGQ</code>, GQ &lt; 15): present in the union
+                        matrix and in the per-sample Manta report, <code>-</code> here.</li>
+                    <li><strong>Joint Manta changes what "shared" means.</strong> Because every sample is genotyped at every
+                        candidate, an event with strong evidence in one clone and modest evidence in another is reported in
+                        both (with each sample's own <code>PR</code>/<code>SR</code> read counts), where per-sample calling
+                        showed it in one. Two things are no longer per sample: the breakpoint estimate (one, from pooled
+                        reads) and Manta's record-level filters such as <code>MaxDepth</code>, which are evaluated on the
+                        pooled depth &mdash; a depth excess confined to one clone no longer flags the record. Depth itself is
+                        still visible in the CNVKit/TIDDIT tracks and in <code>INFO/BND_DEPTH</code>.</li>
                 </ul>
                 <h4>Why counts differ</h4>
                 <ul>
