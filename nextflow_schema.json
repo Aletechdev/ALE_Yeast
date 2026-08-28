@@ -350,6 +350,12 @@
                     "description": "Turn on the joint germline variant calling for GATK haplotypecaller",
                     "help_text": "Uses all normal germline samples (as designated by `status` in the input csv) in the joint germline variant calling process."
                 },
+                "joint_manta": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-toolbox",
+                    "description": "Run Manta germline calling in joint (multi-sample) mode: one run per patient over all of its normal samples.",
+                    "help_text": "Every sample of the patient is genotyped at every candidate SV, so an event with weak evidence in one sample is reported as a genotype instead of being absent from that sample's VCF. Outputs are stored in a subfolder named with the patient ID under `variant_calling/manta/` as `{patient}.manta.diploid_sv.vcf.gz`."
+                },
                 "split_haplotypecaller_joint_vcf": {
                     "type": "boolean",
                     "fa_icon": "fas fa-split",

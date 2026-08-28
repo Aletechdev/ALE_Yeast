@@ -1,5 +1,16 @@
 # ALE Yeast pipeline: change log
 
+## Unreleased
+
+### Added
+
+- **`--joint_manta`** — Manta germline calling in joint (multi-sample) mode: one run per patient
+  (= ALE `experiment`) over all of its samples, so every sample is genotyped at every candidate SV
+  instead of an event with weak evidence being absent from that sample's VCF. Default `false`
+  (per-sample runs, unchanged output). Output: `variant_calling/manta/{patient}/{patient}.manta.diploid_sv.vcf.gz`.
+  Written in the shape of upstream `--joint_mutect2` (grouping inside the subworkflow, `manta.config`
+  untouched) so it can be offered to nf-core/sarek.
+
 ## v1.0.0 — first production release (on nf-core/sarek 3.5.1)
 
 Yeast ALE (Adaptive Laboratory Evolution) variant-calling pipeline: HaplotypeCaller joint germline

@@ -13,12 +13,20 @@ workflow BAM_VARIANT_CALLING_GERMLINE_MANTA {
     fasta         // channel: [mandatory] [ meta, fasta ]
     fasta_fai     // channel: [mandatory] [ meta, fasta_fai ]
     intervals     // channel: [mandatory] [ interval.bed.gz, interval.bed.gz.tbi] or [ [], []] if no intervals; intervals file contains all intervals
+    joint_manta   // boolean: [mandatory] [default: false] one multi-sample Manta run per patient instead of one per sample
 
     main:
     versions = Channel.empty()
 
+    // Joint mode: group every sample of a patient into one Manta run (Manta genotypes all of them at
+    // every candidate). Meta is reduced to patient-level keys, id = patient, so groupTuple has one
+    // key per patient and the outputs publish under variant_calling/manta/<patient>/.
+    cram_to_call = joint_manta
+        ? cram.map { meta, cram_file, crai_file -> [ meta.subMap('patient') + [ id: meta.patient ], cram_file, crai_file ] }.groupTuple()
+        : cram
+
     // Combine cram and intervals, account for 0 intervals
-    cram_intervals = cram.combine(intervals).map{ it ->
+    cram_intervals = cram_to_call.combine(intervals).map{ it ->
         bed_gz = it.size() > 3 ? it[3] : []
         bed_tbi = it.size() > 3 ? it[4] : []
 

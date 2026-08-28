@@ -28,7 +28,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 |----------|-------|-----------------------------------|
 | Root files | — | `main.nf`, `nextflow.config`, `nextflow_schema.json` |
 | Core workflow | — | `workflows/sarek/main.nf` ⚠️ heaviest |
-| `subworkflows/local/` | 7 | 10 |
+| `subworkflows/local/` | 7 | 11 |
 | `modules/local/` | 16 | 0 |
 | `modules/nf-core/` | 5 (installed) | **3 patched** ⚠️ |
 | `conf/` | 9 | 7 |
@@ -49,7 +49,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 
 ### New params (nextflow.config / schema)
 
-`generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
+`joint_manta` (upstream-shaped, PR candidate), `generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
 `report_gff3`, `report_filter_config`, `report_cohort_template`, `report_sample_template`,
 `report_index_script`, `report_templates_dir`, `report_outdir`, `report_multiqc_path`.
 
@@ -67,11 +67,12 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 | `bam_variant_calling_germline_controlfreec` | Single-sample Control-FREEC (germline). |
 | `fastq_variant_calling_breseq` | breseq path (AMP-v1 legacy integration, not Tier 1). |
 
-## `subworkflows/local/` — MODIFIED (10, in place)
+## `subworkflows/local/` — MODIFIED (11, in place)
 
 | Subworkflow | ALE change (why) |
 |-------------|------------------|
 | `bam_variant_calling_germline_all` | ⚠️ Core ALE wiring: CNVKit `.cnr/.cns` emits + 4 `hc_kind` lineage tags; FreeBayes somatic disabled; Control-FREEC germline; split/hard-filter HC. |
+| `bam_variant_calling_germline_manta` | `joint_manta` input + one `groupTuple` branch (per-patient multi-sample run). Deliberately mirrors upstream `joint_mutect2`; new lines in 3.10 strict-syntax dialect, no versions plumbing → pastes onto sarek `dev` unchanged. **Upstream PR candidate** — keep free of ALE-specific logic. |
 | `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report. |
 | `bam_joint_calling_germline_gatk` | `VARIANTFILTRATION_FALLBACK` when VQSR can't run (custom genomes, no known-sites). |
 | `samplesheet_to_channel` | ALE metadata columns (ploidy; all-samples-as-normal). |
