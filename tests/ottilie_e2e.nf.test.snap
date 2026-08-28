@@ -781,11 +781,11 @@
                 "cohort_report.html": "071b7fb226d35311e2109b91dcb9bd9e",
                 "samples/CBR110-15-R3a_cnvkit_report.html": "8035bea4487caa03a220ca7d1f527a6d",
                 "samples/CBR110-15-R3a_hc_report.html": "1c4df5d901d3ff76271b9877f1bd6f49",
-                "samples/CBR110-15-R3a_manta_report.html": "de3c7ca9719d3afe462e93f1bae297f9",
+                "samples/CBR110-15-R3a_manta_report.html": "f15fcf656ad6eefe06d1e7a9b5ffc9a1",
                 "samples/CBR110-15-R3a_tiddit_report.html": "0d3fa3a3628bd7e507a5bbbc8398eefb",
                 "samples/NODRUG-GM2_cnvkit_report.html": "501281d6211d3b4bd68d551ae69d9af5",
                 "samples/NODRUG-GM2_hc_report.html": "ae2e5ffd3dc566b5e3cc8a175434a018",
-                "samples/NODRUG-GM2_manta_report.html": "913bf2eec47df108815826b44cef7fec",
+                "samples/NODRUG-GM2_manta_report.html": "ff8577910f12416a401957da1513976c",
                 "samples/NODRUG-GM2_tiddit_report.html": "b77b87261ac1376f114bb5656d16593d"
             },
             "87e80422be2cb722adc9bfc26d9fdf1d"
@@ -794,6 +794,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-08-28T12:18:00.116374343"
+        "timestamp": "2026-08-28T14:17:29.884029409"
     }
 }

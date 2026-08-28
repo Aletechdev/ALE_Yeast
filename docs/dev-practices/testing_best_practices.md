@@ -350,6 +350,29 @@ pristine upstream config. (Our own bcftools-norm investigation under `tests/test
 
 ---
 
+### `groupTuple` order is not deterministic — sort when the tool reads file order
+
+Found 2026-08-28 by an e2e snapshot diff that had no business existing (`--manta_high_sensitivity`
+defaults to false, so the run should have been byte-identical). Only two hashes moved: the two Manta
+IGV reports. The VCF *bodies* were identical apart from Manta's record IDs (`MantaBND:52:1:3:…` vs
+`…:1:4:…`), their `MATEID`s, and the joint VCF's sample-column order.
+
+Cause: `groupTuple()` emits grouped items in **channel-arrival order**, which varies run to run.
+`MANTA_GERMLINE` builds `--bam a --bam b …` from that list, and Manta numbers its record IDs and
+orders VCF sample columns by `--bam` order. Fix: `groupTuple(sort: { it.name })` in
+`bam_variant_calling_germline_manta`, so the grouped CRAMs are always alphabetical.
+
+Rule: **whenever a grouped list is handed to a tool whose output depends on input order, sort it.**
+Most other `groupTuple` calls in this repo group interval-scattered pieces of one sample and feed a
+coordinate-sorting merge (`bcftools concat`, `GatherVcfs`), so they are order-insensitive; the joint
+HC path groups gVCFs across samples but `GenomicsDBImport` sorts sample names itself. Manta was the
+one place where order leaked into the output.
+
+Why the earlier runs looked stable: the first joint-Manta e2e and its `--update-snapshot` re-record
+happened to arrive in the same order, so the snapshot recorded one of the two possible outputs. A
+snapshot passing twice is **not** proof of determinism when the input is a `groupTuple` list — check
+the ordering, or run once with the samplesheet rows reversed.
+
 ## 11. Target coverage: the four nf-test layers (post-1.0.0)
 
 v1.0.0 ships two owned tests — `ottilie_e2e` (`nextflow_pipeline`) and `split_joint_vcf`

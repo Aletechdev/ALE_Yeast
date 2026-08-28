@@ -25,14 +25,24 @@
   2-sample test set, `I:206105 DEL` and `VII:530034 INS` become shared PASS calls; breakpoints are
   estimated once from pooled reads, so coordinates shift slightly vs per-sample runs).
 
+### Fixed
+
+- **Joint Manta output was not deterministic.** The grouped CRAM list came out of `groupTuple()` in
+  channel-arrival order, and Manta derives its record IDs (and the joint VCF's sample-column order)
+  from `--bam` order, so IDs, `MATEID`s and column order could differ between identical runs — visible
+  downstream as changing IGV-report hashes. The CRAMs are now sorted by name before the joint call.
+
 ### Known limitations
 
-- **Joint Manta at Manta's default settings drops high-depth junctions and hub-adjacent events.** On
-  the 4-sample pilot the pooled run loses the `MaxDepth`-tagged engineered-cassette breakends (Manta's
-  pooled-depth discovery skip; only `--exome` switches it off) and a shared 343-bp insertion
-  (`graphNodeMaxEdgeCount`). Per-sample calling has the same blind spot in the parent strain. Audit and
-  options: `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/pilot_results_v2/NOTES.md`; the calling
-  configuration is an open decision (roadmap → "SV — Manta + TIDDIT", step 1b).
+- **Manta at its default settings (the ALE default) drops high-depth junctions and hub-adjacent
+  events.** On the 4-sample pilot the joint run loses the `MaxDepth`-tagged engineered-cassette
+  breakends (Manta's pooled-depth discovery skip) and a shared 343-bp delta-LTR insertion (the
+  breakend-hub edge cap); per-sample calling has the same blind spot in the parent strain. Decided
+  2026-08-28 to keep Manta's defaults — joint calling's noise reduction is wanted, and at the PASS
+  level only one shared background insertion, one cassette junction and two 8-pair breakends are
+  affected — and to expose the alternative as `--manta_high_sensitivity`. Audit, per-record effect
+  and how to re-run it: `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/pilot_results_v2/NOTES.md`,
+  `04_validate/run_manta_joint_audit_pilot.sh <MODE>`.
 
 ## v1.0.0 — first production release (on nf-core/sarek 3.5.1)
 

@@ -20,9 +20,11 @@ workflow BAM_VARIANT_CALLING_GERMLINE_MANTA {
 
     // Joint mode: group every sample of a patient into one Manta run (Manta genotypes all of them at
     // every candidate). Meta is reduced to patient-level keys, id = patient, so groupTuple has one
-    // key per patient and the outputs publish under variant_calling/manta/<patient>/.
+    // key per patient and the outputs publish under variant_calling/manta/<patient>/. The grouped
+    // files are sorted by name: Manta numbers its record IDs and orders the VCF sample columns by
+    // --bam order, so channel-arrival order would make both non-deterministic across runs.
     cram_to_call = joint_manta
-        ? cram.map { meta, cram_file, crai_file -> [ meta.subMap('patient') + [ id: meta.patient ], cram_file, crai_file ] }.groupTuple()
+        ? cram.map { meta, cram_file, crai_file -> [ meta.subMap('patient') + [ id: meta.patient ], cram_file, crai_file ] }.groupTuple(sort: { it.name })
         : cram
 
     // Combine cram and intervals, account for 0 intervals
