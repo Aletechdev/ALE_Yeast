@@ -363,6 +363,8 @@ orders VCF sample columns by `--bam` order. Fix: `groupTuple(sort: { it.name })`
 `bam_variant_calling_germline_manta`, so the grouped CRAMs are always alphabetical.
 
 Rule: **whenever a grouped list is handed to a tool whose output depends on input order, sort it.**
+Recorded as a difference class (the one that is a bug, not noise) in
+[`output_comparison.md`](output_comparison.md) §2.9.
 Most other `groupTuple` calls in this repo group interval-scattered pieces of one sample and feed a
 coordinate-sorting merge (`bcftools concat`, `GatherVcfs`), so they are order-insensitive; the joint
 HC path groups gVCFs across samples but `GenomicsDBImport` sorts sample names itself. Manta was the

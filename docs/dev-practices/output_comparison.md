@@ -117,6 +117,27 @@ the **counts** differ if one side was run more than once. In the worked example 
 - **snpEff QC summaries** (`reports/snpeff/*`) — embedded run date.
 - **FastQC html/zip**, samtools/picard stats — embedded dates and paths.
 
+### 2.9 Identifiers and column order derived from input file order — **NOT noise, fix it**
+
+The one class in this list that must **never** be normalised away or added to `.nftignore`: a
+difference caused by the *order* in which files were handed to a tool. `groupTuple()` and `collect()`
+emit in channel-arrival order, which depends on which upstream task finished first; a tool that reads
+that order into its output makes every run different by chance.
+
+Seen 2026-08-28 (fixed in `6892309`): `MANTA_GERMLINE` builds `--bam a --bam b …` from the grouped
+CRAM list, and Manta numbers its record IDs (`MantaBND:52:1:3:…` vs `…:1:4:…`), the `MATEID`s pairing
+breakends, and the joint VCF's **sample-column order** from it. Two runs then produce the same
+variants, genotypes, filters and coordinates under different names — which propagates to every
+downstream hash (the igv-report `tableJson` is what caught it).
+
+**How to recognise it:** the bodies are identical apart from ID-like strings, or the `#CHROM` sample
+columns are permuted. Compare the two VCFs with the header stripped; check `##cmdline` for the input
+order. **How to fix it:** sort the grouped list — `groupTuple(sort: { it.name })` — never ignore the
+file. **How to test for it:** re-running the same input proves nothing (with N samples the same order
+recurs by chance); run once with the samplesheet rows **reversed**. Full lesson, and why the repo's
+other `groupTuple` calls are safe: [`testing_best_practices.md`](testing_best_practices.md)
+§"`groupTuple` order is not deterministic".
+
 ---
 
 ## 3. Method: comparing two runs directly
