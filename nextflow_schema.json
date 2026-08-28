@@ -356,6 +356,12 @@
                     "description": "Run Manta germline calling in joint (multi-sample) mode: one run per patient over all of its normal samples.",
                     "help_text": "Every sample of the patient is genotyped at every candidate SV, so an event with weak evidence in one sample is reported as a genotype instead of being absent from that sample's VCF. Outputs are stored in a subfolder named with the patient ID under `variant_calling/manta/` as `{patient}.manta.diploid_sv.vcf.gz`."
                 },
+                "manta_high_sensitivity": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-search-plus",
+                    "description": "Run Manta with its human-WGS repeat heuristics off: depth filters disabled (`--exome`) and graphNodeMaxEdgeCount = 0.",
+                    "help_text": "Manta skips SV discovery in regions deeper than 3x the chromosome median and prunes junctions between breakend hubs linked to more than 10 other regions. Both assume a human genome and remove real junctions in engineered multi-copy constructs, amplified regions and Ty/LTR insertions. With this switch Manta reports them (no `MaxDepth` FILTER tag is written any more; depth is still in `INFO/BND_DEPTH`). Applies to every Manta run (per-sample or joint). Not a data-type flag: `--wes` stays false for WGS."
+                },
                 "split_haplotypecaller_joint_vcf": {
                     "type": "boolean",
                     "fa_icon": "fas fa-split",

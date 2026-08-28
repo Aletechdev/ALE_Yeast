@@ -151,6 +151,12 @@ reads. The audit's 2-sample known-answer run (test set, `manta_joint_vs_single.p
 `output_ottilie_test/`) had none of these effects: 0 losses, 3 joint-only genotypes with evidence.
 
 **Truth-set impact: none.** The paper reports no SVs; every event above is engineered background or
-noise. **Decision pending** (roadmap → "SV — Manta + TIDDIT"): the pipeline's joint run currently
-uses Manta defaults, i.e. the `default` row.
+noise. At the PASS level the defaults cost 11 per-sample PASS records (of 62), of which
+`--exome` + cap recovers 6 — the shared delta-LTR insertion (3 rows), one cassette junction and two
+8-pair breakends; the larger effect of `--exome` is promoting 16 former `MaxDepth` records to PASS.
+
+**Decision (2026-08-28): keep Manta's defaults** — joint calling's noise reduction is wanted, as with
+HC joint calling — **and expose the alternative as `--manta_high_sensitivity`** (default false;
+`--exome` + `graphNodeMaxEdgeCount = 0` = the `both` row; `assets/manta_high_sensitivity.ini`,
+`conf/modules/manta_ale.config`). The pipeline's default output is the `default` row.
 

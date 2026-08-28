@@ -188,6 +188,10 @@ Canonical column reference, conventions, and non-Tier-1 notes:
 - **SV — Manta + TIDDIT**: merged via SURVIVOR into per-sample + cohort matrices. `--joint_manta` (default off)
   runs one Manta call per `experiment` with every sample genotyped at every candidate — upstream-shaped
   (`joint_mutect2` idiom), see [`SAREK_MODIFICATIONS.md`](docs/dev-practices/SAREK_MODIFICATIONS.md).
+  `--manta_high_sensitivity` (default off) disables Manta's depth filters (`--exome`) and breakend-hub
+  edge cap — the human-repeat heuristics that hide engineered multi-copy junctions and Ty/LTR
+  insertions; audit + how to re-run: [`pilot_results_v2/NOTES.md`](docs/benchmarking/ottilie_xenobiotic_ale/04_validate/pilot_results_v2/NOTES.md).
+  `--wes` is a pipeline-wide data-type flag (CNVKit method, mosdepth, HC GenomicsDB, Control-FREEC…) — never use it for this.
 - **Annotation — SnpEff**: custom cache (`docs/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`).
 
 ### Tier-2 tools — functional, not release-validated for ALE

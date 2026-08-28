@@ -148,7 +148,11 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
     (XV:722249 DEL, VII:530034 INS) and `0/1` for the cassette-junction breakends (ref reads present
     at ADH1); treat GT as presence/absence, not zygosity. Coordinates are re-estimated from pooled
     reads (e.g. 349,748 → 349,693), identical across samples by construction.
-  - **Step 1b — joint Manta calling configuration (DECISION NEEDED before Step 2).** Loss audit on the
+  - **Step 1b — joint Manta calling configuration — DECIDED 2026-08-28: keep Manta's defaults; expose
+    the alternative as `--manta_high_sensitivity` (default false: `--exome` + `graphNodeMaxEdgeCount=0`).**
+    Rationale: joint calling's noise reduction is wanted (same experience as HC joint); at the PASS level
+    the defaults cost one shared background insertion, one cassette junction and two 8-pair breakends;
+    the switch is there for datasets where an amplified-region junction is the hypothesis. Original notes: Loss audit on the
     4-sample pilot (`04_validate/pilot_results_v2/NOTES.md` → "Joint Manta vs per-sample Manta";
     `run_manta_joint_audit_pilot.sh <MODE>`): at Manta defaults the joint run drops the strongest
     junctions in the data (the `MaxDepth`-tagged ADH1-cassette breakends, 170–505 split reads — Manta's

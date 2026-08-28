@@ -753,6 +753,7 @@ workflow SAREK {
             known_snps_vqsr,
             params.joint_germline,
             params.joint_manta,
+            params.manta_high_sensitivity ? file("${projectDir}/assets/manta_high_sensitivity.ini", checkIfExists: true) : [], // Manta ini (graphNodeMaxEdgeCount = 0); --exome comes from conf/modules/manta_ale.config
             params.skip_tools && params.skip_tools.split(',').contains('haplotypecaller_filter'), // true if filtering should be skipped
             params.sentieon_haplotyper_emit_mode,
             params.sentieon_dnascope_emit_mode,

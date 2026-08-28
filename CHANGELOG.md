@@ -10,6 +10,13 @@
   (per-sample runs, unchanged output). Output: `variant_calling/manta/{patient}/{patient}.manta.diploid_sv.vcf.gz`.
   Written in the shape of upstream `--joint_mutect2` (grouping inside the subworkflow, `manta.config`
   untouched) so it can be offered to nf-core/sarek.
+- **`--manta_high_sensitivity`** (default `false`) — one switch that turns off Manta's two human-WGS
+  repeat heuristics: the depth filters (`--exome`, Manta's only handle for them; not a data-type
+  change, `--wes` stays false) and the breakend-hub edge cap (`graphNodeMaxEdgeCount = 0` via
+  `assets/manta_high_sensitivity.ini`, passed through the module's `config` input). Applies to every
+  Manta run, per-sample or joint. Off, Manta behaves exactly as before. On the 4-sample pilot (joint
+  mode) it reports 58 records instead of 31: the engineered-cassette junctions, a shared 343-bp
+  delta-LTR insertion and 16 former `MaxDepth` records become PASS; no truth-set change either way.
 - **Per-sample split of the joint Manta VCF** (ALE-only, on by default in the ottilie profiles):
   `SPLIT_JOINT_VCF` now also handles Manta — each sample gets back
   `variant_calling/manta/{sample}/{sample}.manta.diploid_sv.vcf.gz` so annotation, IGV reports and

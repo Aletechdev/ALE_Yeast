@@ -31,7 +31,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 | `subworkflows/local/` | 7 | 11 |
 | `modules/local/` | 16 | 0 |
 | `modules/nf-core/` | 5 (installed) | **3 patched** ⚠️ |
-| `conf/` | 10 | 7 |
+| `conf/` | 11 | 7 |
 
 ---
 
@@ -49,7 +49,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 
 ### New params (nextflow.config / schema)
 
-`joint_manta` (upstream-shaped, PR candidate), `generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
+`joint_manta` (upstream-shaped, PR candidate), `manta_high_sensitivity`, `generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
 `report_gff3`, `report_filter_config`, `report_cohort_template`, `report_sample_template`,
 `report_index_script`, `report_templates_dir`, `report_outdir`, `report_multiqc_path`.
 
@@ -72,7 +72,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 | Subworkflow | ALE change (why) |
 |-------------|------------------|
 | `bam_variant_calling_germline_all` | ⚠️ Core ALE wiring: CNVKit `.cnr/.cns` emits + 4 `hc_kind` lineage tags; FreeBayes somatic disabled; Control-FREEC germline; split/hard-filter HC; split of the joint Manta VCF (`SPLIT_JOINT_VCF_MANTA`, ALE-only — not part of the `joint_manta` PR candidate). |
-| `bam_variant_calling_germline_manta` | `joint_manta` input + one `groupTuple` branch (per-patient multi-sample run). Deliberately mirrors upstream `joint_mutect2`; new lines in 3.10 strict-syntax dialect, no versions plumbing → pastes onto sarek `dev` unchanged. **Upstream PR candidate** — keep free of ALE-specific logic. |
+| `bam_variant_calling_germline_manta` | `joint_manta` input + one `groupTuple` branch (per-patient multi-sample run); `manta_config` input (optional configManta.py ini → module `config`, `[]` otherwise); `tbi` emit (3.8.1 shape). Deliberately mirrors upstream `joint_mutect2`; new lines in 3.10 strict-syntax dialect, no versions plumbing → pastes onto sarek `dev` unchanged. **Upstream PR candidate** — keep free of ALE-specific logic. |
 | `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report. |
 | `bam_joint_calling_germline_gatk` | `VARIANTFILTRATION_FALLBACK` when VQSR can't run (custom genomes, no known-sites). |
 | `samplesheet_to_channel` | ALE metadata columns (ploidy; all-samples-as-normal). |
@@ -108,8 +108,10 @@ Upstream-managed modules (clean installs, low rebase cost).
 
 ---
 
-## `conf/` — ADDED (10)
+## `conf/` — ADDED (11)
 
+- **Manta overrides:** `modules/manta_ale.config` — `--exome` when `manta_high_sensitivity` (or `wes`); keeps
+  upstream `manta.config` 0-diff. Pairs with `assets/manta_high_sensitivity.ini`.
 - **Split rules:** `modules/split_joint_vcf.config` — per-caller (HC, Manta) rules for `SPLIT_JOINT_VCF`,
   keyed on `meta.variantcaller`; moved out of `joint_germline.config` so that upstream file only
   carries the VARIANTFILTRATION_FALLBACK change.

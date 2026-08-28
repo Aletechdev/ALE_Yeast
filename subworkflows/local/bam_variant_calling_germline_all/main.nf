@@ -49,6 +49,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     known_snps_vqsr
     joint_germline                    // boolean: [mandatory] [default: false] joint calling of germline variants
     joint_manta                       // boolean: [mandatory] [default: false] one multi-sample Manta run per patient
+    manta_config                      // path: [optional] configManta.py ini for MANTA_GERMLINE, or []
     skip_haplotypecaller_filter       // boolean: [mandatory] [default: false] whether to filter haplotypecaller single sample vcfs
     sentieon_haplotyper_emit_mode     // channel: [mandatory] value channel with string
     sentieon_dnascope_emit_mode       // channel: [mandatory] value channel with string
@@ -266,7 +267,8 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
             fasta,
             fasta_fai,
             intervals_bed_gz_tbi_combined,
-            joint_manta
+            joint_manta,
+            manta_config
         )
 
         vcf_manta = BAM_VARIANT_CALLING_GERMLINE_MANTA.out.vcf

@@ -14,6 +14,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_MANTA {
     fasta_fai     // channel: [mandatory] [ meta, fasta_fai ]
     intervals     // channel: [mandatory] [ interval.bed.gz, interval.bed.gz.tbi] or [ [], []] if no intervals; intervals file contains all intervals
     joint_manta   // boolean: [mandatory] [default: false] one multi-sample Manta run per patient instead of one per sample
+    manta_config  // path: [optional] configManta.py ini passed as --config, or [] for Manta's defaults
 
     main:
     versions = Channel.empty()
@@ -35,7 +36,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_MANTA {
         [it[0], it[1], it[2], bed_gz, bed_tbi]
     }
 
-    MANTA_GERMLINE(cram_intervals, fasta, fasta_fai, [])
+    MANTA_GERMLINE(cram_intervals, fasta, fasta_fai, manta_config)
 
     small_indels_vcf   = MANTA_GERMLINE.out.candidate_small_indels_vcf
     sv_vcf             = MANTA_GERMLINE.out.candidate_sv_vcf
