@@ -166,6 +166,15 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
     Any of them is a calling-parameter change: pilot truth-set validation + snapshot re-record as its own
     commit. Also worth carrying into the SVDB rewrite: per-sample PR/SR (or AF) into the long-format SV
     table — the matrix cell `Manta` hides a 20 % vs 100 % allele fraction.
+  - **Priority order — DECIDED 2026-08-28: `--priority manta,tiddit`** (raredisease puts tiddit first).
+    SVDB's first-listed tag wins: the merged record keeps that caller's POS/END/SVTYPE, the other
+    caller's coordinates surviving in `INFO/<tag>_POS`/`_INFO` (verified in the spike). Manta first
+    because its breakpoints are split-read derived and precise where TIDDIT's are depth/pair-derived
+    ranges — worked example, the same XV DEL in the 2-sample set: Manta `722249-722439`
+    (`CIGAR=1M190D`, `HOMLEN=7`), TIDDIT `722257-722440` (`REGIONA=722180,722257`,
+    `REGIONB=722440,722517`). SURVIVOR's "last file wins" rule put TIDDIT's `722257` in today's
+    matrix; under this order the matrix will show Manta's. With Delly later the order becomes
+    `manta,delly,tiddit` (Delly is also split-read/paired-end, TIDDIT stays last).
   - **Step 2 — SVDB for TIDDIT-across-samples and Manta+TIDDIT (report side).** Retires
     `SURVIVOR_SV_MERGE`, `SURVIVOR_COHORT_MERGE`, `proximity_match`/`MAX_DIST` and most of
     `sv_cohort_matrix.py` (becomes a parse of `INFO/set` + FORMAT/GT). Spike first: `svdb --merge
