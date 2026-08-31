@@ -557,7 +557,7 @@ unchanged on disk after the run.
 **1. Fusion + Entra SP works.** The plan flagged this as *unverified*, since the only working Fusion CE
 was on a **shared-key** credential. It now runs on the Entra SP, with dual-pool and 256 GB workers.
 All **9 cohort deliverables byte-identical** to the validated non-Fusion baseline
-(`seqera-runs/2026-08-06-04`), 534 blobs. Note this run is on current `main` (`12a599d`, the new
+(`seqera-runs/2026-08-06-04`), 534 blobs. Note this run is on current `main` (`d8956ef`, the new
 `manifest.name`) while the baseline is `86c4672` — so the deliverables match across **both** the Fusion
 change and four commits.
 
@@ -680,13 +680,13 @@ this repo depends on the id; only this entry records it. Platform pipelines *do*
 (`yAMP-ottilie-test-az-1`, default), but nothing exposed by `tw` or the API can add one.
 
 🔬 **And the version hash is blind to the repo — a reproducibility trap.** `main` advanced
-`1e09fc3` → `bd591b6` (six commits, two new profiles, a config refactor) and the hash was
+`bd4e49a` → `b2c069a` (six commits, two new profiles, a config refactor) and the hash was
 **byte-identical before and after**: it is content-addressed over the *stored entry* only. The entry
 pins the branch **name**; Nextflow resolves it to a commit at launch, so the same entry runs different
 code as `main` moves. Re-registering identical content also reproduces the hash under a *new* id —
 seen three times today — so an unchanged hash proves nothing either way.
 **Never cite a pipeline name, version name or hash as provenance.** Use the run's `commitId` (run
-`2eiGBEA0NXagap` recorded `1e09fc3c9f6c…`, which the entry never mentioned), the `versions.yml` in the
+`2eiGBEA0NXagap` recorded `bd4e49a3b3ea…`, which the entry never mentioned), the `versions.yml` in the
 published outdir, or `--commit-id <sha>` at registration for an entry whose results you intend to cite.
 Full detail: [`azure_batch_execution.md` §14](../../../docs/dev-practices/azure_batch_execution.md).
 
@@ -793,7 +793,7 @@ Nextflow-published blobs), 534 blobs.
 | **Engine pin moved CE → Launchpad entry** | head job ran **25.10.4** with **no `NXF_VER` on the CE** |
 | `import` carries `nextflowVersion` where `add` cannot | that pin arrived via `14_register_pipeline.sh` |
 | A CE forged by `13_create_compute_env.sh` runs real work | dual-pool, autoscaled, no `DiskFull` |
-| `main` is resolved at launch (§14) | run recorded `commitId 2fc5ccf3`, which the entry never names |
+| `main` is resolved at launch (§14) | run recorded `commitId b7f91a44`, which the entry never names |
 
 🚨 **Trap 1 — the run was reported `UNKNOWN` while succeeding.** Platform froze at 132/9 (`lastUpdated`
 11:47:31Z) because the head job **completed the pipeline and then hung instead of exiting**, so the
@@ -823,7 +823,7 @@ The 2026-08-12 spec was executed as written: fresh CE `yAMP-ce-coldprobe-256` fo
 overridden to **two lines only** (pilot `snpeff_cache` + explicit
 `outdir az://aletest/seqera-runs/yAMP-out-pilot-coldprobe-20260813`), fresh
 `workDir az://aletest/nf-work-coldprobe-20260813`. **SUCCEEDED — 310/310 tasks, 0 failed**, 54 min
-(13:23–14:17Z), engine **25.10.4**, `commitId e1b95a2`. All 310 `.command.log`s were harvested — the
+(13:23–14:17Z), engine **25.10.4**, `commitId 6fc71d5`. All 310 `.command.log`s were harvested — the
 numbers are a census, not a sample. Conclusions + numbers live in
 [`azure_batch_execution.md` §9 → cold-pool baseline](../../../docs/dev-practices/azure_batch_execution.md);
 the headlines: the base is the `ubuntu-hpc 2404` OS image itself (~45 G before any pipeline image);
@@ -858,7 +858,7 @@ Traps found while doing it, each verified:
 forged Fusion CE (`yAMP-ce-fusion-256`, forged and deleted the same day by `13_create_compute_env.sh
 … --fusion`): inputs in `aletest`, `--work-dir az://debugging/nf-work-xcontainer-fusion-20260813`,
 explicit `outdir` back in `aletest`, `conf/disk_probe.config` attached. **FAILED — 0/6 tasks, the
-same six `aletest`-reading processes as the baseline, ~5 min in** (engine 25.10.4, `commitId 0a9e65c`).
+same six `aletest`-reading processes as the baseline, ~5 min in** (engine 25.10.4, `commitId ff0c57c`).
 A cheap test, and each of its four findings is one the baseline could not give:
 
 1. **The same-container rule is a property of the credential delegation, not of the data path.**
@@ -895,7 +895,7 @@ Cleanup: CE deleted (pools and disks disposed — the Batch account is back to o
 (`yAMP-ce-fusion-256`, second forge of that name, deleted after harvest), inputs + `workDir` together
 in `aletest` (`nf-work-fusion-cache-20260813`), `conf/disk_probe.config` attached, explicit
 `outdir az://aletest/seqera-runs/yAMP-out-fusion-cache-20260813`. **SUCCEEDED — 170/170 tasks, 0
-failed**, engine 25.10.4, `commitId 35e170a`, head job exited cleanly. All 170 `.command.log`s
+failed**, engine 25.10.4, `commitId f3b852d`, head job exited cleanly. All 170 `.command.log`s
 harvested — a census, not a sample.
 
 | `root:` usage (170 readings) | value |

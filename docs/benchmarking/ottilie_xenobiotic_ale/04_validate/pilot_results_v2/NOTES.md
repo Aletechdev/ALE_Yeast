@@ -9,7 +9,7 @@ generator does not: provenance, the PASS-only view, and why the one miss is a mi
 |---|---|
 | Pipeline output | `output_ottilie_pilot_2026-08-26/` (local VM, `azureD4as,docker`) |
 | Launcher | `03_pipeline/run_ottilie_pilot.sh` — fresh run, no `-resume`; tools `snpeff,cnvkit,tiddit,manta,haplotypecaller` (Control-FREEC dropped, matching `conf/test/ottilie_common.config`) |
-| Pipeline code | commit `16c1f28`; Nextflow 25.10.4 |
+| Pipeline code | commit `c1fd259`; Nextflow 25.10.4 |
 | Tasks / wall time | 324 succeeded, 0 failed, 1 h 10 min, 4.1 CPU-h |
 | Truth set | `data/ottilie/pilot_truth_set.csv` — 43 events from Ottilie et al. Sup Data 4 + 5 (see `01_data_retrieval/truth_set/extract_pilot_truth_set.py`) |
 | Validation | `validate_all.py --output-dir output_ottilie_pilot_2026-08-26 --results-dir pilot_results_v2 --ploidy 1 --save-vcfs` |
@@ -17,7 +17,7 @@ generator does not: provenance, the PASS-only view, and why the one miss is a mi
 **This is the first pilot validation that scores all three evolved clones.** The June results in this
 directory scored only CBR110-15-R3a: the scripts matched sample names by exact string, and the Sup
 Data 4 spellings (`Carmaphycin--R9-2`, `Doxorubicin-16--R2b`) never matched the samplesheet names.
-Fixed in `04_validate/sample_names.py` (commit `e07eaf0`). Per-sample call counts are identical to
+Fixed in `04_validate/sample_names.py` (commit `b388311`). Per-sample call counts are identical to
 the July run, so the pipeline itself reproduces; only the scoring changed.
 
 ## SNV/INDEL — all variants vs PASS-only
@@ -90,15 +90,15 @@ as a 14-bp deletion. This is a truth-set representation issue, not a pipeline mi
 
 - `snv_indel_concordance.csv`, `VALIDATION_REPORT.md`: 3 evolved samples instead of 1 (see above).
 - `cn_cohort_matrix.csv`: columns are now `{sample}_log2` + `{sample}_fold_change` (fold-change CN
-  matrices, commits `ae8c330`/`f6cd7d4`); values unchanged in substance.
-- `sv_cohort_matrix.csv`: rebuilt with the both-breakpoints proximity rule (commit `16c1f28`).
+  matrices, commits `eb69299`/`2e57218`); values unchanged in substance.
+- `sv_cohort_matrix.csv`: rebuilt with the both-breakpoints proximity rule (commit `c1fd259`).
 - `sv_characterization.csv`, `cnv_concordance.csv`: identical to June.
 - `validate_all.py` matrix steps had drifted from the `bin/` scripts' CLIs (`--ploidy` removed;
   the SV cohort matrix now uses the standalone `04_validate/sv_cohort_matrix.py`); fixed here.
 
 ## Joint Manta vs per-sample Manta — loss audit (2026-08-28)
 
-Why: `--joint_manta` (commits `27d3d27` + `6cf7bfa`) replaces the per-sample Manta run with one run
+Why: `--joint_manta` (commits `dfe266b` + `b9d4f42`) replaces the per-sample Manta run with one run
 per experiment, split back per sample. Before that becomes the ALE default we need to know what the
 joint call loses. Per-sample side = this pilot's `variant_calling/manta/` (Manta 1.6.0 defaults, one
 `--callRegions` interval per contig). Joint side = standalone runs on the same four `--save_mapped`

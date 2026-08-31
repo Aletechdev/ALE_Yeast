@@ -72,7 +72,7 @@ Build a project-specific image with all tools. More maintenance overhead but ful
 
 ## Outcome
 
-**Option B was chosen and implemented** during v1.0.0 release prep (commit `6933123`):
+**Option B was chosen and implemented** during v1.0.0 release prep (commit `a946346`):
 `SURVIVOR_COHORT_MERGE` (survivor container) + `BUILD_SV_MATRIX` (pandas container), validated to
 produce identical SV cohort matrices. The remaining `bcftools sort+index` step was not needed.
 

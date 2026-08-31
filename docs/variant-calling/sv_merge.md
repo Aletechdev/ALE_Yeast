@@ -71,7 +71,7 @@ troubleshooting record — every FORMAT field, pre-collapse.
    names are `<sample>.tiddit.vcf` on purpose.
 4. **Cross-caller merge** (`SVDB_MERGE_CALLERS`, `--no_intra --same_order --bnd_distance 2000
    --priority manta,tiddit`): first tag wins — merged records keep Manta's split-read POS/END and
-   FORMAT; TIDDIT's coordinates survive in `INFO/tiddit_POS` (F7, decision `e33a4dd`). `--overlap`
+   FORMAT; TIDDIT's coordinates survive in `INFO/tiddit_POS` (F7, decision `81e01b5`). `--overlap`
    stays at the 0.95 default: 0.95/0.8/0.6 changed nothing on the pilot (F8).
 5. **`CHECK_SV_SAMPLE_ORDER`** (before step 4): `--same_order` trusts column **positions**, never
    names — misaligned inputs exit 0 and silently mislabel genotypes (F6). Both sides are sorted by
@@ -156,7 +156,7 @@ Cells: `Manta` / `TIDDIT` / `Manta+TIDDIT` / `-`. Rows sorted by yeast chromosom
 
 ## History — the SURVIVOR chain (retired 2026-08-31)
 
-Until commit `ebb6da0`/its successor, the chain was two levels of `SURVIVOR merge` (per-sample
+Until commit `0bc42a9`/its successor, the chain was two levels of `SURVIVOR merge` (per-sample
 Manta∪TIDDIT, then across samples) plus a `proximity_match` heuristic re-deriving matrix cells. It
 was replaced because of three reproduced failures: **cross-type swallowing** (a QUAL-15 non-PASS
 TIDDIT breakend pair absorbed a PASS two-caller DEL at XV:722 kb and retyped the cluster INV — the
@@ -165,5 +165,5 @@ matrix blanked the sample), **positional provenance** (`SUPP_VEC` bit order coup
 `722249` and cohort coordinates depended on alphabetical sample order), and the **proximity
 heuristic** itself (its OR-gate bug cross-credited events until 2026-08-25). Full mechanics and the
 worked example: this file's history (`git log -- docs/variant-calling/sv_merge.md`, state at
-`d7a49a8`) and the bench NOTES.md. The XV:722 kb case study is preserved as bench finding F1: under
+`f17507b`) and the bench NOTES.md. The XV:722 kb case study is preserved as bench finding F1: under
 SVDB the DEL survives as `DEL PASS set=Intersection` in every configuration.

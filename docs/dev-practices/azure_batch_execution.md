@@ -715,13 +715,13 @@ import json,sys; print(json.load(sys.stdin)['workflow']['configText'])" | grep s
 `revision: main` — a *name*. Nextflow resolves it to a commit when the run starts, so the same entry,
 unchanged, executes different code as `main` moves.
 
-**Measured 2026-08-12.** `main` advanced from `1e09fc3` to `bd591b6` — six commits, including two new
+**Measured 2026-08-12.** `main` advanced from `bd4e49a` to `b2c069a` — six commits, including two new
 config profiles, a config refactor and a new script — and the pipeline's version hash was **byte-identical
 before and after**:
 
 ```
-before push (1e09fc3)   JHY5OjA0ZjA5MTBkZmI…FiZGVmOTVlNzg4MTg3
-after  push (bd591b6)   JHY5OjA0ZjA5MTBkZmI…FiZGVmOTVlNzg4MTg3
+before push (bd4e49a)   JHY5OjA0ZjA5MTBkZmI…FiZGVmOTVlNzg4MTg3
+after  push (b2c069a)   JHY5OjA0ZjA5MTBkZmI…FiZGVmOTVlNzg4MTg3
 ```
 
 The hash is content-addressed over the **stored entry** — repo URL, revision *name*, compute env,
@@ -740,7 +740,7 @@ entry, not of the pipeline source: `yAMP-ottilie-test-az-1` stayed version 1 acr
      "$API/workflow/<runId>?workspaceId=<ws>" | python -c "
    import json,sys; w=json.load(sys.stdin)['workflow']; print(w['revision'], w['commitId'])"
    ```
-   Run `2eiGBEA0NXagap` recorded `main 1e09fc3c9f6c26842183f1537b77d1fe50db9ab9` — the head at that
+   Run `2eiGBEA0NXagap` recorded `main bd4e49a3b3eacc88373367c6795b93ca1102448b` — the head at that
    moment, which the entry itself never mentioned.
 3. **`versions.yml` in the published outdir.** A run launched from a Git clone appends the short commit
    to the pipeline version (`Aletechdev/ALE_Yeast: v1.0.0-g86c4672`), so the outputs carry their own

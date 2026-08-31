@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Repository
+
+- **Git history rewritten (2026-08-31)** with `git filter-repo` to purge private experiment data
+  before open-sourcing. Every commit SHA changed; SHAs recorded before this date refer to the
+  pre-rewrite history. Purge list + full old→new commit map:
+  `docs/dev-practices/history_rewrite_2026-08.md`.
+
 ### Added
 
 - **TIDDIT soft filters for the SV pass view** (`TIDDIT_SV_FILTER`): three Manta-inspired named
@@ -111,7 +118,7 @@ integrated multi-caller mutation-report dashboard. Full change inventory vs. ups
 ### Fixed
 
 - **`--generate_reports` failed on a clean run** — the report raced `publishDir` reading published
-  files from `params.outdir`. Now correct-by-construction on a fresh outdir (cloud/Seqera). (`246dd7b`)
+  files from `params.outdir`. Now correct-by-construction on a fresh outdir (cloud/Seqera). (`bb1439f`)
 - Per-sample SV/CNV reports were dropped by a one-to-one channel `join`; fixed with `combine(by:0)`.
 - FilterMutectCalls now runs without a germline resource / panel-of-normals (placeholder channels).
 

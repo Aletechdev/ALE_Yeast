@@ -1,7 +1,7 @@
 # FASTQ preprocessing — audit + trimmer plan (post-v1.0.0)
 
 Scope: everything that happens to reads **between the samplesheet and bwa-mem** — FastQC, fastp, and
-the proposed Trimmomatic option. Written 2026-08-11 against `main` @ `a6dd062`.
+the proposed Trimmomatic option. Written 2026-08-11 against `main` @ `995817f`.
 
 Two deliverables are described here and tracked as separate items in
 [`roadmap.md`](roadmap.md#read-preprocessing--fastq-qc--trimming):

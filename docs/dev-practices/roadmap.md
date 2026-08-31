@@ -127,7 +127,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 
 - **[medium] Replace the SURVIVOR merge chain, raredisease-style: joint Manta → SVDB — DONE 2026-08-31.**
   Step 1 (joint Manta + split) landed 2026-08-28; step 2 (SVDB replaces SURVIVOR) landed 2026-08-31 in
-  two commits: the chain wired additively (`ebb6da0`, with the SVDB-vs-Jasmine bench committed at
+  two commits: the chain wired additively (`0bc42a9`, with the SVDB-vs-Jasmine bench committed at
   `04_validate/sv_merge_bench/` — SVDB chosen over Jasmine, which drops FORMAT/FT and mangles types),
   then the matrix rewrite + SURVIVOR retirement. Final recipe (all deviations from the raredisease
   blueprint bench-verified): `convertInversion` → breakend-pair collapse in EVERY input (svdb merges
@@ -143,8 +143,8 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   within-file clustering (the swallowing trigger), matching is reciprocal overlap / `--bnd_distance`,
   provenance lands in `INFO/set`+`VARID`, and the module is already in this repo (used by the somatic
   TIDDIT path). This supersedes the PSV / per-type-merge plan below. Do it in two steps:
-  - **Step 1 — joint Manta + per-sample split — DONE 2026-08-28** (`27d3d27` `--joint_manta`, upstream-shaped
-    per-patient grouping; `6cf7bfa` per-sample split with hom-ref drop + `FT`→`FILTER`; on in the ottilie
+  - **Step 1 — joint Manta + per-sample split — DONE 2026-08-28** (`dfe266b` `--joint_manta`, upstream-shaped
+    per-patient grouping; `b9d4f42` per-sample split with hom-ref drop + `FT`→`FILTER`; on in the ottilie
     profiles). **Not yet the settled ALE default — see the loss audit below.** Original plan follows.
   - **Step 1 (plan) — joint Manta + per-sample split (~1 day).** The nf-core `manta/germline` module already
     accepts a CRAM list (`input.collect{"--bam ${it}"}`); only `bam_variant_calling_germline_manta`
@@ -423,16 +423,16 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
 
 One-liners for traceability; full detail in `git log` / `CHANGELOG.md`.
 
-- **SPLIT_JOINT_VCF debug logging** → `log.debug` (commit `80a5a04`).
+- **SPLIT_JOINT_VCF debug logging** → `log.debug` (commit `2a01a57`).
 - **SPLIT_JOINT_VCF TBI emit** — emits `tbi`, consumer uses a proper channel join (dropped the
   `file("${vcf}.tbi")` workaround).
 - **`hard_filter_/split_haplotypecaller_joint_vcf` param init** — both default `= false` in `nextflow.config`.
-- **FilterMutectCalls channel join** without germline-resource/PoN (commit `8319ef9`).
+- **FilterMutectCalls channel join** without germline-resource/PoN (commit `fc13aa2`).
 - **Control-FREEC germline mode** — `bam_variant_calling_germline_controlfreec/` added + wired in (Apr 2026).
 - **YAML `load()` ambiguity** — explicit `FileInputStream` in `utils_nfcore_pipeline`.
 - **v0.1.0-alpha release prep** — tag + `README`/`CHANGELOG`/`LICENSE` present; superseded by the v1.0.0 CHANGELOG.
 - **Variant Analysis Dashboard as a NF process** — *obsolete*: the `bin/` dashboard scripts were removed
-  (commit `c06e7f4`); superseded by `subworkflows/local/mutation_report/` + `modules/local/generate_index/`.
+  (commit `95923fc`); superseded by `subworkflows/local/mutation_report/` + `modules/local/generate_index/`.
 - **`cram_variant_calling_status_normal` "smarter fix"** — *obsolete*: decision to keep the hard-coded
   all-samples-as-normal approach (confirmed optimal for ALE).
 - **SV/CN caller ploidy support** — Tiddit (`-n ${meta.ploidy}`, `tiddit.config`), CNVKit (call+export),

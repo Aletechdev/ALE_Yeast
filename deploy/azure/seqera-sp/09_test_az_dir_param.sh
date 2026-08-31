@@ -10,7 +10,7 @@
 #     2. .isDirectory()                             — KNOWN false on this account: HNS is
 #                                                     disabled, so there are no directory
 #                                                     objects. The pipeline already skips
-#                                                     this guard for cloud paths (1f03f38),
+#                                                     this guard for cloud paths (6e47b38),
 #                                                     so a false here is NOT a blocker.
 #     3. Channel.fromPath(…, checkIfExists: true)   — the real risk, and what
 #        + staging the whole tree into a task          annotation_cache_initialisation does.

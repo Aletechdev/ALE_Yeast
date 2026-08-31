@@ -40,7 +40,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 - **`workflows/sarek/main.nf`** ⚠️ — the largest edit surface. ALE additions: custom VCF filtering
   channels (FreeBayes/Mutect2 AF filters via `TABIX_TABIX` + `vcf_with_tbi`), and the **inline
   MUTATION_REPORT** call at the end of the MultiQC block with the `ch_report_vcfs` annotated-or-raw
-  fallback (commit `246dd7b`). Record the report's channel contract here on every rebase.
+  fallback (commit `bb1439f`). Record the report's channel contract here on every rebase.
 - **`main.nf`** — removed the old outer MUTATION_REPORT path-discovery call (superseded by the inline
   call); otherwise close to upstream.
 - **`nextflow.config`** — ALE params (report_* / generate_reports / split & hard-filter HC), extra

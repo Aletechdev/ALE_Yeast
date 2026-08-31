@@ -12,7 +12,7 @@
 #   Caveat already established: this storage account has hierarchical namespace DISABLED
 #   (isHnsEnabled = null), so az:// "directories" are virtual prefixes with no directory
 #   objects. AzPath.isDirectory() returns false for them. The pipeline already skips the
-#   isDirectory() guard for cloud paths (commit 1f03f38), so the guard is not the risk —
+#   isDirectory() guard for cloud paths (commit 6e47b38), so the guard is not the risk —
 #   the risk is `Channel.fromPath(file(...), checkIfExists: true)` in
 #   subworkflows/local/annotation_cache_initialisation/main.nf failing on a virtual prefix.
 #

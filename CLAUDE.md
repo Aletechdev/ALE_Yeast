@@ -51,6 +51,11 @@ clean move is to **rename the repo**, keeping the two in sync, rather than to di
 > `Aletechdev/AMP`, so any future comparison against it shows that `versions.yml` line as a known,
 > expected difference. Note also that runs launched from a Git clone append the short commit
 > (`v1.0.0-g86c4672`) while local-directory runs do not — that is nf-core provenance, not a regression.
+>
+> ⚠️ **History was rewritten 2026-08-31** (private-data purge before open-sourcing), so every commit
+> SHA changed and a Git-clone run now stamps a *different* short commit than the baseline's
+> `g86c4672` — one more known-expected `versions.yml` difference. Old↔new SHA map + purge list:
+> [`docs/dev-practices/history_rewrite_2026-08.md`](docs/dev-practices/history_rewrite_2026-08.md).
 
 ---
 

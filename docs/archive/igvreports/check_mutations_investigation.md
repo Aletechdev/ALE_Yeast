@@ -33,7 +33,7 @@
 - **Runtime**: 18m 48s (37 tasks)
 - **Architecture**: PREPARE_GFF3 → PREPARE_VCF (×18) → IGVREPORTS_COHORT + IGVREPORTS_SAMPLE (×17) → GENERATE_INDEX
 - **Input**: SnpEff-annotated VCFs (non-hard-filtered, ~113 variants/sample)
-- **Status**: Removed from repo (preserved in git history: `bd6b39a`). Superseded by `generate_demo_reports.nf`.
+- **Status**: Removed from repo (its commit was dropped in the 2026-08 history rewrite; see `docs/dev-practices/history_rewrite_2026-08.md`). Superseded by `generate_demo_reports.nf`.
 
 ### Output sizes
 | Report | Variants | Size |

@@ -282,7 +282,7 @@ workflow MUTATION_REPORT {
 
         // Cross-caller merge, manta first: --priority manta,tiddit — the first tag wins the
         // record's POS/END/FORMAT (split-read breakpoints beat TIDDIT's depth-derived ranges,
-        // decision e33a4dd), the other caller's coordinates survive in INFO/<tag>_POS (F7).
+        // decision 81e01b5), the other caller's coordinates survive in INFO/<tag>_POS (F7).
         // sort_inputs=false keeps the [manta, tiddit] list aligned with the priority tags.
         // The guard exists because --same_order trusts column POSITIONS, never names (F6).
         ch_l2_pairs = ch_manta_cohort.map { meta, vcf -> [ meta.merge_mode, vcf ] }

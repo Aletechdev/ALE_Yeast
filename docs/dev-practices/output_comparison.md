@@ -131,7 +131,7 @@ difference caused by the *order* in which files were handed to a tool. `groupTup
 emit in channel-arrival order, which depends on which upstream task finished first; a tool that reads
 that order into its output makes every run different by chance.
 
-Seen 2026-08-28 (fixed in `6892309`): `MANTA_GERMLINE` builds `--bam a --bam b …` from the grouped
+Seen 2026-08-28 (fixed in `54c33f9`): `MANTA_GERMLINE` builds `--bam a --bam b …` from the grouped
 CRAM list, and Manta numbers its record IDs (`MantaBND:52:1:3:…` vs `…:1:4:…`), the `MATEID`s pairing
 breakends, and the joint VCF's **sample-column order** from it. Two runs then produce the same
 variants, genotypes, filters and coordinates under different names — which propagates to every
