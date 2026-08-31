@@ -345,6 +345,11 @@
             "git_sha": "666652151335353eef2fcd58880bcef5bc2928e1",
             "installed_by": ["modules"]
           },
+          "manta/convertinversion": {
+            "branch": "master",
+            "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
+            "installed_by": ["modules"]
+          },
           "manta/germline": {
             "branch": "master",
             "git_sha": "666652151335353eef2fcd58880bcef5bc2928e1",
@@ -502,7 +507,7 @@
           },
           "svdb/merge": {
             "branch": "master",
-            "git_sha": "eb2c3f7ee2c938ab1a49764bdb1319adaa35492c",
+            "git_sha": "6bc8ff03ace2cb373f683b9502ce79930c8a07f0",
             "installed_by": ["modules"]
           },
           "tabix/bgziptabix": {

@@ -142,6 +142,21 @@ workflow {
         ? ch_samples.map { s -> [ [ id: s, variantcaller: 'tiddit' ], file("${outdir}/variant_calling/tiddit/${s}/${s}.tiddit.vcf.gz") ] }
         : Channel.empty()
 
+    // Manta VCF(s) for the SVDB SV merge. With --joint_manta the pipeline published ONE
+    // multi-sample VCF per patient (= samplesheet `experiment`) at
+    // variant_calling/manta/<patient>/<patient>.manta.diploid_sv.vcf.gz — same pattern as the
+    // per-sample splits, just keyed by patient. params.joint_manta must match how the outdir
+    // was produced (it comes from the same profile/config; a mismatch globs a missing file).
+    ch_patients = Channel.fromPath(params.input)
+        .splitCsv(header: true)
+        .map { row -> row.experiment ?: row.patient }
+        .unique()
+    vcf_manta_sv = has_manta
+        ? (params.joint_manta
+            ? ch_patients.map { p -> [ [ id: p ], file("${outdir}/variant_calling/manta/${p}/${p}.manta.diploid_sv.vcf.gz") ] }
+            : vcf_manta_raw)
+        : Channel.empty()
+
     // TIDDIT per-contig coverage table + the samplesheet ploidy it was run with (-n), for the
     // contig copy-number table. Ploidy comes from the samplesheet because TIDDIT does not
     // record -n in the .tab.
@@ -179,6 +194,7 @@ workflow {
         cram,
         vcf_manta_raw,
         vcf_tiddit_raw,
+        vcf_manta_sv,
         tiddit_ploidy,
         cnvkit_cnr,
         cnvkit_cns_batch,

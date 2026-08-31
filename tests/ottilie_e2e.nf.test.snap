@@ -1,7 +1,7 @@
 {
     "ottilie 2-sample: full ALE workflow + mutation report": {
         "content": [
-            178,
+            191,
             {
                 "BCFTOOLS_FILTER": {
                     "bcftools": 1.21
@@ -348,6 +348,19 @@
                 "mutation_reports/data/sv_merged/NODRUG-GM2/NODRUG-GM2.survivor.union.vcf.gz.tbi",
                 "mutation_reports/data/sv_merged/NODRUG-GM2/NODRUG-GM2.survivor.union_pass.vcf.gz",
                 "mutation_reports/data/sv_merged/NODRUG-GM2/NODRUG-GM2.survivor.union_pass.vcf.gz.tbi",
+                "mutation_reports/data/sv_svdb",
+                "mutation_reports/data/sv_svdb/merge_inputs",
+                "mutation_reports/data/sv_svdb/merge_inputs/CBR110-15-R3a.tiddit.vcf",
+                "mutation_reports/data/sv_svdb/merge_inputs/NODRUG-GM2.tiddit.vcf",
+                "mutation_reports/data/sv_svdb/merge_inputs/Ottilie_test.manta.vcf",
+                "mutation_reports/data/sv_svdb/sv_cohort_svdb_union.vcf.gz",
+                "mutation_reports/data/sv_svdb/sv_cohort_svdb_union.vcf.gz.tbi",
+                "mutation_reports/data/sv_svdb/sv_cohort_svdb_union_pass.vcf.gz",
+                "mutation_reports/data/sv_svdb/sv_cohort_svdb_union_pass.vcf.gz.tbi",
+                "mutation_reports/data/sv_svdb/sv_tiddit_cohort_union.vcf.gz",
+                "mutation_reports/data/sv_svdb/sv_tiddit_cohort_union.vcf.gz.tbi",
+                "mutation_reports/data/sv_svdb/sv_tiddit_cohort_union_pass.vcf.gz",
+                "mutation_reports/data/sv_svdb/sv_tiddit_cohort_union_pass.vcf.gz.tbi",
                 "mutation_reports/index.html",
                 "mutation_reports/multiqc_report.html",
                 "mutation_reports/samples",
@@ -712,13 +725,9 @@
                 "CBR110-15-R3a.md.mosdepth.global.dist.txt:md5,e4ae17c6f8da88b8464fb2ba0697f8a5",
                 "CBR110-15-R3a.md.mosdepth.region.dist.txt:md5,8e93cdc7b766763495dd670fb2983efe",
                 "CBR110-15-R3a.md.mosdepth.summary.txt:md5,c4b0dec8381aeb2827c80bad275d6a41",
-                "CBR110-15-R3a.md.regions.bed.gz:md5,9e407890b82f2107a9beb932955b9076",
-                "CBR110-15-R3a.md.regions.bed.gz.csi:md5,0a6541c2da6a1b549f96969fd9737189",
                 "NODRUG-GM2.md.mosdepth.global.dist.txt:md5,558105650fe9f90488a0ea2998fdf6b6",
                 "NODRUG-GM2.md.mosdepth.region.dist.txt:md5,4bcf5d8afdf776659ee8dc1bf633fad2",
                 "NODRUG-GM2.md.mosdepth.summary.txt:md5,361ca140b93b7af41207a4e1aee9868e",
-                "NODRUG-GM2.md.regions.bed.gz:md5,2a340a4035f642c34a965392ec4cb1f5",
-                "NODRUG-GM2.md.regions.bed.gz.csi:md5,d8dbf04fc4af5984f66508dd8719ed2e",
                 "CBR110-15-R3a.cnvcall_snpEff.genes.txt:md5,798cbc952fd5421b30185394159c55e7",
                 "NODRUG-GM2.cnvcall_snpEff.genes.txt:md5,130536bf0237d7f3f746d32aaa32840a",
                 "CBR110-15-R3a.haplotypecaller.from_joint_calling.hard_filtered_snpEff.genes.txt:md5,58a649985d07671624939d4e59b7bd33",
@@ -794,6 +803,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-08-28T14:17:29.884029409"
+        "timestamp": "2026-08-31T09:35:16.818811428"
     }
 }

@@ -59,6 +59,13 @@ Compressed containers differ by a few bytes even when the payload is identical (
 block boundaries, embedded mtime). Deltas of **1–7 bytes** on a `.vcf.gz` or `.tbi` are the signature.
 **Always decompress before comparing** — never trust the `.gz` bytes.
 
+The framing can also flip **run-to-run on the same machine** when the compressor is multithreaded:
+mosdepth's `.regions.bed.gz` produced identical bytes on two consecutive runs (so a recorded md5
+snapshot passed its determinism re-run) and then a different — content-identical — byte stream days
+later, purely from thread scheduling (caught 2026-08-31). Two consecutive agreeing runs therefore do
+NOT prove a `.gz` is byte-stable; snapshot compressed files by name only (`tests/.nftignore`) and
+compare their content decompressed.
+
 ### 2.3 Absolute paths embedded in outputs
 
 Sarek writes the output directory into its own bookkeeping CSVs:

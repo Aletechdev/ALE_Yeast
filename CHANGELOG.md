@@ -4,6 +4,14 @@
 
 ### Added
 
+- SVDB SV merge chain (`data/mutation_reports/data/sv_svdb/`): Manta `convertInversion` →
+  breakend-pair collapse (both callers) → `svdb --merge` across samples (TIDDIT; and Manta when not
+  joint) → `svdb --merge --priority manta,tiddit` across callers, in `union` and `union_pass`
+  (input-pre-filtered) views. Runs alongside the SURVIVOR chain until the SV cohort matrix consumes
+  it. Recipe validated in `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/sv_merge_bench/`.
+  New local modules `COLLAPSE_SV_PAIRS` and `CHECK_SV_SAMPLE_ORDER` (sample-column guard for
+  `--same_order`); nf-core `manta/convertinversion` installed; `svdb/merge` updated (2.8.2 → 2.8.4,
+  versions now emitted via topic channels only).
 - **`--joint_manta`** — Manta germline calling in joint (multi-sample) mode: one run per patient
   (= ALE `experiment`) over all of its samples, so every sample is genotyped at every candidate SV
   instead of an event with weak evidence being absent from that sample's VCF. Default `false`

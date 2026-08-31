@@ -1,0 +1,14 @@
+#!/usr/bin/env python
+# minimal `samtools faidx <fa> <chr:start-end>` shim (1-based inclusive) for convertInversion.py
+import sys
+fa, region = sys.argv[2], sys.argv[3]
+chrom, rng = region.rsplit(':', 1); s, e = [int(x) for x in rng.split('-')]
+for line in open(fa + '.fai'):
+    n, ln, off, bpl, bytl = line.split('\t')[:5]
+    if n == chrom:
+        ln, off, bpl, bytl = int(ln), int(off), int(bpl), int(bytl); break
+else: sys.exit("no contig " + chrom)
+def fo(p): return off + (p // bpl) * bytl + (p % bpl)
+f = open(fa, 'rb'); f.seek(fo(s - 1)); raw = f.read(fo(e) - fo(s - 1) + 1)
+seq = raw.replace(b'\n', b'').replace(b'\r', b'')[:e - s + 1].decode()
+sys.stdout.write('>%s\n%s\n' % (region, seq))

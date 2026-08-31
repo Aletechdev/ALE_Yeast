@@ -981,6 +981,11 @@ workflow SAREK {
                 cram_variant_calling,                                        // [meta, cram, crai] per sample
                 BAM_VARIANT_CALLING_GERMLINE_ALL.out.vcf_manta,              // raw manta (SURVIVOR)
                 BAM_VARIANT_CALLING_GERMLINE_ALL.out.vcf_tiddit,             // raw tiddit (SURVIVOR)
+                // Manta VCF(s) for the SVDB SV merge: joint multi-sample when --joint_manta,
+                // else per-sample (the subworkflow then merges across samples, like TIDDIT)
+                params.joint_manta
+                    ? BAM_VARIANT_CALLING_GERMLINE_ALL.out.vcf_manta_joint
+                    : BAM_VARIANT_CALLING_GERMLINE_ALL.out.vcf_manta,
                 BAM_VARIANT_CALLING_GERMLINE_ALL.out.ploidy_tiddit,          // tiddit per-contig coverage (contig CN table)
                 BAM_VARIANT_CALLING_GERMLINE_ALL.out.cnvkit_cnr,             // .md.cnr
                 BAM_VARIANT_CALLING_GERMLINE_ALL.out.cnvkit_cns_batch,       // [*.cns] incl .md.call.cns

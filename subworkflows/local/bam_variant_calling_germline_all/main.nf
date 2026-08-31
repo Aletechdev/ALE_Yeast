@@ -75,6 +75,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     vcf_freebayes            = Channel.empty()
     vcf_haplotypecaller      = Channel.empty()
     vcf_manta                = Channel.empty()
+    vcf_manta_joint          = Channel.empty()
     vcf_mpileup              = Channel.empty()
     vcf_sentieon_dnascope    = Channel.empty()
     vcf_sentieon_haplotyper  = Channel.empty()
@@ -279,6 +280,11 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
         // same per-sample paths/names as per-sample Manta, genotype-aware (hom-ref rows dropped,
         // FORMAT/FT promoted to FILTER — rules in conf/modules/split_joint_vcf.config).
         if (joint_manta) {
+            // Keep the pre-split joint VCF visible: the SVDB SV-merge chain in
+            // MUTATION_REPORT consumes it directly (multi-sample columns), while every
+            // other downstream consumer takes the per-sample splits below.
+            vcf_manta_joint = BAM_VARIANT_CALLING_GERMLINE_MANTA.out.vcf
+
             SPLIT_JOINT_VCF_MANTA(
                 BAM_VARIANT_CALLING_GERMLINE_MANTA.out.vcf
                     .join(BAM_VARIANT_CALLING_GERMLINE_MANTA.out.tbi, failOnDuplicate: true, failOnMismatch: true),
@@ -478,6 +484,7 @@ workflow BAM_VARIANT_CALLING_GERMLINE_ALL {
     vcf_freebayes
     vcf_haplotypecaller
     vcf_manta
+    vcf_manta_joint
     vcf_mpileup
     vcf_strelka
     vcf_sentieon_dnascope

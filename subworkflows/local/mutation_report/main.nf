@@ -27,6 +27,13 @@ include { BCFTOOLS_VIEW as FILTER_SV_VCF_MANTA  } from '../../../modules/nf-core
 include { BCFTOOLS_VIEW as FILTER_SV_VCF_TIDDIT } from '../../../modules/nf-core/bcftools/view/main'
 include { BCFTOOLS_VIEW as DECOMPRESS_SV_MANTA  } from '../../../modules/nf-core/bcftools/view/main'
 include { BCFTOOLS_VIEW as DECOMPRESS_SV_TIDDIT } from '../../../modules/nf-core/bcftools/view/main'
+include { MANTA_CONVERTINVERSION } from '../../../modules/nf-core/manta/convertinversion/main'
+include { COLLAPSE_SV_PAIRS      } from '../../../modules/local/collapse_sv_pairs/main'
+include { CHECK_SV_SAMPLE_ORDER  } from '../../../modules/local/check_sv_sample_order/main'
+include { BCFTOOLS_VIEW as FILTER_SV_PASS } from '../../../modules/nf-core/bcftools/view/main'
+include { SVDB_MERGE as SVDB_MERGE_MANTA   } from '../../../modules/nf-core/svdb/merge/main'
+include { SVDB_MERGE as SVDB_MERGE_TIDDIT  } from '../../../modules/nf-core/svdb/merge/main'
+include { SVDB_MERGE as SVDB_MERGE_CALLERS } from '../../../modules/nf-core/svdb/merge/main'
 include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_PASS  } from '../../../modules/local/survivor_sv_merge/main'
 include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_UNION } from '../../../modules/local/survivor_sv_merge/main'
 include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_PASS  } from '../../../modules/nf-core/tabix/bgziptabix/main'
@@ -45,6 +52,9 @@ workflow MUTATION_REPORT {
     cram                // channel: [ meta, cram, crai ]  per-sample alignments (meta.id = sample)
     vcf_manta_raw       // channel: [ meta, vcf ]  RAW manta (SURVIVOR SV merge — always raw, see D4)
     vcf_tiddit_raw      // channel: [ meta, vcf ]  RAW tiddit (SURVIVOR SV merge — always raw, see D4)
+    vcf_manta_sv        // channel: [ meta, vcf ]  Manta VCF(s) for the SVDB SV merge: the joint
+                        //          multi-sample VCF (one per patient) under --joint_manta, else the
+                        //          per-sample VCFs (then merged across samples here, like TIDDIT)
     tiddit_ploidy       // channel: [ meta, .tiddit.ploidies.tab ]  per-contig coverage; meta.ploidy = the -n it ran with
     cnvkit_cnr          // channel: [ meta, .md.cnr ]  bin-level coverage (bedgraph + CN matrix)
     cnvkit_cns_batch    // channel: [ meta, [*.cns] ]   batch segments incl .md.call.cns (CN matrix)
@@ -279,6 +289,94 @@ workflow MUTATION_REPORT {
             .collect()
     } else {
         ch_sv_data = Channel.empty()
+    }
+
+    // =========================================================================
+    // 5b. SVDB SV merge chain — will replace the SURVIVOR chain (§5) once the matrix
+    //     builder consumes it; both run side by side until then. Recipe frozen from the
+    //     2026-08-28 bench (docs/benchmarking/ottilie_xenobiotic_ale/04_validate/
+    //     sv_merge_bench/NOTES.md — findings F1-F10 referenced below):
+    //         Manta:  convertInversion → collapse breakend pairs ──────────────┐
+    //         TIDDIT: collapse breakend pairs → SVDB merge across samples ─────┴→ SVDB merge
+    //                                                                        across callers
+    //     Two views: 'union' (all calls) and 'union_pass' (inputs pre-filtered to
+    //     FILTER PASS/'.' — deliberately NOT svdb --pass_only, which only refuses to
+    //     MERGE non-PASS records but still emits them, F2).
+    // =========================================================================
+
+    if (has_manta && has_tiddit) {
+        // Manta types inversions as INV3/INV5 breakend pairs; TIDDIT types them <INV>.
+        // convertInversion.py (ships with Manta) rewrites the pairs as <INV> records so
+        // the two callers can merge (F5). Inter-chromosomal pairs stay BND on both sides.
+        MANTA_CONVERTINVERSION(
+            vcf_manta_sv.map { meta, vcf -> [ [ id: meta.id, caller: 'manta' ], vcf ] },
+            ch_fasta.map { fa, fai -> [ [ id: 'reference' ], fa ] }
+        )
+
+        // One record per breakend junction, BOTH callers — SVDB treats a BND as an
+        // unordered breakpoint pair and merges mates asymmetrically otherwise (F3).
+        COLLAPSE_SV_PAIRS(
+            MANTA_CONVERTINVERSION.out.vcf
+                .mix(vcf_tiddit_raw.map { meta, vcf -> [ [ id: meta.id, caller: 'tiddit' ], vcf ] })
+        )
+        versions = versions.mix(COLLAPSE_SV_PAIRS.out.versions)
+
+        // PASS-view inputs: keep FILTER == PASS or '.' (F2).
+        FILTER_SV_PASS(COLLAPSE_SV_PAIRS.out.vcf.map { meta, vcf -> [ meta, vcf, [] ] }, [], [], [])
+        versions = versions.mix(FILTER_SV_PASS.out.versions)
+
+        ch_sv_collapsed = COLLAPSE_SV_PAIRS.out.vcf.map { meta, vcf -> [ 'union',      meta.caller, vcf ] }
+            .mix(FILTER_SV_PASS.out.vcf.map     { meta, vcf -> [ 'union_pass', meta.caller, vcf ] })
+
+        // TIDDIT across samples: one merge per view. sort_inputs=true → alphabetical file
+        // order, so svdb's filename-derived tags AND the appended sample columns match the
+        // joint Manta VCF's column order (groupTuple(sort:{it.name}) upstream) — the
+        // invariant CHECK_SV_SAMPLE_ORDER asserts below.
+        SVDB_MERGE_TIDDIT(
+            ch_sv_collapsed.filter { mode, caller, vcf -> caller == 'tiddit' }
+                .map { mode, caller, vcf -> [ mode, vcf ] }
+                .groupTuple()
+                .map { mode, vcfs -> [ [ id: 'sv_tiddit_cohort', merge_mode: mode ], vcfs ] },
+            [], true)
+
+        // Manta side: with --joint_manta there is exactly ONE multi-sample VCF per view —
+        // it goes straight to the cross-caller merge, as benched. In per-sample Manta mode
+        // the VCFs are first merged across samples, exactly like TIDDIT.
+        ch_manta_grouped = ch_sv_collapsed.filter { mode, caller, vcf -> caller == 'manta' }
+            .map { mode, caller, vcf -> [ mode, vcf ] }
+            .groupTuple()
+            .map { mode, vcfs -> [ [ id: 'sv_manta_cohort', merge_mode: mode ], vcfs ] }
+            .branch { meta, vcfs ->
+                multi:  vcfs.size() > 1
+                single: true
+            }
+        SVDB_MERGE_MANTA(ch_manta_grouped.multi, [], true)
+        ch_manta_cohort = SVDB_MERGE_MANTA.out.vcf
+            .mix(ch_manta_grouped.single.map { meta, vcfs -> [ meta, vcfs[0] ] })
+
+        // Cross-caller merge, manta first: --priority manta,tiddit — the first tag wins the
+        // record's POS/END/FORMAT (split-read breakpoints beat TIDDIT's depth-derived ranges,
+        // decision e33a4dd), the other caller's coordinates survive in INFO/<tag>_POS (F7).
+        // sort_inputs=false keeps the [manta, tiddit] list aligned with the priority tags.
+        // The guard exists because --same_order trusts column POSITIONS, never names (F6).
+        ch_l2_pairs = ch_manta_cohort.map { meta, vcf -> [ meta.merge_mode, vcf ] }
+            .join(SVDB_MERGE_TIDDIT.out.vcf.map { meta, vcf -> [ meta.merge_mode, vcf ] },
+                  failOnDuplicate: true, failOnMismatch: true)
+            .map { mode, manta_vcf, tiddit_vcf ->
+                [ [ id: "sv_cohort_${mode}", merge_mode: mode ], manta_vcf, tiddit_vcf ] }
+
+        CHECK_SV_SAMPLE_ORDER(ch_l2_pairs)
+        versions = versions.mix(CHECK_SV_SAMPLE_ORDER.out.versions)
+
+        SVDB_MERGE_CALLERS(
+            CHECK_SV_SAMPLE_ORDER.out.vcfs
+                .map { meta, manta_vcf, tiddit_vcf -> [ meta, [ manta_vcf, tiddit_vcf ] ] },
+            ['manta', 'tiddit'], false)
+
+        // NOTE: MANTA_CONVERTINVERSION and SVDB_MERGE (post-2.8.4 update) emit versions via
+        // nf-core topic channels, not versions.yml files — there is no .out.versions to mix.
+        // Their entries are absent from the aggregated versions.yml until the fork adopts
+        // topic-channel version collection (Sarek >= 3.6 scaffolding).
     }
 
     // =========================================================================

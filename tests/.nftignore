@@ -40,6 +40,11 @@ variant_calling_filtered/**/*.vcf.{gz,gz.tbi}
 # than upstream's reports/snpeff/*/ pattern:
 reports/snpeff/**/*_snpEff.csv
 reports/snpeff/**/snpEff_summary.html
+# mosdepth regions.bed.gz: CONTENT is deterministic (verified by zcat diff), but the bgzf
+# BLOCK FRAMING varies with mosdepth's thread scheduling, so the compressed md5 flips
+# between runs (caught 2026-08-31; the pre-SVDB snapshot had recorded one byte-variant).
+reports/mosdepth/**/*.bed.gz
+reports/mosdepth/**/*.bed.gz.csi
 # samtools stats (embeds the cram path / command line):
 reports/samtools/**/*.stats
 # igv-reports dashboard HTML (non-deterministic sessionDictionary) — nested AND top-level
@@ -48,6 +53,9 @@ mutation_reports/**/*.html
 mutation_reports/*.html
 # bundled VCFs + index (gzip framing):
 mutation_reports/**/*.vcf.{gz,gz.tbi}
+# plain-VCF SVDB merge inputs (data/sv_svdb/merge_inputs/): header ##fileDate is the
+# caller's run time, so md5 is run-dependent — assert names only, like the .vcf.gz above
+mutation_reports/**/*.vcf
 # fork-only TABIX publish dir (bgzipped VCF + index):
 tabix/**
 # snpeff MultiQC tables (SnpEff version-dependent):

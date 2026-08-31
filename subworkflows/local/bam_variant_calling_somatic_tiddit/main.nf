@@ -28,7 +28,8 @@ workflow BAM_VARIANT_CALLING_SOMATIC_TIDDIT {
 
     versions = versions.mix(TIDDIT_NORMAL.out.versions)
     versions = versions.mix(TIDDIT_TUMOR.out.versions)
-    versions = versions.mix(SVDB_MERGE.out.versions)
+    // SVDB_MERGE emits versions via nf-core topic channels since the 2.8.4 module
+    // update — there is no .out.versions to mix here.
 
     emit:
     versions
