@@ -26,6 +26,7 @@ include { BUILD_CONTIG_CN    } from '../../../modules/local/build_contig_cn/main
 include { MANTA_CONVERTINVERSION } from '../../../modules/nf-core/manta/convertinversion/main'
 include { COLLAPSE_SV_PAIRS      } from '../../../modules/local/collapse_sv_pairs/main'
 include { CHECK_SV_SAMPLE_ORDER  } from '../../../modules/local/check_sv_sample_order/main'
+include { TIDDIT_SV_FILTER       } from '../../../modules/local/tiddit_sv_filter/main'
 include { BCFTOOLS_VIEW as FILTER_SV_PASS } from '../../../modules/nf-core/bcftools/view/main'
 include { SVDB_MERGE as SVDB_MERGE_MANTA   } from '../../../modules/nf-core/svdb/merge/main'
 include { SVDB_MERGE as SVDB_MERGE_TIDDIT  } from '../../../modules/nf-core/svdb/merge/main'
@@ -234,12 +235,24 @@ workflow MUTATION_REPORT {
         )
         versions = versions.mix(COLLAPSE_SV_PAIRS.out.versions)
 
+        // TIDDIT soft filters (item 4): three Manta-inspired named tags appended to FILTER
+        // on the per-sample merge input — the pass view drops them below, the union view
+        // keeps every record with its reason. Manta needs no equivalent (its own PASS is
+        // already multi-criteria). Raw caller VCFs are untouched.
+        ch_collapsed = COLLAPSE_SV_PAIRS.out.vcf.branch { meta, vcf ->
+            tiddit: meta.caller == 'tiddit'
+            other:  true
+        }
+        TIDDIT_SV_FILTER(ch_collapsed.tiddit)
+        versions = versions.mix(TIDDIT_SV_FILTER.out.versions)
+        ch_sv_merge_in = TIDDIT_SV_FILTER.out.vcf.mix(ch_collapsed.other)
+
         // PASS-view inputs: keep FILTER == PASS or '.' (F2).
-        FILTER_SV_PASS(COLLAPSE_SV_PAIRS.out.vcf.map { meta, vcf -> [ meta, vcf, [] ] }, [], [], [])
+        FILTER_SV_PASS(ch_sv_merge_in.map { meta, vcf -> [ meta, vcf, [] ] }, [], [], [])
         versions = versions.mix(FILTER_SV_PASS.out.versions)
 
-        ch_sv_collapsed = COLLAPSE_SV_PAIRS.out.vcf.map { meta, vcf -> [ 'union',      meta.caller, vcf ] }
-            .mix(FILTER_SV_PASS.out.vcf.map     { meta, vcf -> [ 'union_pass', meta.caller, vcf ] })
+        ch_sv_collapsed = ch_sv_merge_in.map { meta, vcf -> [ 'union',      meta.caller, vcf ] }
+            .mix(FILTER_SV_PASS.out.vcf.map  { meta, vcf -> [ 'union_pass', meta.caller, vcf ] })
 
         // TIDDIT across samples: one merge per view. sort_inputs=true → alphabetical file
         // order, so svdb's filename-derived tags AND the appended sample columns match the

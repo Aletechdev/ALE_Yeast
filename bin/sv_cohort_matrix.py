@@ -75,7 +75,9 @@ def parse_records(vcf_path, samples, pass_view):
                         for kv in fields[7].split(";"))
 
             chrom, pos, alt = fields[0], int(fields[1]), fields[4]
-            svtype = info.get("SVTYPE", ".").replace("DUP:TANDEM", "DUP")
+            # TIDDIT subtypes DUP:TANDEM / DUP:INV are both copy-gains; the matrix uses the
+            # parent class (the exact subtype stays in the cohort VCF's tiddit_INFO).
+            svtype = info.get("SVTYPE", ".").replace("DUP:TANDEM", "DUP").replace("DUP:INV", "DUP")
             svlen = abs(int(float(info.get("SVLEN", 0))))
             if svtype == "BND":
                 m = BND_MATE_RE.search(alt)

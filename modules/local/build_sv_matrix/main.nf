@@ -31,7 +31,7 @@ process BUILD_SV_MATRIX {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: \$(python --version 2>&1 | sed 's/Python //')
-        sv_cohort_matrix: "3.0"
+        sv_cohort_matrix: "3.1"
     END_VERSIONS
     """
 }

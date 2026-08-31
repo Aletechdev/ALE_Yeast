@@ -18,8 +18,8 @@ cohort SV matrix. Maintainer view: steps, flags, provenance keys, CSV derivation
 joint Manta VCF ──▶ MANTA_CONVERTINVERSION ──▶ COLLAPSE_SV_PAIRS ──────────────┐
 (per-sample VCFs when --joint_manta off ──▶ same, then SVDB_MERGE_MANTA)       │
                                                                                ▼
-TIDDIT per sample ──▶ COLLAPSE_SV_PAIRS ──▶ SVDB_MERGE_TIDDIT ──▶ CHECK_SV_SAMPLE_ORDER
-                                            (across samples)                   │
+TIDDIT per sample ─▶ COLLAPSE_SV_PAIRS ─▶ TIDDIT_SV_FILTER ─▶ SVDB_MERGE_TIDDIT ─▶ CHECK_SV_SAMPLE_ORDER
+                                          (soft tags)        (across samples)  │
                                                                                ▼
                               SVDB_MERGE_CALLERS (--priority manta,tiddit) ──▶ BUILD_SV_MATRIX
 ```
@@ -40,6 +40,7 @@ Wired in `subworkflows/local/mutation_report/main.nf` §5; process config in
 - `modules/local/collapse_sv_pairs` + `bin/collapse_sv_pairs.py` — one record per breakend junction
 - `modules/nf-core/svdb/merge` (svdb 2.8.4) — aliased `SVDB_MERGE_{MANTA,TIDDIT,CALLERS}`
 - `modules/local/check_sv_sample_order` — sample-column guard for `--same_order`
+- `modules/local/tiddit_sv_filter` — Manta-inspired soft filters on TIDDIT's merge input (below)
 - `modules/local/build_sv_matrix` + `bin/sv_cohort_matrix.py` — the CSV builder
 
 Published outputs (under `<outdir>/mutation_reports/data/`):
@@ -77,6 +78,32 @@ troubleshooting record — every FORMAT field, pre-collapse.
    sample name upstream (joint Manta via `groupTuple(sort:{it.name})`, TIDDIT via filename sort);
    the guard fails the run if that invariant ever breaks.
 
+## TIDDIT soft filters for the pass view (item 4, 2026-08-31)
+
+TIDDIT's own PASS is a single check (enough discordant links given coverage) — on the pilot,
+86 of 106 pass-view rows were single-sample TIDDIT-only calls in an experiment whose truth set
+contains **no SVs**. Manta stays clean with several orthogonal *soft* vetoes, so
+`TIDDIT_SV_FILTER` gives TIDDIT the same shape: three named tags appended (`--mode +`, nothing
+removed) to the per-sample merge input, each an analogue of a Manta filter:
+
+| Tag | Expression (config-tunable) | Manta analogue |
+|-----|------------------------------|----------------|
+| `LowSupport` | `MAX(FMT/DV+FMT/RV) < 6` | `NoPairSupport` (and raredisease's `-p 6`) |
+| `LowQual` | `QUAL < 40` (TIDDIT's 0–80 scale) | `MinQUAL` |
+| `HighMQ0` | `MAX(FMT/LQ) > 0.4` | `MaxMQ0Frac` (same 0.4 bar) |
+
+Consequences: the pass view (input pre-filter `-f PASS,.`) excludes tagged records; the union
+view keeps them with the tag visible in `tiddit_FILTERS`; the **published caller VCF is
+untouched** (`variant_calling/tiddit/` keeps TIDDIT's own FILTER only). Soft tags deliberately
+chosen over raising TIDDIT's `-p` at call time: `-p 6` would prevent the calls from existing at
+all — gone even from the union view — where a tag only moves a record between views.
+
+Calibration (2026-08-31 pilot, no-SV truth set): 56/86 TIDDIT-only pass rows removed,
+0/6 Manta-corroborated rows affected (those sit at TIDDIT QUAL 80 with median 126 supporting
+reads). The `LowQual` threshold measures specificity only — the truth set cannot price
+sensitivity — which is the other reason the tags are soft. Thresholds live in
+`conf/modules/mutation_report.config` (`TIDDIT_SV_FILTER` `ext.*`).
+
 ## Provenance keys in the cohort VCF
 
 - `set=` — human-readable per-record origin: `Intersection`, `manta`, `tiddit`, `filterIntiddit`
@@ -110,7 +137,7 @@ CSV schema (unchanged from the SURVIVOR era):
 chrom, pos, chrom2, end, svtype, svlen, <sample_1>, <sample_2>, ...
 ```
 Cells: `Manta` / `TIDDIT` / `Manta+TIDDIT` / `-`. Rows sorted by yeast chromosome order, then
-`pos`. `DUP:TANDEM` is normalised to `DUP`; BND rows put the mate position in `chrom2`/`end` and
+`pos`. `DUP:TANDEM` and `DUP:INV` are normalised to `DUP` (exact subtype in `tiddit_INFO`); BND rows put the mate position in `chrom2`/`end` and
 `svlen 0`. Coordinates are the priority caller's (Manta wherever it contributed). Line endings LF.
 
 ## Gotchas summary

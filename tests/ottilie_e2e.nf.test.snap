@@ -1,7 +1,7 @@
 {
     "ottilie 2-sample: full ALE workflow + mutation report": {
         "content": [
-            171,
+            173,
             {
                 "BCFTOOLS_FILTER": {
                     "bcftools": 1.21
@@ -693,7 +693,7 @@
                 "cn_segments_germline.csv:md5,a4c0ba4b8f4de420356de65998d6f045",
                 "contig_copy_number.csv:md5,1ea1360ceac25d23cc6f0d829411a6e8",
                 "sv_cohort_matrix_union.csv:md5,cbb19a7e55c8cd92d5a687cc288acce6",
-                "sv_cohort_matrix_union_pass.csv:md5,a47f8f1b811e3356555cbbcd18fee766",
+                "sv_cohort_matrix_union_pass.csv:md5,b11b0260c0eab957cfe5bde4f996b4c3",
                 "README.md:md5,4c89f46831204250f187896d81299fa2",
                 "CBR110-15-R3a.cnvcall.bcftools_stats.txt:md5,9cfb764049fcb85793f043bd51c5edaa",
                 "NODRUG-GM2.cnvcall.bcftools_stats.txt:md5,04711ca4b2d63ff56370f492f617b6fe",
@@ -787,6 +787,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-08-31T10:27:57.208283249"
+        "timestamp": "2026-08-31T14:36:56.065054351"
     }
 }

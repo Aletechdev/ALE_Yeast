@@ -4,6 +4,13 @@
 
 ### Added
 
+- **TIDDIT soft filters for the SV pass view** (`TIDDIT_SV_FILTER`): three Manta-inspired named
+  vetoes — `LowSupport` (<6 pairs+splits), `LowQual` (TIDDIT QUAL <40), `HighMQ0` (>40% low-MAPQ
+  reads at a breakend) — appended softly to the per-sample SV-merge input. The pass matrix/VCF
+  excludes them; the union view keeps every record with its reason; published caller VCFs are
+  untouched. Calibrated on the no-SV pilot truth set (56/86 TIDDIT-only pass rows removed, 0
+  Manta-corroborated rows affected); thresholds are config (`conf/modules/mutation_report.config`).
+  The matrix now also folds TIDDIT's `DUP:INV` (like `DUP:TANDEM`) into `DUP`.
 - SVDB SV merge chain: Manta `convertInversion` →
   breakend-pair collapse (both callers) → `svdb --merge` across samples (TIDDIT; and Manta when not
   joint) → `svdb --merge --priority manta,tiddit` across callers, in `union` and `union_pass`

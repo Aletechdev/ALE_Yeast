@@ -625,6 +625,11 @@
                         show Manta's raw records, where a junction is two breakend records.</li>
                     <li>"Union" means an event is listed if <em>either</em> caller reported it in at least one sample;
                         <code>Manta+TIDDIT</code> marks the subset supported by both callers in that sample.</li>
+                    <li><strong>TIDDIT calls face three extra vetoes in this (PASS) view</strong>, mirroring Manta's own
+                        filter design: <code>LowSupport</code> (&lt;6 supporting read pairs+splits), <code>LowQual</code>
+                        (TIDDIT quality &lt;40/80) and <code>HighMQ0</code> (&gt;40% ambiguously mapped reads at a
+                        breakend). These are <em>soft</em> tags on the merge input: nothing is deleted &mdash; a vetoed
+                        call stays in the union view with its reason, and TIDDIT's own published VCF is untouched.</li>
                     <li>A <code>-</code> cell means neither caller supports the event in that sample in this view &mdash;
                         the call may still exist with a non-PASS filter (compare the
                         <code>sv_cohort_matrix_union.csv</code> download, which is built the same way from all calls).
