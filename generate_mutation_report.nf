@@ -134,10 +134,6 @@ workflow {
         [ [ id: s ], file("${cram_dir}/${s}/${s}${cram_suffix}"), file("${cram_dir}/${s}/${s}${cram_suffix}.crai") ]
     }
 
-    vcf_manta_raw = has_manta
-        ? ch_samples.map { s -> [ [ id: s, variantcaller: 'manta' ],  file("${outdir}/variant_calling/manta/${s}/${s}.manta.diploid_sv.vcf.gz") ] }
-        : Channel.empty()
-
     vcf_tiddit_raw = has_tiddit
         ? ch_samples.map { s -> [ [ id: s, variantcaller: 'tiddit' ], file("${outdir}/variant_calling/tiddit/${s}/${s}.tiddit.vcf.gz") ] }
         : Channel.empty()
@@ -154,7 +150,7 @@ workflow {
     vcf_manta_sv = has_manta
         ? (params.joint_manta
             ? ch_patients.map { p -> [ [ id: p ], file("${outdir}/variant_calling/manta/${p}/${p}.manta.diploid_sv.vcf.gz") ] }
-            : vcf_manta_raw)
+            : ch_samples.map { s -> [ [ id: s ], file("${outdir}/variant_calling/manta/${s}/${s}.manta.diploid_sv.vcf.gz") ] })
         : Channel.empty()
 
     // TIDDIT per-contig coverage table + the samplesheet ploidy it was run with (-n), for the
@@ -192,7 +188,6 @@ workflow {
     MUTATION_REPORT(
         report_vcfs,
         cram,
-        vcf_manta_raw,
         vcf_tiddit_raw,
         vcf_manta_sv,
         tiddit_ploidy,

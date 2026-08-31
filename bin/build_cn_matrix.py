@@ -259,7 +259,7 @@ def write_segment_csv(segments_by_sample, samples, output_path, has_ptest):
         fieldnames.append("p_ttest")
 
     with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for sample in samples:
             for seg in segments_by_sample.get(sample, []):
@@ -285,7 +285,7 @@ def write_chr_summary_csv(chr_summary, samples, output_path):
         fieldnames.extend([f"{sample}_log2", f"{sample}_fold_change"])
 
     with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in chr_summary:
             writer.writerow(row)
@@ -298,7 +298,7 @@ def write_cnr_matrix_csv(matrix, samples, output_path):
         fieldnames.extend([f"{sample}_log2", f"{sample}_fold_change"])
 
     with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in matrix:
             writer.writerow(row)
@@ -312,7 +312,7 @@ def write_comparison_csv(disagreements, output_path):
                   "call_fc", "call_log2", "germline_fc",
                   "germline_log2", "p_ttest", "probes"]
     with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in disagreements:
             writer.writerow(row)

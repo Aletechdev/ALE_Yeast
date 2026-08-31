@@ -4,11 +4,12 @@
 
 ### Added
 
-- SVDB SV merge chain (`data/mutation_reports/data/sv_svdb/`): Manta `convertInversion` →
+- SVDB SV merge chain: Manta `convertInversion` →
   breakend-pair collapse (both callers) → `svdb --merge` across samples (TIDDIT; and Manta when not
   joint) → `svdb --merge --priority manta,tiddit` across callers, in `union` and `union_pass`
-  (input-pre-filtered) views. Runs alongside the SURVIVOR chain until the SV cohort matrix consumes
-  it. Recipe validated in `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/sv_merge_bench/`.
+  (input-pre-filtered) views. Cohort VCFs publish at the canonical
+  `data/sv_cohort_merged_{union,union_pass}.vcf.gz` names; intermediates under
+  `data/sv_merge_inputs/`. Recipe validated in `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/sv_merge_bench/`.
   New local modules `COLLAPSE_SV_PAIRS` and `CHECK_SV_SAMPLE_ORDER` (sample-column guard for
   `--same_order`); nf-core `manta/convertinversion` installed; `svdb/merge` updated (2.8.2 → 2.8.4,
   versions now emitted via topic channels only).
@@ -35,6 +36,13 @@
 
 ### Changed
 
+- **SURVIVOR retired**: `SURVIVOR_SV_MERGE`, `SURVIVOR_COHORT_MERGE` and the per-sample
+  `data/sv_merged/<sample>/` outputs are gone. `data/sv_cohort_merged_{union,union_pass}.vcf.gz`
+  keep their names but are now the SVDB cross-caller merges (provenance in `INFO/set`, `FOUNDBY`,
+  `manta_*`/`tiddit_*` keys). The SV cohort matrix is a deterministic parse of those VCFs —
+  `proximity_match` and its 1 kb gate are gone; rows carry Manta's split-read coordinates, one row
+  per breakend junction, typed `<INV>` rows.
+- Matrix/CN cohort CSVs now end lines with LF (were CRLF via the csv module default).
 - Shared SV events no longer read as clone-specific in the Manta outputs of a multi-sample
   experiment: with joint calling every sample carries a genotype at every candidate (in the
   2-sample test set, `I:206105 DEL` and `VII:530034 INS` become shared PASS calls; breakpoints are

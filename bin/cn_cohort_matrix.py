@@ -164,7 +164,7 @@ def main():
 
     # Write output
     with open(out_path, "w", newline="") as fout:
-        writer = csv.DictWriter(fout, fieldnames=out_fields)
+        writer = csv.DictWriter(fout, fieldnames=out_fields, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow(row)

@@ -979,8 +979,7 @@ workflow SAREK {
             MUTATION_REPORT(
                 ch_report_vcfs,                                              // [meta, vcf, tbi] annotated-or-raw
                 cram_variant_calling,                                        // [meta, cram, crai] per sample
-                BAM_VARIANT_CALLING_GERMLINE_ALL.out.vcf_manta,              // raw manta (SURVIVOR)
-                BAM_VARIANT_CALLING_GERMLINE_ALL.out.vcf_tiddit,             // raw tiddit (SURVIVOR)
+                BAM_VARIANT_CALLING_GERMLINE_ALL.out.vcf_tiddit,             // raw per-sample tiddit (SVDB merge)
                 // Manta VCF(s) for the SVDB SV merge: joint multi-sample when --joint_manta,
                 // else per-sample (the subworkflow then merges across samples, like TIDDIT)
                 params.joint_manta

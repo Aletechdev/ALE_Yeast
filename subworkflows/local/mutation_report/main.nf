@@ -23,10 +23,6 @@ include { GENERATE_INDEX     } from '../../../modules/local/generate_index/main'
 include { BUILD_CN_MATRIX    } from '../../../modules/local/build_cn_matrix/main'
 include { BUILD_CN_COHORT    } from '../../../modules/local/build_cn_cohort/main'
 include { BUILD_CONTIG_CN    } from '../../../modules/local/build_contig_cn/main'
-include { BCFTOOLS_VIEW as FILTER_SV_VCF_MANTA  } from '../../../modules/nf-core/bcftools/view/main'
-include { BCFTOOLS_VIEW as FILTER_SV_VCF_TIDDIT } from '../../../modules/nf-core/bcftools/view/main'
-include { BCFTOOLS_VIEW as DECOMPRESS_SV_MANTA  } from '../../../modules/nf-core/bcftools/view/main'
-include { BCFTOOLS_VIEW as DECOMPRESS_SV_TIDDIT } from '../../../modules/nf-core/bcftools/view/main'
 include { MANTA_CONVERTINVERSION } from '../../../modules/nf-core/manta/convertinversion/main'
 include { COLLAPSE_SV_PAIRS      } from '../../../modules/local/collapse_sv_pairs/main'
 include { CHECK_SV_SAMPLE_ORDER  } from '../../../modules/local/check_sv_sample_order/main'
@@ -34,24 +30,14 @@ include { BCFTOOLS_VIEW as FILTER_SV_PASS } from '../../../modules/nf-core/bcfto
 include { SVDB_MERGE as SVDB_MERGE_MANTA   } from '../../../modules/nf-core/svdb/merge/main'
 include { SVDB_MERGE as SVDB_MERGE_TIDDIT  } from '../../../modules/nf-core/svdb/merge/main'
 include { SVDB_MERGE as SVDB_MERGE_CALLERS } from '../../../modules/nf-core/svdb/merge/main'
-include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_PASS  } from '../../../modules/local/survivor_sv_merge/main'
-include { SURVIVOR_SV_MERGE as SURVIVOR_SV_MERGE_UNION } from '../../../modules/local/survivor_sv_merge/main'
-include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_PASS  } from '../../../modules/nf-core/tabix/bgziptabix/main'
-include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_UNION } from '../../../modules/nf-core/tabix/bgziptabix/main'
-include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_COHORT_PASS  } from '../../../modules/nf-core/tabix/bgziptabix/main'
-include { TABIX_BGZIPTABIX as BGZIPTABIX_SV_COHORT_UNION } from '../../../modules/nf-core/tabix/bgziptabix/main'
-include { SURVIVOR_COHORT_MERGE as SURVIVOR_COHORT_MERGE_PASS  } from '../../../modules/local/survivor_cohort_merge/main'
-include { SURVIVOR_COHORT_MERGE as SURVIVOR_COHORT_MERGE_UNION } from '../../../modules/local/survivor_cohort_merge/main'
-include { BUILD_SV_MATRIX as BUILD_SV_MATRIX_PASS  } from '../../../modules/local/build_sv_matrix/main'
-include { BUILD_SV_MATRIX as BUILD_SV_MATRIX_UNION } from '../../../modules/local/build_sv_matrix/main'
+include { BUILD_SV_MATRIX    } from '../../../modules/local/build_sv_matrix/main'
 
 workflow MUTATION_REPORT {
     take:
     report_vcfs         // channel: [ meta, vcf, tbi ]  combined annotated-or-raw VCFs for IGV reports;
                         //          meta carries variantcaller + (for HC) hc_kind. Branched internally.
     cram                // channel: [ meta, cram, crai ]  per-sample alignments (meta.id = sample)
-    vcf_manta_raw       // channel: [ meta, vcf ]  RAW manta (SURVIVOR SV merge — always raw, see D4)
-    vcf_tiddit_raw      // channel: [ meta, vcf ]  RAW tiddit (SURVIVOR SV merge — always raw, see D4)
+    vcf_tiddit_raw      // channel: [ meta, vcf ]  RAW per-sample tiddit (SVDB SV merge)
     vcf_manta_sv        // channel: [ meta, vcf ]  Manta VCF(s) for the SVDB SV merge: the joint
                         //          multi-sample VCF (one per patient) under --joint_manta, else the
                         //          per-sample VCFs (then merged across samples here, like TIDDIT)
@@ -220,80 +206,7 @@ workflow MUTATION_REPORT {
     }
 
     // =========================================================================
-    // 5. SV merge + cohort matrix (Manta/TIDDIT) — RAW inputs (SURVIVOR drops FILTER/ANN, D4)
-    // =========================================================================
-
-    if (has_manta && has_tiddit) {
-        // bcftools view (-f PASS -Ov / -Ov) streams — no index needed, pass [] for the index slot.
-        ch_sv_manta_raw  = vcf_manta_raw.map  { meta, vcf -> [ [ id: meta.id, caller: 'manta'  ], vcf, [] ] }
-        ch_sv_tiddit_raw = vcf_tiddit_raw.map { meta, vcf -> [ [ id: meta.id, caller: 'tiddit' ], vcf, [] ] }
-
-        // PASS-filter both callers
-        FILTER_SV_VCF_MANTA(ch_sv_manta_raw, [], [], [])
-        FILTER_SV_VCF_TIDDIT(ch_sv_tiddit_raw, [], [], [])
-        versions = versions.mix(FILTER_SV_VCF_MANTA.out.versions)
-
-        // Decompress raw VCFs (no PASS filter) for unfiltered union merge
-        DECOMPRESS_SV_MANTA(ch_sv_manta_raw, [], [], [])
-        DECOMPRESS_SV_TIDDIT(ch_sv_tiddit_raw, [], [], [])
-
-        // Pair Manta + TIDDIT per sample for SURVIVOR merge (PASS-filtered)
-        ch_manta_filtered  = FILTER_SV_VCF_MANTA.out.vcf.map  { meta, vcf -> [ meta.id, vcf ] }
-        ch_tiddit_filtered = FILTER_SV_VCF_TIDDIT.out.vcf.map { meta, vcf -> [ meta.id, vcf ] }
-
-        ch_sv_paired_pass = ch_manta_filtered
-            .join(ch_tiddit_filtered)
-            .map { id, manta_vcf, tiddit_vcf -> [ [ id: id, merge_mode: 'union_pass' ], manta_vcf, tiddit_vcf ] }
-
-        // Pair raw (unfiltered) for union merge
-        ch_manta_raw_vcf  = DECOMPRESS_SV_MANTA.out.vcf.map  { meta, vcf -> [ meta.id, vcf ] }
-        ch_tiddit_raw_vcf = DECOMPRESS_SV_TIDDIT.out.vcf.map { meta, vcf -> [ meta.id, vcf ] }
-
-        ch_sv_paired_union = ch_manta_raw_vcf
-            .join(ch_tiddit_raw_vcf)
-            .map { id, manta_vcf, tiddit_vcf -> [ [ id: id, merge_mode: 'union' ], manta_vcf, tiddit_vcf ] }
-
-        SURVIVOR_SV_MERGE_PASS(ch_sv_paired_pass)
-        SURVIVOR_SV_MERGE_UNION(ch_sv_paired_union)
-        versions = versions.mix(SURVIVOR_SV_MERGE_PASS.out.versions)
-
-        BGZIPTABIX_SV_PASS(SURVIVOR_SV_MERGE_PASS.out.vcf)
-        BGZIPTABIX_SV_UNION(SURVIVOR_SV_MERGE_UNION.out.vcf)
-        versions = versions.mix(BGZIPTABIX_SV_PASS.out.versions)
-
-        ch_pass_plain  = SURVIVOR_SV_MERGE_PASS.out.vcf.map  { meta, vcf -> vcf }.collect()
-        ch_union_plain = SURVIVOR_SV_MERGE_UNION.out.vcf.map { meta, vcf -> vcf }.collect()
-
-        SURVIVOR_COHORT_MERGE_PASS(ch_pass_plain, 'union_pass')
-        SURVIVOR_COHORT_MERGE_UNION(ch_union_plain, 'union')
-        versions = versions.mix(SURVIVOR_COHORT_MERGE_PASS.out.versions)
-
-        BUILD_SV_MATRIX_PASS(SURVIVOR_COHORT_MERGE_PASS.out.vcf, ch_pass_plain, 'union_pass')
-        BUILD_SV_MATRIX_UNION(SURVIVOR_COHORT_MERGE_UNION.out.vcf, ch_union_plain, 'union')
-        versions = versions.mix(BUILD_SV_MATRIX_PASS.out.versions)
-
-        // Publish the cohort-level SURVIVOR VCF next to the matrix CSV: one record per merged
-        // event with a genotype column per sample — the joint SV call set the matrix is built
-        // from. Named sv_cohort_merged_<mode>.vcf.gz because that is the file generate_index.py
-        // looks for in data/ to offer the "VCF" download beside the ensemble SV table.
-        BGZIPTABIX_SV_COHORT_PASS(
-            SURVIVOR_COHORT_MERGE_PASS.out.vcf.map  { vcf -> [ [ id: 'sv_cohort_merged', merge_mode: 'union_pass' ], vcf ] })
-        BGZIPTABIX_SV_COHORT_UNION(
-            SURVIVOR_COHORT_MERGE_UNION.out.vcf.map { vcf -> [ [ id: 'sv_cohort_merged', merge_mode: 'union' ], vcf ] })
-        versions = versions.mix(BGZIPTABIX_SV_COHORT_PASS.out.versions)
-
-        ch_sv_data = BUILD_SV_MATRIX_PASS.out.csv
-            .mix(BUILD_SV_MATRIX_UNION.out.csv)
-            .mix(BGZIPTABIX_SV_COHORT_PASS.out.gz_tbi.flatMap  { meta, gz, tbi -> [ gz, tbi ] })
-            .mix(BGZIPTABIX_SV_COHORT_UNION.out.gz_tbi.flatMap { meta, gz, tbi -> [ gz, tbi ] })
-            .collect()
-    } else {
-        ch_sv_data = Channel.empty()
-    }
-
-    // =========================================================================
-    // 5b. SVDB SV merge chain — will replace the SURVIVOR chain (§5) once the matrix
-    //     builder consumes it; both run side by side until then. Recipe frozen from the
+    // 5. SVDB SV merge chain + cohort matrix. Recipe frozen from the
     //     2026-08-28 bench (docs/benchmarking/ottilie_xenobiotic_ale/04_validate/
     //     sv_merge_bench/NOTES.md — findings F1-F10 referenced below):
     //         Manta:  convertInversion → collapse breakend pairs ──────────────┐
@@ -377,6 +290,23 @@ workflow MUTATION_REPORT {
         // nf-core topic channels, not versions.yml files — there is no .out.versions to mix.
         // Their entries are absent from the aggregated versions.yml until the fork adopts
         // topic-channel version collection (Sarek >= 3.6 scaffolding).
+
+        // Matrix: one deterministic parse of the merged VCF per view (GT/FT for Manta cells,
+        // propagated <sample>.tiddit*_SAMPLE keys for TIDDIT cells) — no proximity matching.
+        // Sample order = sorted ids, matching every other cohort table.
+        ch_matrix_samples = cram.map { meta, c, crai -> meta.id }.toSortedList()
+        BUILD_SV_MATRIX(SVDB_MERGE_CALLERS.out.vcf, ch_matrix_samples)
+        versions = versions.mix(BUILD_SV_MATRIX.out.versions)
+
+        // Dashboard data: the two matrix CSVs + the two cohort VCFs (named
+        // sv_cohort_merged_<mode>.vcf.gz — generate_index.py probes those names for the
+        // "VCF" download buttons beside the ensemble SV table).
+        ch_sv_data = BUILD_SV_MATRIX.out.csv
+            .mix(SVDB_MERGE_CALLERS.out.vcf.map { meta, vcf -> vcf })
+            .mix(SVDB_MERGE_CALLERS.out.tbi.map { meta, tbi -> tbi })
+            .collect()
+    } else {
+        ch_sv_data = Channel.empty()
     }
 
     // =========================================================================

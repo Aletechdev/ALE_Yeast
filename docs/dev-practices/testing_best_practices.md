@@ -375,6 +375,17 @@ happened to arrive in the same order, so the snapshot recorded one of the two po
 snapshot passing twice is **not** proof of determinism when the input is a `groupTuple` list — check
 the ordering, or run once with the samplesheet rows reversed.
 
+The reversal check was run for the SVDB SV merge chain (2026-08-31, before its snapshot was
+trusted): forward vs reversed samplesheet, standalone launcher on the same outdir — all SV/CN
+matrices, merge inputs and VCF **records** byte-identical; only the `##bcftools_viewCommand …
+Date=` wall-clock header lines differed (difference class 2.1, present between any two runs).
+The chain's order-proofing levers: `svdb/merge` `sort_inputs=true`, `toSortedList()` for matrix
+columns, explicit `[manta, tiddit]` L2 input order, `groupTuple(sort:{it.name})` for joint Manta.
+Two practical rules from running the check: (1) never run two Nextflow instances against the same
+`--outdir` — they race on `pipeline_info/` report files (one aborts) and, worse, one may read
+files the other is republishing; (2) a `cmp` loop must distinguish "differs" from "missing" —
+a half-failed run makes everything look nondeterministic.
+
 ## 11. Target coverage: the four nf-test layers (post-1.0.0)
 
 v1.0.0 ships two owned tests — `ottilie_e2e` (`nextflow_pipeline`) and `split_joint_vcf`
