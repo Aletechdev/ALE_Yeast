@@ -41,11 +41,13 @@ nextflow run ${run_folder}/main.nf \
     --genbank ${run_folder}/data/ottilie/S288C_reference/S288C_R64_ensembl_chrnames.gb \
     --split_fastq 0 \
     --joint_germline \
+    --joint_manta \
     --save_mapped \
     --split_haplotypecaller_joint_vcf \
     --hard_filter_haplotypecaller_joint \
     --snpeff_db R64-1-1.105 \
     --snpeff_cache ${run_folder}/data/ottilie/S288C_reference/snpeff_cache \
+    --generate_reports \
     --report_gff3 ${run_folder}/data/ottilie/S288C_reference/S288C_R64.gff3
 
 echo "Pilot outputs: ${outdir}"
