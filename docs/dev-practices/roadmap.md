@@ -125,7 +125,17 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 
 ## SV — Manta + TIDDIT → SURVIVOR → cohort matrix
 
-- **[medium] Replace the SURVIVOR merge chain, raredisease-style: joint Manta → SVDB.** Decided
+- **[medium] Replace the SURVIVOR merge chain, raredisease-style: joint Manta → SVDB — DONE 2026-08-31.**
+  Step 1 (joint Manta + split) landed 2026-08-28; step 2 (SVDB replaces SURVIVOR) landed 2026-08-31 in
+  two commits: the chain wired additively (`ebb6da0`, with the SVDB-vs-Jasmine bench committed at
+  `04_validate/sv_merge_bench/` — SVDB chosen over Jasmine, which drops FORMAT/FT and mangles types),
+  then the matrix rewrite + SURVIVOR retirement. Final recipe (all deviations from the raredisease
+  blueprint bench-verified): `convertInversion` → breakend-pair collapse in EVERY input (svdb merges
+  raw mate pairs asymmetrically) → svdb across samples → svdb `--no_intra --same_order
+  --bnd_distance 2000 --priority manta,tiddit` across callers; PASS view by input pre-filtering
+  (`--pass_only` does NOT drop non-PASS records); sample-column guard (`--same_order` trusts
+  positions, not names). Mechanics: `docs/variant-calling/sv_merge.md`. Original decision record
+  follows. Decided
   2026-08-27 after reviewing upstream: Sarek 3.10.0/dev has no joint germline Manta and uses SVDB only
   for somatic TIDDIT; **nf-core/raredisease** is the blueprint — one joint Manta run per case, TIDDIT
   per sample merged across samples with `SVDB_MERGE --same_order`, then `SVDB_MERGE --pass_only

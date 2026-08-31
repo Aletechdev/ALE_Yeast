@@ -185,7 +185,7 @@ Canonical column reference, conventions, and non-Tier-1 notes:
 
 - **SNV/INDEL — GATK HaplotypeCaller**: joint (cohort) + individual germline calling; joint-germline is the ALE default.
 - **CNV — CNVKit**: `fold_change`-based CN matrices — see the [CNVKit section](#cnvkit-tier-1-cnv-deliverable).
-- **SV — Manta + TIDDIT**: merged via SURVIVOR into per-sample + cohort matrices. `--joint_manta` (default off)
+- **SV — Manta + TIDDIT**: merged via SVDB (`convertInversion` → breakend-pair collapse → across samples → across callers, `--priority manta,tiddit`) into cohort VCFs + matrices — mechanics in [`sv_merge.md`](docs/variant-calling/sv_merge.md), evidence in `04_validate/sv_merge_bench/`. `--joint_manta` (default off)
   runs one Manta call per `experiment` with every sample genotyped at every candidate — upstream-shaped
   (`joint_mutect2` idiom), see [`SAREK_MODIFICATIONS.md`](docs/dev-practices/SAREK_MODIFICATIONS.md).
   `--manta_high_sensitivity` (default off) disables Manta's depth filters (`--exome`) and breakend-hub

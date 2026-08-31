@@ -1,250 +1,142 @@
-# SV Merge Chain (SURVIVOR) — Maintainer Reference
+# SV Merge Chain (SVDB) — Maintainer Reference
 
-Mechanics of how per-sample Manta + TIDDIT structural-variant calls are merged into
-the cohort SV matrix. This is the **maintainer** view (parameters, `SUPP_VEC`,
-`proximity_match`, CSV schema, gotchas).
+Mechanics of how the Manta + TIDDIT structural-variant calls become the cohort SV VCFs and the
+cohort SV matrix. Maintainer view: steps, flags, provenance keys, CSV derivation, gotchas.
 
-> **Keep in sync** with the user-facing "SV event matrix (Manta + TIDDIT)" section of
-> the report Methodology in `docs/igvreports/templates/index.html.j2` (~L547-620).
-> That section explains *how to read* the matrix; this doc explains *how it is built*.
-> The two are intentionally separate sources today — a single shared Jinja include is
-> deferred (see `docs/dev-practices/roadmap.md`). If you change the merge parameters,
-> `SUPP_VEC` convention, or CSV columns here, update the report Methodology too.
+> **Keep in sync** with the user-facing "SV event matrix" section of the report Methodology in
+> `docs/igvreports/templates/index.html.j2`. That section explains *how to read* the matrix; this
+> doc explains *how it is built*.
+>
+> **Evidence base.** Every step and flag here was fixed by the 2026-08-28 SVDB-vs-Jasmine bench —
+> `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/sv_merge_bench/NOTES.md`, findings
+> **F1–F10**, referenced below as (F*n*). Do not tune flags without re-running that bench.
+> The previous SURVIVOR-based chain (retired 2026-08-31) is summarised at the bottom.
 
 ## The chain
 
 ```
-SURVIVOR_SV_MERGE      (per-sample: Manta + TIDDIT → 2-char SUPP_VEC)
-   → BGZIPTABIX_SV_*         (publish data/sv_merged/<sample>/<sample>.survivor.<mode>.vcf.gz)
-   → SURVIVOR_COHORT_MERGE   (cross-sample: N samples → N-char SUPP_VEC)
-   → BGZIPTABIX_SV_COHORT_*  (publish data/sv_cohort_merged_<mode>.vcf.gz — the joint SV VCF)
-   → BUILD_SV_MATRIX         (parse + proximity_match → sv_cohort_matrix_{union,union_pass}.csv)
+joint Manta VCF ──▶ MANTA_CONVERTINVERSION ──▶ COLLAPSE_SV_PAIRS ──────────────┐
+(per-sample VCFs when --joint_manta off ──▶ same, then SVDB_MERGE_MANTA)       │
+                                                                               ▼
+TIDDIT per sample ──▶ COLLAPSE_SV_PAIRS ──▶ SVDB_MERGE_TIDDIT ──▶ CHECK_SV_SAMPLE_ORDER
+                                            (across samples)                   │
+                                                                               ▼
+                              SVDB_MERGE_CALLERS (--priority manta,tiddit) ──▶ BUILD_SV_MATRIX
 ```
 
-Wired in `subworkflows/local/mutation_report/main.nf` (the SV section, ~L191-262). Two
-**fully parallel** paths run this chain end to end:
+Run twice, as two **views**:
 
-| Mode | Per-sample input | Meaning |
-|------|------------------|---------|
-| `union_pass` | Manta + TIDDIT after `bcftools view -f PASS` | union of PASS-only calls |
-| `union` | Manta + TIDDIT decompressed, **no** filter | union of all raw calls |
+| View | Inputs | Meaning |
+|------|--------|---------|
+| `union` | collapsed VCFs as-is | every call from either caller |
+| `union_pass` | collapsed VCFs pre-filtered `bcftools view -f PASS,.` | record-level PASS calls only |
 
-Files:
-- `modules/local/survivor_sv_merge/main.nf` — `SURVIVOR_SV_MERGE`
-- `modules/local/survivor_cohort_merge/main.nf` — `SURVIVOR_COHORT_MERGE`
-- `modules/nf-core/tabix/bgziptabix` — aliased `BGZIPTABIX_SV_{PASS,UNION}` (per-sample) and
-  `BGZIPTABIX_SV_COHORT_{PASS,UNION}` (cohort); the only publish points of the chain
-- `bin/sv_cohort_matrix.py` — `BUILD_SV_MATRIX` (the parser + matrix builder)
-- `conf/modules/mutation_report.config` — process config (`ext.min_callers`, prefixes, publishDir)
+⚠️ The pass view is built by **pre-filtering the inputs**, deliberately NOT with `svdb --pass_only`:
+that flag only refuses to *merge* non-PASS records — it still emits them (F2).
 
-Published outputs (all under `<outdir>/mutation_reports/data/`):
+Wired in `subworkflows/local/mutation_report/main.nf` §5; process config in
+`conf/modules/mutation_report.config`. Files:
+- `modules/nf-core/manta/convertinversion` — Manta's own `convertInversion.py` + bgzip/tabix
+- `modules/local/collapse_sv_pairs` + `bin/collapse_sv_pairs.py` — one record per breakend junction
+- `modules/nf-core/svdb/merge` (svdb 2.8.4) — aliased `SVDB_MERGE_{MANTA,TIDDIT,CALLERS}`
+- `modules/local/check_sv_sample_order` — sample-column guard for `--same_order`
+- `modules/local/build_sv_matrix` + `bin/sv_cohort_matrix.py` — the CSV builder
+
+Published outputs (under `<outdir>/mutation_reports/data/`):
 
 | File | Producer | Content |
 |------|----------|---------|
-| `sv_merged/<sample>/<sample>.survivor.{union,union_pass}.vcf.gz` (+ `.tbi`) | `BGZIPTABIX_SV_*` | per-sample Manta ∪ TIDDIT |
-| `sv_cohort_merged_{union,union_pass}.vcf.gz` (+ `.tbi`) | `BGZIPTABIX_SV_COHORT_*` | cohort VCF — one record per event, one GT column per sample (SURVIVOR names the columns after the first sample column of each input, e.g. `Ottilie_test_CBR110-15-R3a`) |
+| `sv_cohort_merged_{union,union_pass}.vcf.gz` (+ `.tbi`) | `SVDB_MERGE_CALLERS` | **the SV cohort deliverable** — one record per event, one genotype column per sample, cross-caller provenance in INFO. Filenames are load-bearing: `generate_index.py` probes them for the download buttons |
 | `sv_cohort_matrix_{union,union_pass}.csv` | `BUILD_SV_MATRIX` | the matrix (below) |
-| `<sample>.{manta,tiddit}.pass_stats.tsv` | `FILTER_PASS_VCF` (not part of the merge) | `total` / `pass` record counts → Sample Overview "PASS / all" |
+| `sv_merge_inputs/<sample>.tiddit.vcf`, `sv_merge_inputs/<patient>.manta.vcf` | `COLLAPSE_SV_PAIRS` | the exact (union) merge inputs — re-merge by hand from these |
+| `sv_merge_inputs/sv_tiddit_cohort_{union,union_pass}.vcf.gz` | `SVDB_MERGE_TIDDIT` | TIDDIT across samples (the L1 layer) |
+| `<sample>.{manta,tiddit}.pass_stats.tsv` | `FILTER_PASS_VCF` (not part of the merge) | "PASS / all" counts for the Sample Overview |
 
-The cohort VCF filename is **load-bearing**: `generate_index.py` (`load_cnv_sv_data`) probes
-`data/sv_cohort_merged_union_pass.vcf.gz` to decide whether to render the "VCF" download button
-beside the ensemble SV table. Rename it in `mutation_report.config` and in `generate_index.py` together.
+The raw per-caller VCFs (`variant_calling/manta/`, `variant_calling/tiddit/`) remain the complete
+troubleshooting record — every FORMAT field, pre-collapse.
 
-## SURVIVOR CLI parameters
+## Step rationale (each verified in the bench)
 
-Both merge steps invoke the same positional SURVIVOR call:
+1. **`convertInversion.py`** rewrites Manta's INV3/INV5 breakend *pairs* as single `<INV>` records,
+   which then merge with TIDDIT's typed `<INV>` calls (F5). Inter-chromosomal junctions stay BND on
+   both sides. Needs the reference FASTA (REF base at the rewritten POS).
+2. **Collapse breakend pairs** (`collapse_sv_pairs.py`): Manta — drop a BND whose `MATEID` was
+   already emitted; TIDDIT — drop `SV_<n>_2`. Required because svdb matches a BND as an **unordered**
+   breakpoint pair and `--no_intra` only stops a cluster being *seeded* from a file, not *joined* by
+   it — feeding both mates produces asymmetric merges (one Manta mate absorbs both TIDDIT mates, its
+   own mate merges with nothing) (F3). The dropped mate carries identical GT/PR/SR — nothing is lost.
+3. **TIDDIT across samples** (`SVDB_MERGE_TIDDIT`, `--no_intra`, inputs sorted by filename): appends
+   one genotype column per sample; svdb tags provenance by input **filename**, so collapse output
+   names are `<sample>.tiddit.vcf` on purpose.
+4. **Cross-caller merge** (`SVDB_MERGE_CALLERS`, `--no_intra --same_order --bnd_distance 2000
+   --priority manta,tiddit`): first tag wins — merged records keep Manta's split-read POS/END and
+   FORMAT; TIDDIT's coordinates survive in `INFO/tiddit_POS` (F7, decision `e33a4dd`). `--overlap`
+   stays at the 0.95 default: 0.95/0.8/0.6 changed nothing on the pilot (F8).
+5. **`CHECK_SV_SAMPLE_ORDER`** (before step 4): `--same_order` trusts column **positions**, never
+   names — misaligned inputs exit 0 and silently mislabel genotypes (F6). Both sides are sorted by
+   sample name upstream (joint Manta via `groupTuple(sort:{it.name})`, TIDDIT via filename sort);
+   the guard fails the run if that invariant ever breaks.
 
-```
-SURVIVOR merge <filelist> 1000 <min_support> 1 0 0 50 <out>
-```
+## Provenance keys in the cohort VCF
 
-| Position | Value | Meaning |
-|----------|-------|---------|
-| max_dist | `1000` | breakpoints within 1000 bp are the same event |
-| min_support | `1` | minimum callers/samples supporting an event |
-| take_type | `1` | require same SVTYPE to merge |
-| take_strand | `0` | strand not required to match |
-| estimate_dist | `0` | do not estimate distance |
-| min_size | `50` | ignore SVs < 50 bp |
+- `set=` — human-readable per-record origin: `Intersection`, `manta`, `tiddit`, `filterIntiddit`
+  (TIDDIT called it non-PASS), `manta-filterIntiddit`, … `FOUNDBY=` — number of contributing inputs.
+  `VARID=` — contributing record ids.
+- `manta_POS`/`manta_QUAL`/`manta_FILTERS`/`manta_SAMPLE`/`manta_INFO` (and `tiddit_*`) — the
+  priority-tagged contribution of each caller. **`manta_POS` present ⇔ Manta contributed** (ditto
+  `tiddit_POS`).
+- `<sample>.tiddit_SAMPLE` (`union`) / `<sample>.tiddit.pass_SAMPLE` (`union_pass`) — per-sample
+  TIDDIT contributions, propagated up from the across-samples merge; **the key exists iff that
+  sample's TIDDIT VCF contained the call**, and carries its full genotype string (`GT:…|CN:…|COV:…`).
+- FORMAT columns belong to the **priority record's caller**: Manta's `GT:FT:GQ:PL:PR:SR` whenever
+  Manta contributed, TIDDIT's otherwise.
 
-**`min_support = 1` in BOTH steps.** Per-sample it comes from `ext.min_callers = 1`
-(`conf/modules/mutation_report.config:43`); cohort uses the literal `1`
-(`survivor_cohort_merge/main.nf:28`). Consequences:
-
-- ⚠️ **`union_pass` is a UNION, not a caller-intersection.** There is **no** 2-of-2
-  Manta∩TIDDIT consensus anywhere in the chain. The `_pass` suffix only means the
-  *inputs* were `bcftools view -f PASS` filtered — not that an event passed in both callers.
-- The cohort merge with min_support 1 keeps every event present in ≥1 sample.
-
-## Post-merge sort (no input-sort guard)
-
-Both modules sort **after** SURVIVOR, on `merged_raw.vcf`:
-
-```bash
-grep '^#' merged_raw.vcf > header.vcf
-grep -v '^#' merged_raw.vcf | sort -k1,1d -k2,2n > body.vcf
-cat header.vcf body.vcf > <out>.vcf
-```
-
-(POSIX `sort`, deliberately avoiding the GNU `-V` flag for container portability.)
-
-⚠️ **There is no guard that the *input* VCFs are coordinate-sorted.** SURVIVOR assumes
-sorted input, which holds here because Manta/TIDDIT + `bcftools view` emit sorted VCFs.
-This is a latent robustness gap: an unsorted input would not be caught.
-
-## SUPP_VEC — support vector
-
-SURVIVOR writes an `INFO/SUPP_VEC` bit-string, one character per input VCF, in the order
-the VCFs appear in `filelist.txt`.
-
-- **Per-sample VCF (`SURVIVOR_SV_MERGE`): 2-char.** The filelist is written in fixed order
-  (`survivor_sv_merge/main.nf:26-27`): `echo "${manta_vcf}"` then `echo "${tiddit_vcf}"`.
-  So **position 0 = Manta, position 1 = TIDDIT**.
-- **Cohort VCF (`SURVIVOR_COHORT_MERGE`): N-char**, one position per sample. Order follows
-  `ls *.vcf` (`survivor_cohort_merge/main.nf:25`).
-
-⚠️ The Manta/TIDDIT labels are **hardcoded to match the filelist echo order** — the parser
-(`sv_cohort_matrix.py:58-62`) decodes `supp_vec[0]→Manta`, `supp_vec[1]→TIDDIT`. If the
-`echo` order in the module ever changes, the parser labels silently invert. Keep them coupled.
-
-## Which coordinates the merged record keeps — last file in the list wins
-
-When SURVIVOR collapses several calls into one record, the record's `POS`/`END`/`ID` (and so
-the `pos`/`end` in the CSV) are copied from **one** member of the cluster: the call from the
-**last input file in `filelist.txt`** that supports the event. It is *not* the larger position,
-the higher QUAL, or a consensus. Verified 2026-08-26 on the ottilie 2-sample outputs — of the 32
-shared cohort events whose two samples disagreed on coordinates, all 32 took the second file's
-(NODRUG-GM2's) values, 12 of them the *smaller* position. The other members' offsets survive only
-as `CIPOS`/`CIEND` and in each column's `FORMAT/CO`.
-
-| Merge step | File-list order | Whose coordinates end up in the record |
-|------------|-----------------|----------------------------------------|
-| Per sample (Manta ∪ TIDDIT) | Manta, then TIDDIT (fixed `echo` order) | **TIDDIT's** whenever TIDDIT called the event; Manta's only when TIDDIT did not |
-| Cohort (samples) | `ls *.vcf` → alphabetical by sample id | the **alphabetically last sample** carrying the event |
-
-Consequences:
-
-- Matrix rows for shared events show the last sample's breakpoints, never the first sample's own
-  call, even when the first sample's call is the better-supported one (e.g. the XV:722257 DEL row
-  carries TIDDIT's `722257-722440`, not Manta's split-read `722249-722439`).
-- The choice **depends on sample naming**: rename a sample so it sorts differently and shared-row
-  coordinates shift by a few bp although the events are unchanged. Byte-comparisons of
-  `sv_cohort_matrix_*.csv` across runs are only meaningful with identical sample ids.
-- With >2 inputs the expectation is "last supporting file"; verified here for two inputs only.
+⚠️ `bcftools` prints `[W::bcf_hrec_check] Invalid tag name` warnings for the sample-derived INFO ids
+(dots/dashes are not spec-clean tag characters). Warnings only — everything downstream parses fine.
 
 ## BUILD_SV_MATRIX — how cells are populated
 
-`sv_cohort_matrix.py` parses the cohort VCF and each per-sample VCF using
-**only** `INFO/SVTYPE, SVLEN, END, CHR2, SUPP_VEC`. It **ignores** the VCF `ID` column and
-all FORMAT subfields (`GT`, `CO`, `QV`) — so there is no per-caller breakpoint or genotype
-propagation into the matrix.
+`sv_cohort_matrix.py` derives each cell **deterministically from the merged record** — there is no
+proximity matching, no distance gate, and a cell can never disagree with the merge it annotates:
 
-For every cohort event, each sample's cell is resolved by an **independent
-`proximity_match`** against that sample's own per-sample VCF (not by decoding the cohort
-`SUPP_VEC`). The gate (`sv_cohort_matrix.py:85-104`):
+- **Manta cell** (`manta_POS` present): that sample's FORMAT GT carries an alt allele; the
+  `union_pass` view additionally requires `FORMAT/FT == PASS`, so a weak genotype (e.g. `MinGQ`) is
+  not read as support even though the record-level FILTER is PASS.
+- **TIDDIT cell**: the `<sample>.tiddit*_SAMPLE` key exists (records Manta also touched), or —
+  for TIDDIT-only records — that sample's GT in the TIDDIT FORMAT columns.
 
-```
-same chrom  AND  same svtype  AND  same chrom2  AND  |Δpos| ≤ 1000  AND  |Δend| ≤ 1000
-```
-
-Best match = smallest `|Δpos| + |Δend|`. The cell then shows that per-sample record's
-callers, decoded from **its** 2-char `SUPP_VEC`: `Manta`, `TIDDIT`, `Manta+TIDDIT`, or `-`
-if no per-sample event matches.
-
-⚠️ **The cohort `SUPP_VEC` and the per-sample `proximity_match` can disagree.** The cohort
-`SUPP_VEC` feeds **only** the printed `n_shared` / `n_private` summary counts
-(`sv_cohort_matrix.py:173-176`); it does not drive the matrix cells. The matrix cells come
-from the independent per-sample proximity matches.
-
-**Both breakpoints must agree** (`|Δpos| ≤ 1000` **and** `|Δend| ≤ 1000`) — the same rule
-SURVIVOR applied when it created the cohort event, so the lookup can never be looser than the
-merge it annotates. Until 2026-08-25 the gate was **OR** (one close breakpoint sufficed), which
-cross-credited distinct events that share an anchor: on the ottilie 2-sample test set,
-NODRUG-GM2's private ADH1↔AUS1 inversion (XV:159644–349748) was stamped `Manta` for
-CBR110-15-R3a because that sample's *own* ADH1↔PDR5 inversion (XV:159651–619873) starts 7 bp
-away — right ends 270 kb apart. In `union` mode the same bug also cross-credited TIDDIT
-telomere↔telomere TRA calls between chr I and chr XV. Genuine matches agree within tens of bp
-at both ends, so the AND gate loses nothing.
-
-## CSV schema
-
-`sv_cohort_matrix_{union,union_pass}.csv` — column order (`sv_cohort_matrix.py:153`):
-
+CSV schema (unchanged from the SURVIVOR era):
 ```
 chrom, pos, chrom2, end, svtype, svlen, <sample_1>, <sample_2>, ...
 ```
-
-Note **`chrom2` sits before `end`**. Rows are sorted by yeast chromosome order
-(`I`…`XVI`, `sv_cohort_matrix.py:28-29`), then `pos`, `end`, `svtype`. Each sample column
-holds `Manta` / `TIDDIT` / `Manta+TIDDIT` / `-`.
-
-## Known issue — revisit: cross-type swallowing in `union` mode (found 2026-08-26)
-
-`take_type=1` does **not** stop SURVIVOR from folding a DEL into a breakend-derived INV/TRA
-cluster. Observed on the ottilie 2-sample test set, `union` (raw) mode, chr XV ~722 kb:
-
-```
-NODRUG-GM2 raw TIDDIT:  722257-722440 <DEL>  QUAL 80  PASS                  ← real event
-                        721969<->722440 BND  QUAL 15  BelowExpectedLinks     ← junk breakend pair
-NODRUG-GM2 raw Manta:   722249-722439 DEL    QUAL 999 PASS
-
-per-sample union record:  POS=721969  SVTYPE=INV  SUPP_VEC=11
-     TIDDIT column: TY=INV,DEL,INV  CO=XV_721969-XV_722440,XV_722257-XV_722440,XV_722440-XV_721969
-     (all three TIDDIT records + the Manta DEL collapsed into ONE record that took the breakend's identity)
-
-cohort union record:      POS=721969  SVTYPE=INV  — CBR110-15-R3a's clean DEL (722257-722440,
-     PASS in both callers, 112 split reads) was merged into it too, despite take_type=1.
-
-sv_cohort_matrix_union.csv:  XV,721969,XV,722440,INV,259,-,Manta+TIDDIT
-     CBR110-15-R3a shows "-" because proximity_match requires svtype equality (DEL != INV).
-```
-
-Net effect: in the `union` matrix a sample's PASS, two-caller deletion is invisible. `union_pass`
-(the dashboard table) is unaffected *here* only because the breakend pair is non-PASS; the mechanism
-is latent for `union_pass` whenever a PASS breakend sits within `max_dist` of a real event.
-
-Nothing is lost **across the two VCF levels together**, but neither level alone holds everything:
-
-- **Per-sample VCF** (where the clustering happened): the TIDDIT column keeps all three clustered
-  records comma-joined in `TY=INV,DEL,INV`, `CO=…721969-722440,…722257-722440,…722440-721969`,
-  `QV=15,80,15` — so NODRUG's deletion (`722257-722440`, QUAL 80) is recoverable here. Only `TY`,
-  `CO`, `QV` are joined; `ID`, `LN`, `GT` carry the representative's value only (`ID=SV_1_2`).
-- **Cohort VCF**: each sample column carries just that sample's *representative*. CBR110's column
-  still says `TY=DEL CO=XV_722257-XV_722440 ID=SV_1_1` (its deletion identity survives), but
-  NODRUG's column says `TY=INV CO=XV_721969-XV_722440` — NODRUG's deletion is **not** in the
-  cohort VCF; you must drop to its per-sample VCF to see it.
-
-So this is a matrix-derivation problem for CBR110 (the cohort VCF knows it is a DEL; the CSV
-blanks it), and a representative-selection problem for NODRUG (its DEL is one level down).
-
-Options on the table (decision deferred — see `docs/dev-practices/roadmap.md`):
-
-1. **Decode cells from the cohort VCF's per-sample `PSV`** (`10`→Manta, `01`→TIDDIT, `11`→both,
-   `./.`→`-`) instead of re-deriving them with `proximity_match`. Removes the proximity heuristic
-   and its `max_dist` entirely, and makes the CSV agree with SURVIVOR's merge by construction; the
-   swallowed sample would read `Manta+TIDDIT`. The sample's own `TY`/`CO` could go in a companion
-   long-format CSV (one row per event × sample × caller) so a DEL-inside-an-INV-row is visible.
-2. Drop non-PASS breakends before the raw `union` merge (or retire `union` mode).
-3. Keep as is and treat `union` as an exploratory download only (current state).
-
-Until this is revisited: **trust `union_pass` for counts; treat `union` cells as approximate.**
-
-## Not part of this chain
-
-`PREPARE_VCF` and `FILTER_PASS_VCF` serve the **igv-reports display VCFs**, not the SURVIVOR
-merge. Do not place them in the merge path.
+Cells: `Manta` / `TIDDIT` / `Manta+TIDDIT` / `-`. Rows sorted by yeast chromosome order, then
+`pos`. `DUP:TANDEM` is normalised to `DUP`; BND rows put the mate position in `chrom2`/`end` and
+`svlen 0`. Coordinates are the priority caller's (Manta wherever it contributed). Line endings LF.
 
 ## Gotchas summary
 
-- `union_pass` is a **union of PASS inputs**, not a 2-caller intersection.
-- **No input-sort guard** — relies on Manta/TIDDIT + bcftools emitting sorted VCFs.
-- Caller labels (`Manta`/`TIDDIT`) are coupled to the filelist **echo order** in
-  `survivor_sv_merge/main.nf`, not read from the VCF.
-- Cohort `SUPP_VEC` (summary counts) and per-sample `proximity_match` (matrix cells) are
-  **independent** and can diverge.
-- Proximity gate is **AND** on the two endpoints (since 2026-08-25; was OR — see above). Keep
-  it at least as strict as SURVIVOR's own `max_dist` merge rule.
-- `union` mode: a junk breakend pair within `max_dist` can absorb a real DEL and retype the
-  cluster INV/TRA; the matrix then hides the DEL sample (svtype check). See "Known issue".
-- Manta BND-type events (TRA, INV) are **breakend pairs** — two VCF records per junction, both
-  kept by SURVIVOR — so one event is **two matrix rows** (`pos`/`end` swapped).
+- `union_pass` is a union of record-level-PASS calls, **not** a two-caller intersection — the
+  caller-intersection lives in `set=Intersection`.
+- `--pass_only` ≠ a PASS filter (F2). Pre-filter inputs instead.
+- Feed svdb **collapsed** inputs only; raw mate pairs merge asymmetrically (F3).
+- `--same_order` never checks column names (F6) — keep the guard.
+- Provenance tags derive from input **filenames** (collapse output names are part of the contract).
+- Sample ids containing `.` would break the `<sample>.tiddit*_SAMPLE` key parsing in
+  `sv_cohort_matrix.py` (ALE sample ids have none).
+- `DUP` vs `DUP:TANDEM` labels merge fine (svdb normalises; F10a). Manta `INS` vs TIDDIT `DUP` does
+  not arise on this data (F10b) — revisit if a caller with different INS/DUP conventions (Delly)
+  joins.
+
+## History — the SURVIVOR chain (retired 2026-08-31)
+
+Until commit `ebb6da0`/its successor, the chain was two levels of `SURVIVOR merge` (per-sample
+Manta∪TIDDIT, then across samples) plus a `proximity_match` heuristic re-deriving matrix cells. It
+was replaced because of three reproduced failures: **cross-type swallowing** (a QUAL-15 non-PASS
+TIDDIT breakend pair absorbed a PASS two-caller DEL at XV:722 kb and retyped the cluster INV — the
+matrix blanked the sample), **positional provenance** (`SUPP_VEC` bit order coupled to a filelist
+`echo`; "last file wins" coordinates, so TIDDIT's depth-derived `722257` shadowed Manta's split-read
+`722249` and cohort coordinates depended on alphabetical sample order), and the **proximity
+heuristic** itself (its OR-gate bug cross-credited events until 2026-08-25). Full mechanics and the
+worked example: this file's history (`git log -- docs/variant-calling/sv_merge.md`, state at
+`d7a49a8`) and the bench NOTES.md. The XV:722 kb case study is preserved as bench finding F1: under
+SVDB the DEL survives as `DEL PASS set=Intersection` in every configuration.
