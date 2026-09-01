@@ -275,7 +275,10 @@ VQSR is unavailable for the custom yeast genome (no known-sites resources). As a
 `VARIANTFILTRATION_FALLBACK` **soft-filters** the joint VCF — it populates the FILTER column
 (`PASS` or named tags like `QD_filter`) but **does not remove variants**. Output:
 `HaplotypeCaller_joint_calling_soft_filtered.vcf.gz`. Extract PASS-only downstream with
-`bcftools view -f PASS`. Details, filter thresholds, and trigger conditions:
+`bcftools view -f PASS`. Thresholds are GATK's stock values with one ALE deviation: the SNP
+strand-bias filter is FS-gated (`SOR_FS_filter`, 2026-09; plain `SOR > 3.0` tagged real mutations
+with zero Fisher-strand bias at deep clonal coverage — Tier 2, 86 samples / 343 truth mutations).
+Details, filter thresholds, and trigger conditions:
 [`docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`](docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md).
 
 #### Split joint VCF into individual sample VCFs

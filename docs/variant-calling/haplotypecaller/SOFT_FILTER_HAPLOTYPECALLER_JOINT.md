@@ -83,7 +83,7 @@ These use `vc.isSNP()` to restrict to SNP records only.
 | Filter Name | Expression | What It Measures |
 |-------------|-----------|------------------|
 | **FS_filter** | `vc.isSNP() && FS > 60.0` | **Fisher Strand bias** — Phred-scaled p-value for strand bias. High FS suggests PCR or sequencing artifact. |
-| **SOR_filter** | `vc.isSNP() && SOR > 3.0` | **Strand Odds Ratio** — Symmetric odds ratio test for strand bias. Preferred over FS at high depth. |
+| **SOR_FS_filter** | `vc.isSNP() && SOR > 3.0 && FS > 0.0` | **Strand Odds Ratio, FS-gated** — Symmetric odds ratio test for strand bias, trusted only when Fisher's test also sees *some* bias. The gate is an ALE-specific deviation from GATK's plain `SOR > 3.0`; evidence in [FS-gating the SOR filter](#fs-gating-the-sor-filter-2026-09-01) below. Named `SOR_filter` before 2026-09-01. |
 | **MQ_filter** | `vc.isSNP() && MQ < 40.0` | **Mapping Quality** — RMS mapping quality. Low MQ means reads map to multiple locations (repetitive region). |
 | **MQRankSum_filter** | `vc.isSNP() && MQRankSum < -12.5` | **MQ Rank Sum Test** — Compares mapping quality of REF vs ALT reads. Large negative = ALT reads map poorly → mismapping artifact. |
 | **ReadPosRankSum_filter** | `vc.isSNP() && ReadPosRankSum < -8.0` | **Read Position Rank Sum Test** — Compares read positions of REF vs ALT. Negative = ALT at read ends → sequencing error. |
@@ -107,7 +107,7 @@ FILTER=QD_filter                     # Fails one filter
 FILTER=QD_filter;FS_filter;SOR_filter  # Fails multiple filters
 ```
 
-SNP-only filters (`vc.isSNP()`) are skipped for INDELs and vice versa. A SNP will never receive `FS_INDEL_filter`, and an INDEL will never receive `SOR_filter`.
+SNP-only filters (`vc.isSNP()`) are skipped for INDELs and vice versa. A SNP will never receive `FS_INDEL_filter`, and an INDEL will never receive `SOR_FS_filter`.
 
 ### Important: `TYPE==` JEXL Syntax Bug
 
@@ -144,6 +144,8 @@ From 1,521 total variants (823 SNPs, 698 INDELs):
 | Truth set sensitivity (PASS only) | 332/343 (96.8%) | 333/343 (97.1%) |
 
 ### Which filters actually fire (Ottilie Tier 2, 86 samples / 1,521 records)
+
+> These counts predate the 2026-09-01 FS-gate ([below](#fs-gating-the-sor-filter-2026-09-01)), so the strand-bias filter appears under its old name `SOR_filter` with the plain `SOR > 3.0` expression. Under the gated rule, 30 of the 135 `SOR_filter` tags (the FS = 0 subset among SOR-only failures) are not assigned.
 
 Nine filters are declared, and the header of the output VCF confirms all nine were passed to VariantFiltration. **Only four ever fire:**
 
@@ -231,10 +233,57 @@ bcftools view -H file.vcf.gz | wc -l             # Total count
 The current filter thresholds are based on **GATK best practices for human data**. Potential adjustments for yeast:
 
 - **QD_filter (QD < 2.0)**: Most restrictive filter. Yeast has a smaller genome with higher per-base coverage; consider whether QD < 1.5 or QD < 1.0 would be more appropriate.
-- **MQ_filter (MQ < 40.0)**: Yeast genome has fewer repetitive regions than human, so most reads should map uniquely (MQ=60). This filter likely catches genuine mapping issues.
-- **SOR/FS thresholds**: Deep ALE sequencing may amplify natural strand bias. Ottilie Tier 2 validation showed 5 of 8 missed truth mutations were lost to SOR_filter. Monitor whether real mutations are being incorrectly flagged.
+- **MQ_filter (MQ < 40.0)**: Yeast genome has fewer repetitive regions than human, so most reads should map uniquely (MQ=60). This filter likely catches genuine mapping issues. **Reviewed 2026-09-01 and deliberately kept at 40** — see [Why MQ_filter was left alone](#why-mq_filter-was-left-alone) below.
+- **SOR/FS thresholds**: Deep ALE sequencing may amplify natural strand bias — SOR fired on real mutations that FS scored as bias-free. **Resolved 2026-09-01 by FS-gating the SOR filter** — see the next section.
 
 These thresholds should be validated against known ALE mutation types before relaxation.
+
+## FS-gating the SOR filter (2026-09-01)
+
+The SNP strand-bias filter was changed from GATK's stock expression to an FS-gated one, and renamed to make the compound expression visible in the tag:
+
+| | Before | After |
+|---|---|---|
+| Name | `SOR_filter` | `SOR_FS_filter` |
+| Expression | `vc.isSNP() && SOR > 3.0` | `vc.isSNP() && SOR > 3.0 && FS > 0.0` |
+
+The gate means: only trust SOR's strand-bias claim when Fisher's exact test — computed from the same reads — also sees at least *some* bias. `FS = 0` (p = 1, no bias whatsoever) alongside `SOR > 3` is the signature of SOR's known instability when one allele has very few reads on one strand, which deep clonal ALE coverage produces routinely.
+
+### Evidence (Ottilie Tier 2 — 86 samples, 343 truth mutations, 1,521 joint records)
+
+PASS-only sensitivity was 333/343 vs 339/343 for all records — **6 truth mutations lost purely to soft-filter tags**, 5 of them involving the SOR filter. Every SOR-lost site had high QUAL (608–1773), high QD (25–31), and **FS = 0**:
+
+| Site | FILTER | SOR | FS | MQ |
+|---|---|---|---|---|
+| IV:126739 G>T (YDL185C-A) | SOR only | 3.77 | 0 | 60 |
+| VIII:447631 C>T | SOR only | 3.26 | 0 | 60 |
+| XVI:139634 T>G (BMS1 missense) | SOR only | 4.09 | 0 | 60 |
+| XIV:572452 C>T | SOR only | 5.42 | 0 | 43.9 |
+| IX:19436 C>G | SOR + MQ | 6.27 | 0 | 39.6 |
+
+Candidate fixes were swept against the full joint VCF (rescuable = the 4 SOR-only sites; IX:19436 also fails MQ):
+
+| Candidate | Truth rescued (of 4) | Non-truth records flipped to PASS |
+|---|---|---|
+| SOR > 4.0 | 2 | 36 |
+| SOR > 4.5 | 3 | 44 |
+| SOR > 5.5 | 4 | 54 |
+| **`SOR > 3.0 && FS > 0.0`** | **4** | **30** |
+
+The FS-gate dominates every plain threshold raise — full rescue at the lowest cost, with a mechanism (SOR instability) rather than a looser number. Expected PASS-only sensitivity: **337/343 (98.3%)**; the remaining misses are 4 caller-level and 2 justified MQ flags.
+
+### Standing on GATK's recommendations
+
+- The [reference article](https://gatk.broadinstitute.org/hc/en-us/articles/360035531112) states that its thresholds are generic starting values and that *"researchers are expected to fine-tune hard-filtering thresholds for their data"* by stratifying annotation distributions against a truth set — which is exactly the procedure above.
+- The article warns against **compound filter expressions**: a record missing any referenced annotation auto-passes the whole expression (fail-open). This is moot here — FS and SOR are computed together and present on 1,521/1,521 Tier 2 records — and fail-open on a *soft* filter at worst leaves a record untagged. (The config already relies on compound JEXL via `vc.isSNP()`.)
+
+### Why MQ_filter was left alone
+
+The same sweep was run for MQ (152 records tagged, median MQ 31.8). Two truth mutations are MQ-blocked — IV:7879 (MQ 34.6) and IX:19436 (MQ 39.6) — both subtelomeric intergenic sites in repeat-family territory (the PAU6 pattern: real, but inherently ambiguous with short-read mapping). Rescuing the first costs +53 flipped records (MQ < 34), the second requires shaving the cutoff to 39.5 to catch a variant 0.41 below it — threshold-chasing with no independent witness annotation to gate on (FS plays that role for SOR; nothing equivalent exists for MQ). Both remain visible in the VCF under their tags.
+
+### Downstream name references
+
+Nothing in the pipeline keys on the filter-name strings (downstream logic only tests `PASS` vs non-PASS), so the rename is behavior-safe. Historical write-ups (this doc's fire counts above, `04_validate/tier2_results/`, the marko_sv dashboard) keep `SOR_filter` — they describe outputs produced under the old rule, and each VCF's `##FILTER` header records the exact expression that generated its tags.
 
 ## Verifying a filter change
 
@@ -257,7 +306,7 @@ for t in snps indels; do
 done
 
 # 4. Leakage check: INDELs must never carry a SNP-only filter
-bcftools view -H -v indels -i 'FILTER~"SOR_filter" || FILTER~"MQ_filter" || FILTER~"FS_filter"' "$JV" | wc -l   # expect 0
+bcftools view -H -v indels -i 'FILTER~"SOR_FS_filter" || FILTER~"MQ_filter" || FILTER~"FS_filter"' "$JV" | wc -l   # expect 0
 
 # 5. Is an annotation even present? (a filter on a missing field silently never fires)
 bcftools query -f '%INFO/MQRankSum\n' "$JV" | grep -vc '^\.$'
