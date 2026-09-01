@@ -295,3 +295,8 @@ executor config above.
 
 yAMP is a fork of [nf-core/sarek](https://nf-co.re/sarek) 3.5.1; upstream credits and tool citations
 are retained in [`CITATIONS.md`](CITATIONS.md).
+
+## License
+
+[MIT](LICENSE). The yAMP modifications are © 2025–2026 Aletech; the upstream nf-core/sarek
+copyright (Maxime Garcia, Szilveszter Juhos, Friederike Hanssen) is retained in the same file.
