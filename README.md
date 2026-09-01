@@ -33,7 +33,7 @@ Setting up a machine from scratch: [`docs/usage/new_machine_setup.md`](docs/usag
 ## Quick start
 
 ```bash
-git clone git@github.com:Aletechdev/ALE_Yeast.git
+git clone https://github.com/Aletechdev/ALE_Yeast.git
 cd ALE_Yeast
 
 # fetch the 2-sample test dataset from public blob storage (no credentials needed)
