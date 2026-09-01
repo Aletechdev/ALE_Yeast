@@ -50,6 +50,13 @@
 
 ### Changed
 
+- **`joint_manta` now defaults to `true`** (was `false`): joint multi-sample Manta is the validated
+  Tier-1 recipe — the local test/pilot configs already ran it, while a Seqera launch inherited the
+  old `false` default (the Launchpad preset never set it), so the two execution paths silently ran
+  different Manta modes. Local ottilie runs are unchanged (their profiles pinned `true` already);
+  set `--joint_manta false` for per-sample Manta on large cohorts (joint mode is one task per
+  experiment whose cost grows with every sample; validated at 4).
+
 - **Seqera launch form trimmed to the Tier-1 surface** (Tier-1 UX review, 2026-09-01): the schema
   now marks all but 26 parameters `hidden` (Seqera's "Show hidden params" toggle and `--help_full`
   still reach them; behavior, defaults and validation are unchanged). Visibility is generated from a
