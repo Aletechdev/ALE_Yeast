@@ -12,8 +12,9 @@ rebase cost; each is called out below.
 ## How to regenerate this diff
 
 ```bash
-# Pristine 3.5.1 lives at /tmp/sarek_upstream_351/3_5_1 (or the sarek-compare worktree).
-# Re-download with: nf-core pipelines download sarek --revision 3.5.1  (nf-env conda)
+# Pristine 3.5.1: /tmp is ephemeral, so re-download when missing (verified gone 2026-09-01):
+#   nf-core pipelines download sarek --revision 3.5.1 -o /tmp/sarek_upstream_351  (nf-env conda)
+# or fetch single files from the tag: https://raw.githubusercontent.com/nf-core/sarek/3.5.1/<path>
 U=/tmp/sarek_upstream_351/3_5_1
 diff -qr subworkflows/local "$U/subworkflows/local"
 diff -qr modules/local      "$U/modules/local"
@@ -45,7 +46,13 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   call); otherwise close to upstream.
 - **`nextflow.config`** — ALE params (report_* / generate_reports / split & hard-filter HC), extra
   `includeConfig`s, ALE profiles.
-- **`nextflow_schema.json`** — schema entries for the new params.
+- **`nextflow_schema.json`** — schema entries for the new params. ⚠️ **GENERATED since 2026-09:**
+  upstream schema + [`conf/schema_overlay.yml`](../../conf/schema_overlay.yml) (visible-param
+  allowlist for the Seqera launch form + ALE-owned help texts), applied by
+  [`bin/apply_schema_overlay.py`](../../bin/apply_schema_overlay.py). Never hand-edit `hidden`
+  flags or overridden texts in the JSON — edit the overlay and re-run the script
+  (`--check` verifies the committed schema matches). On a sarek upgrade: take the upstream
+  schema wholesale, re-run the script, review the diff.
 
 ### New params (nextflow.config / schema)
 

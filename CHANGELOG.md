@@ -50,6 +50,16 @@
 
 ### Changed
 
+- **Seqera launch form trimmed to the Tier-1 surface** (Tier-1 UX review, 2026-09-01): the schema
+  now marks all but 26 parameters `hidden` (Seqera's "Show hidden params" toggle and `--help_full`
+  still reach them; behavior, defaults and validation are unchanged). Visibility is generated from a
+  new allowlist overlay — `conf/schema_overlay.yml` applied by `bin/apply_schema_overlay.py`
+  (`--check` guards drift; parameters added by a future sarek upgrade are born hidden). The `tools`
+  and `joint_manta` help texts are rewritten for the ALE germline-only reality. The ottilie
+  profiles, blob params file and pilot/tier2 launchers stop passing `chr_dir` (Control-FREEC-only)
+  and `genbank` (breseq-only) — both staged-but-unused on Tier-1 runs; the params remain available,
+  hidden. Resolved-config proof: only those two values change, `-preview` DAG unaffected.
+
 - **SURVIVOR retired**: `SURVIVOR_SV_MERGE`, `SURVIVOR_COHORT_MERGE` and the per-sample
   `data/sv_merged/<sample>/` outputs are gone. `data/sv_cohort_merged_{union,union_pass}.vcf.gz`
   keep their names but are now the SVDB cross-caller merges (provenance in `INFO/set`, `FOUNDBY`,

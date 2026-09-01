@@ -1,0 +1,65 @@
+# ALE launch-surface policy for nextflow_schema.json — applied by bin/apply_schema_overlay.py.
+#
+# The schema JSON is GENERATED from the upstream sarek schema plus this overlay: edit THIS file
+# (or take a new upstream schema wholesale on a sarek upgrade), then run
+#
+#     python bin/apply_schema_overlay.py            # rewrite nextflow_schema.json in place
+#     python bin/apply_schema_overlay.py --check    # verify the committed schema matches (CI/pre-commit)
+#
+# Never hand-edit "hidden" flags or the overridden texts in nextflow_schema.json directly.
+#
+# Policy: `visible` is an ALLOWLIST — every parameter in the schema that is not listed here is
+# marked "hidden": true (collapsed behind Seqera's "Show hidden params" toggle and moved from
+# --help to --help_full; still fully settable and validated). New parameters arriving with a
+# sarek upgrade are therefore born hidden. A listed parameter missing from the schema (renamed
+# or removed upstream) produces a warning, not a failure — update this list when that happens.
+#
+# Rationale per section (user review, 2026-09-01): Tier-1 ALE runs are germline-only
+# (all samples status=0), tools = snpeff,cnvkit,tiddit,manta,haplotypecaller. Everything
+# somatic/tumor-only, Sentieon, VEP/dbNSFP/SpliceAI, ASCAT, Control-FREEC, Mutect2, iGenomes,
+# and human known-sites resources is hidden. FASTQ-preprocessing stays visible pending the
+# trimming rework (docs/dev-practices/fastq_preprocessing_audit.md).
+
+visible:
+  # Input/output
+  - input
+  - outdir
+  # Main options
+  - tools
+  # FASTQ preprocessing (kept visible pending the trimming rework)
+  - trim_fastq
+  - clip_r1
+  - clip_r2
+  - three_prime_clip_r1
+  - three_prime_clip_r2
+  - trim_nextseq
+  - length_required
+  - save_trimmed
+  - umi_read_structure
+  - group_by_umi_strategy
+  - save_split_fastqs
+  # Preprocessing
+  - aligner
+  - save_mapped
+  - save_output_as_bam
+  # Variant calling (the ALE switches)
+  - joint_germline
+  - joint_manta
+  - manta_high_sensitivity
+  - split_haplotypecaller_joint_vcf
+  - generate_reports
+  # Reference genome (custom-genome launch surface)
+  - fasta
+  - snpeff_cache
+  - snpeff_db
+  - report_gff3
+
+# Merged key-by-key into the named parameter's schema entry (any group). Use for texts the
+# fork owns outright; unlisted parameters keep their upstream description/help_text.
+property_overrides:
+  tools:
+    description: "Comma-separated list of tools to run. Tier-1 ALE recipe: `snpeff,cnvkit,tiddit,manta,haplotypecaller`."
+    help_text: "Multiple tools separated with commas. All calling is **germline** — every sample carries `status = 0` in the samplesheet (see `docs/usage/input_samplesheet.md`); sarek's tumor-only and paired somatic modes are unused.\n\n**Tier-1 (release-validated for ALE):**\n\n- SNVs/Indels: `haplotypecaller` — GATK HaplotypeCaller, joint cohort calling per `experiment` (`--joint_germline`)\n- Copy-number: `cnvkit`\n- Structural variants: `manta`, `tiddit` — cohort-merged via SVDB\n- Annotation: `snpeff` (custom cache)\n\nOther sarek callers (`mutect2`, `freebayes`, `controlfreec`, ...) remain runnable but are Tier-2: functional, not release-validated for ALE."
+  joint_manta:
+    description: "One multi-sample Manta germline run per experiment, every sample of the experiment genotyped at each candidate SV."
+    help_text: "Evidence-backed presence/absence in the cohort SV matrix: an event with weak evidence in one sample is reported as a genotype (with PR/SR read support and a per-sample FT) instead of being absent from that sample's VCF. Outputs publish under `variant_calling/manta/<experiment>/` and are split back to per-sample VCFs.\n\nJoint SV calling is a single task per experiment whose cost grows with each added sample; intended for small cohorts (validated at 4 samples). For large samplesheets leave this off — per-sample Manta feeds the same cohort SV merge, only without explicit `0/0` genotypes at other samples' candidates.\n\nNote: samplesheets with multiple experiments are untested in joint mode; planned development will move joint calling to all samples (matching joint HaplotypeCaller's cohort-wide behavior)."

@@ -11,7 +11,10 @@
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
             "help_text": "Specify input samplesheet, step and output folder.",
-            "required": ["step", "outdir"],
+            "required": [
+                "step",
+                "outdir"
+            ],
             "properties": {
                 "input": {
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
@@ -48,7 +51,8 @@
                         "recalibrate",
                         "variant_calling",
                         "annotate"
-                    ]
+                    ],
+                    "hidden": true
                 },
                 "outdir": {
                     "type": "string",
@@ -80,38 +84,43 @@
                     "default": 50000000,
                     "fa_icon": "fas fa-clock",
                     "description": "Specify how many reads each split of a FastQ file contains. Set 0 to turn off splitting at all.",
-                    "help_text": "Use the the tool FastP to split FASTQ file by number of reads. This parallelizes across fastq file shards speeding up mapping. Note although the minimum value is 250 reads, if you have fewer than 250 reads a single FASTQ shard will still be created."
+                    "help_text": "Use the the tool FastP to split FASTQ file by number of reads. This parallelizes across fastq file shards speeding up mapping. Note although the minimum value is 250 reads, if you have fewer than 250 reads a single FASTQ shard will still be created.",
+                    "hidden": true
                 },
                 "nucleotides_per_second": {
                     "type": "integer",
                     "fa_icon": "fas fa-clock",
                     "description": "Estimate interval size.",
                     "help_text": "Intervals are parts of the chopped up genome used to speed up preprocessing and variant calling. See `--intervals` for more info. \n\nChanging this parameter, changes the number of intervals that are grouped and processed together. Bed files from target sequencing can contain thousands or small intervals. Spinning up a new process for each can be quite resource intensive. Instead it can be desired to process small intervals together on larger nodes. \nIn order to make use of this parameter, no runtime estimate can be present in the bed file (column 5). ",
-                    "default": 200000
+                    "default": 200000,
+                    "hidden": true
                 },
                 "intervals": {
                     "type": "string",
                     "fa_icon": "fas fa-file-alt",
                     "help_text": "To speed up preprocessing and variant calling processes, the execution is parallelized across a reference chopped into smaller pieces.\n\nParts of preprocessing and variant calling are done by these intervals, the different resulting files are then merged.\nThis can parallelize processes, and push down wall clock time significantly.\n\nWe are aligning to the whole genome, and then run Base Quality Score Recalibration and Variant Calling on the supplied regions.\n\n**Whole Genome Sequencing:**\n\nThe (provided) intervals are chromosomes cut at their centromeres (so each chromosome arm processed separately) also additional unassigned contigs.\n\nWe are ignoring the `hs37d5` contig that contains concatenated decoy sequences.\n\nThe calling intervals can be defined using a .list or a BED file.\nA .list file contains one interval per line in the format `chromosome:start-end` (1-based coordinates).\nA BED file must be a tab-separated text file with one interval per line.\nThere must be at least three columns: chromosome, start, and end (0-based coordinates).\nAdditionally, the score column of the BED file can be used to provide an estimate of how many seconds it will take to call variants on that interval.\nThe fourth column remains unused.\n\n```\n|chr1|10000|207666|NA|47.3|\n```\nThis indicates that variant calling on the interval chr1:10001-207666 takes approximately 47.3 seconds.\n\nThe runtime estimate is used in two different ways.\nFirst, when there are multiple consecutive intervals in the file that take little time to compute, they are processed as a single job, thus reducing the number of processes that needs to be spawned.\nSecond, the jobs with largest processing time are started first, which reduces wall-clock time.\nIf no runtime is given, a time of 200000 nucleotides per second is assumed. See `--nucleotides_per_second` on how to customize this.\nActual figures vary from 2 nucleotides/second to 30000 nucleotides/second.\nIf you prefer, you can specify the full path to your reference genome when you run the pipeline:\n\n> **NB** If none provided, will be generated automatically from the FASTA reference\n> **NB** Use --no_intervals to disable automatic generation.\n\n**Targeted Sequencing:**\n\nThe recommended flow for targeted sequencing data is to use the workflow as it is, but also provide a `BED` file containing targets for all steps using the `--intervals` option. In addition, the parameter `--wes` should be set.\nIt is advised to pad the variant calling regions (exons or target) to some extent before submitting to the workflow.\n\nThe procedure is similar to whole genome sequencing, except that only BED file are accepted. See above for formatting description.\nAdding every exon as an interval in case of `WES` can generate >200K processes or jobs, much more forks, and similar number of directories in the Nextflow work directory. These are appropriately  grouped together to reduce number of processes run in parallel (see above and `--nucleotides_per_second` for details). \nFurthermore, primers and/or baits are not 100% specific, (certainly not for MHC and KIR, etc.), quite likely there going to be reads mapping to multiple locations.\nIf you are certain that the target is unique for your genome (all the reads will certainly map to only one location), and aligning to the whole genome is an overkill, it is actually better to change the reference itself.",
-                    "description": "Path to target bed file in case of whole exome or targeted sequencing or intervals file."
+                    "description": "Path to target bed file in case of whole exome or targeted sequencing or intervals file.",
+                    "hidden": true
                 },
                 "no_intervals": {
                     "type": "boolean",
                     "fa_icon": "fas fa-ban",
                     "description": "Disable usage of intervals.",
-                    "help_text": "Intervals are parts of the chopped up genome used to speed up preprocessing and variant calling. See `--intervals` for more info. \n\nIf  `--no_intervals` is set no intervals will be taken into account for speed up or data processing."
+                    "help_text": "Intervals are parts of the chopped up genome used to speed up preprocessing and variant calling. See `--intervals` for more info. \n\nIf  `--no_intervals` is set no intervals will be taken into account for speed up or data processing.",
+                    "hidden": true
                 },
                 "wes": {
                     "type": "boolean",
                     "fa_icon": "fas fa-dna",
                     "description": "Enable when exome or panel data is provided.",
-                    "help_text": "With this parameter flags in various tools are set for targeted sequencing data. It is recommended to enable for whole-exome and panel data analysis."
+                    "help_text": "With this parameter flags in various tools are set for targeted sequencing data. It is recommended to enable for whole-exome and panel data analysis.",
+                    "hidden": true
                 },
                 "tools": {
                     "type": "string",
                     "fa_icon": "fas fa-toolbox",
-                    "description": "Tools to use for duplicate marking, variant calling and/or for annotation.",
-                    "help_text": "Multiple tools separated with commas.\n\n**Variant Calling:**\n\nGermline variant calling can currently be performed with the following variant callers:\n- SNPs/Indels: DeepVariant, FreeBayes, GATK HaplotypeCaller, mpileup, Sentieon Haplotyper, Strelka\n- Structural Variants: indexcov, Manta, TIDDIT\n- Copy-number: CNVKit\n\nTumor-only somatic variant calling can currently be performed with the following variant callers:\n- SNPs/Indels: FreeBayes, mpileup, Mutect2, Lofreq, Strelka\n- Structural Variants: Manta, TIDDIT\n- Copy-number: CNVKit, ControlFREEC\n\nSomatic variant calling can currently only be performed with the following variant callers:\n- SNPs/Indels: FreeBayes, Mutect2, Strelka2\n- Structural variants: Manta, TIDDIT\n- Copy-Number: ASCAT, CNVKit, Control-FREEC\n- Microsatellite Instability: MSIsensorpro\n\n> **NB** Mutect2 for somatic variant calling cannot be combined with `--no_intervals`\n\n**Annotation:**\n \n- snpEff, VEP, merge (both consecutively), and bcftools annotate (needs `--bcftools_annotation`).\n\n> **NB** As Sarek will use bgzip and tabix to compress and index VCF files annotated, it expects VCF files to be sorted when starting from `--step annotate`.",
+                    "description": "Comma-separated list of tools to run. Tier-1 ALE recipe: `snpeff,cnvkit,tiddit,manta,haplotypecaller`.",
+                    "help_text": "Multiple tools separated with commas. All calling is **germline** — every sample carries `status = 0` in the samplesheet (see `docs/usage/input_samplesheet.md`); sarek's tumor-only and paired somatic modes are unused.\n\n**Tier-1 (release-validated for ALE):**\n\n- SNVs/Indels: `haplotypecaller` — GATK HaplotypeCaller, joint cohort calling per `experiment` (`--joint_germline`)\n- Copy-number: `cnvkit`\n- Structural variants: `manta`, `tiddit` — cohort-merged via SVDB\n- Annotation: `snpeff` (custom cache)\n\nOther sarek callers (`mutect2`, `freebayes`, `controlfreec`, ...) remain runnable but are Tier-2: functional, not release-validated for ALE.",
                     "pattern": "^((ascat|bcfann|breseq|cnvkit|controlfreec|deepvariant|freebayes|haplotypecaller|lofreq|sentieon_dnascope|sentieon_haplotyper|manta|indexcov|merge|mpileup|msisensorpro|mutect2|ngscheckmate|sentieon_dedup|snpeff|strelka|tiddit|vep)?,?)*(?<!,)$"
                 },
                 "skip_tools": {
@@ -119,7 +128,8 @@
                     "fa_icon": "fas fa-forward",
                     "description": "Disable specified tools.",
                     "help_text": "Multiple tools can be specified, separated by commas.\n\n> **NB** `--skip_tools baserecalibrator_report` is actually just not saving the reports.\n> **NB** `--skip_tools markduplicates_report` does not skip `MarkDuplicates` but prevent the collection of duplicate metrics that slows down performance.",
-                    "pattern": "^((baserecalibrator|baserecalibrator_report|bcftools|dnascope_filter|documentation|fastqc|haplotypecaller_filter|haplotyper_filter|markduplicates|markduplicates_report|mosdepth|multiqc|samtools|vcftools|versions)?,?)*(?<!,)$"
+                    "pattern": "^((baserecalibrator|baserecalibrator_report|bcftools|dnascope_filter|documentation|fastqc|haplotypecaller_filter|haplotyper_filter|markduplicates|markduplicates_report|mosdepth|multiqc|samtools|vcftools|versions)?,?)*(?<!,)$",
+                    "hidden": true
                 }
             },
             "fa_icon": "fas fa-user-cog"
@@ -215,7 +225,12 @@
                     "type": "string",
                     "default": "bwa-mem",
                     "fa_icon": "fas fa-puzzle-piece",
-                    "enum": ["bwa-mem", "bwa-mem2", "dragmap", "sentieon-bwamem"],
+                    "enum": [
+                        "bwa-mem",
+                        "bwa-mem2",
+                        "dragmap",
+                        "sentieon-bwamem"
+                    ],
                     "description": "Specify aligner to be used to map reads to reference genome.",
                     "help_text": "Sarek will build missing indices automatically if not provided. Set `--bwa false` if indices should be (re-)built.\nIf DragMap is selected as aligner, it is recommended to skip baserecalibration with `--skip_tools baserecalibrator`. For more info see [here](https://gatk.broadinstitute.org/hc/en-us/articles/4407897446939--How-to-Run-germline-single-sample-short-variant-discovery-in-DRAGEN-mode)."
                 },
@@ -235,7 +250,8 @@
                     "fa_icon": "fas fa-forward",
                     "description": "Enable usage of GATK Spark implementation for duplicate marking and/or base quality score recalibration",
                     "help_text": "Multiple separated with commas.\n\n> The GATK4 Base Quality Score recalibration tools `Baserecalibrator` and `ApplyBQSR` are currently available as Beta release. Use with caution!",
-                    "pattern": "^((baserecalibrator|markduplicates)?,?)*(?<!,)$"
+                    "pattern": "^((baserecalibrator|markduplicates)?,?)*(?<!,)$",
+                    "hidden": true
                 }
             }
         },
@@ -250,99 +266,114 @@
                     "type": "boolean",
                     "fa_icon": "fas fa-forward",
                     "description": "If true, skips germline variant calling for matched normal to tumor sample. Normal samples without matched tumor will still be processed through germline variant calling tools.",
-                    "help_text": "This can speed up computation for somatic variant calling with matched normal samples. If false, all normal samples are processed as well through the germline variantcalling tools. If true, only somatic variant calling is done."
+                    "help_text": "This can speed up computation for somatic variant calling with matched normal samples. If false, all normal samples are processed as well through the germline variantcalling tools. If true, only somatic variant calling is done.",
+                    "hidden": true
                 },
                 "ascat_min_base_qual": {
                     "type": "integer",
                     "default": 20,
                     "fa_icon": "fas fa-greater-than",
                     "description": "Overwrite Ascat min base quality required for a read to be counted.",
-                    "help_text": "For more details see [here](https://raw.githubusercontent.com/VanLoo-lab/ascat/master/man/ASCAT-manual.pdf)"
+                    "help_text": "For more details see [here](https://raw.githubusercontent.com/VanLoo-lab/ascat/master/man/ASCAT-manual.pdf)",
+                    "hidden": true
                 },
                 "ascat_min_counts": {
                     "type": "integer",
                     "default": 10,
                     "fa_icon": "fas fa-align-center",
                     "description": "Overwrite Ascat minimum depth required in the normal for a SNP to be considered.",
-                    "help_text": "For more details, see [here](https://raw.githubusercontent.com/VanLoo-lab/ascat/master/man/ASCAT-manual.pdf)."
+                    "help_text": "For more details, see [here](https://raw.githubusercontent.com/VanLoo-lab/ascat/master/man/ASCAT-manual.pdf).",
+                    "hidden": true
                 },
                 "ascat_min_map_qual": {
                     "type": "integer",
                     "default": 35,
                     "fa_icon": "fas fa-balance-scale-left",
                     "description": "Overwrite Ascat min mapping quality required for a read to be counted.",
-                    "help_text": "For more details, see [here](https://raw.githubusercontent.com/VanLoo-lab/ascat/master/man/ASCAT-manual.pdf)."
+                    "help_text": "For more details, see [here](https://raw.githubusercontent.com/VanLoo-lab/ascat/master/man/ASCAT-manual.pdf).",
+                    "hidden": true
                 },
                 "ascat_ploidy": {
                     "type": "number",
                     "fa_icon": "fas fa-bacon",
                     "help_text": "ASCAT: optional argument to override ASCAT optimization and supply psi parameter (expert parameter, do not adapt unless you know what you are doing). See [here](https://raw.githubusercontent.com/VanLoo-lab/ascat/master/man/ASCAT-manual.pdf)",
-                    "description": "Overwrite ASCAT ploidy."
+                    "description": "Overwrite ASCAT ploidy.",
+                    "hidden": true
                 },
                 "ascat_purity": {
                     "type": "number",
                     "fa_icon": "fas fa-broom",
                     "description": "Overwrite ASCAT purity.",
-                    "help_text": "Overwrites ASCAT's `rho_manual` parameter. Expert use only, see [here](https://raw.githubusercontent.com/VanLoo-lab/ascat/master/man/ASCAT-manual.pdf) for details.\nRequires that `--ascat_ploidy` is set."
+                    "help_text": "Overwrites ASCAT's `rho_manual` parameter. Expert use only, see [here](https://raw.githubusercontent.com/VanLoo-lab/ascat/master/man/ASCAT-manual.pdf) for details.\nRequires that `--ascat_ploidy` is set.",
+                    "hidden": true
                 },
                 "cf_chrom_len": {
                     "type": "string",
                     "fa_icon": "fas fa-ruler-horizontal",
                     "description": "Specify a custom chromosome length file.",
-                    "help_text": "Control-FREEC requires a file containing all chromosome lenghts. By default the fasta.fai is used. If the fasta.fai file contains chromosomes not present in the intervals, it fails (see: https://github.com/BoevaLab/FREEC/issues/106).\n\nIn this case, a custom chromosome length can be specified. It must be of the same format as the fai, but only contain the relevant chromosomes.\n\n\n\n"
+                    "help_text": "Control-FREEC requires a file containing all chromosome lenghts. By default the fasta.fai is used. If the fasta.fai file contains chromosomes not present in the intervals, it fails (see: https://github.com/BoevaLab/FREEC/issues/106).\n\nIn this case, a custom chromosome length can be specified. It must be of the same format as the fai, but only contain the relevant chromosomes.\n\n\n\n",
+                    "hidden": true
                 },
                 "cf_coeff": {
                     "type": "number",
                     "default": 0.05,
                     "fa_icon": "fas fa-wrench",
                     "description": "Overwrite Control-FREEC coefficientOfVariation",
-                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html)."
+                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html).",
+                    "hidden": true
                 },
                 "cf_contamination_adjustment": {
                     "type": "boolean",
                     "fa_icon": "fas fa-broom",
                     "description": "Overwrite Control-FREEC contaminationAdjustement",
-                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html)."
+                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html).",
+                    "hidden": true
                 },
                 "cf_contamination": {
                     "type": "integer",
                     "default": 0,
                     "fa_icon": "fas fa-broom",
                     "description": "Design known contamination value for Control-FREEC",
-                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html)."
+                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html).",
+                    "hidden": true
                 },
                 "cf_minqual": {
                     "type": "integer",
                     "default": 0,
                     "fa_icon": "fas fa-greater-than",
                     "description": "Minimal sequencing quality for a position to be considered in BAF analysis.",
-                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html)."
+                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html).",
+                    "hidden": true
                 },
                 "cf_mincov": {
                     "type": "integer",
                     "default": 0,
                     "fa_icon": "fas fa-align-center",
                     "description": "Minimal read coverage for a position to be considered in BAF analysis.",
-                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html)."
+                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html).",
+                    "hidden": true
                 },
                 "cf_ploidy": {
                     "type": "string",
                     "default": 2,
                     "fa_icon": "fas fa-bacon",
                     "help_text": "In case of doubt, you can set different values and Control-FREEC will select the one that explains most observed CNAs Example: ploidy=2 , ploidy=2,3,4. For more details, see the [manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html).",
-                    "description": "Genome ploidy used by ControlFREEC"
+                    "description": "Genome ploidy used by ControlFREEC",
+                    "hidden": true
                 },
                 "cf_window": {
                     "type": "number",
                     "fa_icon": "fas fa-window-maximize",
                     "description": "Overwrite Control-FREEC window size.",
-                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html)."
+                    "help_text": "Details, see [ControlFREEC manual](http://boevalab.inf.ethz.ch/FREEC/tutorial.html).",
+                    "hidden": true
                 },
                 "cnvkit_reference": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "help_text": "https://cnvkit.readthedocs.io/en/stable/pipeline.html?highlight=reference.cnn#batch",
-                    "description": "Copy-number reference for CNVkit"
+                    "description": "Copy-number reference for CNVkit",
+                    "hidden": true
                 },
                 "joint_germline": {
                     "type": "boolean",
@@ -353,8 +384,8 @@
                 "joint_manta": {
                     "type": "boolean",
                     "fa_icon": "fas fa-toolbox",
-                    "description": "Run Manta germline calling in joint (multi-sample) mode: one run per patient over all of its normal samples.",
-                    "help_text": "Every sample of the patient is genotyped at every candidate SV, so an event with weak evidence in one sample is reported as a genotype instead of being absent from that sample's VCF. Outputs are stored in a subfolder named with the patient ID under `variant_calling/manta/` as `{patient}.manta.diploid_sv.vcf.gz`."
+                    "description": "One multi-sample Manta germline run per experiment, every sample of the experiment genotyped at each candidate SV.",
+                    "help_text": "Evidence-backed presence/absence in the cohort SV matrix: an event with weak evidence in one sample is reported as a genotype (with PR/SR read support and a per-sample FT) instead of being absent from that sample's VCF. Outputs publish under `variant_calling/manta/<experiment>/` and are split back to per-sample VCFs.\n\nJoint SV calling is a single task per experiment whose cost grows with each added sample; intended for small cohorts (validated at 4 samples). For large samplesheets leave this off — per-sample Manta feeds the same cohort SV merge, only without explicit `0/0` genotypes at other samples' candidates.\n\nNote: samplesheets with multiple experiments are untested in joint mode; planned development will move joint calling to all samples (matching joint HaplotypeCaller's cohort-wide behavior)."
                 },
                 "manta_high_sensitivity": {
                     "type": "boolean",
@@ -372,7 +403,8 @@
                     "type": "boolean",
                     "fa_icon": "fas fa-filter",
                     "description": "Apply hard filtering to individual VCFs from HaplotypeCaller joint calling (requires --split_haplotypecaller_joint_vcf)",
-                    "help_text": "When enabled, applies sample-specific quality filters (FORMAT/GQ>=20, FORMAT/DP>=8, FILTER=PASS) to individual VCFs extracted from joint calling. Removes failing variants entirely (no missing genotypes) for clean MultiQC reporting and variant count tracking. Output suffix: `.haplotypecaller.from_joint_calling_hard_filtered.vcf.gz`. Designed for ALE experiments to ensure per-sample quality."
+                    "help_text": "When enabled, applies sample-specific quality filters (FORMAT/GQ>=20, FORMAT/DP>=8, FILTER=PASS) to individual VCFs extracted from joint calling. Removes failing variants entirely (no missing genotypes) for clean MultiQC reporting and variant count tracking. Output suffix: `.haplotypecaller.from_joint_calling_hard_filtered.vcf.gz`. Designed for ALE experiments to ensure per-sample quality.",
+                    "hidden": true
                 },
                 "generate_reports": {
                     "type": "boolean",
@@ -384,25 +416,29 @@
                 "joint_mutect2": {
                     "type": "boolean",
                     "fa_icon": "fas fa-angle-double-right",
-                    "description": "Runs Mutect2 in joint (multi-sample) mode for better concordance among variant calls of tumor samples from the same patient. Mutect2 outputs will be stored in a subfolder named with patient ID under `variant_calling/mutect2/` folder. Only a single normal sample per patient is allowed. Tumor-only mode is also supported."
+                    "description": "Runs Mutect2 in joint (multi-sample) mode for better concordance among variant calls of tumor samples from the same patient. Mutect2 outputs will be stored in a subfolder named with patient ID under `variant_calling/mutect2/` folder. Only a single normal sample per patient is allowed. Tumor-only mode is also supported.",
+                    "hidden": true
                 },
                 "ignore_soft_clipped_bases": {
                     "type": "boolean",
                     "fa_icon": "fas fa-ban",
                     "description": "Do not analyze soft clipped bases in the reads for GATK Mutect2.",
-                    "help_text": "use the `--dont-use-soft-clipped-bases` params with GATK Mutect2."
+                    "help_text": "use the `--dont-use-soft-clipped-bases` params with GATK Mutect2.",
+                    "hidden": true
                 },
                 "pon": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Panel-of-normals VCF (bgzipped) for GATK Mutect2",
-                    "help_text": "Without PON, there will be no calls with PASS in the INFO field, only an unfiltered VCF is written.\nIt is highly recommended to make your own PON, as it depends on sequencer and library preparation.\n\nThe pipeline is shipped with a panel-of-normals for `--genome GATK.GRCh38` provided by [GATK](https://gatk.broadinstitute.org/hc/en-us/articles/360035890631-Panel-of-Normals-PON-). \n\nSee [PON documentation](https://gatk.broadinstitute.org/hc/en-us/articles/360042479112-CreateSomaticPanelOfNormals-BETA)\n> **NB** PON file should be bgzipped."
+                    "help_text": "Without PON, there will be no calls with PASS in the INFO field, only an unfiltered VCF is written.\nIt is highly recommended to make your own PON, as it depends on sequencer and library preparation.\n\nThe pipeline is shipped with a panel-of-normals for `--genome GATK.GRCh38` provided by [GATK](https://gatk.broadinstitute.org/hc/en-us/articles/360035890631-Panel-of-Normals-PON-). \n\nSee [PON documentation](https://gatk.broadinstitute.org/hc/en-us/articles/360042479112-CreateSomaticPanelOfNormals-BETA)\n> **NB** PON file should be bgzipped.",
+                    "hidden": true
                 },
                 "pon_tbi": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Index of PON panel-of-normals VCF.",
-                    "help_text": "If none provided, will be generated automatically from the PON bgzipped VCF file."
+                    "help_text": "If none provided, will be generated automatically from the PON bgzipped VCF file.",
+                    "hidden": true
                 },
                 "sentieon_haplotyper_emit_mode": {
                     "type": "string",
@@ -410,7 +446,8 @@
                     "description": "Option for selecting output and emit-mode of Sentieon's Haplotyper.",
                     "fa_icon": "fas fa-toolbox",
                     "help_text": "The option `--sentieon_haplotyper_emit_mode` can be set to the same string values as the Haplotyper's `--emit_mode`. To output both a vcf and a gvcf, specify both a vcf-option (currently, `all`, `confident` and `variant`) and `gvcf`. For example, to obtain a vcf and gvcf one could set `--sentieon_haplotyper_emit_mode` to `variant, gvcf`.",
-                    "pattern": "^(all|confident|gvcf|variant|gvcf,all|gvcf,confident|gvcf,variant|all,gvcf|confident,gvcf|variant,gvcf)(?<!,)$"
+                    "pattern": "^(all|confident|gvcf|variant|gvcf,all|gvcf,confident|gvcf,variant|all,gvcf|confident,gvcf|variant,gvcf)(?<!,)$",
+                    "hidden": true
                 },
                 "sentieon_dnascope_emit_mode": {
                     "type": "string",
@@ -418,7 +455,8 @@
                     "fa_icon": "fas fa-toolbox",
                     "description": "Option for selecting output and emit-mode of Sentieon's Dnascope.",
                     "help_text": "The option `--sentieon_dnascope_emit_mode` can be set to the same string values as the Dnascope's `--emit_mode`. To output both a vcf and a gvcf, specify both a vcf-option (currently, `all`, `confident` and `variant`) and `gvcf`. For example, to obtain a vcf and gvcf one could set `--sentieon_dnascope_emit_mode` to `variant, gvcf`.",
-                    "pattern": "^(all|confident|gvcf|variant|gvcf,all|gvcf,confident|gvcf,variant|all,gvcf|confident,gvcf|variant,gvcf)(?<!,)$"
+                    "pattern": "^(all|confident|gvcf|variant|gvcf,all|gvcf,confident|gvcf,variant|all,gvcf|confident,gvcf|variant,gvcf)(?<!,)$",
+                    "hidden": true
                 },
                 "sentieon_dnascope_pcr_indel_model": {
                     "type": "string",
@@ -426,13 +464,15 @@
                     "fa_icon": "fas fa-bacon",
                     "description": "Option for selecting the PCR indel model used by Sentieon Dnascope.",
                     "help_text": "PCR indel model used to weed out false positive indels more or less aggressively. The possible MODELs are: NONE (used for PCR free samples), and HOSTILE, AGGRESSIVE and CONSERVATIVE, in order of decreasing aggressiveness. The default value is CONSERVATIVE.",
-                    "pattern": "^(NONE|HOSTILE|AGGRESSIVE|CONSERVATIVE)(?<!,)$"
+                    "pattern": "^(NONE|HOSTILE|AGGRESSIVE|CONSERVATIVE)(?<!,)$",
+                    "hidden": true
                 },
                 "concatenate_vcfs": {
                     "type": "boolean",
                     "fa_icon": "fas fa-tape",
                     "description": "Option for concatenating germline vcf-files.",
-                    "help_text": "Concatenating the germline vcf-files from each applied variant-caller into one vcf-file using bfctools concat."
+                    "help_text": "Concatenating the germline vcf-files from each applied variant-caller into one vcf-file using bfctools concat.",
+                    "hidden": true
                 }
             }
         },
@@ -447,143 +487,170 @@
                     "type": "boolean",
                     "fa_icon": "fas fa-align-justify",
                     "description": "Allow usage of fasta file for annotation with VEP",
-                    "help_text": "By pointing VEP to a FASTA file, it is possible to retrieve reference sequence locally. This enables VEP to retrieve HGVS notations (--hgvs), check the reference sequence given in input data, and construct transcript models from a GFF or GTF file without accessing a database.\n\nFor details, see [here](https://www.ensembl.org/info/docs/tools/vep/script/vep_cache.html#fasta)."
+                    "help_text": "By pointing VEP to a FASTA file, it is possible to retrieve reference sequence locally. This enables VEP to retrieve HGVS notations (--hgvs), check the reference sequence given in input data, and construct transcript models from a GFF or GTF file without accessing a database.\n\nFor details, see [here](https://www.ensembl.org/info/docs/tools/vep/script/vep_cache.html#fasta).",
+                    "hidden": true
                 },
                 "vep_dbnsfp": {
                     "type": "boolean",
                     "fa_icon": "fas fa-database",
                     "description": "Enable the use of the VEP dbNSFP plugin.",
-                    "help_text": "For details, see [here](https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html#dbnsfp)."
+                    "help_text": "For details, see [here](https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html#dbnsfp).",
+                    "hidden": true
                 },
                 "dbnsfp": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to dbNSFP processed file.",
-                    "help_text": "To be used with `--vep_dbnsfp`.\ndbNSFP files and more information are available at https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html#dbnsfp and https://sites.google.com/site/jpopgen/dbNSFP/"
+                    "help_text": "To be used with `--vep_dbnsfp`.\ndbNSFP files and more information are available at https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html#dbnsfp and https://sites.google.com/site/jpopgen/dbNSFP/",
+                    "hidden": true
                 },
                 "dbnsfp_tbi": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to dbNSFP tabix indexed file.",
-                    "help_text": "To be used with `--vep_dbnsfp`."
+                    "help_text": "To be used with `--vep_dbnsfp`.",
+                    "hidden": true
                 },
                 "dbnsfp_consequence": {
                     "type": "string",
                     "fa_icon": "fas fa-arrow-alt-circle-right",
                     "description": "Consequence to annotate with",
-                    "help_text": "To be used with `--vep_dbnsfp`.\nThis params is used to filter/limit outputs to a specific effect of the variant.\nThe set of consequence terms is defined by the Sequence Ontology and an overview of those used in VEP can be found here: https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html\nIf one wants to filter using several consequences, then separate those by using '&' (i.e. 'consequence=3_prime_UTR_variant&intron_variant'."
+                    "help_text": "To be used with `--vep_dbnsfp`.\nThis params is used to filter/limit outputs to a specific effect of the variant.\nThe set of consequence terms is defined by the Sequence Ontology and an overview of those used in VEP can be found here: https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html\nIf one wants to filter using several consequences, then separate those by using '&' (i.e. 'consequence=3_prime_UTR_variant&intron_variant'.",
+                    "hidden": true
                 },
                 "dbnsfp_fields": {
                     "type": "string",
                     "fa_icon": "fas fa-border-all",
                     "description": "Fields to annotate with",
                     "default": "rs_dbSNP,HGVSc_VEP,HGVSp_VEP,1000Gp3_EAS_AF,1000Gp3_AMR_AF,LRT_score,GERP++_RS,gnomAD_exomes_AF",
-                    "help_text": "To be used with `--vep_dbnsfp`.\nThis params can be used to retrieve individual values from the dbNSFP file. The values correspond to the name of the columns in the dbNSFP file and are separated by comma.\nThe column names might differ between the different dbNSFP versions. Please check the Readme.txt file, which is provided with the dbNSFP file, to obtain the correct column names. The Readme file contains also a short description of the provided values and the version of the tools used to generate them.\n\nDefault value are explained below:\n\nrs_dbSNP - rs number from dbSNP\nHGVSc_VEP - HGVS coding variant presentation from VEP. Multiple entries separated by ';', corresponds to Ensembl_transcriptid\nHGVSp_VEP - HGVS protein variant presentation from VEP. Multiple entries separated by ';', corresponds to Ensembl_proteinid\n1000Gp3_EAS_AF - Alternative allele frequency in the 1000Gp3 East Asian descendent samples\n1000Gp3_AMR_AF - Alternative allele counts in the 1000Gp3 American descendent samples\nLRT_score - Original LRT two-sided p-value (LRTori), ranges from 0 to 1\nGERP++_RS - Conservation score. The larger the score, the more conserved the site, ranges from -12.3 to 6.17\ngnomAD_exomes_AF - Alternative allele frequency in the whole gnomAD exome samples."
+                    "help_text": "To be used with `--vep_dbnsfp`.\nThis params can be used to retrieve individual values from the dbNSFP file. The values correspond to the name of the columns in the dbNSFP file and are separated by comma.\nThe column names might differ between the different dbNSFP versions. Please check the Readme.txt file, which is provided with the dbNSFP file, to obtain the correct column names. The Readme file contains also a short description of the provided values and the version of the tools used to generate them.\n\nDefault value are explained below:\n\nrs_dbSNP - rs number from dbSNP\nHGVSc_VEP - HGVS coding variant presentation from VEP. Multiple entries separated by ';', corresponds to Ensembl_transcriptid\nHGVSp_VEP - HGVS protein variant presentation from VEP. Multiple entries separated by ';', corresponds to Ensembl_proteinid\n1000Gp3_EAS_AF - Alternative allele frequency in the 1000Gp3 East Asian descendent samples\n1000Gp3_AMR_AF - Alternative allele counts in the 1000Gp3 American descendent samples\nLRT_score - Original LRT two-sided p-value (LRTori), ranges from 0 to 1\nGERP++_RS - Conservation score. The larger the score, the more conserved the site, ranges from -12.3 to 6.17\ngnomAD_exomes_AF - Alternative allele frequency in the whole gnomAD exome samples.",
+                    "hidden": true
                 },
                 "vep_loftee": {
                     "type": "boolean",
                     "fa_icon": "fas fa-database",
                     "description": "Enable the use of the VEP LOFTEE plugin.",
-                    "help_text": "For details, see [here](https://github.com/konradjk/loftee)."
+                    "help_text": "For details, see [here](https://github.com/konradjk/loftee).",
+                    "hidden": true
                 },
                 "vep_spliceai": {
                     "type": "boolean",
                     "fa_icon": "fas fa-database",
                     "description": "Enable the use of the VEP SpliceAI plugin.",
-                    "help_text": "For details, see [here](https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html#spliceai)."
+                    "help_text": "For details, see [here](https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html#spliceai).",
+                    "hidden": true
                 },
                 "spliceai_snv": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to spliceai raw scores snv file.",
-                    "help_text": "To be used with `--vep_spliceai`."
+                    "help_text": "To be used with `--vep_spliceai`.",
+                    "hidden": true
                 },
                 "spliceai_snv_tbi": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to spliceai raw scores snv tabix indexed file.",
-                    "help_text": "To be used with `--vep_spliceai`."
+                    "help_text": "To be used with `--vep_spliceai`.",
+                    "hidden": true
                 },
                 "spliceai_indel": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to spliceai raw scores indel file.",
-                    "help_text": "To be used with `--vep_spliceai`."
+                    "help_text": "To be used with `--vep_spliceai`.",
+                    "hidden": true
                 },
                 "spliceai_indel_tbi": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to spliceai raw scores indel tabix indexed file.",
-                    "help_text": "To be used with `--vep_spliceai`."
+                    "help_text": "To be used with `--vep_spliceai`.",
+                    "hidden": true
                 },
                 "vep_spliceregion": {
                     "type": "boolean",
                     "fa_icon": "fas fa-database",
                     "description": "Enable the use of the VEP SpliceRegion plugin.",
-                    "help_text": "For details, see [here](https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html#spliceregion) and [here](https://www.ensembl.info/2018/10/26/cool-stuff-the-vep-can-do-splice-site-variant-annotation/)."
+                    "help_text": "For details, see [here](https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html#spliceregion) and [here](https://www.ensembl.info/2018/10/26/cool-stuff-the-vep-can-do-splice-site-variant-annotation/).",
+                    "hidden": true
                 },
                 "vep_custom_args": {
                     "type": "string",
                     "default": "--everything --filter_common --per_gene --total_length --offline --format vcf",
                     "fa_icon": "fas fa-toolbox",
                     "description": "Add an extra custom argument to VEP.",
-                    "help_text": "Using this params you can add custom args to VEP."
+                    "help_text": "Using this params you can add custom args to VEP.",
+                    "hidden": true
                 },
                 "vep_version": {
                     "type": "string",
                     "default": "111.0-0",
                     "fa_icon": "fas fa-toolbox",
                     "description": "Should reflect the VEP version used in the container.",
-                    "help_text": "Used by the loftee plugin that need the full path."
+                    "help_text": "Used by the loftee plugin that need the full path.",
+                    "hidden": true
                 },
                 "outdir_cache": {
                     "type": "string",
                     "format": "directory-path",
                     "description": "The output directory where the cache will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
-                    "fa_icon": "fas fa-folder-open"
+                    "fa_icon": "fas fa-folder-open",
+                    "hidden": true
                 },
                 "vep_out_format": {
                     "type": "string",
                     "default": "vcf",
                     "description": "VEP output-file format.",
-                    "enum": ["json", "tab", "vcf"],
+                    "enum": [
+                        "json",
+                        "tab",
+                        "vcf"
+                    ],
                     "help_text": "Sets the format of the output-file from VEP. Available formats: json, tab and vcf.",
-                    "fa_icon": "fas fa-table"
+                    "fa_icon": "fas fa-table",
+                    "hidden": true
                 },
                 "bcftools_annotations": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
-                    "description": "A vcf file containing custom annotations to be used with bcftools annotate. Needs to be bgzipped."
+                    "description": "A vcf file containing custom annotations to be used with bcftools annotate. Needs to be bgzipped.",
+                    "hidden": true
                 },
                 "bcftools_annotations_tbi": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
-                    "description": "Index file for `bcftools_annotations`"
+                    "description": "Index file for `bcftools_annotations`",
+                    "hidden": true
                 },
                 "bcftools_header_lines": {
                     "type": "string",
                     "fa_icon": "fas fa-align-center",
-                    "description": "Text file with the header lines of `bcftools_annotations`"
+                    "description": "Text file with the header lines of `bcftools_annotations`",
+                    "hidden": true
                 },
                 "filter_freebayes": {
                     "type": "boolean",
                     "fa_icon": "fas fa-filter",
                     "description": "Enable FreeBayes-specific variant filtering",
-                    "help_text": "Apply quality-based filtering specifically to FreeBayes variants. This includes basic quality filters and extraction of high-impact variants."
+                    "help_text": "Apply quality-based filtering specifically to FreeBayes variants. This includes basic quality filters and extraction of high-impact variants.",
+                    "hidden": true
                 },
                 "freebayes_qual_threshold": {
                     "type": "number",
                     "default": 20,
                     "fa_icon": "fas fa-filter",
                     "description": "Minimum variant quality score for FreeBayes filtering",
-                    "help_text": "Variants with QUAL score below this threshold will be filtered out."
+                    "help_text": "Variants with QUAL score below this threshold will be filtered out.",
+                    "hidden": true
                 },
                 "freebayes_dp_threshold": {
                     "type": "number",
                     "default": 10,
-                    "fa_icon": "fas fa-filter", 
+                    "fa_icon": "fas fa-filter",
                     "description": "Minimum total depth for FreeBayes variants",
-                    "help_text": "Variants with total depth (DP) below this threshold will be filtered out."
+                    "help_text": "Variants with total depth (DP) below this threshold will be filtered out.",
+                    "hidden": true
                 },
                 "freebayes_af_threshold": {
                     "type": "number",
@@ -592,14 +659,16 @@
                     "maximum": 1.0,
                     "fa_icon": "fas fa-filter",
                     "description": "Minimum allele frequency for FreeBayes variants",
-                    "help_text": "Variants with allele frequency (AF) below this threshold will be filtered out."
+                    "help_text": "Variants with allele frequency (AF) below this threshold will be filtered out.",
+                    "hidden": true
                 },
                 "freebayes_high_impact": {
                     "type": "boolean",
                     "default": true,
                     "fa_icon": "fas fa-filter",
                     "description": "Extract high-impact variants separately",
-                    "help_text": "Create separate output files containing only high-impact variants as determined by variant consequence annotations."
+                    "help_text": "Create separate output files containing only high-impact variants as determined by variant consequence annotations.",
+                    "hidden": true
                 }
             }
         },
@@ -614,31 +683,36 @@
                     "format": "directory-path",
                     "description": "The base path to the igenomes reference files",
                     "fa_icon": "fas fa-ban",
-                    "default": "s3://ngi-igenomes/igenomes/"
+                    "default": "s3://ngi-igenomes/igenomes/",
+                    "hidden": true
                 },
                 "igenomes_ignore": {
                     "type": "boolean",
                     "description": "Do not load the iGenomes reference config.",
                     "fa_icon": "fas fa-ban",
-                    "help_text": "Do not load `igenomes.config` when running the pipeline. You may choose this option if you observe clashes between custom parameters and those supplied in `igenomes.config`. **NB** You can then run `Sarek` by specifying at least a FASTA genome file"
+                    "help_text": "Do not load `igenomes.config` when running the pipeline. You may choose this option if you observe clashes between custom parameters and those supplied in `igenomes.config`. **NB** You can then run `Sarek` by specifying at least a FASTA genome file",
+                    "hidden": true
                 },
                 "save_reference": {
                     "type": "boolean",
                     "fa_icon": "fas fa-download",
                     "description": "Save built references.",
-                    "help_text": "Set this parameter, if you wish to save all computed reference files. This is useful to avoid re-computation on future runs."
+                    "help_text": "Set this parameter, if you wish to save all computed reference files. This is useful to avoid re-computation on future runs.",
+                    "hidden": true
                 },
                 "build_only_index": {
                     "type": "boolean",
                     "fa_icon": "fas fa-download",
                     "description": "Only built references.",
-                    "help_text": "Set this parameter, if you wish to compute and save all computed reference files. No alignment or any other downstream steps will be performed."
+                    "help_text": "Set this parameter, if you wish to compute and save all computed reference files. No alignment or any other downstream steps will be performed.",
+                    "hidden": true
                 },
                 "download_cache": {
                     "type": "boolean",
                     "fa_icon": "fas fa-download",
                     "description": "Download annotation cache.",
-                    "help_text": "Set this parameter, if you wish to download annotation cache.\nUsing this parameter will download cache even if --snpeff_cache and --vep_cache are provided."
+                    "help_text": "Set this parameter, if you wish to download annotation cache.\nUsing this parameter will download cache even if --snpeff_cache and --vep_cache are provided.",
+                    "hidden": true
                 }
             },
             "fa_icon": "fas fa-dna"
@@ -654,84 +728,101 @@
                     "description": "Name of iGenomes reference.",
                     "default": "GATK.GRCh38",
                     "fa_icon": "fas fa-book",
-                    "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`.\n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details."
+                    "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`.\n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details.",
+                    "hidden": true
                 },
                 "ascat_genome": {
                     "type": "string",
                     "description": "ASCAT genome.",
                     "help_text": "Must be set to run ASCAT, either hg19 or hg38.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "enum": ["hg19", "hg38"]
+                    "enum": [
+                        "hg19",
+                        "hg38"
+                    ],
+                    "hidden": true
                 },
                 "ascat_alleles": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to ASCAT allele zip file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "ascat_loci": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to ASCAT loci zip file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "ascat_loci_gc": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to ASCAT GC content correction file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "ascat_loci_rt": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to ASCAT RT (replictiming) correction file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "bwa": {
                     "type": "string",
                     "fa_icon": "fas fa-copy",
                     "description": "Path to BWA mem indices.",
-                    "help_text": "If you wish to recompute indices available on igenomes, set `--bwa false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you wish to recompute indices available on igenomes, set `--bwa false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "bwamem2": {
                     "type": "string",
                     "fa_icon": "fas fa-copy",
                     "description": "Path to bwa-mem2 mem indices.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.\n\nIf you wish to recompute indices available on igenomes, set `--bwamem2 false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference, if `--aligner bwa-mem2` is specified. Combine with `--save_reference` to save for future runs."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.\n\nIf you wish to recompute indices available on igenomes, set `--bwamem2 false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference, if `--aligner bwa-mem2` is specified. Combine with `--save_reference` to save for future runs.",
+                    "hidden": true
                 },
                 "chr_dir": {
                     "type": "string",
                     "fa_icon": "fas fa-folder-open",
                     "description": "Path to chromosomes folder used with ControLFREEC.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "dbsnp": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to dbsnp file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "dbsnp_tbi": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to dbsnp index.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the dbsnp file. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "> **NB** If none provided, will be generated automatically from the dbsnp file. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "dbsnp_vqsr": {
                     "type": "string",
                     "fa_icon": "fas fa-copy",
-                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling).\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling).\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "dict": {
                     "type": "string",
                     "fa_icon": "fas fa-file",
                     "description": "Path to FASTA dictionary file.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "dragmap": {
                     "type": "string",
                     "fa_icon": "fas fa-copy",
                     "description": "Path to dragmap indices.",
-                    "help_text": "If you wish to recompute indices available on igenomes, set `--dragmap false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference, if `--aligner dragmap` is specified. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you wish to recompute indices available on igenomes, set `--dragmap false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference, if `--aligner dragmap` is specified. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "fasta": {
                     "type": "string",
@@ -750,7 +841,8 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "help_text": "> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "description": "Path to FASTA reference index."
+                    "description": "Path to FASTA reference index.",
+                    "hidden": true
                 },
                 "germline_resource": {
                     "type": "string",
@@ -759,7 +851,8 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "description": "Path to GATK Mutect2 Germline Resource File.",
-                    "help_text": "The germline resource VCF file (bgzipped and tabixed) needed by GATK4 Mutect2 is a collection of calls that are likely present in the sample, with allele frequencies.\nThe AF info field must be present.\nYou can find a smaller, stripped gnomAD VCF file (most of the annotation is removed and only calls signed by PASS are stored) in the AWS iGenomes Annotation/GermlineResource folder.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "The germline resource VCF file (bgzipped and tabixed) needed by GATK4 Mutect2 is a collection of calls that are likely present in the sample, with allele frequencies.\nThe AF info field must be present.\nYou can find a smaller, stripped gnomAD VCF file (most of the annotation is removed and only calls signed by PASS are stored) in the AWS iGenomes Annotation/GermlineResource folder.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "germline_resource_tbi": {
                     "type": "string",
@@ -768,7 +861,8 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "description": "Path to GATK Mutect2 Germline Resource Index.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the Germline Resource file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "> **NB** If none provided, will be generated automatically from the Germline Resource file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "known_indels": {
                     "type": "string",
@@ -777,7 +871,8 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "description": "Path to known indels file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "known_indels_tbi": {
                     "type": "string",
@@ -786,12 +881,14 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "description": "Path to known indels file index.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the known index file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "> **NB** If none provided, will be generated automatically from the known index file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "known_indels_vqsr": {
                     "type": "string",
                     "fa_icon": "fas fa-book",
-                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling). If you use AWS iGenomes, this has already been set for you appropriately."
+                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling). If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "known_snps": {
                     "type": "string",
@@ -800,7 +897,8 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "description": "Path to known snps file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "known_snps_tbi": {
                     "type": "string",
@@ -809,12 +907,14 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "description": "Path to known snps file snps.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the known index file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "> **NB** If none provided, will be generated automatically from the known index file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "known_snps_vqsr": {
                     "type": "string",
                     "fa_icon": "fas fa-book",
-                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling).If you use AWS iGenomes, this has already been set for you appropriately."
+                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling).If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "mappability": {
                     "type": "string",
@@ -823,7 +923,8 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "description": "Path to Control-FREEC mappability file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "ngscheckmate_bed": {
                     "type": "string",
@@ -832,7 +933,8 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "description": "Path to SNP bed file for sample checking with NGSCheckMate",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "sentieon_dnascope_model": {
                     "type": "string",
@@ -841,7 +943,8 @@
                     "exists": true,
                     "mimetype": "text/plain",
                     "description": "Machine learning model for Sentieon Dnascope.",
-                    "help_text": " It is recommended to use DNAscope with a machine learning model to perform variant calling with higher accuracy by improving the candidate detection and filtering. Sentieon can provide you with a model trained using a subset of the data from the GiAB truth-set found in https://github.com/genome-in-a-bottle. In addition, Sentieon can assist you in the creation of models using your own data, which will calibrate the specifics of your sequencing and bio-informatics processing.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": " It is recommended to use DNAscope with a machine learning model to perform variant calling with higher accuracy by improving the candidate detection and filtering. Sentieon can provide you with a model trained using a subset of the data from the GiAB truth-set found in https://github.com/genome-in-a-bottle. In addition, Sentieon can assist you in the creation of models using your own data, which will calibrate the specifics of your sequencing and bio-informatics processing.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "snpeff_cache": {
                     "type": "string",
@@ -863,25 +966,29 @@
                     "fa_icon": "fas fa-cloud-download-alt",
                     "default": "s3://annotation-cache/vep_cache/",
                     "description": "Path to VEP cache.",
-                    "help_text": "Path to VEP cache which should contain the relevant species, genome and build directories at the path ${vep_species}/${vep_genome}_${vep_cache_version}\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "Path to VEP cache which should contain the relevant species, genome and build directories at the path ${vep_species}/${vep_genome}_${vep_cache_version}\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "vep_cache_version": {
                     "type": "string",
                     "fa_icon": "fas fa-tag",
                     "description": "VEP cache version.",
-                    "help_text": "Alternative cache version can be used to specify the correct Ensembl Genomes version number as these differ from the concurrent Ensembl/VEP version numbers.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "Alternative cache version can be used to specify the correct Ensembl Genomes version number as these differ from the concurrent Ensembl/VEP version numbers.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "vep_genome": {
                     "type": "string",
                     "fa_icon": "fas fa-microscope",
                     "description": "VEP genome.",
-                    "help_text": "This is used to specify the genome when looking for local cache, or cloud based cache.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "This is used to specify the genome when looking for local cache, or cloud based cache.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "vep_species": {
                     "type": "string",
                     "fa_icon": "fas fa-microscope",
                     "description": "VEP species.",
-                    "help_text": "Alternatively species listed in Ensembl Genomes caches can be used.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "Alternatively species listed in Ensembl Genomes caches can be used.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
                 },
                 "genbank": {
                     "type": "string",
@@ -902,7 +1009,8 @@
                     "type": "string",
                     "fa_icon": "fas fa-cog",
                     "description": "Additional arguments for breseq.",
-                    "help_text": "Extra command-line arguments to pass to breseq. For example, use '--polymorphism-frequency-cutoff 0.1' to adjust the population mode frequency cutoff."
+                    "help_text": "Extra command-line arguments to pass to breseq. For example, use '--polymorphism-frequency-cutoff 0.1' to adjust the population mode frequency cutoff.",
+                    "hidden": true
                 }
             },
             "help_text": "The pipeline config files come bundled with paths to the Illumina iGenomes reference index files.\nThe configuration is set up to use the AWS-iGenomes resource\ncf https://ewels.github.io/AWS-iGenomes/."
@@ -1000,7 +1108,14 @@
                     "description": "Method used to save pipeline results to output directory.",
                     "help_text": "The Nextflow `publishDir` option specifies which intermediate files should be saved to the output directory. This option tells the pipeline what method should be used to move these files. See [Nextflow docs](https://www.nextflow.io/docs/latest/process.html#publishdir) for details.",
                     "fa_icon": "fas fa-copy",
-                    "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"],
+                    "enum": [
+                        "symlink",
+                        "rellink",
+                        "link",
+                        "copy",
+                        "copyNoFollow",
+                        "move"
+                    ],
                     "hidden": true
                 },
                 "email": {
@@ -1008,7 +1123,8 @@
                     "description": "Email address for completion summary.",
                     "fa_icon": "fas fa-envelope",
                     "help_text": "Set this parameter to your e-mail address to get a summary e-mail with details of the run sent to you when the workflow exits. If set in your user config file (`~/.nextflow/config`) then you don't need to specify this on the command line for every run.",
-                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$"
+                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$",
+                    "hidden": true
                 },
                 "email_on_fail": {
                     "type": "string",
@@ -1048,7 +1164,8 @@
                 "multiqc_title": {
                     "type": "string",
                     "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
-                    "fa_icon": "fas fa-file-signature"
+                    "fa_icon": "fas fa-file-signature",
+                    "hidden": true
                 },
                 "multiqc_config": {
                     "type": "string",
@@ -1066,7 +1183,8 @@
                 "multiqc_methods_description": {
                     "type": "string",
                     "description": "Custom MultiQC yaml file containing HTML including a methods description.",
-                    "fa_icon": "fas fa-cog"
+                    "fa_icon": "fas fa-cog",
+                    "hidden": true
                 },
                 "validate_params": {
                     "type": "boolean",

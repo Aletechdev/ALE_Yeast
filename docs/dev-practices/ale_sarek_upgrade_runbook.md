@@ -66,6 +66,13 @@ This script:
 3. Copies additive ALE modules/subworkflows into place
 4. Syncs result back to repo root (preserving `_upstream/`)
 
+Then regenerate the launch-form schema from the overlay (see the note under *Current Patches*):
+
+```bash
+python bin/apply_schema_overlay.py          # heed its warnings — they flag params renamed upstream
+python bin/apply_schema_overlay.py --check
+```
+
 ### 3. If a patch fails
 
 The script stops and tells you which patch broke. To fix:
@@ -146,6 +153,12 @@ Line numbers drift as the config changes — match on the construct, not the num
 | `001-samplesheet-ale-columns.patch` | samplesheet_to_channel/, schema | Add ALE metadata columns to input CSV | `specs/samplesheet_extensions.md` |
 | `002-main-nf-fallback-wiring.patch` | main.nf | Wire VARIANTFILTRATION_FALLBACK after joint genotyping | `specs/variant_filtering.md` |
 | `003-schema-ale-params.patch` | nextflow_schema.json | Add ALE-specific params to Seqera launch UI | `specs/samplesheet_extensions.md` |
+
+> **Schema visibility is NOT patched** (since 2026-09): the launch-form hidden/visible state and the
+> ALE-owned help texts live in `conf/schema_overlay.yml`, applied by `bin/apply_schema_overlay.py`.
+> After applying patches to a new upstream `nextflow_schema.json`, re-run
+> `python bin/apply_schema_overlay.py` (then `--check` in verification) — see
+> `SAREK_MODIFICATIONS.md` → root files → `nextflow_schema.json`.
 
 ## Current Additive Files (these never conflict) — as built
 

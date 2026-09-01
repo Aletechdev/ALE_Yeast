@@ -30,8 +30,6 @@ outdir: "az://aletest/seqera-runs/2026-08-06-01"
 genome: null
 igenomes_ignore: true
 fasta: "az://aletest/ottilie/v1/S288C_reference_test/S288C_R64_test.fa"
-genbank: "az://aletest/ottilie/v1/S288C_reference_test/S288C_R64_test.gb"
-chr_dir: "az://aletest/ottilie/v1/S288C_reference_test/chromosomes"
 
 # Annotation — snpeff_cache is a DIRECTORY param; az:// staging verified working
 snpeff_db: "R64-1-1.105"

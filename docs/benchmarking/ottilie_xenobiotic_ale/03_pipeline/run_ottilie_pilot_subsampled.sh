@@ -22,8 +22,6 @@ nextflow run ${run_folder}/main.nf \
     --fasta ${run_folder}/data/ottilie/S288C_reference/S288C_R64.fa \
     --skip_tools baserecalibrator \
     --tools snpeff,cnvkit,tiddit,manta,controlfreec,haplotypecaller \
-    --chr_dir ${run_folder}/data/ottilie/S288C_reference/chromosomes \
-    --genbank ${run_folder}/data/ottilie/S288C_reference/S288C_R64_ensembl_chrnames.gb \
     --split_fastq 0 \
     --joint_germline \
     --save_mapped \
