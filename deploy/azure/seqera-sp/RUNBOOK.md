@@ -939,6 +939,29 @@ re-registered by `14_register_pipeline.sh`: **new pipeline id `164422644302756`*
 engine pin `25.10.4` preserved. The registered revision includes the FS-gated SOR filter
 (`4c45fb8`), so the next Launchpad run is the first cloud run with the new soft filter.
 
+### 2026-09-02 — ✅ LOCAL-vs-SEQERA 4-SAMPLE PILOT: EQUIVALENT (first cloud run of the SOR_FS filter)
+
+Same commit (`fedfab7`) both sides. **Seqera** run `4sagA2Le4rx1m2` (`ottilie-pilot-sorfs-compare-seqera`,
+launched via `tw launch yAMP-ottilie-test-az -p docker,ottilie_pilot_az` + the two-line params file per
+the `18wEWW90THA2Ek` recipe): **307/307 tasks, 63 min**, outdir
+`az://aletest/seqera-runs/yAMP-out-pilot-sorfs-compare-20260902`. **Local** `run_ottilie_pilot.sh`:
+**315/315 tasks, 1h57m**, `output_ottilie_pilot_2026-09-02/`. 146 Seqera deliverables compared
+(mutation_reports, all VCFs, csv/, versions yml):
+
+- **Every cohort table byte-identical**: `cn_cohort_*.csv`, `sv_cohort_matrix_*` (union + pass),
+  `contig_copy_number.csv`, all per-sample pass_stats. All 16 igv-report HTMLs: identical `tableJson`.
+- **Zero record-level VCF differences.** 40 VCFs differ in headers only (`##GATKCommandLine` /
+  `##reference` / `##bcftools_*Command` work-dir paths; `##TIDDITcmd` `--threads 4` vs `2` — CPU
+  count, not settings). 29 `.tbi` diffs are index binaries over proven-identical content.
+- `SOR_FS_filter` present and identical both sides — SOR_FS (`4c45fb8`) is now **validated
+  end-to-end on both execution paths**; the SPLIT/soft-filter/joint-Manta recipe reproduces on the
+  re-registered entry (id `164422644302756`) with the trimmed schema and `joint_manta` default.
+- Known classes, all expected: `versions.yml` `v1.0.0-gfedfab7` (clone) vs `v1.0.0` (local dir);
+  csv manifests embed each side's outdir paths; `index.html` differs by generation timestamp.
+- **Task delta 315 vs 307 = `--save_mapped`**, passed only by the local launcher (kept for
+  `generate_test_data.sh --from-cram`): 4× `BAM_TO_CRAM_MAPPING` + 4× `INDEX_MERGE_BAM`,
+  publish-only, zero analytic effect (also the two extra entries in the local versions yml).
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |
