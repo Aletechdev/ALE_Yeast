@@ -24,9 +24,7 @@
 # `docker,ottilie_pilot_az` AND change every path below from S288C_reference_test/ to
 # S288C_reference/ — or give the pilot its own entry.
 
-chr_dir: "az://aletest/ottilie/v1/S288C_reference_test/chromosomes"
 fasta: "az://aletest/ottilie/v1/S288C_reference_test/S288C_R64_test.fa"
-genbank: "az://aletest/ottilie/v1/S288C_reference_test/S288C_R64_test.gb"
 genome: null
 hard_filter_haplotypecaller_joint: true
 igenomes_ignore: true
