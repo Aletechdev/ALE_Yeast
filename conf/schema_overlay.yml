@@ -46,7 +46,9 @@ visible:
   - joint_germline
   - joint_manta
   - manta_high_sensitivity
-  - split_haplotypecaller_joint_vcf
+  # split_haplotypecaller_joint_vcf hidden (2026-09-02): Tier-1 is designed around joint HC +
+  # per-sample split always on (every ALE config pins it true); a visible toggle only invites
+  # breaking the per-sample from-joint deliverables.
   - generate_reports
   # Reference genome (custom-genome launch surface)
   - fasta
