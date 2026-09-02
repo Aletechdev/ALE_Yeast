@@ -45,6 +45,21 @@ def apply_overlay(schema: dict, overlay: dict) -> tuple[dict, list[str]]:
         warnings.append(f"visible-list parameter not in schema (renamed/removed upstream?): {name}")
     for name in sorted(set(overrides) - seen):
         warnings.append(f"property_overrides parameter not in schema: {name}")
+
+    # group_order: listed groups first, in that order; unlisted groups keep their original
+    # relative order after them (a group new in an upgrade therefore lands at the end).
+    order = overlay.get("group_order") or []
+    if order and groups:
+        defs_key = "$defs" if "$defs" in schema else "definitions"
+        for name in sorted(set(order) - set(groups)):
+            warnings.append(f"group_order group not in schema (renamed/removed upstream?): {name}")
+        placed = [g for g in order if g in groups]
+        rest = [g for g in groups if g not in placed]
+        schema[defs_key] = {g: groups[g] for g in placed + rest}
+        if isinstance(schema.get("allOf"), list):
+            by_ref = {a.get("$ref", "").split("/")[-1]: a for a in schema["allOf"]}
+            extras = [a for a in schema["allOf"] if a.get("$ref", "").split("/")[-1] not in schema[defs_key]]
+            schema["allOf"] = [by_ref[g] for g in schema[defs_key] if g in by_ref] + extras
     return schema, warnings
 
 

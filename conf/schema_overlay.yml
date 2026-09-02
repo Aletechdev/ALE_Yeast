@@ -56,6 +56,21 @@ visible:
   - snpeff_db
   - report_gff3
 
+# Launch-form section order (2026-09-02): reference-genome options right after FASTQ
+# preprocessing, so the dataset-shaped fields sit together near the top. Groups not listed
+# keep their original relative order after the listed ones (new upstream groups land last).
+group_order:
+  - input_output_options
+  - main_options
+  - fastq_preprocessing
+  - reference_genome_options
+  - preprocessing
+  - variant_calling
+  - annotation
+  - general_reference_genome_options
+  - institutional_config_options
+  - generic_options
+
 # Merged key-by-key into the named parameter's schema entry (any group). Use for texts the
 # fork owns outright; unlisted parameters keep their upstream description/help_text.
 property_overrides:

@@ -759,6 +759,16 @@ entry, not of the pipeline source: `yAMP-ottilie-test-az-1` stayed version 1 acr
 nothing changed. Re-registering with identical content also reproduces the hash under a *new* pipeline
 id — observed three times on 2026-08-12. Compare `commitId`s, never hashes.
 
+⚠️ **Corollary (2026-09-02): a `main`-tracking entry has NO version history in the Platform UI.**
+The pipeline view shows one entry with one revision name; pushing to `main` silently retargets every
+future launch and leaves no list of "versions" to browse or re-launch — the only per-version record
+is each *run's* `commitId` (route 2 above). If picking among versions ever matters — launching v1.0.0
+vs v1.1.0, or re-running an old release — the mechanism is **git tags**: the launch form's revision
+field resolves branch *and tag* names from the repo, so cutting a tag per release makes versions
+selectable at launch with no extra registration; a citable baseline entry should additionally be
+registered pinned to the tag (route 1 above). Tracking `main` on the dev/test entry is the deliberate
+trade: always-current, never versioned.
+
 ---
 
 ## 15. 🚨 Platform's run status can be wrong in BOTH directions — and nothing reaps a hung head job

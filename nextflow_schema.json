@@ -214,6 +214,304 @@
                 }
             }
         },
+        "reference_genome_options": {
+            "title": "Reference genome options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Reference genome related files and options required for the workflow. If you use AWS iGenomes, this has already been set for you appropriately.",
+            "properties": {
+                "genome": {
+                    "type": "string",
+                    "description": "Name of iGenomes reference.",
+                    "default": "GATK.GRCh38",
+                    "fa_icon": "fas fa-book",
+                    "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`.\n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details.",
+                    "hidden": true
+                },
+                "ascat_genome": {
+                    "type": "string",
+                    "description": "ASCAT genome.",
+                    "help_text": "Must be set to run ASCAT, either hg19 or hg38.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "enum": [
+                        "hg19",
+                        "hg38"
+                    ],
+                    "hidden": true
+                },
+                "ascat_alleles": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "description": "Path to ASCAT allele zip file.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "ascat_loci": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "description": "Path to ASCAT loci zip file.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "ascat_loci_gc": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "description": "Path to ASCAT GC content correction file.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "ascat_loci_rt": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "description": "Path to ASCAT RT (replictiming) correction file.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "bwa": {
+                    "type": "string",
+                    "fa_icon": "fas fa-copy",
+                    "description": "Path to BWA mem indices.",
+                    "help_text": "If you wish to recompute indices available on igenomes, set `--bwa false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "bwamem2": {
+                    "type": "string",
+                    "fa_icon": "fas fa-copy",
+                    "description": "Path to bwa-mem2 mem indices.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.\n\nIf you wish to recompute indices available on igenomes, set `--bwamem2 false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference, if `--aligner bwa-mem2` is specified. Combine with `--save_reference` to save for future runs.",
+                    "hidden": true
+                },
+                "chr_dir": {
+                    "type": "string",
+                    "fa_icon": "fas fa-folder-open",
+                    "description": "Path to chromosomes folder used with ControLFREEC.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "dbsnp": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "description": "Path to dbsnp file.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "dbsnp_tbi": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "description": "Path to dbsnp index.",
+                    "help_text": "> **NB** If none provided, will be generated automatically from the dbsnp file. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "dbsnp_vqsr": {
+                    "type": "string",
+                    "fa_icon": "fas fa-copy",
+                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling).\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "dict": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "description": "Path to FASTA dictionary file.",
+                    "help_text": "> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "dragmap": {
+                    "type": "string",
+                    "fa_icon": "fas fa-copy",
+                    "description": "Path to dragmap indices.",
+                    "help_text": "If you wish to recompute indices available on igenomes, set `--dragmap false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference, if `--aligner dragmap` is specified. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "pattern": "^\\S+\\.fn?a(sta)?(\\.gz)?$",
+                    "description": "Path to FASTA genome file.",
+                    "help_text": "This parameter is *mandatory* if `--genome` is not specified.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "fa_icon": "fas fa-file"
+                },
+                "fasta_fai": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "help_text": "> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "description": "Path to FASTA reference index.",
+                    "hidden": true
+                },
+                "germline_resource": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "description": "Path to GATK Mutect2 Germline Resource File.",
+                    "help_text": "The germline resource VCF file (bgzipped and tabixed) needed by GATK4 Mutect2 is a collection of calls that are likely present in the sample, with allele frequencies.\nThe AF info field must be present.\nYou can find a smaller, stripped gnomAD VCF file (most of the annotation is removed and only calls signed by PASS are stored) in the AWS iGenomes Annotation/GermlineResource folder.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "germline_resource_tbi": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "description": "Path to GATK Mutect2 Germline Resource Index.",
+                    "help_text": "> **NB** If none provided, will be generated automatically from the Germline Resource file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "known_indels": {
+                    "type": "string",
+                    "fa_icon": "fas fa-copy",
+                    "format": "file-path-pattern",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "description": "Path to known indels file.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "known_indels_tbi": {
+                    "type": "string",
+                    "fa_icon": "fas fa-copy",
+                    "format": "file-path-pattern",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "description": "Path to known indels file index.",
+                    "help_text": "> **NB** If none provided, will be generated automatically from the known index file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "known_indels_vqsr": {
+                    "type": "string",
+                    "fa_icon": "fas fa-book",
+                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling). If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "known_snps": {
+                    "type": "string",
+                    "fa_icon": "fas fa-copy",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "description": "Path to known snps file.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "known_snps_tbi": {
+                    "type": "string",
+                    "fa_icon": "fas fa-copy",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "description": "Path to known snps file snps.",
+                    "help_text": "> **NB** If none provided, will be generated automatically from the known index file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "known_snps_vqsr": {
+                    "type": "string",
+                    "fa_icon": "fas fa-book",
+                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling).If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "mappability": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "description": "Path to Control-FREEC mappability file.",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "ngscheckmate_bed": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "description": "Path to SNP bed file for sample checking with NGSCheckMate",
+                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "sentieon_dnascope_model": {
+                    "type": "string",
+                    "fa_icon": "fas fa-file",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "description": "Machine learning model for Sentieon Dnascope.",
+                    "help_text": " It is recommended to use DNAscope with a machine learning model to perform variant calling with higher accuracy by improving the candidate detection and filtering. Sentieon can provide you with a model trained using a subset of the data from the GiAB truth-set found in https://github.com/genome-in-a-bottle. In addition, Sentieon can assist you in the creation of models using your own data, which will calibrate the specifics of your sequencing and bio-informatics processing.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "snpeff_cache": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "fa_icon": "fas fa-cloud-download-alt",
+                    "default": "s3://annotation-cache/snpeff_cache/",
+                    "description": "Path to snpEff cache.",
+                    "help_text": "Path to snpEff cache which should contain the relevant genome and build directory in the path ${snpeff_species}.${snpeff_version}\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                },
+                "snpeff_db": {
+                    "type": "string",
+                    "fa_icon": "fas fa-database",
+                    "description": "snpEff DB version.",
+                    "help_text": "This is used to specify the database to be use to annotate with.\nAlternatively databases' names can be listed with the `snpEff databases`.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                },
+                "vep_cache": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "fa_icon": "fas fa-cloud-download-alt",
+                    "default": "s3://annotation-cache/vep_cache/",
+                    "description": "Path to VEP cache.",
+                    "help_text": "Path to VEP cache which should contain the relevant species, genome and build directories at the path ${vep_species}/${vep_genome}_${vep_cache_version}\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "vep_cache_version": {
+                    "type": "string",
+                    "fa_icon": "fas fa-tag",
+                    "description": "VEP cache version.",
+                    "help_text": "Alternative cache version can be used to specify the correct Ensembl Genomes version number as these differ from the concurrent Ensembl/VEP version numbers.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "vep_genome": {
+                    "type": "string",
+                    "fa_icon": "fas fa-microscope",
+                    "description": "VEP genome.",
+                    "help_text": "This is used to specify the genome when looking for local cache, or cloud based cache.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "vep_species": {
+                    "type": "string",
+                    "fa_icon": "fas fa-microscope",
+                    "description": "VEP species.",
+                    "help_text": "Alternatively species listed in Ensembl Genomes caches can be used.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "hidden": true
+                },
+                "genbank": {
+                    "type": "string",
+                    "format": "file-path",
+                    "fa_icon": "fas fa-dna",
+                    "description": "Reference file for breseq (GenBank, GFF3, or FASTA format).",
+                    "help_text": "Path to a reference file used by breseq for variant calling. breseq accepts GenBank (.gb/.gbk), GFF3 (.gff3), or FASTA (.fasta) format. GenBank or GFF3 is recommended for annotation support.",
+                    "hidden": true
+                },
+                "report_gff3": {
+                    "type": "string",
+                    "format": "file-path",
+                    "fa_icon": "fas fa-dna",
+                    "description": "Gene-annotation GFF3 for the mutation-report gene track (used when --generate_reports).",
+                    "help_text": "Per-genome GFF3 providing the gene track shown in the igv-reports dashboards. Optional — if omitted, reports are still generated without the gene annotation track."
+                },
+                "breseq_args": {
+                    "type": "string",
+                    "fa_icon": "fas fa-cog",
+                    "description": "Additional arguments for breseq.",
+                    "help_text": "Extra command-line arguments to pass to breseq. For example, use '--polymorphism-frequency-cutoff 0.1' to adjust the population mode frequency cutoff.",
+                    "hidden": true
+                }
+            },
+            "help_text": "The pipeline config files come bundled with paths to the Illumina iGenomes reference index files.\nThe configuration is set up to use the AWS-iGenomes resource\ncf https://ewels.github.io/AWS-iGenomes/."
+        },
         "preprocessing": {
             "title": "Preprocessing",
             "type": "object",
@@ -719,304 +1017,6 @@
             },
             "fa_icon": "fas fa-dna"
         },
-        "reference_genome_options": {
-            "title": "Reference genome options",
-            "type": "object",
-            "fa_icon": "fas fa-dna",
-            "description": "Reference genome related files and options required for the workflow. If you use AWS iGenomes, this has already been set for you appropriately.",
-            "properties": {
-                "genome": {
-                    "type": "string",
-                    "description": "Name of iGenomes reference.",
-                    "default": "GATK.GRCh38",
-                    "fa_icon": "fas fa-book",
-                    "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`.\n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details.",
-                    "hidden": true
-                },
-                "ascat_genome": {
-                    "type": "string",
-                    "description": "ASCAT genome.",
-                    "help_text": "Must be set to run ASCAT, either hg19 or hg38.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "enum": [
-                        "hg19",
-                        "hg38"
-                    ],
-                    "hidden": true
-                },
-                "ascat_alleles": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "description": "Path to ASCAT allele zip file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "ascat_loci": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "description": "Path to ASCAT loci zip file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "ascat_loci_gc": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "description": "Path to ASCAT GC content correction file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "ascat_loci_rt": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "description": "Path to ASCAT RT (replictiming) correction file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "bwa": {
-                    "type": "string",
-                    "fa_icon": "fas fa-copy",
-                    "description": "Path to BWA mem indices.",
-                    "help_text": "If you wish to recompute indices available on igenomes, set `--bwa false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "bwamem2": {
-                    "type": "string",
-                    "fa_icon": "fas fa-copy",
-                    "description": "Path to bwa-mem2 mem indices.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.\n\nIf you wish to recompute indices available on igenomes, set `--bwamem2 false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference, if `--aligner bwa-mem2` is specified. Combine with `--save_reference` to save for future runs.",
-                    "hidden": true
-                },
-                "chr_dir": {
-                    "type": "string",
-                    "fa_icon": "fas fa-folder-open",
-                    "description": "Path to chromosomes folder used with ControLFREEC.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "dbsnp": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "description": "Path to dbsnp file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "dbsnp_tbi": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "description": "Path to dbsnp index.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the dbsnp file. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "dbsnp_vqsr": {
-                    "type": "string",
-                    "fa_icon": "fas fa-copy",
-                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling).\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "dict": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "description": "Path to FASTA dictionary file.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "dragmap": {
-                    "type": "string",
-                    "fa_icon": "fas fa-copy",
-                    "description": "Path to dragmap indices.",
-                    "help_text": "If you wish to recompute indices available on igenomes, set `--dragmap false`.\n\n> **NB** If none provided, will be generated automatically from the FASTA reference, if `--aligner dragmap` is specified. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "fasta": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "pattern": "^\\S+\\.fn?a(sta)?(\\.gz)?$",
-                    "description": "Path to FASTA genome file.",
-                    "help_text": "This parameter is *mandatory* if `--genome` is not specified.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "fa_icon": "fas fa-file"
-                },
-                "fasta_fai": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the FASTA reference. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "description": "Path to FASTA reference index.",
-                    "hidden": true
-                },
-                "germline_resource": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "description": "Path to GATK Mutect2 Germline Resource File.",
-                    "help_text": "The germline resource VCF file (bgzipped and tabixed) needed by GATK4 Mutect2 is a collection of calls that are likely present in the sample, with allele frequencies.\nThe AF info field must be present.\nYou can find a smaller, stripped gnomAD VCF file (most of the annotation is removed and only calls signed by PASS are stored) in the AWS iGenomes Annotation/GermlineResource folder.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "germline_resource_tbi": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "description": "Path to GATK Mutect2 Germline Resource Index.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the Germline Resource file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "known_indels": {
-                    "type": "string",
-                    "fa_icon": "fas fa-copy",
-                    "format": "file-path-pattern",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "description": "Path to known indels file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "known_indels_tbi": {
-                    "type": "string",
-                    "fa_icon": "fas fa-copy",
-                    "format": "file-path-pattern",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "description": "Path to known indels file index.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the known index file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "known_indels_vqsr": {
-                    "type": "string",
-                    "fa_icon": "fas fa-book",
-                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling). If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "known_snps": {
-                    "type": "string",
-                    "fa_icon": "fas fa-copy",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "description": "Path to known snps file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "known_snps_tbi": {
-                    "type": "string",
-                    "fa_icon": "fas fa-copy",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "description": "Path to known snps file snps.",
-                    "help_text": "> **NB** If none provided, will be generated automatically from the known index file, if provided. Combine with `--save_reference` to save for future runs.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "known_snps_vqsr": {
-                    "type": "string",
-                    "fa_icon": "fas fa-book",
-                    "description": "Label string for VariantRecalibration (haplotypecaller joint variant calling).If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "mappability": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "description": "Path to Control-FREEC mappability file.",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "ngscheckmate_bed": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "description": "Path to SNP bed file for sample checking with NGSCheckMate",
-                    "help_text": "If you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "sentieon_dnascope_model": {
-                    "type": "string",
-                    "fa_icon": "fas fa-file",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "description": "Machine learning model for Sentieon Dnascope.",
-                    "help_text": " It is recommended to use DNAscope with a machine learning model to perform variant calling with higher accuracy by improving the candidate detection and filtering. Sentieon can provide you with a model trained using a subset of the data from the GiAB truth-set found in https://github.com/genome-in-a-bottle. In addition, Sentieon can assist you in the creation of models using your own data, which will calibrate the specifics of your sequencing and bio-informatics processing.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "snpeff_cache": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "fa_icon": "fas fa-cloud-download-alt",
-                    "default": "s3://annotation-cache/snpeff_cache/",
-                    "description": "Path to snpEff cache.",
-                    "help_text": "Path to snpEff cache which should contain the relevant genome and build directory in the path ${snpeff_species}.${snpeff_version}\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
-                },
-                "snpeff_db": {
-                    "type": "string",
-                    "fa_icon": "fas fa-database",
-                    "description": "snpEff DB version.",
-                    "help_text": "This is used to specify the database to be use to annotate with.\nAlternatively databases' names can be listed with the `snpEff databases`.\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
-                },
-                "vep_cache": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "fa_icon": "fas fa-cloud-download-alt",
-                    "default": "s3://annotation-cache/vep_cache/",
-                    "description": "Path to VEP cache.",
-                    "help_text": "Path to VEP cache which should contain the relevant species, genome and build directories at the path ${vep_species}/${vep_genome}_${vep_cache_version}\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "vep_cache_version": {
-                    "type": "string",
-                    "fa_icon": "fas fa-tag",
-                    "description": "VEP cache version.",
-                    "help_text": "Alternative cache version can be used to specify the correct Ensembl Genomes version number as these differ from the concurrent Ensembl/VEP version numbers.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "vep_genome": {
-                    "type": "string",
-                    "fa_icon": "fas fa-microscope",
-                    "description": "VEP genome.",
-                    "help_text": "This is used to specify the genome when looking for local cache, or cloud based cache.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "vep_species": {
-                    "type": "string",
-                    "fa_icon": "fas fa-microscope",
-                    "description": "VEP species.",
-                    "help_text": "Alternatively species listed in Ensembl Genomes caches can be used.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "hidden": true
-                },
-                "genbank": {
-                    "type": "string",
-                    "format": "file-path",
-                    "fa_icon": "fas fa-dna",
-                    "description": "Reference file for breseq (GenBank, GFF3, or FASTA format).",
-                    "help_text": "Path to a reference file used by breseq for variant calling. breseq accepts GenBank (.gb/.gbk), GFF3 (.gff3), or FASTA (.fasta) format. GenBank or GFF3 is recommended for annotation support.",
-                    "hidden": true
-                },
-                "report_gff3": {
-                    "type": "string",
-                    "format": "file-path",
-                    "fa_icon": "fas fa-dna",
-                    "description": "Gene-annotation GFF3 for the mutation-report gene track (used when --generate_reports).",
-                    "help_text": "Per-genome GFF3 providing the gene track shown in the igv-reports dashboards. Optional — if omitted, reports are still generated without the gene annotation track."
-                },
-                "breseq_args": {
-                    "type": "string",
-                    "fa_icon": "fas fa-cog",
-                    "description": "Additional arguments for breseq.",
-                    "help_text": "Extra command-line arguments to pass to breseq. For example, use '--polymorphism-frequency-cutoff 0.1' to adjust the population mode frequency cutoff.",
-                    "hidden": true
-                }
-            },
-            "help_text": "The pipeline config files come bundled with paths to the Illumina iGenomes reference index files.\nThe configuration is set up to use the AWS-iGenomes resource\ncf https://ewels.github.io/AWS-iGenomes/."
-        },
         "institutional_config_options": {
             "title": "Institutional config options",
             "type": "object",
@@ -1216,6 +1216,9 @@
             "$ref": "#/$defs/fastq_preprocessing"
         },
         {
+            "$ref": "#/$defs/reference_genome_options"
+        },
+        {
             "$ref": "#/$defs/preprocessing"
         },
         {
@@ -1226,9 +1229,6 @@
         },
         {
             "$ref": "#/$defs/general_reference_genome_options"
-        },
-        {
-            "$ref": "#/$defs/reference_genome_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"
