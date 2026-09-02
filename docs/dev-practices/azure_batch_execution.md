@@ -692,6 +692,15 @@ came through untouched on the same run.
 full-depth pilot. So a single Launchpad entry serving both profiles needs that field edited at launch
 time, alongside `outdir`.
 
+⚠️ **Hiding a param does not protect it from injection** — `custom_config_base` was `hidden: true`
+in the stock schema and was injected anyway. So the 2026-09 launch-form trim (the
+`conf/schema_overlay.yml` allowlist) changes nothing about this rule: box coverage is the only
+guard. The trim did add one member to the §13 class, though: **`joint_manta` now carries a schema
+`default: true`** (2026-09-01). Today an injection would be a no-op (pipeline default, profile and
+schema all agree on `true`) — but a future launch that sets `joint_manta = false` in a *profile
+only* may be silently overridden back to `true`; turn it off in the params box / launch form
+instead.
+
 **How to diagnose this class of failure** — compare what was *submitted* against what the config
 *resolved to*; they are different objects and only the first wins:
 
