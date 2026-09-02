@@ -925,6 +925,20 @@ baseline comparison — Fusion output identity was already proven by `XFwlgZnKvU
 deleted with pools and disks; work dir purged after harvest; the Batch account is back to only
 `yAMP-ce-nofusion-256`'s two pools.
 
+### 2026-09-01 — ✅ Launch form trimmed to the Tier-1 surface; entry re-registered (id `164422644302756`)
+
+The Seqera launch form now renders **26 visible parameters** (was 122): the schema is generated from
+a visible-param allowlist — `conf/schema_overlay.yml` applied by `bin/apply_schema_overlay.py`
+(commit `fd31e1f`; hidden params stay reachable via the form's "Show hidden params" toggle and the
+YAML view). `joint_manta` defaults to `true` pipeline-wide (`37867a5`), aligning Launchpad runs with
+the validated local recipe — the box never set it, so Seqera had silently been running per-sample
+Manta. Box regenerated with `--generate` (chr_dir and genbank dropped — Control-FREEC-/breseq-only,
+staged-but-unused on Tier-1; `joint_manta` fell out as profile-equals-default) and the entry
+re-registered by `14_register_pipeline.sh`: **new pipeline id `164422644302756`** (replaces
+`172614290773283` — id churn per the four-route table above). Readback verification all-green,
+engine pin `25.10.4` preserved. The registered revision includes the FS-gated SOR filter
+(`4c45fb8`), so the next Launchpad run is the first cloud run with the new soft filter.
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |
