@@ -85,6 +85,16 @@ needs in-session are repeated here.
   unit test. Learned 2026-09-02: the SOR_FS commit (`4c45fb8`) was "validated" by launcher + pilot
   only and left the snapshot stale for two days. Loop and rationale:
   [`testing_best_practices.md` §12](docs/dev-practices/testing_best_practices.md#12-what-counts-as-validated--the-contract-test-rule).
+- **What counts as validated for a *number*** (benchmark tables, concordance rates, the figures that
+  end up quoted as fact): commit the analysis script **before** publishing results from it, have every
+  published number name the script and run directory that produced it, and label a claim by its
+  evidence — *measured* / *inferred* / *assumed* — never upgrading it silently. Learned 2026-09-04:
+  "2 real clone-specific rows" was really "2 rows not on my artifact list", and survived two commits
+  before a read-level check disproved it.
+  [`testing_best_practices.md` §13](docs/dev-practices/testing_best_practices.md#13-benchmark-claims--provenance-evidence-labels-script-before-numbers).
+- **Shared repo state goes in `PLAN_next_checklist.md`, not session memory** — several sessions run in
+  parallel and their memories cannot stay consistent about what is committed, pushed or running.
+  [`testing_best_practices.md` §14](docs/dev-practices/testing_best_practices.md#14-cross-session-state-lives-in-one-file).
 - **Resources**: `-profile azureD4as` is **on dev VM only** (4 vCPU / 16 GB). On any other machine
   copy [`conf/mymachine.config`](conf/mymachine.config) and pass it with `-c` — never reuse
   `azureD4as`. Model + precedence rules: [`compute_resources.md`](docs/dev-practices/compute_resources.md).

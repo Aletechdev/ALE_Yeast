@@ -568,6 +568,56 @@ Wiring: `.claude/settings.json` runs it as a `PreToolUse` hook on every `git com
 commits made by hand install it as a git hook — `ln -s ../../bin/check_snapshot_staged.sh
 .git/hooks/commit-msg` (git passes the message file as `$1`). An exit code of 2 blocks with the reason.
 
+## 13. Benchmark claims — provenance, evidence labels, script-before-numbers
+
+§12 covers changes to the pipeline. This covers the other thing we commit: **numbers** — the
+concordance rates, retention percentages and pass-table counts that end up in `04_validate/` reports
+and in user-facing docs. They get quoted back months later as settled fact, so they need the same
+discipline as code. Three rules, each learned on 2026-09-02..04 during the Manta calling-mode work.
+
+**13.1 Commit the analysis script before publishing numbers from it.** The joint-vs-per-sample
+pass-table comparison ran as ad-hoc code for two days while its results were already written into
+`manta_joint_at_scale/REPORT.md`. Writing it up as
+[`compare_sv_pass_tables.py`](../benchmarking/ottilie_xenobiotic_ale/04_validate/compare_sv_pass_tables.py)
+immediately exposed a discrepancy: the committed tables classified breakpoints against a narrower
+"engineered locus" list (16 ABC transporters + ADH1) than the later analysis, which had to add URA3
+and CYC1 — the cassette's own marker and terminator. Several FALSE counts were understated. Ad-hoc
+code cannot be diffed, so a definition that drifts mid-analysis drifts silently.
+
+**13.2 Every published number names its producer.** A benchmark table states the script that computes
+it and the run directory it reads, so any figure can be re-derived — or falsified — without the
+session that made it. Committed launchers exist for this reason even when the analysis is a one-off:
+`run_sv_mode_series.sh` records how the outputs were produced, `compare_sv_pass_tables.py` how they
+were scored, and `04_validate/README.md` maps every script to its results directory.
+
+**13.3 Label a claim by its evidence, and never upgrade it silently.** The most expensive error in
+that work was writing "**2 real** clone-specific rows" when the measurement only supported "2 rows
+**not matching my known-artifact list**" — an absence of evidence reported as evidence. It survived
+into two commits before a direct check overturned it: the parent carries 201 read pairs across the
+URA3→CYC1 junction against 215 and 217 in the clones the matrix scored as carriers, so those rows are
+a threshold artifact, not biology. Distinguish *measured* (a number the script computed), *inferred*
+(consistent with a mechanism) and *assumed*; keep the weaker word until the stronger one is earned.
+Where a script can carry the caveat itself, put it there — `compare_sv_pass_tables.py` prints, on
+every run, that "candidate real" means only "not at a known engineered locus".
+
+**Corollary — corrections stay visible.** When a number changes, say so where the old one lived, and
+why. `REPORT.md` marks its falsified "~15–20" guard threshold in place rather than quietly deleting
+it, because that figure had already been quoted into a plan file.
+
+## 14. Cross-session state lives in one file
+
+Several sessions work this repo in parallel, each with its own memory. Memory is reliable for what a
+session did and why; it is **not** reliable for shared repo state. On 2026-09-04 one session's notes
+recorded a commit as unpushed that was already on the remote, and neither session's notes knew that a
+default-on trimming change had made the contract test flaky for everyone.
+
+**Rule.** "What is committed, what is pushed, what is running" belongs in the current
+`PLAN_next_checklist.md` (uncommitted working file, deleted when executed), written by whichever
+session changes that state — not in per-session memory, which cannot be kept consistent. Per-session
+memory keeps genuinely private context: reasoning, dead ends, user preferences. A session that
+discovers something affecting another's area (a shared-test regression, a changed error path) records
+it there with the commit id, so the next session reads it without having to be told.
+
 ## TODO
 
 - [ ] Create downsampled test FASTQs and upload to Azure Blob
