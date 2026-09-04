@@ -264,14 +264,17 @@ GATK error). The same starvation gates VQSR (which has the soft-filter fallback 
 section below) and FilterVariantTranches. Full mechanism:
 [`haplotypecaller_workflow_analysis.md` → known-sites starvation](docs/variant-calling/haplotypecaller/haplotypecaller_workflow_analysis.md#4-the-known-sites-starvation-pattern-custom-genomes).
 
-### Read preprocessing — no trimming by default; opt-in fastp trimming
+### Read preprocessing — fastp trimming on by default (adapter + 3′ tail)
 
-**By default reads reach bwa-mem exactly as sequenced.** FastQC runs on the raw FASTQs (report-only) and
-**FASTP does not execute on an ALE run**: its gate is `trim_adapter || trim_fastq || trim_quality_3prime ||
-trim_quality_5prime || split_fastq > 0` (`workflows/sarek/main.nf`), all off in every ALE config. The
-**Azure baseline was produced this way**, so enabling any step invalidates byte-comparison against it.
+**Default since 2026-09-04: adapter trimming + 3′ tail quality trimming** (`--trim_adapter
+--trim_quality_3prime tail`, fastp's read filter on). FastQC still reports on the raw FASTQs. For reads
+exactly as sequenced set `--trim_adapter false` and unset `trim_quality_3prime`; FASTP's gate is
+`trim_adapter || trim_fastq || trim_quality_3prime || trim_quality_5prime || split_fastq > 0`
+(`workflows/sarek/main.nf`). ⚠️ The **Azure baseline and earlier Seqera comparisons were produced
+with no preprocessing**, so byte-comparison against them is invalidated until the baseline is re-cut
+with the new default; the 4-sample pilot's sensitivity re-check (41/42) goes with that re-cut.
 
-Preprocessing is **opt-in**, organised as four steps in run order (user page:
+The steps, in run order (user page:
 [`docs/usage/read_preprocessing.md`](docs/usage/read_preprocessing.md)): step 0 UMI consensus (hidden,
 no ALE library has UMIs) → fastp step 1 **adapter trimming** `--trim_adapter` (auto-detected;
 `--adapter_sequence` names it, e.g. Nextera `CTGTCTCTTATACACATCT`; `trim_fastq` is the deprecated
@@ -279,9 +282,8 @@ upstream alias) → step 2 **fixed-count clipping** (upstream `clip_*`, before t
 end** `--trim_quality_3prime tail|right` / `--trim_quality_5prime` (a **variable** number of bases by
 quality, window/threshold 4/Q20) → step 4 **read filtering** `filter_quality` (fastp's read-level filter, **on** as upstream,
 drops 0.7–4.2 % of test-set pairs) + `length_required`. Poly-G: fastp's read-name auto-detection applies at
-`trim_nextseq = 0` (upstream parity); a non-zero value forces it. Recommended recipe for ALE data, not yet the default:
-`--trim_adapter --trim_quality_3prime tail` (test set: adapter in 11 % of the evolved clone's reads,
-≤ 2 % of bases lost to the tail trim). Design, measurements, validation:
+`trim_nextseq = 0` (upstream parity); a non-zero value forces it. On the test set the default recipe touches 11 % of the evolved clone's reads (adapter) and removes
+≤ 2 % of bases (tail trim). Design, measurements, validation:
 [`fastq_preprocessing_audit.md`](docs/dev-practices/fastq_preprocessing_audit.md) §2; module test
 `tests/fastp_preprocessing.nf.test`.
 

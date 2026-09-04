@@ -22,7 +22,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `adapter_sequence[_r2]`, `trim_quality_3prime tail|right` + `trim_quality_5prime` + shared mean/window,
   `filter_quality` (on, as upstream) + thresholds; gate extended; poly-G auto-detection off unless
   `trim_nextseq`. Defaults unchanged; recommended opt-in recipe `--trim_adapter --trim_quality_3prime tail`.
-  Still open: whether it becomes the ALE default (baseline re-cut).
+  **Default since 2026-09-04**; Azure baseline re-cut + 4-sample pilot re-check pending (Seqera comparison).
 - **[med] Add Trimmomatic as an alternative trimmer (`--trimmer fastp|trimmomatic`).** Requested by the
   team for parity with their existing setup. The nf-core module exists but four things collide with a
   sarek 3.5.1 fork: its versions come via a **topic channel**, not `versions.yml`, so it would be absent
@@ -40,7 +40,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `tests/fastp_preprocessing.nf.test` runs the real `FASTP` module under `conf/modules/trimming.config`
   on a committed 1 000-pair fixture — one case per preprocessing step (adapter, alias, poly-G, quality
   both ends, filter off, filter thresholds, split-only), exact counts pinned. The `ottilie_e2e` route
-  still runs with every step off, by design (baseline).
+  runs with the default recipe (`--trim_adapter --trim_quality_3prime tail`) since 2026-09-04.
 
 ## Variant calling — HaplotypeCaller
 

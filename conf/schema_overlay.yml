@@ -83,7 +83,7 @@ group_order:
 group_overrides:
   fastq_preprocessing:
     title: "Read preprocessing"
-    description: "Optional steps between the samplesheet and alignment, in run order: step 0 UMI consensus (fgbio, only with umi_read_structure) → fastp: step 1 adapter trimming · step 2 fixed-count clipping · step 3 quality trimming per read end · step 4 read filtering. Reads are aligned exactly as sequenced unless a step is switched on; fastp runs only when step 1, 2 or 3 is on (or split_fastq > 0). Details: docs/usage/read_preprocessing.md"
+    description: "Optional steps between the samplesheet and alignment, in run order: step 0 UMI consensus (fgbio, only with umi_read_structure) → fastp: step 1 adapter trimming · step 2 fixed-count clipping · step 3 quality trimming per read end · step 4 read filtering. ALE default: step 1 adapter trimming + step 3 tail quality trimming (+ step 4 read filter). For reads exactly as sequenced set trim_adapter = false and trim_quality_3prime unset; fastp then runs only if step 2 is set or split_fastq > 0. Details: docs/usage/read_preprocessing.md"
 
 # Parameter order inside a group (listed first, in this order; the rest follow in upstream order).
 property_order:

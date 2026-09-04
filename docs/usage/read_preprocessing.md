@@ -1,8 +1,10 @@
 # Read preprocessing — what happens to reads before alignment
 
-Everything between the samplesheet and bwa-mem, in run order. **By default nothing here runs**: reads
-are aligned exactly as sequenced (FastQC still reports on them). Each step is its own switch; fastp
-runs only when step 1, 2 or 3 is on (or `split_fastq > 0`). Parameter group in the launch form /
+Everything between the samplesheet and bwa-mem, in run order. **The ALE default (since 2026-09-04)
+is adapter trimming plus 3′ tail quality trimming**, with fastp's read filter on: `--trim_adapter
+--trim_quality_3prime tail`. Each step is its own switch; for reads exactly as sequenced set
+`--trim_adapter false` and leave `trim_quality_3prime` unset, and fastp then runs only if step 2 is set
+or `split_fastq > 0` (FastQC reports on the raw reads either way). Parameter group in the launch form /
 `--help`: **Read preprocessing**.
 
 ```
@@ -15,7 +17,7 @@ raw FASTQ → FastQC (report only)
           → bwa-mem
 ```
 
-Recommended recipe for ALE data (not the default — see [Defaults](#defaults-and-the-baseline)):
+The default recipe (see [Defaults and the baseline](#defaults-and-the-baseline)):
 
 ```
 --trim_adapter --trim_quality_3prime tail
@@ -107,9 +109,15 @@ the MultiQC fastp section.
 
 ## Defaults and the baseline
 
-All steps default to off (step 4 is on only when fastp runs). The verified Azure Batch baseline and the
-e2e snapshot were produced with no preprocessing at all, so switching any step on changes the reads
-reaching bwa-mem and invalidates byte-comparison against them. Making the recommended recipe the ALE
-default is a separate decision tied to the next deliberate baseline re-cut. Validation of the recipe on
-the ottilie truth set (4 SNVs + chr I duplication recovered identically):
-[`fastq_preprocessing_audit.md` §2.6](../dev-practices/fastq_preprocessing_audit.md#26-validation-performed-2026-09-02).
+Since 2026-09-04 the default recipe is `--trim_adapter --trim_quality_3prime tail` with step 4's
+filter on; step 2 and the 5′ cut stay off. Every ALE profile inherits it. Consequences:
+
+- The **verified Azure Batch baseline** (`az://aletest/ottilie-azurebatch-out/`) and the Seqera runs
+  compared against it were produced with **no preprocessing**, so byte-comparison against them is
+  invalidated until the baseline is re-cut with the new default (a Seqera run per the RUNBOOK's
+  local-vs-Seqera procedure). Until then, treat trimming as a known difference class.
+- The e2e snapshot was re-recorded with the default on (2026-09-04): the 4 truth SNVs and the chr I
+  duplication are recovered as before; the 4-sample pilot's truth-set sensitivity (41/42) is to be
+  re-confirmed together with the baseline re-cut.
+- Validation of the recipe on the 2-sample truth set:
+  [`fastq_preprocessing_audit.md` §2.6](../dev-practices/fastq_preprocessing_audit.md#26-validation-performed-2026-09-02).

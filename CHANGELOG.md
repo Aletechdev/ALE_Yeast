@@ -21,7 +21,9 @@
   upstream) with visible thresholds `filter_quality_phred` (15) / `filter_quality_percent` (40) and
   `length_required`. Parameter descriptions carry their step; UMI and split-publish params are hidden.
   The FASTP gate also fires on the quality-trimming params. Recommended ALE recipe
-  `--trim_adapter --trim_quality_3prime tail` (not the default). Design + measurements:
+  `--trim_adapter --trim_quality_3prime tail` — **the default since 2026-09-04** (reads are no longer
+  aligned as sequenced unless `--trim_adapter false` and `trim_quality_3prime` unset; the Azure
+  baseline byte-comparison is invalidated until re-cut). Design + measurements:
   `docs/dev-practices/fastq_preprocessing_audit.md` §2. Module test: `tests/fastp_preprocessing.nf.test`.
 
 - **TIDDIT soft filters for the SV pass view** (`TIDDIT_SV_FILTER`): three Manta-inspired named

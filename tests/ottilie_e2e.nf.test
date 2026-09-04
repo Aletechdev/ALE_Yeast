@@ -8,6 +8,8 @@ nextflow_pipeline {
     // Run with:  nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test
     // Profile (ottilie_test,docker) + resourceLimits come from tests/nf-test-ottilie.config.
     // Tools exercised (from ottilie_test.config): snpeff, cnvkit, tiddit, manta, haplotypecaller
+    //   + FASTP with the default read-preprocessing recipe (trim_adapter, trim_quality_3prime tail;
+    //     snapshot re-recorded 2026-09-04 when it became the default).
     //   + joint germline, split joint VCF, hard filter, and the MUTATION_REPORT dashboard.
     //
     // This is the ALE end-to-end contract test: a clean single run with inline --generate_reports

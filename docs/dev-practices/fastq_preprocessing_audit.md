@@ -238,7 +238,7 @@ Read from the table:
    aggressive (a mid-read dip removes the remainder): 3–6 % more bases and ~2 % of pairs gone, rising to
    3.5 % with `length_required 36`.
 
-### 2.5 Recommended ALE recipe — and it is not the default
+### 2.5 The ALE recipe — default since 2026-09-04
 
 ```
 --trim_adapter --trim_quality_3prime tail   # window 4, Q20, length_required 15; fastp's read filter on (default)
@@ -249,9 +249,14 @@ trimming. With the default `filter_quality = true` fastp also discards its low-q
 (0.7 % / 4.2 % on the test set — M0 vs M1 in §2.4); add `--filter_quality false` for trimming only.
 The §2.6 validation run used `--filter_quality false`; the filter's own footprint is measured separately
 in §2.4 and does not touch the truth set (all four SNVs sit at 48–149× in the evolved clone). Add `--adapter_sequence CTGTCTCTTATACACATCT`
-for Nextera libraries where the auto-detection reports *unspecified*. **All defaults stay off**: the
-ottilie configs, the e2e snapshot and the Azure baseline are untouched. Making this the ALE default is
-open decision 3 (§4) and belongs with the next deliberate baseline re-cut.
+for Nextera libraries where the auto-detection reports *unspecified*.
+
+**Default since 2026-09-04** (user decision): `trim_adapter = true`, `trim_quality_3prime = 'tail'` in
+`nextflow.config`, every ALE profile inheriting. The e2e snapshot was re-recorded with it; the Azure
+baseline byte-comparison is invalidated until the baseline is re-cut (Seqera run per the RUNBOOK), and
+the 4-sample pilot's truth-set sensitivity (41/42 on 2026-09-01) is re-confirmed with that re-cut rather
+than now. Set `--trim_adapter false` and leave `trim_quality_3prime` unset for reads as sequenced.
+
 
 ### 2.6 Validation performed (2026-09-02)
 
@@ -389,10 +394,9 @@ name**. Worth a comment in the config, since it reads backwards.
    reproduces Trimmomatic's `ILLUMINACLIP` + `TRAILING`/`SLIDINGWINDOW` + `MINLEN` behaviour.
 2. ~~Symmetric or asymmetric quality trimming?~~ **Resolved (§2.2):** one mode at a time via the enum;
    `front` + `tail` in a single run is not representable and was not asked for.
-3. **Does the ALE default change?** Everything in §2 is opt-in. Turning `--trim_adapter --trim_quality_3prime tail`
-   on by default re-cuts the Azure baseline, re-records the e2e snapshot and re-validates the ottilie
-   truth set. §2.4 gives the expected footprint (0–2 % of bases, ≤ 0.6 % of pairs, 11 % of the evolved
-   clone's reads shortened).
+3. ~~**Does the ALE default change?**~~ **Resolved 2026-09-04: yes** — `--trim_adapter --trim_quality_3prime
+   tail` is the default (§2.5). Baseline re-cut and pilot re-check deferred to the local-vs-Seqera
+   comparison.
 
 ## 5. Suggested order
 
@@ -402,4 +406,4 @@ name**. Worth a comment in the config, since it reads backwards.
    `nextflow_process` test of `FASTP` under the pipeline's `trimming.config` on a committed 1 000-pair
    fixture (`tests/fixtures/fastp_*`), one case per step (§2.3 is the table it pins).
 4. Settle open decision 1. Only then start Plan B.
-5. Decide open decision 3 together with the next baseline re-cut.
+5. ~~Decide open decision 3~~ Done 2026-09-04; re-cut the Azure baseline with the new default.
