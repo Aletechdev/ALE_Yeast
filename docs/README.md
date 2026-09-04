@@ -83,6 +83,7 @@ Output-directory layout is in the [root README](../README.md#output).
 | [`variant-calling/sv_merge.md`](variant-calling/sv_merge.md) | **Maintainer reference** for the SURVIVOR merge chain — CLI params, `SUPP_VEC`, `proximity_match`, CSV schema, gotchas |
 | [`variant-calling/tiddit/tiddit_ploidy_behavior.md`](variant-calling/tiddit/tiddit_ploidy_behavior.md) | TIDDIT `-n` ploidy effects on normalization and GT thresholds |
 | [`variant-calling/manta/manta_filter_vs_ft.md`](variant-calling/manta/manta_filter_vs_ft.md) | `FILTER` vs `FORMAT/FT` in single-sample Manta |
+| [`variant-calling/manta/manta_calling_modes.md`](variant-calling/manta/manta_calling_modes.md) | **Which Manta mode to use** — joint per-experiment is the default and why; large-cohort limit; why `--manta_high_sensitivity` stays opt-in |
 | [`variant-calling/sv_uniform_genotyping_roadmap.md`](variant-calling/sv_uniform_genotyping_roadmap.md) | **Roadmap (not implemented)** — GVCF-style split of SV discovery from genotyping; why joint Manta covers small cohorts but not large ones, and the trigger to build it |
 
 ### Tier 2 tools
