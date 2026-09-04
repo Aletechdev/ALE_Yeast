@@ -47,6 +47,13 @@ reports/mosdepth/**/*.bed.gz
 reports/mosdepth/**/*.bed.gz.csi
 # samtools stats (embeds the cram path / command line):
 reports/samtools/**/*.stats
+# fastp HTML + log: both embed wall-clock values — the HTML footer a timestamp
+# ("fastp 0.23.4, at 2026-09-04 10:57:24"), the log a duration ("time used: 1 seconds").
+# The log is only INTERMITTENTLY different (it flips when a sample crosses a whole second),
+# which makes the test flaky rather than reliably red — caught 2026-09-04. Both became
+# relevant when trimming turned on by default. The sibling fastp.json carries the actual
+# trimming statistics, is deterministic, and stays snapshotted.
+reports/fastp/**/*.{html,log}
 # igv-reports dashboard HTML (non-deterministic sessionDictionary) — nested AND top-level
 # (** matches subdirs but not direct children of mutation_reports/):
 mutation_reports/**/*.html

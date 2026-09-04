@@ -793,12 +793,8 @@
                 "NODRUG-GM2.manta.diploid_sv.bcftools_stats.txt:md5,89799fefb92828ea4e787612ea52a2c8",
                 "CBR110-15-R3a.tiddit.bcftools_stats.txt:md5,8370627755bed0e68e5b6f03b7457da7",
                 "NODRUG-GM2.tiddit.bcftools_stats.txt:md5,4ca69a034a476dae86bd6da856b6cd7a",
-                "CBR110-15-R3a-L001.fastp.html:md5,20561e4133b3833732fdc76779bb94f6",
                 "CBR110-15-R3a-L001.fastp.json:md5,9f6d0ebf218300fdc8e5c76cd410d992",
-                "CBR110-15-R3a-L001.fastp.log:md5,ac8f8fe63a1021b7f306ee7b6b797ff4",
-                "NODRUG-GM2-L001.fastp.html:md5,0931bf15f77725ef8d0a6caec54272a4",
                 "NODRUG-GM2-L001.fastp.json:md5,dd9f8aba065426472517d43ba26f4aaa",
-                "NODRUG-GM2-L001.fastp.log:md5,3e669da3d5076970426c393329958bf8",
                 "CBR110-15-R3a.md.mosdepth.global.dist.txt:md5,a1813590c89d1c12116b8b7724eb8d4d",
                 "CBR110-15-R3a.md.mosdepth.region.dist.txt:md5,a828c6e327afebd18d962f5c680d1a0e",
                 "CBR110-15-R3a.md.mosdepth.summary.txt:md5,d1d18cd1873668eaa75e62c54adba606",
@@ -880,6 +876,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-09-04T14:51:29.434906755"
+        "timestamp": "2026-09-04T16:13:27.084166821"
     }
 }
