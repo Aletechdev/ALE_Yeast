@@ -39,7 +39,13 @@ none — but the additions are weak evidence:
 - **none of the added rows had TIDDIT agreement** (0/14 and 0/15) — all Manta-only, with Manta's own
   safeties off;
 - most are shared background or partially-shared rows, which analysts subtract against the parent anyway;
-- the deliverable-level gain is only **+2 real clone-specific rows, against +1 false one**, at each size.
+- **none of the added clone-specific rows is an evolved mutation** (checked 2026-09-04). All three per
+  cohort are engineered background or repeat artifacts: junctions between cassette components — the
+  Green Monster cassette is a *GFP-URA3* fragment, so breakends land in **URA3** (V:116.2–117.0 kb)
+  paired with **CYC1** (X:527 kb) — or an ~80 bp deletion in the subtelomeric Y' elements
+  (YLR462W/YLR463C, XII:1065 kb). The giveaway is recurrence: the same locus pairs appear
+  "clone-specific" in *different* clones in different cohorts and never in the parent, which is
+  marginal evidence flickering over threshold, not independent identical mutations.
 
 So it is a useful *analysis* switch — run it beside the default and treat the delta as review material,
 particularly when you want the engineered-background record complete — but not a default. Note it also

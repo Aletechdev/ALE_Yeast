@@ -156,8 +156,14 @@ Findings:
    But **none of the added rows has TIDDIT agreement** (0/14 and 0/15 — all Manta-only, with Manta's
    own heuristics disabled), and most are background or partially-shared rows that get subtracted
    against the parent anyway. Breakdown of the additions (4-sample / 16-sample): all-samples 7 / 3,
-   partial 4 / 9, clone-specific 3 / 3 — of which only **2 real (+1 false) per cohort**. So the
-   deliverable-level gain is small and uncorroborated: an analysis switch, not a default.
+   partial 4 / 9, clone-specific 3 / 3. **Follow-up 2026-09-04: none of those clone-specific rows is
+   an evolved mutation.** They are cassette-component junctions (URA3 × CYC1 — the Green Monster
+   cassette is a *GFP-URA3* fragment) or a subtelomeric Y'-element deletion (XII:1065 kb), identified
+   by recurrence: the same locus pairs are "clone-specific" in *different* clones across the two
+   cohorts and never in the parent. An earlier version of this report called 2 of them "real"; that
+   used a cassette test covering only the 16 ABC transporters and ADH1, which missed URA3 and CYC1.
+   So the deliverable-level gain of high sensitivity is **zero real clone-specific calls** — it adds
+   background completeness only. An analysis switch, not a default.
 
 ### Guard threshold — revised
 
