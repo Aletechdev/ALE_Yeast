@@ -2,15 +2,16 @@
 
 Everything between the samplesheet and bwa-mem, in run order. **By default nothing here runs**: reads
 are aligned exactly as sequenced (FastQC still reports on them). Each step is its own switch; fastp
-runs only when step 1 or 2 is on (or `split_fastq > 0`). Parameter group in the launch form /
+runs only when step 1, 2 or 3 is on (or `split_fastq > 0`). Parameter group in the launch form /
 `--help`: **Read preprocessing**.
 
 ```
 raw FASTQ → FastQC (report only)
           → step 0  UMI consensus            fgbio      only with --umi_read_structure
           → fastp:  step 1  adapter trimming             --trim_adapter
-                    step 2  quality trimming per end     --trim_quality_3prime / --trim_quality_5prime
-                    step 3  read filtering               --filter_quality (on), --length_required
+                    step 2  fixed-count clipping         --clip_r1/r2, --three_prime_clip_r1/r2
+                    step 3  quality trimming per end     --trim_quality_3prime / --trim_quality_5prime
+                    step 4  read filtering               --filter_quality (on), --length_required
           → bwa-mem
 ```
 
@@ -40,12 +41,23 @@ the evolved clone's reads and trimmed 10 Mb of sequence that bwa would otherwise
 | `adapter_sequence`, `adapter_sequence_r2` | auto | name the kit's adapter explicitly when fastp reports `unspecified` (low-adapter libraries): Nextera `CTGTCTCTTATACACATCT`, TruSeq R1 `AGATCGGAAGAGCACACGTCTGAACTCCAGTCA` / R2 `AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT`. |
 | `trim_nextseq` | 0 | any non-zero value forces poly-G tail trimming (two-colour NextSeq/NovaSeq chemistry). At 0 fastp decides by itself from the read names, as in upstream sarek: on when the first read name has a NextSeq/NovaSeq prefix (`@A00123:…`), off otherwise — so SRA-renamed data (`@SRR…`) is only trimmed if you set this. |
 
-Step 1 behaves as upstream sarek's `--trim_fastq`: fastp's read-level quality filter (step 3) is on
+Step 1 behaves as upstream sarek's `--trim_fastq`: fastp's read-level quality filter (step 4) is on
 unless you turn it off.
 
-## Step 2 — Quality trimming, per read end
+## Step 2 — Fixed-count clipping
 
-Trims a **variable** number of low-quality bases from a read end — there is no fixed base count. fastp
+Removes a set number of bases from a read end regardless of quality: `clip_r1`, `clip_r2` from the
+5′ end and `three_prime_clip_r1`, `three_prime_clip_r2` from the 3′ end (fastp `--trim_front*` /
+`--trim_tail*`). Use it only when you know the exact cycles to drop, e.g. a known bad last cycle;
+otherwise leave it at 0 and let step 3 decide per read. fastp applies these clips **before** the
+quality cut, so the two compose: clip the cycles you know are bad, then let the window cut adapt to
+what remains. Not part of the ALE recipe.
+
+## Step 3 — Quality trimming, per read end
+
+Trims a **variable** number of low-quality bases from a read end — no fixed base count (that is step 2).
+fastp's order between this cut and step 1's adapter detection is its own; what is guaranteed is that
+step 2 runs before this cut and step 4 evaluates the fully trimmed read. fastp
 slides a window (`trim_quality_window`, default 4 bases) and trims where the window's mean quality is
 below `trim_quality_mean` (default Q20).
 
@@ -71,15 +83,9 @@ test set it removed 0.03 % (evolved clone) to 2.2 % (parent) of bases beyond the
 has a systematic dip at position 58 that truncates 10 % of its reads under `right`. Measurements:
 [`fastq_preprocessing_audit.md` §2.4](../dev-practices/fastq_preprocessing_audit.md#24-what-each-option-does-to-the-ottilie-test-set).
 
-*Fixed-count alternative (upstream):* `clip_r1`, `clip_r2`, `three_prime_clip_r1`, `three_prime_clip_r2`
-remove a set number of bases from each end regardless of quality. fastp applies them **before** the
-quality cut, so the two compose: clip the cycles you know are bad, then let the quality cut adapt per
-read. Not part of the schematic; use them only when you know the exact number of bases to drop (e.g. a
-known bad last cycle).
+## Step 4 — Read filtering
 
-## Step 3 — Read filtering
-
-Evaluated on the read **after** steps 1–2. A pair is discarded when either mate fails.
+Evaluated on the read **after** steps 1–3. A pair is discarded when either mate fails.
 
 | Parameter | Default | Use |
 |---|---|---|
@@ -94,14 +100,14 @@ the MultiQC fastp section.
 ## Not preprocessing steps
 
 - **Parallelisation** — `split_fastq` (main options group, hidden; every ALE profile sets 0) shards
-  FASTQs through the same fastp process. A non-zero value runs fastp even with steps 1–2 off; step 3's
+  FASTQs through the same fastp process. A non-zero value runs fastp even with steps 1–3 off; step 4's
   filter then still applies unless `--filter_quality false`.
 - **Outputs** — `save_trimmed` publishes the trimmed FASTQs under `preprocessing/fastp/<sample>/`;
   `save_split_fastqs` (hidden) the shards.
 
 ## Defaults and the baseline
 
-All steps default to off (step 3 is on only when fastp runs). The verified Azure Batch baseline and the
+All steps default to off (step 4 is on only when fastp runs). The verified Azure Batch baseline and the
 e2e snapshot were produced with no preprocessing at all, so switching any step on changes the reads
 reaching bwa-mem and invalidates byte-comparison against them. Making the recommended recipe the ALE
 default is a separate decision tied to the next deliberate baseline re-cut. Validation of the recipe on

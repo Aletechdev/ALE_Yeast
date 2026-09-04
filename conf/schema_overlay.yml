@@ -26,9 +26,8 @@ visible:
   - outdir
   # Main options
   - tools
-  # Read preprocessing (docs/usage/read_preprocessing.md) - visible = the three fastp steps and
-  # the trimmed-FASTQ publish flag; the fixed-count clips stay visible as step 2's alternative (user
-  # choice). Hidden: step 0 UMI consensus (no ALE library has UMIs), the deprecated trim_fastq alias,
+  # Read preprocessing (docs/usage/read_preprocessing.md) - visible = the four fastp steps and
+  # the trimmed-FASTQ publish flag. Hidden: step 0 UMI consensus (no ALE library has UMIs), the deprecated trim_fastq alias,
   # save_split_fastqs.
   - trim_adapter
   - adapter_sequence
@@ -37,11 +36,11 @@ visible:
   - trim_quality_3prime
   - trim_quality_5prime
   - trim_quality_mean
-  - trim_quality_window
   - clip_r1
   - clip_r2
   - three_prime_clip_r1
   - three_prime_clip_r2
+  - trim_quality_window
   - filter_quality
   - filter_quality_phred
   - filter_quality_percent
@@ -84,7 +83,7 @@ group_order:
 group_overrides:
   fastq_preprocessing:
     title: "Read preprocessing"
-    description: "Optional steps between the samplesheet and alignment, in run order: step 0 UMI consensus (fgbio, only with umi_read_structure) → fastp: step 1 adapter trimming · step 2 quality trimming per read end · step 3 read filtering. Reads are aligned exactly as sequenced unless a step is switched on; fastp runs only when step 1 or 2 is on (or split_fastq > 0). Details: docs/usage/read_preprocessing.md"
+    description: "Optional steps between the samplesheet and alignment, in run order: step 0 UMI consensus (fgbio, only with umi_read_structure) → fastp: step 1 adapter trimming · step 2 fixed-count clipping · step 3 quality trimming per read end · step 4 read filtering. Reads are aligned exactly as sequenced unless a step is switched on; fastp runs only when step 1, 2 or 3 is on (or split_fastq > 0). Details: docs/usage/read_preprocessing.md"
 
 # Parameter order inside a group (listed first, in this order; the rest follow in upstream order).
 property_order:
@@ -98,16 +97,17 @@ property_order:
     - adapter_sequence
     - adapter_sequence_r2
     - trim_nextseq
-    # step 2 - quality trimming per read end (+ hidden fixed-count clips)
-    - trim_quality_3prime
-    - trim_quality_5prime
-    - trim_quality_mean
-    - trim_quality_window
+    # step 2 - fixed-count clipping
     - clip_r1
     - clip_r2
     - three_prime_clip_r1
     - three_prime_clip_r2
-    # step 3 - read filtering
+    # step 3 - quality trimming per read end
+    - trim_quality_3prime
+    - trim_quality_5prime
+    - trim_quality_mean
+    - trim_quality_window
+    # step 4 - read filtering
     - filter_quality
     - filter_quality_phred
     - filter_quality_percent
@@ -126,23 +126,23 @@ property_overrides:
     description: "Step 1 · Adapter trimming: force poly-G tail trimming (fastp `--trim_poly_g`); any non-zero value enables it. At 0 fastp decides from the read names, as in upstream sarek."
     help_text: "Poly-G tails come from two-colour chemistry (NextSeq/NovaSeq), where no signal reads as G. At 0 nothing is passed and fastp applies its own rule: poly-G trimming switches on automatically when the first read name carries a NextSeq/NovaSeq instrument prefix (e.g. `@A00123:...`) and stays off otherwise - so data renamed by SRA (`@SRR...`) is never poly-G-trimmed unless you set this. Any non-zero value forces it on for every dataset. The value itself is not passed to fastp (this is not Trim Galore's `--nextseq=X` quality cutoff); use `trim_quality_3prime` for quality trimming.\n\nfastp: non-zero = `--trim_poly_g` / `-g`; 0 = nothing passed (fastp's read-name auto-detection; `--disable_trim_poly_g` / `-G` is not exposed)."
   clip_r1:
-    description: "Step 2 (fixed-count alternative): remove this many bp from the 5' end of read 1 (fastp `--trim_front1`)."
+    description: "Step 2 · Fixed-count clipping: remove this many bp from the 5' end of read 1 regardless of quality (fastp `--trim_front1`). For a known bad cycle; applied before step 3."
     help_text: "fastp: `--trim_front1` / `-f`."
 
   clip_r2:
-    description: "Step 2 (fixed-count alternative): remove this many bp from the 5' end of read 2 (fastp `--trim_front2`)."
+    description: "Step 2 · Fixed-count clipping: remove this many bp from the 5' end of read 2 regardless of quality (fastp `--trim_front2`)."
     help_text: "fastp: `--trim_front2` / `-F`."
 
   three_prime_clip_r1:
-    description: "Step 2 (fixed-count alternative): remove this many bp from the 3' end of read 1 (fastp `--trim_tail1`); applied before the quality cut."
+    description: "Step 2 · Fixed-count clipping: remove this many bp from the 3' end of read 1 regardless of quality (fastp `--trim_tail1`); applied before step 3's quality cut."
     help_text: "fastp: `--trim_tail1` / `-t`."
 
   three_prime_clip_r2:
-    description: "Step 2 (fixed-count alternative): remove this many bp from the 3' end of read 2 (fastp `--trim_tail2`); applied before the quality cut."
+    description: "Step 2 · Fixed-count clipping: remove this many bp from the 3' end of read 2 regardless of quality (fastp `--trim_tail2`)."
     help_text: "fastp: `--trim_tail2` / `-T`."
 
   length_required:
-    description: "Step 3 · Read filtering: discard reads shorter than this after trimming (fastp `--length_required`)."
+    description: "Step 4 · Read filtering: discard reads shorter than this after trimming (fastp `--length_required`)."
     help_text: "fastp's default is 15 bp. A pair is discarded when either mate is too short. Always applied when fastp runs, independent of `filter_quality`.\n\nfastp: `--length_required` / `-l`; the length filter itself can only be disabled by fastp's `-L`, which is not exposed."
   save_trimmed:
     description: "Outputs: publish the trimmed FASTQ files (preprocessing/fastp/<sample>/)."

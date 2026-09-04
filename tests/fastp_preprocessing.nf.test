@@ -98,7 +98,36 @@ nextflow_process {
         }
     }
 
-    test("step 2 - quality trimming both ends, no adapter trimming") {
+    test("step 2 - fixed-count clipping removes exactly the requested bases") {
+        when {
+            params { outdir = "$outputDir"; three_prime_clip_r1 = 15; three_prime_clip_r2 = 15; filter_quality = false }
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert j.summary.after_filtering.read1_mean_length == 100 },            // 115 - 15: the synthetic tail, nothing else
+                { assert j.summary.after_filtering.total_reads == 2000 }
+            )
+        }
+    }
+
+    test("step 2 runs before step 3: fixed clip, then the quality cut on what remains") {
+        when {
+            params { outdir = "$outputDir"; three_prime_clip_r1 = 15; three_prime_clip_r2 = 15; trim_quality_3prime = 'tail'; filter_quality = false }
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert j.summary.after_filtering.read1_mean_length == 96 }              // 100 after the clip, then the window cut trims ~4 bp of real 3' decay (a cut-then-clip order would give ~83)
+            )
+        }
+    }
+
+    test("step 3 - quality trimming both ends, no adapter trimming") {
         when {
             params { outdir = "$outputDir"; trim_quality_3prime = 'tail'; trim_quality_5prime = true; filter_quality = false }
             process { fx('fastp_sra') }
@@ -115,7 +144,7 @@ nextflow_process {
         }
     }
 
-    test("step 3 - filter_quality false keeps every read pair") {
+    test("step 4 - filter_quality false keeps every read pair") {
         when {
             params { outdir = "$outputDir"; trim_adapter = true; filter_quality = false }
             process { fx('fastp_sra') }
@@ -131,7 +160,7 @@ nextflow_process {
         }
     }
 
-    test("step 3 - stricter thresholds drop more pairs") {
+    test("step 4 - stricter thresholds drop more pairs") {
         when {
             params { outdir = "$outputDir"; trim_adapter = true; filter_quality_phred = 20; filter_quality_percent = 30 }
             process { fx('fastp_sra') }

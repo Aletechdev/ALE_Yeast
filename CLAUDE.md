@@ -272,9 +272,9 @@ Preprocessing is **opt-in**, organised as four steps in run order (user page:
 [`docs/usage/read_preprocessing.md`](docs/usage/read_preprocessing.md)): step 0 UMI consensus (hidden,
 no ALE library has UMIs) → fastp step 1 **adapter trimming** `--trim_adapter` (auto-detected;
 `--adapter_sequence` names it, e.g. Nextera `CTGTCTCTTATACACATCT`; `trim_fastq` is the deprecated
-upstream alias) → step 2 **quality trimming per end** `--trim_quality_3prime tail|right` /
-`--trim_quality_5prime` (a **variable** number of bases by quality, window/threshold 4/Q20 — no fixed
-counts) → step 3 **read filtering** `filter_quality` (fastp's read-level filter, **on** as upstream,
+upstream alias) → step 2 **fixed-count clipping** (upstream `clip_*`, before the cut) → step 3 **quality trimming per
+end** `--trim_quality_3prime tail|right` / `--trim_quality_5prime` (a **variable** number of bases by
+quality, window/threshold 4/Q20) → step 4 **read filtering** `filter_quality` (fastp's read-level filter, **on** as upstream,
 drops 0.7–4.2 % of test-set pairs) + `length_required`. Poly-G: fastp's read-name auto-detection applies at
 `trim_nextseq = 0` (upstream parity); a non-zero value forces it. Recommended recipe for ALE data, not yet the default:
 `--trim_adapter --trim_quality_3prime tail` (test set: adapter in 11 % of the evolved clone's reads,

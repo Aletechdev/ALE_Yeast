@@ -14,10 +14,10 @@
 - **Read preprocessing organised as four steps** (schema group "Read preprocessing", user page
   `docs/usage/read_preprocessing.md`): step 0 UMI consensus (hidden) → fastp step 1 adapter trimming
   `trim_adapter` (+ `adapter_sequence`, `adapter_sequence_r2` for kits fastp cannot infer;
-  `trim_fastq` kept as a deprecated alias) → step 2 quality trimming per read end
-  `trim_quality_3prime` (`tail` | `right`) / `trim_quality_5prime` with shared `trim_quality_mean` (20)
+  `trim_fastq` kept as a deprecated alias) → step 2 fixed-count clipping (upstream `clip_*`) →
+  step 3 quality trimming per read end `trim_quality_3prime` (`tail` | `right`) / `trim_quality_5prime` with shared `trim_quality_mean` (20)
   and `trim_quality_window` (4) — a variable number of bases by quality, Trimmomatic
-  `TRAILING`/`SLIDINGWINDOW`/`LEADING` analogues → step 3 read filtering `filter_quality` (on, as
+  `TRAILING`/`SLIDINGWINDOW`/`LEADING` analogues → step 4 read filtering `filter_quality` (on, as
   upstream) with visible thresholds `filter_quality_phred` (15) / `filter_quality_percent` (40) and
   `length_required`. Parameter descriptions carry their step; UMI and split-publish params are hidden.
   The FASTP gate also fires on the quality-trimming params. Recommended ALE recipe

@@ -151,24 +151,26 @@ Consequences:
 ### 2.2 Parameters
 
 The user-facing organisation is **four steps in run order** — step 0 UMI consensus (fgbio, hidden),
-then fastp steps 1 adapter trimming · 2 quality trimming per read end · 3 read filtering — documented
+then fastp steps 1 adapter trimming · 2 fixed-count clipping · 3 quality trimming per read end ·
+4 read filtering — documented
 in [`docs/usage/read_preprocessing.md`](../usage/read_preprocessing.md). The schema group is retitled
 "Read preprocessing", every parameter's description starts with its step, and the entries are ordered
 by step (overlay `group_overrides` / `property_order`). Nine new parameters, all off by default except
-step 3's filter (upstream parity):
+step 4's filter (upstream parity):
 
 | Step | Parameter | Default | fastp | Notes |
 |---|---|---|---|---|
 | 1 | `trim_adapter` | `false` | adapter trimming on | the ALE name for upstream's `trim_fastq`, which stays as a **hidden deprecated alias** (same behaviour, startup warning) so upstream-shaped params files keep working |
 | 1 | `adapter_sequence`, `adapter_sequence_r2` | `null` | `--adapter_sequence[_r2]` | only with step 1; empty = auto-detect |
-| 2 | `trim_quality_3prime` | `null` | `--cut_tail` / `--cut_right` | enum `tail \| right`; nf-schema rejects anything else (verified). `right` supersedes `tail` in fastp, hence one choice, not two booleans |
-| 2 | `trim_quality_5prime` | `false` | `--cut_front` | combinable with the 3′ mode (Trimmomatic `LEADING` + `TRAILING`) |
-| 2 | `trim_quality_mean`, `trim_quality_window` | 20, 4 | `--cut_mean_quality`, `--cut_window_size` | shared by both ends; emitted only when an end is on |
-| 3 | `filter_quality` | `true` | `false` → `--disable_quality_filtering` | fastp's read-level drop filter, on by default as upstream; a failing read drops its mate |
-| 3 | `filter_quality_phred`, `filter_quality_percent` | 15, 40 | `-q`, `-u` | emitted explicitly whenever the filter is on, so `.command.sh` states the thresholds |
+| 3 | `trim_quality_3prime` | `null` | `--cut_tail` / `--cut_right` | enum `tail \| right`; nf-schema rejects anything else (verified). `right` supersedes `tail` in fastp, hence one choice, not two booleans |
+| 3 | `trim_quality_5prime` | `false` | `--cut_front` | combinable with the 3′ mode (Trimmomatic `LEADING` + `TRAILING`) |
+| 3 | `trim_quality_mean`, `trim_quality_window` | 20, 4 | `--cut_mean_quality`, `--cut_window_size` | shared by both ends; emitted only when an end is on |
+| 4 | `filter_quality` | `true` | `false` → `--disable_quality_filtering` | fastp's read-level drop filter, on by default as upstream; a failing read drops its mate |
+| 4 | `filter_quality_phred`, `filter_quality_percent` | 15, 40 | `-q`, `-u` | emitted explicitly whenever the filter is on, so `.command.sh` states the thresholds |
 
-Visible alongside them: the upstream fixed-count clips (`clip_r*`, `three_prime_clip_r*`) as step 2's
-fixed-count alternative (user choice: keep visible), `trim_nextseq`, `length_required`, `save_trimmed`.
+Visible alongside them: the upstream fixed-count clips (`clip_r*`, `three_prime_clip_r*`) as step 2
+(their own step: fastp applies them before the quality cut), `trim_nextseq`, `length_required`,
+`save_trimmed`.
 Hidden, still functional: step 0's UMI parameters, `save_split_fastqs`, the `trim_fastq` alias.
 Deliberately not added: `-c` overlap correction, an exposed N-base limit.
 
