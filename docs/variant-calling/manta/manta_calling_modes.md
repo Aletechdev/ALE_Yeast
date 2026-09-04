@@ -45,7 +45,10 @@ none — but the additions are weak evidence:
   paired with **CYC1** (X:527 kb) — or an ~80 bp deletion in the subtelomeric Y' elements
   (YLR462W/YLR463C, XII:1065 kb). The giveaway is recurrence: the same locus pairs appear
   "clone-specific" in *different* clones in different cohorts and never in the parent, which is
-  marginal evidence flickering over threshold, not independent identical mutations.
+  marginal evidence flickering over threshold, not independent identical mutations. **Confirmed at
+  read level**: the parent carries 201 read pairs spanning the URA3 → CYC1 junction, against 215 and
+  217 in the two clones the matrix calls carriers — the same junction, essentially the same evidence,
+  scored present in one and absent in the other.
 
 So it is a useful *analysis* switch — run it beside the default and treat the delta as review material,
 particularly when you want the engineered-background record complete — but not a default. Note it also
