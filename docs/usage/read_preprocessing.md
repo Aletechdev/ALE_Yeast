@@ -17,6 +17,10 @@ raw FASTQ → FastQC (report only)
           → bwa-mem
 ```
 
+![One read of a pair through the preprocessing steps: as sequenced, adapter trimming, fixed-count clipping, quality trimming, read filtering; the ALE default path in colour](../dev-practices/figures/fastq_trimming/read_preprocessing_steps.svg)
+
+*One read through the fastp steps in run order; coloured = the ALE default path, grey = optional. Source: `docs/dev-practices/figures/fastq_trimming/make_read_journey.py`.*
+
 The default recipe (see [Defaults and the baseline](#defaults-and-the-baseline)):
 
 ```
