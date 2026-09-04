@@ -548,6 +548,26 @@ Launcher and pilot runs remain valuable for what they *are*: the pilot is where 
 is measured and the launcher is the fastest way to inspect real outputs. Record them as evidence in
 the commit message or the validation doc, never as the validation itself.
 
+### The commit gate (`bin/check_snapshot_staged.sh`, added 2026-09-04)
+
+The rule is enforced at commit time by a gate that checks **evidence, not outputs** — it never runs a
+test, it checks that the commit says which validation happened, so it takes milliseconds and a false
+claim is on record:
+
+1. If no *staged* file is under `conf/modules/`, `subworkflows/`, `modules/`, `workflows/`,
+   `nextflow.config` or a task script `bin/*.py`, the commit passes (docs / tests / tooling only).
+2. Otherwise `tests/ottilie_e2e.nf.test.snap` must be staged too (outputs moved and were re-recorded),
+   **or** the message must carry a trailer `Snapshot: unchanged (e2e green on <commit>, <date>)`.
+3. Paths with a unit test (`conf/modules/trimming.config` and `modules/nf-core/fastp/` →
+   `fastp_preprocessing`; `subworkflows/local/split_joint_vcf/` and its config → `split_joint_vcf`)
+   additionally need `Module test: <name> green` in the message. Extend the `TESTMAP` in the script
+   when a test is added.
+
+Wiring: `.claude/settings.json` runs it as a `PreToolUse` hook on every `git commit` Claude issues
+(`bin/hook_git_commit_gate.sh` extracts the `-F` file or heredoc message from the command); for
+commits made by hand install it as a git hook — `ln -s ../../bin/check_snapshot_staged.sh
+.git/hooks/commit-msg` (git passes the message file as `$1`). An exit code of 2 blocks with the reason.
+
 ## TODO
 
 - [ ] Create downsampled test FASTQs and upload to Azure Blob

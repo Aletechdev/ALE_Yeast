@@ -79,7 +79,10 @@ needs in-session are repeated here.
   and every snapshot difference must be explained and re-recorded (`--update-snapshot`) **in the same
   commit** as the code. A launcher run (`bin/test_ottilie.sh`) or a pilot run shows the change's *value*
   but has no snapshot, so it cannot fail; it is evidence, not validation. Say in the commit message which
-  of the three ran. Learned 2026-09-02: the SOR_FS commit (`4c45fb8`) was "validated" by launcher + pilot
+  of the three ran. Enforced at commit time by [`bin/check_snapshot_staged.sh`](bin/check_snapshot_staged.sh)
+  (a Claude Code hook on `git commit`; installable as a git `commit-msg` hook) — it demands the staged
+  `.snap` or a `Snapshot: unchanged (…)` trailer, plus `Module test: <name> green` for paths that have a
+  unit test. Learned 2026-09-02: the SOR_FS commit (`4c45fb8`) was "validated" by launcher + pilot
   only and left the snapshot stale for two days. Loop and rationale:
   [`testing_best_practices.md` §12](docs/dev-practices/testing_best_practices.md#12-what-counts-as-validated--the-contract-test-rule).
 - **Resources**: `-profile azureD4as` is **on dev VM only** (4 vCPU / 16 GB). On any other machine

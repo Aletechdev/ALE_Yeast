@@ -310,6 +310,17 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   (same bucket as the blob-URL `ottilie_test_ci` profile + GitHub Actions). Until then a plain
   full `nf-test test` is the gate and `triggers` is inert.
 
+- **[med] Learn from upstream's validation tooling before building our own CI.** Upstream sarek
+  (https://github.com/nf-core/sarek/tree/3.10.0) validates every change with a `pre-commit` config
+  (`.pre-commit-config.yaml`: prettier, editorconfig, nf-core lint hooks) and GitHub Actions workflows
+  (`.github/workflows/`: nf-test per changed component via `--changed-since`, lint, schema checks,
+  `nf-core pipelines lint`). Inspect which of these transfer to this fork before designing CI, in
+  particular how they decide which tests to run for a change — that is the general form of the local
+  commit gate added 2026-09-04 (`bin/check_snapshot_staged.sh`: an output-affecting path must ship the
+  re-recorded e2e snapshot or a `Snapshot: unchanged` trailer, plus a `Module test: <name> green` line
+  per mapped unit test). The gate is a stop-gap for a single developer; CI is where the tests should
+  actually run.
+
 ## Documentation
 
 - **[low] Single-source the report Methodology + SV maintainer doc (option B).** The user-facing
