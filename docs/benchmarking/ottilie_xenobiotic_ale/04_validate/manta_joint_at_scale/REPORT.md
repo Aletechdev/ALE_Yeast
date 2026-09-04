@@ -120,8 +120,12 @@ matrices, and its losses are visible (soft-filtered) rather than silent.
 The audits above compare raw Manta VCFs. This section compares the **deliverable**: the SVDB-merged,
 TIDDIT-corroborated `sv_cohort_matrix_union_pass.csv`. Three Manta modes were run through the full
 chain at two cohort sizes (4-sample pilot; 16 samples = parent + 15 clones from the Tier-2 CRAMs,
-`--step variant_calling --tools manta,tiddit`). "FALSE" = a clone-specific row whose breakpoints
-touch a deleted-ABC/ADH1 cassette locus, i.e. engineered background misreported as an evolved event.
+`--step variant_calling --tools manta,tiddit`). "FALSE" = a clone-specific row whose breakpoints touch
+an engineered locus the parent must also carry — a deleted ABC transporter, or a cassette component
+(ADH1 terminator, URA3 marker, CYC1) — i.e. background misreported as an evolved event. Reproduce with
+[`compare_sv_pass_tables.py`](../compare_sv_pass_tables.py); pipeline runs by
+[`run_sv_mode_series.sh`](../run_sv_mode_series.sh). Counts here include URA3/CYC1; a first revision
+of this table omitted them and read 1 lower for high-sens and 2 lower for per-sample at 16 samples.
 
 **4 samples**
 
@@ -129,15 +133,15 @@ touch a deleted-ABC/ADH1 cassette locus, i.e. engineered background misreported 
 |---|---|---|---|---|---|
 | Per-sample | 51 | 35 | 16 | **13** | 7 |
 | Joint, default | 50 | 47 | 3 | **0** | 19 |
-| Joint, high-sens | 64 | 58 | 6 | 1 | 30 |
+| Joint, high-sens | 64 | 58 | 6 | 2 | 30 |
 
 **16 samples**
 
 | Mode | Pass rows | Parent present | Clone-specific | of which FALSE | Parent via Manta |
 |---|---|---|---|---|---|
-| Per-sample | 69 | 35 | 34 | **26** | 7 |
+| Per-sample | 69 | 35 | 34 | **28** | 7 |
 | Joint, default | 47 | 44 | 3 | **0** | 16 |
-| Joint, high-sens | 62 | 56 | 6 | 1 | 28 |
+| Joint, high-sens | 62 | 56 | 6 | 2 | 28 |
 
 Findings:
 
