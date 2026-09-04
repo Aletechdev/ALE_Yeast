@@ -15,6 +15,33 @@ artifacts are gitignored (see [Storage & durability](#storage--durability)).
   | NODRUG-GM2 | SRR10985539 | parent (ancestral) |
   | CBR110-15-R3a | SRR10985585 | evolved |
 
+## Strain background — ABC16-Green Monster (matters when reading SV calls)
+
+The parent is **not** wild-type S288C. Ottilie et al. used the **ABC16-Green Monster**, in which
+**16 ABC transporters are replaced by a GFP cassette** (built by the Green Monster process,
+Suzuki et al. 2011, *Nat Methods*) — the drug-efflux pumps are deleted so compounds work at lower
+concentrations. Consequences for this dataset, verified from the pipeline's own output (2026-09-02):
+
+- **Most Manta calls are engineered background, not ALE mutations.** They form a star of breakends
+  anchored in a ~250 bp window at the 3' end of **ADH1** (XV:159,548–160,594, minus strand — so the
+  anchors sit at the *terminator*), whose far ends land on the 5' ends of deleted transporters:
+  BPT1 −39, PDR5 −106, ADP1 +29, PDR11 +104, NFT1 −5, PDR10 −103, YOR1 −73, PDR18 −6, VMR1 +14,
+  PDR15 −40, AUS1 −35 bp — **11 of 11**. CNVKit independently shows those loci depleted
+  (SNQ2 ≈ 0.07, PDR10 ≈ 0.14 fold change) because the genes are physically gone.
+- **The junction inserts are deletion-collection barcodes.** `SVINSSEQ` across junctions shares an
+  86 bp prefix and 18 bp suffix around a 20 bp variable middle; reverse-complementing gives the
+  canonical **U1 `GATGTCCACGAGGTCTCT`** and **U2 `CGTACGCTGCAGGTCGAC`** primers (Winzeler et al.
+  1999, U1-UPTAG-U2), plus a polylinker (XhoI, BglII, AscI, PacI, SmaI, BamHI, SalI, PstI). The
+  20-mers are the per-gene UPTAG barcodes. So the cassette carries **ADH1 terminator** sequence,
+  which is why junction reads map to the genomic ADH1 locus.
+- **The paper reports no SVs** (SNVs/indels + 24 CNVs only), so there is no published truth set for
+  these breakends — they are validated only by the internal evidence above.
+
+Practical rule: treat the ADH1-anchored breakend star as expected background; compare evolved vs
+parent columns, never absolute counts. The pipeline does **no** parent subtraction for SVs. This is
+also why per-sample Manta misreports background as clone-specific — see
+[`manta_calling_modes.md`](../../variant-calling/manta/manta_calling_modes.md).
+
 ## Truth set (must stay detectable through any subsampling)
 
 - **CNV:** Chr I whole-chromosome duplication (cn=3, log2≈0.329) in CBR110-15-R3a

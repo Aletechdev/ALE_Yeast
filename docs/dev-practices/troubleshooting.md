@@ -139,3 +139,48 @@ Whether the `nextflow config` behaviour is deliberate or an upstream bug has not
 that defines a closure — `req()`, the environment-variable guard — so it is the only file affected.
 Whether this is a deliberate `nextflow config` limitation or an upstream bug has not been investigated;
 it has only been observed on 25.10.4.
+
+## Manta dies with `Too many open files` on a large experiment group
+
+Symptom: `--joint_manta` on a big cohort fails in Manta's `generateCandidateSV` step with
+
+```
+<reference>.fa.fai: Too many open files
+FATAL_ERROR: Failed to use reference: '<ref>.fa' for BAM/CRAM file: '<sample>.md.cram'
+```
+
+Cause: joint Manta opens **every** CRAM on **every** thread, so a group of N samples needs roughly
+`N × threads × 3` descriptors — about 1,030 at 86 samples with 4 threads, against a container default
+soft limit of 1024. It is a cliff, not a gradient: below ~80 samples nothing hints at it, and Manta
+retries the sub-task twice before the run dies, so the failure looks deterministic and mysterious.
+
+Fixed in-repo by `--ulimit nofile=65536:65536` on the `docker` profiles (`nextflow.config`) and in
+`conf/seqera_azure.config`. If you hit it on another executor, add the equivalent there. Note the
+cohort size that triggers this is far beyond the range where joint Manta is recommended anyway —
+see [`manta_calling_modes.md`](../variant-calling/manta/manta_calling_modes.md).
+
+## Splitting a joint VCF fails with `the tag "FT" is not defined in the VCF header`
+
+Symptom: with `--joint_manta` (or `--split_haplotypecaller_joint_vcf`), `SPLIT_JOINT_VCF_*:BCFTOOLS_FILTER`
+exits 255 complaining that `FT` is undefined — even though the joint VCF's header clearly defines it.
+
+The message points at the wrong step. The real failure is one step earlier, in `BCFTOOLS_VIEW`:
+the sample name to extract is built from the **samplesheet** as `"<patient>_<sample>"`
+([`split_joint_vcf/main.nf`](../../subworkflows/local/split_joint_vcf/main.nf)), while Manta and GATK
+name VCF columns from the **CRAM's `@RG SM` tag**. Those diverge when a run enters at
+`--step variant_calling` with CRAMs that were aligned under a *different* experiment name — e.g.
+reusing an existing cohort's CRAMs under a new `experiment` value. bcftools then subsets nothing,
+producing a VCF with no samples and therefore no `FORMAT` header lines at all, and the next step
+fails on the first FORMAT tag it needs.
+
+Diagnosis — compare the two strings:
+
+```bash
+bcftools query -l <joint>.vcf.gz | head              # what the caller actually wrote
+samtools view -H --reference ref.fa <sample>.md.cram | grep '^@RG'   # the SM tag it came from
+awk -F, 'NR>1{print $1"_"$2}' samplesheet.csv | head  # what the pipeline will look for
+```
+
+Fix: make the samplesheet's `experiment` column match the experiment encoded in the CRAMs' SM tags
+(or re-align from FASTQ). `--force-samples` was **removed** from that step so this now fails
+immediately, naming the missing sample, instead of surfacing later as the `FT` error.
