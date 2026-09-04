@@ -263,7 +263,8 @@ workflow SAREK {
         }
 
         // Trimming and/or splitting
-        if (params.trim_fastq || params.split_fastq > 0) {
+        if (params.trim_fastq) log.warn "--trim_fastq is deprecated: use --trim_adapter (same behaviour)"
+        if (params.trim_adapter || params.trim_fastq || params.trim_quality_3prime || params.trim_quality_5prime || params.split_fastq > 0) {
 
             save_trimmed_fail = false
             save_merged = false

@@ -9,6 +9,8 @@ Policy implemented here:
   * visible allowlist — every parameter NOT listed gets "hidden": true, listed ones have the
     key removed (upstream style for visible params). Parameters new in an upgrade are born hidden.
   * property_overrides — merged key-by-key into the named parameter's entry, wherever it lives.
+  * group_overrides — title/description merged into the named group.
+  * property_order — per group, listed parameters first in that order; the rest keep their order.
   * a listed name missing from the schema warns (renamed/removed upstream) but does not fail.
 """
 
@@ -45,6 +47,25 @@ def apply_overlay(schema: dict, overlay: dict) -> tuple[dict, list[str]]:
         warnings.append(f"visible-list parameter not in schema (renamed/removed upstream?): {name}")
     for name in sorted(set(overrides) - seen):
         warnings.append(f"property_overrides parameter not in schema: {name}")
+
+    # group_overrides: title/description text for groups the fork owns outright.
+    for gname, over in (overlay.get("group_overrides") or {}).items():
+        if gname in groups:
+            groups[gname].update(over)
+        else:
+            warnings.append(f"group_overrides group not in schema: {gname}")
+
+    # property_order: per group, listed parameters first in that order; unlisted ones keep their
+    # original relative order after them (a parameter new in an upgrade lands at the end).
+    for gname, order_list in (overlay.get("property_order") or {}).items():
+        if gname not in groups:
+            warnings.append(f"property_order group not in schema: {gname}")
+            continue
+        props = groups[gname].get("properties") or {}
+        for name in sorted(set(order_list) - set(props)):
+            warnings.append(f"property_order parameter not in group {gname}: {name}")
+        placed = [n for n in order_list if n in props]
+        groups[gname]["properties"] = {n: props[n] for n in placed + [n for n in props if n not in placed]}
 
     # group_order: listed groups first, in that order; unlisted groups keep their original
     # relative order after them (a group new in an upgrade therefore lands at the end).

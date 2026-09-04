@@ -72,6 +72,16 @@ needs in-session are repeated here.
   assumes. Keep them in sync. `NXF_VER` still wins wherever it is set (it self-fetches that engine
   regardless of what conda installed). **26.x cannot parse `nextflow.config`** —
   see [`ale_sarek_upgrade_runbook.md`](docs/dev-practices/ale_sarek_upgrade_runbook.md).
+- **What counts as validated (before any commit that can change outputs).** A change under
+  `conf/modules/`, `subworkflows/`, `modules/`, `workflows/`, a task script in `bin/`, or a default in
+  `nextflow.config` must run the e2e **contract test** —
+  `nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test` (NXF_VER=25.10.4, ~25 min) —
+  and every snapshot difference must be explained and re-recorded (`--update-snapshot`) **in the same
+  commit** as the code. A launcher run (`bin/test_ottilie.sh`) or a pilot run shows the change's *value*
+  but has no snapshot, so it cannot fail; it is evidence, not validation. Say in the commit message which
+  of the three ran. Learned 2026-09-02: the SOR_FS commit (`4c45fb8`) was "validated" by launcher + pilot
+  only and left the snapshot stale for two days. Loop and rationale:
+  [`testing_best_practices.md` §12](docs/dev-practices/testing_best_practices.md#12-what-counts-as-validated--the-contract-test-rule).
 - **Resources**: `-profile azureD4as` is **on dev VM only** (4 vCPU / 16 GB). On any other machine
   copy [`conf/mymachine.config`](conf/mymachine.config) and pass it with `-c` — never reuse
   `azureD4as`. Model + precedence rules: [`compute_resources.md`](docs/dev-practices/compute_resources.md).
@@ -251,18 +261,26 @@ GATK error). The same starvation gates VQSR (which has the soft-filter fallback 
 section below) and FilterVariantTranches. Full mechanism:
 [`haplotypecaller_workflow_analysis.md` → known-sites starvation](docs/variant-calling/haplotypecaller/haplotypecaller_workflow_analysis.md#4-the-known-sites-starvation-pattern-custom-genomes).
 
-### Read preprocessing — no trimming either
+### Read preprocessing — no trimming by default; opt-in fastp trimming
 
-**Reads reach bwa-mem exactly as sequenced.** FastQC runs on the raw FASTQs (report-only; nothing gates
-on it), and **FASTP never executes on an ALE run** — its gate is `params.trim_fastq || params.split_fastq > 0`
-(`workflows/sarek/main.nf`), `trim_fastq` defaults false, and every ALE config sets `split_fastq = 0`.
-So: no adapter removal, no clipping, no length filter. The **Azure baseline was produced this way**, so
-enabling any trimming invalidates byte-comparison against it.
+**By default reads reach bwa-mem exactly as sequenced.** FastQC runs on the raw FASTQs (report-only) and
+**FASTP does not execute on an ALE run**: its gate is `trim_adapter || trim_fastq || trim_quality_3prime ||
+trim_quality_5prime || split_fastq > 0` (`workflows/sarek/main.nf`), all off in every ALE config. The
+**Azure baseline was produced this way**, so enabling any step invalidates byte-comparison against it.
 
-Note also that **no quality-based trimming is reachable in any configuration** — `conf/modules/trimming.config`
-never emits fastp's `--cut_front/--cut_tail/--cut_right`, so no base is ever removed for its quality score.
-Audit + the plan to expose it (and to add Trimmomatic):
-[`fastq_preprocessing_audit.md`](docs/dev-practices/fastq_preprocessing_audit.md).
+Preprocessing is **opt-in**, organised as four steps in run order (user page:
+[`docs/usage/read_preprocessing.md`](docs/usage/read_preprocessing.md)): step 0 UMI consensus (hidden,
+no ALE library has UMIs) → fastp step 1 **adapter trimming** `--trim_adapter` (auto-detected;
+`--adapter_sequence` names it, e.g. Nextera `CTGTCTCTTATACACATCT`; `trim_fastq` is the deprecated
+upstream alias) → step 2 **quality trimming per end** `--trim_quality_3prime tail|right` /
+`--trim_quality_5prime` (a **variable** number of bases by quality, window/threshold 4/Q20 — no fixed
+counts) → step 3 **read filtering** `filter_quality` (fastp's read-level filter, **on** as upstream,
+drops 0.7–4.2 % of test-set pairs) + `length_required`. Poly-G: fastp's read-name auto-detection applies at
+`trim_nextseq = 0` (upstream parity); a non-zero value forces it. Recommended recipe for ALE data, not yet the default:
+`--trim_adapter --trim_quality_3prime tail` (test set: adapter in 11 % of the evolved clone's reads,
+≤ 2 % of bases lost to the tail trim). Design, measurements, validation:
+[`fastq_preprocessing_audit.md`](docs/dev-practices/fastq_preprocessing_audit.md) §2; module test
+`tests/fastp_preprocessing.nf.test`.
 
 
 ### GATK HaplotypeCaller (joint germline)

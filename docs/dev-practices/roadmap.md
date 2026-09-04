@@ -17,14 +17,12 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 > the Azure baseline at `az://aletest/ottilie-azurebatch-out/` was produced with no trimming at all,
 > so any change that alters the reads reaching bwa-mem invalidates byte-comparison against it.
 
-- **[med] Expose fastp quality trimming (`--cut_right` / `--cut_tail` / `--cut_front`).** No base is
-  currently ever removed for its quality score: `conf/modules/trimming.config:19-28` is the complete
-  fastp argument list and exposes only adapter on/off, fixed-count clipping, poly-G, splitting and
-  `length_required`. Add `trim_quality` (enum `front|tail|right`, default null) + `trim_quality_mean`
-  (20) + `trim_quality_window` (4); `--cut_right` at 4/20 is exactly Trimmomatic `SLIDINGWINDOW:4:20`.
-  Four files: `nextflow.config`, `nextflow_schema.json` (mandatory — `validate_params = true`),
-  `conf/modules/trimming.config`, and the gate at `workflows/sarek/main.nf:266`, which must also test
-  `params.trim_quality` or the feature is a **silent no-op** on every ALE config.
+- ~~**[med] Expose fastp quality trimming.**~~ **Done 2026-09-02** (audit doc §2; user page
+  `docs/usage/read_preprocessing.md`): four steps — `trim_adapter` (alias `trim_fastq`) +
+  `adapter_sequence[_r2]`, `trim_quality_3prime tail|right` + `trim_quality_5prime` + shared mean/window,
+  `filter_quality` (on, as upstream) + thresholds; gate extended; poly-G auto-detection off unless
+  `trim_nextseq`. Defaults unchanged; recommended opt-in recipe `--trim_adapter --trim_quality_3prime tail`.
+  Still open: whether it becomes the ALE default (baseline re-cut).
 - **[med] Add Trimmomatic as an alternative trimmer (`--trimmer fastp|trimmomatic`).** Requested by the
   team for parity with their existing setup. The nf-core module exists but four things collide with a
   sarek 3.5.1 fork: its versions come via a **topic channel**, not `versions.yml`, so it would be absent
@@ -34,17 +32,15 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `subworkflows/local/fastq_trim/` so `workflows/sarek/main.nf` (already the heaviest rebase surface —
   see `SAREK_MODIFICATIONS.md`) gains one include and one call. **Settle first whether this is a
   production option or a one-off benchmark** — see the doc's open decisions.
-- **[low] Preprocessing audit defects.** Pure bugs, no behaviour change for ALE runs: (a) `trim_nextseq`
-  is declared an integer but only its truthiness is used (`trimming.config:25` emits a bare
-  `--trim_poly_g`, so `20` and `1` are identical) and its inline comment describes **Trim Galore's**
-  `--nextseq` quality semantics, which fastp's flag does not have; (b) whether fastp runs at all is a
-  side effect of `split_fastq` (default 50000000 ≠ 0), so a non-ALE run silently gets fastp's default
-  read-level quality filters `-q 15 / -u 40 / -n 5` under a "no trimming" config; (c) `save_trimmed_fail`
-  is hardcoded `false` at `workflows/sarek/main.nf:268`, so dropped reads can't be inspected.
-- **[med] No test coverage of the preprocessing path.** Nothing under `tests/` exercises `FASTP` —
-  `ottilie_e2e` runs with `split_fastq = 0` and `trim_fastq = false`, and the upstream `trimming` /
-  `split_fastq` profiles are never run. Any of the work above is unguarded until this lands; belongs
-  with the test-coverage target in [`testing_best_practices.md`](testing_best_practices.md) §11.
+- **[low] Preprocessing audit defects.** (a) and (b) closed 2026-09-02 with the trimming design
+  (`trim_nextseq` texts fixed and it now also disables fastp's auto-detection at 0; split-only runs are a
+  pure splitter). Remaining: (c) `save_trimmed_fail` is hardcoded `false` at `workflows/sarek/main.nf`,
+  so reads dropped by `filter_quality`/`length_required` can't be inspected.
+- ~~**[med] No test coverage of the preprocessing path.**~~ **Done 2026-09-02**:
+  `tests/fastp_preprocessing.nf.test` runs the real `FASTP` module under `conf/modules/trimming.config`
+  on a committed 1 000-pair fixture — one case per preprocessing step (adapter, alias, poly-G, quality
+  both ends, filter off, filter thresholds, split-only), exact counts pinned. The `ottilie_e2e` route
+  still runs with every step off, by design (baseline).
 
 ## Variant calling — HaplotypeCaller
 

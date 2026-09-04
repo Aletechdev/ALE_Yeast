@@ -65,3 +65,23 @@ PY
 bcftools view -Oz -o tests/fixtures/joint_manta_diploid_sv.vcf.gz joint_manta_diploid_sv.vcf
 bcftools index -t -f tests/fixtures/joint_manta_diploid_sv.vcf.gz
 ```
+
+## `fastp_R1.fastq.gz`, `fastp_R2.fastq.gz` — read-preprocessing module test
+
+Used by `tests/fastp_preprocessing.nf.test`. The first 1 000 read pairs of the ottilie evolved clone
+CBR110-15-R3a (`data/ottilie/fastq_test/`, real Nextera adapter read-through and real HiSeq 2500
+qualities), with two synthetic edits so one small pair exercises every preprocessing step: read names
+rewritten to a NovaSeq-style instrument prefix (`@A00123:…`, so fastp's read-name poly-G auto-detection
+would fire if not disabled) and a 15-base Q2 poly-G tail appended to every read. Regenerate:
+
+```bash
+D=data/ottilie/fastq_test
+for r in 1 2; do zcat $D/CBR110-15-R3a_chrI_IV_VII_XV_R$r.fastq.gz | head -4000 \
+  | awk -v r=$r 'NR%4==1{n++; $0="@A00123:45:HXXXXDSXX:1:1101:"n":1000 "r":N:0:ACGTACGT"} NR%4==2{$0=$0"GGGGGGGGGGGGGGG"} NR%4==0{$0=$0"###############"} {print}' \
+  | gzip -n > tests/fixtures/fastp_R$r.fastq.gz; done
+```
+
+`fastp_sra_R1.fastq.gz`, `fastp_sra_R2.fastq.gz`: the same reads with SRA-style names
+(`@SRR10985585.<n> <n> length=100`), so the pair of fixtures isolates fastp's read-name poly-G
+auto-detection (fires on the NovaSeq-named pair, never on this one). Same recipe with the
+`NR%4==1` rewrite replaced by `$0="@SRR10985585."n" "n" length=100"`.

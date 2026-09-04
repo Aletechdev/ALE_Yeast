@@ -1,0 +1,167 @@
+nextflow_process {
+
+    name "FASTP read preprocessing steps"
+    script "../modules/nf-core/fastp/main.nf"
+    process "FASTP"
+    tag "ottilie"
+    tag "process"
+
+    // Run with: nf-test test -c tests/nf-test-ottilie.config tests/fastp_preprocessing.nf.test
+    //
+    // Pins what each read-preprocessing step (docs/usage/read_preprocessing.md) makes fastp do. The
+    // module is stock nf-core; OUR logic is the ext.args in conf/modules/trimming.config, which the
+    // bare `withName: 'FASTP'` selector applies in unit isolation too. Every case feeds the same
+    // fixture and asserts fastp's own JSON report (reports/fastp), so a regression in the argument
+    // rendering shows up as a changed count rather than a silent no-op.
+    //
+    // Fixtures: the first 1 000 read pairs of the ottilie evolved clone CBR110-15-R3a (real Nextera
+    // adapter read-through, real HiSeq qualities) with a 15-base Q2 poly-G tail appended to every
+    // read, in two namings - fastp_R{1,2} carry a NovaSeq-style instrument prefix (@A00123:...),
+    // fastp_sra_R{1,2} the SRA form (@SRR...). Same reads, so the only difference between the two is
+    // whether fastp's read-name poly-G auto-detection fires (kept as upstream: nothing is passed at
+    // trim_nextseq = 0). Together they exercise adapter trimming, poly-G handling, the read-level
+    // quality filter and length filtering in ~240 KB.
+
+    def fx = { String prefix = 'fastp' -> """
+        input[0] = [ [ id:'fx', sample:'fx', single_end:false ],
+                     [ file("\$projectDir/tests/fixtures/${prefix}_R1.fastq.gz"),
+                       file("\$projectDir/tests/fixtures/${prefix}_R2.fastq.gz") ] ]
+        input[1] = []      // adapter fasta (unused by the pipeline)
+        input[2] = false   // discard_trimmed_pass
+        input[3] = false   // save_trimmed_fail
+        input[4] = false   // save_merged
+    """ }
+    def report = { out -> path(out.json[0][1]).json }
+
+    test("step 1 - trim_adapter on SRA-named reads: adapters removed, read filter on (upstream semantics), poly-G left alone") {
+        when {
+            params { outdir = "$outputDir"; trim_adapter = true }
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert j.summary.before_filtering.total_reads == 2000 },
+                { assert j.adapter_cutting.adapter_trimmed_reads == 254 },                // real Nextera read-through
+                { assert j.filtering_result.low_quality_reads == 18 },                    // fastp's -q 15 -u 40 filter is ON by default (upstream)
+                { assert j.summary.after_filtering.total_reads == 1982 },
+                { assert j.summary.after_filtering.read1_mean_length == 110 }             // 15-G tails survive: @SRR names never trigger fastp's poly-G auto-detection
+            )
+        }
+    }
+
+    test("step 1 - trim_adapter on NovaSeq-named reads: fastp auto-enables poly-G trimming at trim_nextseq 0 (upstream)") {
+        when {
+            params { outdir = "$outputDir"; trim_adapter = true }
+            process { fx() }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert j.summary.after_filtering.read1_mean_length == 96 },             // tails gone without any flag: read-name auto-detection
+                { assert j.summary.after_filtering.total_reads == 1990 },
+                { assert j.adapter_cutting.adapter_trimmed_reads == 210 }
+            )
+        }
+    }
+
+    test("step 1 - trim_fastq is an alias of trim_adapter") {
+        when {
+            params { outdir = "$outputDir"; trim_fastq = true }
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert j.adapter_cutting.adapter_trimmed_reads == 254 },                // identical to trim_adapter
+                { assert j.filtering_result.low_quality_reads == 18 },
+                { assert j.summary.after_filtering.read1_mean_length == 110 }
+            )
+        }
+    }
+
+    test("step 1 - trim_nextseq forces poly-G trimming on SRA-named reads") {
+        when {
+            params { outdir = "$outputDir"; trim_adapter = true; trim_nextseq = 20 }
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert j.summary.after_filtering.read1_mean_length == 96 },             // 15-G tails gone (110 without)
+                { assert j.summary.after_filtering.total_reads == 1990 }
+            )
+        }
+    }
+
+    test("step 2 - quality trimming both ends, no adapter trimming") {
+        when {
+            params { outdir = "$outputDir"; trim_quality_3prime = 'tail'; trim_quality_5prime = true; filter_quality = false }
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert !j.containsKey('adapter_cutting') },                             // --disable_adapter_trimming
+                { assert j.filtering_result.low_quality_reads == 0 },                     // filter off
+                { assert j.summary.after_filtering.total_reads == 2000 },
+                { assert j.summary.after_filtering.read1_mean_length == 98 }              // Q2 tails removed by the window cut (115 raw)
+            )
+        }
+    }
+
+    test("step 3 - filter_quality false keeps every read pair") {
+        when {
+            params { outdir = "$outputDir"; trim_adapter = true; filter_quality = false }
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert j.summary.after_filtering.total_reads == 2000 },
+                { assert j.filtering_result.low_quality_reads == 0 },
+                { assert j.adapter_cutting.adapter_trimmed_reads == 254 }                 // trimming unchanged
+            )
+        }
+    }
+
+    test("step 3 - stricter thresholds drop more pairs") {
+        when {
+            params { outdir = "$outputDir"; trim_adapter = true; filter_quality_phred = 20; filter_quality_percent = 30 }
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert j.filtering_result.low_quality_reads == 66 },                    // 18 at the default 15/40
+                { assert j.summary.after_filtering.total_reads == 1934 }
+            )
+        }
+    }
+
+    test("split only - fastp as a splitter: no trimming, read filter still applies (upstream)") {
+        when {
+            params { outdir = "$outputDir"; split_fastq = 500 }
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert process.out.reads[0][1].size() > 2 },                            // sharded (fastp writes one shard per writer, so more than 1000/500)
+                { assert process.out.reads[0][1].size() % 2 == 0 },                       // mates paired
+                { assert !j.containsKey('adapter_cutting') },
+                { assert j.summary.after_filtering.read1_mean_length == 115 },            // untouched reads
+                { assert j.filtering_result.low_quality_reads == 18 },                    // read filter applies, as upstream
+                { assert j.summary.after_filtering.total_reads == 1982 }
+            )
+        }
+    }
+}

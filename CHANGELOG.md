@@ -11,6 +11,19 @@
 
 ### Added
 
+- **Read preprocessing organised as four steps** (schema group "Read preprocessing", user page
+  `docs/usage/read_preprocessing.md`): step 0 UMI consensus (hidden) → fastp step 1 adapter trimming
+  `trim_adapter` (+ `adapter_sequence`, `adapter_sequence_r2` for kits fastp cannot infer;
+  `trim_fastq` kept as a deprecated alias) → step 2 quality trimming per read end
+  `trim_quality_3prime` (`tail` | `right`) / `trim_quality_5prime` with shared `trim_quality_mean` (20)
+  and `trim_quality_window` (4) — a variable number of bases by quality, Trimmomatic
+  `TRAILING`/`SLIDINGWINDOW`/`LEADING` analogues → step 3 read filtering `filter_quality` (on, as
+  upstream) with visible thresholds `filter_quality_phred` (15) / `filter_quality_percent` (40) and
+  `length_required`. Parameter descriptions carry their step; UMI and split-publish params are hidden.
+  The FASTP gate also fires on the quality-trimming params. Recommended ALE recipe
+  `--trim_adapter --trim_quality_3prime tail` (not the default). Design + measurements:
+  `docs/dev-practices/fastq_preprocessing_audit.md` §2. Module test: `tests/fastp_preprocessing.nf.test`.
+
 - **TIDDIT soft filters for the SV pass view** (`TIDDIT_SV_FILTER`): three Manta-inspired named
   vetoes — `LowSupport` (<6 pairs+splits), `LowQual` (TIDDIT QUAL <40), `HighMQ0` (>40% low-MAPQ
   reads at a breakend) — appended softly to the per-sample SV-merge input. The pass matrix/VCF
@@ -49,6 +62,13 @@
   `conf/modules/split_joint_vcf.config`, keyed on `meta.variantcaller`.
 
 ### Changed
+
+- **`trim_nextseq` documented correctly.** Its description claimed Trim Galore's `--nextseq=X`
+  quality-cutoff semantics; fastp's flag takes no value and only its non-zero-ness is used. At 0
+  nothing is passed and fastp's read-name poly-G auto-detection applies, unchanged from upstream.
+  `--trim_adapter` (= upstream's `--trim_fastq`) behaves as in upstream sarek 3.5.1 (adapter trimming
+  plus fastp's read-level quality filter); the filter is now documented and switchable via
+  `filter_quality` (default true), and its thresholds are passed explicitly.
 
 - **`joint_manta` now defaults to `true`** (was `false`): joint multi-sample Manta is the validated
   Tier-1 recipe — the local test/pilot configs already ran it, while a Seqera launch inherited the

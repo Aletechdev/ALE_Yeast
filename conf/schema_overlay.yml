@@ -26,18 +26,27 @@ visible:
   - outdir
   # Main options
   - tools
-  # FASTQ preprocessing (kept visible pending the trimming rework)
-  - trim_fastq
+  # Read preprocessing (docs/usage/read_preprocessing.md) - visible = the three fastp steps and
+  # the trimmed-FASTQ publish flag; the fixed-count clips stay visible as step 2's alternative (user
+  # choice). Hidden: step 0 UMI consensus (no ALE library has UMIs), the deprecated trim_fastq alias,
+  # save_split_fastqs.
+  - trim_adapter
+  - adapter_sequence
+  - adapter_sequence_r2
+  - trim_nextseq
+  - trim_quality_3prime
+  - trim_quality_5prime
+  - trim_quality_mean
+  - trim_quality_window
   - clip_r1
   - clip_r2
   - three_prime_clip_r1
   - three_prime_clip_r2
-  - trim_nextseq
+  - filter_quality
+  - filter_quality_phred
+  - filter_quality_percent
   - length_required
   - save_trimmed
-  - umi_read_structure
-  - group_by_umi_strategy
-  - save_split_fastqs
   # Preprocessing
   - aligner
   - save_mapped
@@ -71,9 +80,80 @@ group_order:
   - institutional_config_options
   - generic_options
 
+# Group title/description the fork owns (merged into the group entry).
+group_overrides:
+  fastq_preprocessing:
+    title: "Read preprocessing"
+    description: "Optional steps between the samplesheet and alignment, in run order: step 0 UMI consensus (fgbio, only with umi_read_structure) → fastp: step 1 adapter trimming · step 2 quality trimming per read end · step 3 read filtering. Reads are aligned exactly as sequenced unless a step is switched on; fastp runs only when step 1 or 2 is on (or split_fastq > 0). Details: docs/usage/read_preprocessing.md"
+
+# Parameter order inside a group (listed first, in this order; the rest follow in upstream order).
+property_order:
+  fastq_preprocessing:
+    # step 0 - UMI consensus (hidden)
+    - umi_read_structure
+    - group_by_umi_strategy
+    # step 1 - adapter trimming
+    - trim_adapter
+    - trim_fastq
+    - adapter_sequence
+    - adapter_sequence_r2
+    - trim_nextseq
+    # step 2 - quality trimming per read end (+ hidden fixed-count clips)
+    - trim_quality_3prime
+    - trim_quality_5prime
+    - trim_quality_mean
+    - trim_quality_window
+    - clip_r1
+    - clip_r2
+    - three_prime_clip_r1
+    - three_prime_clip_r2
+    # step 3 - read filtering
+    - filter_quality
+    - filter_quality_phred
+    - filter_quality_percent
+    - length_required
+    # outputs
+    - save_trimmed
+    - save_split_fastqs
+
 # Merged key-by-key into the named parameter's schema entry (any group). Use for texts the
 # fork owns outright; unlisted parameters keep their upstream description/help_text.
 property_overrides:
+  trim_fastq:
+    description: "Deprecated alias of `trim_adapter` (upstream sarek name) - same behaviour, warns at startup."
+    help_text: "Kept so upstream-shaped params files keep working. Use `--trim_adapter`."
+  trim_nextseq:
+    description: "Step 1 · Adapter trimming: force poly-G tail trimming (fastp `--trim_poly_g`); any non-zero value enables it. At 0 fastp decides from the read names, as in upstream sarek."
+    help_text: "Poly-G tails come from two-colour chemistry (NextSeq/NovaSeq), where no signal reads as G. At 0 nothing is passed and fastp applies its own rule: poly-G trimming switches on automatically when the first read name carries a NextSeq/NovaSeq instrument prefix (e.g. `@A00123:...`) and stays off otherwise - so data renamed by SRA (`@SRR...`) is never poly-G-trimmed unless you set this. Any non-zero value forces it on for every dataset. The value itself is not passed to fastp (this is not Trim Galore's `--nextseq=X` quality cutoff); use `trim_quality_3prime` for quality trimming.\n\nfastp: non-zero = `--trim_poly_g` / `-g`; 0 = nothing passed (fastp's read-name auto-detection; `--disable_trim_poly_g` / `-G` is not exposed)."
+  clip_r1:
+    description: "Step 2 (fixed-count alternative): remove this many bp from the 5' end of read 1 (fastp `--trim_front1`)."
+    help_text: "fastp: `--trim_front1` / `-f`."
+
+  clip_r2:
+    description: "Step 2 (fixed-count alternative): remove this many bp from the 5' end of read 2 (fastp `--trim_front2`)."
+    help_text: "fastp: `--trim_front2` / `-F`."
+
+  three_prime_clip_r1:
+    description: "Step 2 (fixed-count alternative): remove this many bp from the 3' end of read 1 (fastp `--trim_tail1`); applied before the quality cut."
+    help_text: "fastp: `--trim_tail1` / `-t`."
+
+  three_prime_clip_r2:
+    description: "Step 2 (fixed-count alternative): remove this many bp from the 3' end of read 2 (fastp `--trim_tail2`); applied before the quality cut."
+    help_text: "fastp: `--trim_tail2` / `-T`."
+
+  length_required:
+    description: "Step 3 · Read filtering: discard reads shorter than this after trimming (fastp `--length_required`)."
+    help_text: "fastp's default is 15 bp. A pair is discarded when either mate is too short. Always applied when fastp runs, independent of `filter_quality`.\n\nfastp: `--length_required` / `-l`; the length filter itself can only be disabled by fastp's `-L`, which is not exposed."
+  save_trimmed:
+    description: "Outputs: publish the trimmed FASTQ files (preprocessing/fastp/<sample>/)."
+  save_split_fastqs:
+    description: "Outputs: publish the split FASTQ shards (split_fastq > 0). Intended for testing."
+  umi_read_structure:
+    description: "Step 0 · UMI consensus: UMI read structure (enables the fgbio consensus step before fastp). Not used for ALE libraries."
+  group_by_umi_strategy:
+    description: "Step 0 · UMI consensus: fgbio grouping strategy (Identity, Edit, Adjacency, Paired)."
+  split_fastq:
+    help_text: "Uses fastp to split FASTQ files by number of reads, parallelising alignment across the shards. Note that a non-zero value runs fastp even with every trimming step off, and fastp's read-level quality filter then still applies (as in upstream sarek) unless `--filter_quality false`; adapter trimming stays off and poly-G trimming follows fastp's read-name auto-detection (NextSeq/NovaSeq names), as in upstream. Although the minimum value is 250 reads, if you have fewer than 250 reads a single FASTQ shard will still be created. Every ALE profile sets 0.\n\nfastp: `--split_by_lines` / `-S` with 4 x this value."
   tools:
     description: "Comma-separated list of tools to run. Tier-1 ALE recipe: `snpeff,cnvkit,tiddit,manta,haplotypecaller`."
     help_text: "Multiple tools separated with commas. All calling is **germline** — every sample carries `status = 0` in the samplesheet (see `docs/usage/input_samplesheet.md`); sarek's tumor-only and paired somatic modes are unused.\n\n**Tier-1 (release-validated for ALE):**\n\n- SNVs/Indels: `haplotypecaller` — GATK HaplotypeCaller, joint cohort calling per `experiment` (`--joint_germline`)\n- Copy-number: `cnvkit`\n- Structural variants: `manta`, `tiddit` — cohort-merged via SVDB\n- Annotation: `snpeff` (custom cache)\n\nOther sarek callers (`mutect2`, `freebayes`, `controlfreec`, ...) remain runnable but are Tier-2: functional, not release-validated for ALE."

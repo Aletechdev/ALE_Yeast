@@ -32,7 +32,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 | `subworkflows/local/` | 7 | 11 |
 | `modules/local/` | 16 | 0 |
 | `modules/nf-core/` | 5 (installed) | **3 patched** ⚠️ |
-| `conf/` | 11 | 7 |
+| `conf/` | 11 | 8 |
 
 ---
 
@@ -41,10 +41,13 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 - **`workflows/sarek/main.nf`** ⚠️ — the largest edit surface. ALE additions: custom VCF filtering
   channels (FreeBayes/Mutect2 AF filters via `TABIX_TABIX` + `vcf_with_tbi`), and the **inline
   MUTATION_REPORT** call at the end of the MultiQC block with the `ch_report_vcfs` annotated-or-raw
-  fallback (commit `bb1439f`). Record the report's channel contract here on every rebase.
+  fallback (commit `bb1439f`). Record the report's channel contract here on every rebase. Also the
+  **FASTP gate** (`trim_adapter || trim_fastq || trim_quality_3prime || trim_quality_5prime || split_fastq > 0`)
+  plus the `trim_fastq` deprecation warning — two lines added 2026-09-02.
 - **`main.nf`** — removed the old outer MUTATION_REPORT path-discovery call (superseded by the inline
   call); otherwise close to upstream.
-- **`nextflow.config`** — ALE params (report_* / generate_reports / split & hard-filter HC), extra
+- **`nextflow.config`** — ALE params (report_* / generate_reports / split & hard-filter HC / read
+  preprocessing `trim_adapter`, `trim_quality_*`, `filter_quality*`, `adapter_sequence*`), extra
   `includeConfig`s, ALE profiles.
 - **`nextflow_schema.json`** — schema entries for the new params. ⚠️ **GENERATED since 2026-09:**
   upstream schema + [`conf/schema_overlay.yml`](../../conf/schema_overlay.yml) (visible-param
@@ -58,7 +61,10 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 
 `joint_manta` (upstream-shaped, PR candidate), `manta_high_sensitivity`, `generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
 `report_gff3`, `report_filter_config`, `report_cohort_template`, `report_sample_template`,
-`report_index_script`, `report_templates_dir`, `report_outdir`, `report_multiqc_path`.
+`report_index_script`, `report_templates_dir`, `report_outdir`, `report_multiqc_path`;
+read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as deprecated alias),
+`adapter_sequence`, `adapter_sequence_r2`, `trim_quality_3prime`, `trim_quality_5prime`, `trim_quality_mean`,
+`trim_quality_window`, `filter_quality`, `filter_quality_phred`, `filter_quality_percent`.
 
 ---
 
@@ -128,12 +134,14 @@ Upstream-managed modules (clean installs, low rebase cost).
 - **Profiles/params:** `test/ottilie_test.config` (the ALE test dataset + tool set),
   `seqera_azure.config`, `params_seqera_381.yml`, `params_seqera_test.yml`.
 
-## `conf/` — MODIFIED (7, in place)
+## `conf/` — MODIFIED (8, in place)
 
 `base.config`, `modules/cnvkit.config` (ploidy on call+export; germline CNVKIT_CALL prefix),
 `modules/controlfreec.config` (ASSESS_SIGNIFICANCE skip on ploidy=1), `modules/joint_germline.config`
 (VARIANTFILTRATION_FALLBACK params only — the SPLIT_JOINT_VCF rules moved to `split_joint_vcf.config`), `modules/freebayes.config`,
-`modules/tiddit.config`, `modules/modules.config` (vcftools conditional `ext.when`).
+`modules/tiddit.config`, `modules/modules.config` (vcftools conditional `ext.when`),
+`modules/trimming.config` (fastp: `filter_quality` off-switch for the read filter, `--cut_<mode>` per
+end, explicit adapters — `fastq_preprocessing_audit.md` §2.1).
 
 ---
 

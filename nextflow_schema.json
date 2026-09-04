@@ -84,7 +84,7 @@
                     "default": 50000000,
                     "fa_icon": "fas fa-clock",
                     "description": "Specify how many reads each split of a FastQ file contains. Set 0 to turn off splitting at all.",
-                    "help_text": "Use the the tool FastP to split FASTQ file by number of reads. This parallelizes across fastq file shards speeding up mapping. Note although the minimum value is 250 reads, if you have fewer than 250 reads a single FASTQ shard will still be created.",
+                    "help_text": "Uses fastp to split FASTQ files by number of reads, parallelising alignment across the shards. Note that a non-zero value runs fastp even with every trimming step off, and fastp's read-level quality filter then still applies (as in upstream sarek) unless `--filter_quality false`; adapter trimming stays off and poly-G trimming follows fastp's read-name auto-detection (NextSeq/NovaSeq names), as in upstream. Although the minimum value is 250 reads, if you have fewer than 250 reads a single FASTQ shard will still be created. Every ALE profile sets 0.\n\nfastp: `--split_by_lines` / `-S` with 4 x this value.",
                     "hidden": true
                 },
                 "nucleotides_per_second": {
@@ -135,82 +135,163 @@
             "fa_icon": "fas fa-user-cog"
         },
         "fastq_preprocessing": {
-            "title": "FASTQ Preprocessing",
+            "title": "Read preprocessing",
             "type": "object",
-            "description": "Trim fastq file or handle UMIs",
+            "description": "Optional steps between the samplesheet and alignment, in run order: step 0 UMI consensus (fgbio, only with umi_read_structure) → fastp: step 1 adapter trimming · step 2 quality trimming per read end · step 3 read filtering. Reads are aligned exactly as sequenced unless a step is switched on; fastp runs only when step 1 or 2 is on (or split_fastq > 0). Details: docs/usage/read_preprocessing.md",
             "default": "",
             "fa_icon": "fas fa-cut",
             "properties": {
+                "umi_read_structure": {
+                    "type": "string",
+                    "fa_icon": "fas fa-tape",
+                    "description": "Step 0 · UMI consensus: UMI read structure (enables the fgbio consensus step before fastp). Not used for ALE libraries.",
+                    "help_text": "One structure if UMI is present on one end (i.e. '+T 2M11S+T'), or two structures separated by a blank space if UMIs a present on both ends (i.e. '2M11S+T 2M11S+T'); please note, this does not handle duplex-UMIs.\n\nFor more info on UMI usage in the pipeline, also check docs [here](./docs/usage/#how-to-handle-umis).",
+                    "hidden": true
+                },
+                "group_by_umi_strategy": {
+                    "type": "string",
+                    "default": "Adjacency",
+                    "fa_icon": "fas fa-tape",
+                    "description": "Step 0 · UMI consensus: fgbio grouping strategy (Identity, Edit, Adjacency, Paired).",
+                    "help_text": "Available values: Identity, Edit, Adjacency, Paired",
+                    "hidden": true
+                },
+                "trim_adapter": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-cut",
+                    "description": "Step 1 · Adapter trimming: run fastp to remove adapter read-through (and, by default, apply step 3's read filter).",
+                    "help_text": "Adapters are found without any input: paired reads are trimmed wherever the two mates overlap, and `--detect_adapter_for_pe` infers the adapter sequence from the data for pairs that do not overlap. Set `adapter_sequence` to name the kit's adapter explicitly (useful when fastp reports `unspecified`).\n\nBehaves as upstream sarek's `trim_fastq` (kept as a deprecated alias): fastp also applies its read-level quality filter unless `--filter_quality false` (step 3). Poly-G trimming follows fastp's own read-name rule unless `trim_nextseq` forces it (see that parameter). See docs/usage/read_preprocessing.md.\n\nfastp: adapter trimming is fastp's default; off = `--disable_adapter_trimming` / `-A`. The module always adds `--detect_adapter_for_pe`."
+                },
                 "trim_fastq": {
                     "type": "boolean",
                     "fa_icon": "fas fa-cut",
-                    "description": "Run FastP for read trimming",
-                    "help_text": "Use this to perform adapter trimming. Adapter are detected automatically by using the FastP flag `--detect_adapter_for_pe`. For more info see [FastP](https://github.com/OpenGene/fastp)."
+                    "description": "Deprecated alias of `trim_adapter` (upstream sarek name) - same behaviour, warns at startup.",
+                    "help_text": "Kept so upstream-shaped params files keep working. Use `--trim_adapter`.",
+                    "hidden": true
+                },
+                "adapter_sequence": {
+                    "type": "string",
+                    "fa_icon": "fas fa-cut",
+                    "description": "Step 1 · Adapter trimming: adapter sequence for read 1 (fastp `--adapter_sequence`). Leave empty to auto-detect.",
+                    "help_text": "Only used with `--trim_adapter`. By default fastp finds adapters itself: paired reads are trimmed wherever the two mates overlap (`--detect_adapter_for_pe`), plus a sequence it infers from the data. On libraries with little adapter read-through that inference can fail (fastp then reports `unspecified`), and read pairs that do not overlap keep their adapter; giving the sequence explicitly closes that gap. Common values: Nextera/Tn5 `CTGTCTCTTATACACATCT`, TruSeq read 1 `AGATCGGAAGAGCACACGTCTGAACTCCAGTCA`.\n\nfastp: `--adapter_sequence` / `-a`."
+                },
+                "adapter_sequence_r2": {
+                    "type": "string",
+                    "fa_icon": "fas fa-cut",
+                    "description": "Step 1 · Adapter trimming: adapter sequence for read 2 (fastp `--adapter_sequence_r2`). Defaults to `adapter_sequence`.",
+                    "help_text": "Only used with `--trim_adapter`. Nextera libraries use the same sequence on both reads, so this is normally left empty; TruSeq read 2 is `AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT`.\n\nfastp: `--adapter_sequence_r2`."
+                },
+                "trim_nextseq": {
+                    "type": "integer",
+                    "default": 0,
+                    "fa_icon": "fas fa-cut",
+                    "description": "Step 1 · Adapter trimming: force poly-G tail trimming (fastp `--trim_poly_g`); any non-zero value enables it. At 0 fastp decides from the read names, as in upstream sarek.",
+                    "help_text": "Poly-G tails come from two-colour chemistry (NextSeq/NovaSeq), where no signal reads as G. At 0 nothing is passed and fastp applies its own rule: poly-G trimming switches on automatically when the first read name carries a NextSeq/NovaSeq instrument prefix (e.g. `@A00123:...`) and stays off otherwise - so data renamed by SRA (`@SRR...`) is never poly-G-trimmed unless you set this. Any non-zero value forces it on for every dataset. The value itself is not passed to fastp (this is not Trim Galore's `--nextseq=X` quality cutoff); use `trim_quality_3prime` for quality trimming.\n\nfastp: non-zero = `--trim_poly_g` / `-g`; 0 = nothing passed (fastp's read-name auto-detection; `--disable_trim_poly_g` / `-G` is not exposed)."
+                },
+                "trim_quality_3prime": {
+                    "type": "string",
+                    "enum": [
+                        "tail",
+                        "right"
+                    ],
+                    "fa_icon": "fas fa-cut",
+                    "description": "Step 2 · Quality trimming, 3' end: trim a variable number of low-quality bases from the 3' end - `tail` (stop at the first good window) or `right` (cut at the first bad window and everything after it). Off when unset.",
+                    "help_text": "fastp inspects `trim_quality_window` bases at a time and trims where their mean quality is below `trim_quality_mean` - no fixed number of bases.\n\n```\nread    5' ----------------------------> 3'\nquality    high ... dip ... high .. low tail\ntail    keep ####################### trim ..\nright   keep ######## trim ................\n```\n\n\n\n- `tail`: Trimmomatic `TRAILING` with a window. The usual choice for 3'-end quality decay; a mid-read dip is left alone.\n- `right`: Trimmomatic `SLIDINGWINDOW`. Stricter: a mid-read quality dip removes the rest of the read.\n\nOn the ottilie test set `tail` at 4/Q20 removed 0.03% (evolved clone) to 2.2% (parent) of bases beyond the adapters; `right` 3-4x more, because the parent has a systematic quality dip at position 58. Schematic and measurements: docs/usage/read_preprocessing.md.\n\nRuns fastp on its own if `--trim_adapter` is off. Reads shorter than `length_required` after trimming are discarded (step 3). `right` supersedes `tail` in fastp, hence one choice.\n\nfastp: `tail` = `--cut_tail` / `-3`; `right` = `--cut_right` / `-r`. Per-end overrides `--cut_tail_window_size`, `--cut_tail_mean_quality`, `--cut_right_*` are not exposed (shared `-W`/`-M` apply)."
+                },
+                "trim_quality_5prime": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-cut",
+                    "description": "Step 2 · Quality trimming, 5' end: trim a variable number of low-quality bases from the 5' end (fastp `--cut_front`, Trimmomatic `LEADING`). Off by default.",
+                    "help_text": "Same window/threshold as the 3' end (`trim_quality_window`, `trim_quality_mean`): walk in from the 5' end and stop at the first window whose mean quality passes. Rarely needed on Illumina data, where quality is lowest at the 3' end. Can be combined with `trim_quality_3prime`. See docs/usage/read_preprocessing.md.\n\nfastp: `--cut_front` / `-5`."
+                },
+                "trim_quality_mean": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 1,
+                    "maximum": 36,
+                    "fa_icon": "fas fa-cut",
+                    "description": "Step 2 · Quality trimming: mean Phred quality a window must reach to survive (fastp `--cut_mean_quality`), both ends.",
+                    "help_text": "Ignored unless a `trim_quality_*` end is set. 20 with a window of 4 is the Trimmomatic `SLIDINGWINDOW:4:20` / `TRAILING:20` convention.\n\nfastp: `--cut_mean_quality` / `-M` (range 1-36)."
+                },
+                "trim_quality_window": {
+                    "type": "integer",
+                    "default": 4,
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "fa_icon": "fas fa-cut",
+                    "description": "Step 2 · Quality trimming: window size in bases (fastp `--cut_window_size`), both ends.",
+                    "help_text": "Ignored unless a `trim_quality_*` end is set. 1 makes the trimming per-base (exactly Trimmomatic `TRAILING`/`LEADING`).\n\nfastp: `--cut_window_size` / `-W` (range 1-1000)."
                 },
                 "clip_r1": {
                     "type": "integer",
                     "default": 0,
                     "fa_icon": "fas fa-cut",
-                    "description": "Remove bp from the 5' end of read 1",
-                    "help_text": "This may be useful if the qualities were very poor, or if there is some sort of unwanted bias at the 5' end. Corresponds to the FastP flag `--trim_front1`."
+                    "description": "Step 2 (fixed-count alternative): remove this many bp from the 5' end of read 1 (fastp `--trim_front1`).",
+                    "help_text": "fastp: `--trim_front1` / `-f`."
                 },
                 "clip_r2": {
                     "type": "integer",
                     "default": 0,
-                    "description": "Remove bp from the 5' end of read 2",
-                    "help_text": "This may be useful if the qualities were very poor, or if there is some sort of unwanted bias at the 5' end. Corresponds to the FastP flag `--trim_front2`.",
+                    "description": "Step 2 (fixed-count alternative): remove this many bp from the 5' end of read 2 (fastp `--trim_front2`).",
+                    "help_text": "fastp: `--trim_front2` / `-F`.",
                     "fa_icon": "fas fa-cut"
                 },
                 "three_prime_clip_r1": {
                     "type": "integer",
                     "default": 0,
                     "fa_icon": "fas fa-cut",
-                    "description": "Remove bp from the 3' end of read 1",
-                    "help_text": "This may remove some unwanted bias from the 3'.  Corresponds to the FastP flag `--trim_tail1`."
+                    "description": "Step 2 (fixed-count alternative): remove this many bp from the 3' end of read 1 (fastp `--trim_tail1`); applied before the quality cut.",
+                    "help_text": "fastp: `--trim_tail1` / `-t`."
                 },
                 "three_prime_clip_r2": {
                     "type": "integer",
                     "default": 0,
                     "fa_icon": "fas fa-cut",
-                    "description": "Remove bp from the 3' end of read 2",
-                    "help_text": "This may remove some unwanted bias from the 3' end. Corresponds to the FastP flag `--trim_tail2`."
+                    "description": "Step 2 (fixed-count alternative): remove this many bp from the 3' end of read 2 (fastp `--trim_tail2`); applied before the quality cut.",
+                    "help_text": "fastp: `--trim_tail2` / `-T`."
                 },
-                "trim_nextseq": {
+                "filter_quality": {
+                    "type": "boolean",
+                    "default": true,
+                    "fa_icon": "fas fa-filter",
+                    "description": "Step 3 · Read filtering: discard read pairs with too many low-quality bases (fastp's read-level filter; thresholds below). On by default whenever fastp runs, as in upstream sarek.",
+                    "help_text": "fastp's own default filter, evaluated on the trimmed read: a read is discarded, together with its mate, when more than `filter_quality_percent` of its bases are below `filter_quality_phred` (or it has more than 5 N). Applies whenever fastp runs - step 1, step 2 or `split_fastq > 0` - exactly as in upstream sarek 3.5.1, which has no switch for it. `--filter_quality false` passes `--disable_quality_filtering`, so trimming or splitting never removes whole reads (only `length_required` still does). On the ottilie test set the filter removes 0.7% (evolved clone) to 4.2% (parent) of read pairs; the counts are in `reports/fastp/<sample>/*.fastp.json` under `filtering_result`. See docs/usage/read_preprocessing.md.\n\nfastp: on = `--qualified_quality_phred` / `-q` + `--unqualified_percent_limit` / `-u` (values from the two parameters below; N limit stays at fastp's `-n 5`); off = `--disable_quality_filtering` / `-Q`."
+                },
+                "filter_quality_phred": {
                     "type": "integer",
-                    "default": 0,
-                    "fa_icon": "fas fa-cut",
-                    "description": "Removing poly-G tails.",
-                    "help_text": "DetectS polyG in read tails and trim them. Corresponds to the FastP flag `--trim_poly_g`."
+                    "default": 15,
+                    "minimum": 0,
+                    "maximum": 40,
+                    "fa_icon": "fas fa-filter",
+                    "description": "Step 3 · Read filtering: a base counts as qualified at or above this Phred quality (fastp `--qualified_quality_phred`).",
+                    "help_text": "fastp's default is 15. Only used when `filter_quality` is on.\n\nfastp: `--qualified_quality_phred` / `-q`."
+                },
+                "filter_quality_percent": {
+                    "type": "integer",
+                    "default": 40,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "fa_icon": "fas fa-filter",
+                    "description": "Step 3 · Read filtering: discard a read pair when more than this percentage of a read's bases are unqualified (fastp `--unqualified_percent_limit`).",
+                    "help_text": "fastp's default is 40. Only used when `filter_quality` is on.\n\nfastp: `--unqualified_percent_limit` / `-u` (0-100)."
                 },
                 "length_required": {
                     "type": "integer",
                     "default": 15,
                     "fa_icon": "fas fa-cut",
-                    "description": "Minimum length of reads to keep",
-                    "help_text": "This is the minimum length of reads to keep after trimming. Corresponds to the FastP flag `--length_required` (default in FastP is 15bp)."
+                    "description": "Step 3 · Read filtering: discard reads shorter than this after trimming (fastp `--length_required`).",
+                    "help_text": "fastp's default is 15 bp. A pair is discarded when either mate is too short. Always applied when fastp runs, independent of `filter_quality`.\n\nfastp: `--length_required` / `-l`; the length filter itself can only be disabled by fastp's `-L`, which is not exposed."
                 },
                 "save_trimmed": {
                     "type": "boolean",
                     "fa_icon": "fas fa-save",
-                    "description": "Save trimmed FastQ file intermediates."
-                },
-                "umi_read_structure": {
-                    "type": "string",
-                    "fa_icon": "fas fa-tape",
-                    "description": "Specify UMI read structure",
-                    "help_text": "One structure if UMI is present on one end (i.e. '+T 2M11S+T'), or two structures separated by a blank space if UMIs a present on both ends (i.e. '2M11S+T 2M11S+T'); please note, this does not handle duplex-UMIs.\n\nFor more info on UMI usage in the pipeline, also check docs [here](./docs/usage/#how-to-handle-umis)."
-                },
-                "group_by_umi_strategy": {
-                    "type": "string",
-                    "default": "Adjacency",
-                    "fa_icon": "fas fa-tape",
-                    "description": "Default strategy with UMI",
-                    "help_text": "Available values: Identity, Edit, Adjacency, Paired"
+                    "description": "Outputs: publish the trimmed FASTQ files (preprocessing/fastp/<sample>/)."
                 },
                 "save_split_fastqs": {
                     "type": "boolean",
                     "fa_icon": "fas fa-vial",
-                    "description": "If set, publishes split FASTQ files. Intended for testing purposes."
+                    "description": "Outputs: publish the split FASTQ shards (split_fastq > 0). Intended for testing.",
+                    "hidden": true
                 }
             }
         },

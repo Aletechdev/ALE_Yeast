@@ -398,7 +398,7 @@ nf-test's four test types, and what each maps to in this fork:
 | Layer | nf-test type | Our surface | Status |
 |-------|--------------|-------------|--------|
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
-| Process | `nextflow_process` | the 19 `modules/local/` | **0 owned** |
+| Process | `nextflow_process` | the 19 `modules/local/` + upstream modules whose behaviour we own via config | **1** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 7 cases, 1 000-pair fixture) |
 | Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **1** (`split_joint_vcf`) |
 | Pipeline | `nextflow_pipeline` | supported end-to-end routes | **1** (`ottilie_e2e`) |
 
@@ -512,6 +512,41 @@ current hand-committed `tests/fixtures/` — decide committed-small vs. Azure Bl
 count grows.
 
 ---
+
+## 12. What counts as validated — the contract-test rule
+
+`ottilie_e2e` is the **contract test**: the only run whose outputs are compared against a committed
+record (`tests/ottilie_e2e.nf.test.snap`). A launcher run (`bin/test_ottilie.sh`) or a pilot run
+(`run_ottilie_pilot.sh`) exercises the same code but compares against nothing, so it cannot fail on a
+changed output. That distinction was blurred on 2026-09-01: the SOR_FS filter change (`4c45fb8`) was
+committed on the strength of a launcher run and a pilot ("2-sample end-to-end test: 173 tasks
+green") and left the snapshot stale — the next plain e2e failed on six HaplotypeCaller hashes that had
+nothing to do with the change being tested at the time.
+
+**Rule.** Any change that can alter pipeline outputs — `conf/modules/*`, `subworkflows/`, `modules/`,
+`workflows/`, task scripts in `bin/`, defaults in `nextflow.config` — goes through this loop before
+it is committed, and the commit message names which runs were done:
+
+```bash
+export NXF_VER=25.10.4
+# 1. Run the contract test normally. Do NOT pass --update-snapshot yet.
+nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test
+# 2. Explain EVERY snapshot difference (which file, which change caused it). An unexplained
+#    difference is a finding, not noise — stop and investigate.
+# 3. Re-record, then review the .snap diff as source code: only the explained lines may move.
+nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test --update-snapshot
+git diff tests/ottilie_e2e.nf.test.snap
+# 4. Commit code + .snap together. A change that is inert at defaults commits with NO .snap change,
+#    and a green plain run afterwards is the proof.
+```
+
+When two behaviour changes are in flight, re-record them **separately** (stash one, re-record the
+other on clean HEAD, commit, unstash), so each `.snap` diff is attributable to one commit — the
+2026-09-03 SOR_FS re-record was done exactly this way, ahead of the read-preprocessing commit.
+
+Launcher and pilot runs remain valuable for what they *are*: the pilot is where truth-set sensitivity
+is measured and the launcher is the fastest way to inspect real outputs. Record them as evidence in
+the commit message or the validation doc, never as the validation itself.
 
 ## TODO
 
