@@ -21,6 +21,35 @@ One joint `MANTA_GERMLINE` call over all 86 Tier-2 `md.cram`s (one `experiment` 
   sets that must stay on disk. Regeneration verified byte-identical 2026-09-07 before the files were
   deleted, so this is a tested claim rather than an assumption.)
 
+> ### ⚠️ Every number in this report is from UNTRIMMED reads
+>
+> The Tier-2 CRAMs were produced **2026-06-01 with `trim_fastq: false` and no fastp step at all**
+> (`output_ottilie_tier2/pipeline_info/params_2026-06-01_16-18-42.json`; the run has no
+> `reports/fastp/`). The pipeline default changed on **2026-09-04** (`948163c`) to
+> `--trim_adapter --trim_quality_3prime tail`. Everything here — all four cohort sizes, all three
+> modes, the 2-group split — reuses those CRAMs via `--step variant_calling`, so **none of it
+> reflects the current default.**
+>
+> **Manta is unusually exposed to this**, because trimming touches exactly the evidence it uses:
+> adapter read-through leaves soft-clips at read ends, which Manta scores as split-read breakpoint
+> support (adapter trimming touches ~11 % of the evolved clone's reads in the test set); trimming
+> also changes which reads map, shifting discordant-pair evidence; and fastp's read filter drops
+> 0.7–4.2 % of pairs, which moves the depth that `MaxDepth` is scored against — a filter this report
+> shows flipping cassette junctions between PASS and filtered over a 62× vs 75× pooled difference.
+>
+> **What a re-cut would and would not change** (*inferred* — no trimmed re-run has been done):
+>
+> - **Should survive** — the architectural findings. Per-sample mode's parent blind spot is
+>   structural (the parent's VCF lacks the cassette junctions because it was called *alone*), as is
+>   joint mode's pooling erasure with cohort size and the group-membership effect.
+> - **Should be expected to move** — every absolute count: 13/28/33/36, 0/0/2/3, 19/16/11/5.
+>
+> **Consequence for reproducing this work.** The cohort's sample list is *not* sufficient to rebuild
+> it. Regenerating these CRAMs from FASTQ today would apply the new default and produce a different
+> experiment using the same samples. The reproducibility unit is **sample list + preprocessing
+> parameters**; to rebuild the benchmark as run, pass `--trim_adapter false` and leave
+> `trim_quality_3prime` unset. Same exposure CLAUDE.md already records for the Azure baseline.
+
 ## Resource verdict: runs, after an fd-limit fix
 
 | Constraint | Result |

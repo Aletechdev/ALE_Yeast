@@ -58,6 +58,29 @@ Every cohort the SV comparison ran on is reconstructible; the mechanism differs 
 
 `data/ottilie/*` is gitignored, so the sheets themselves are not in the repo — the generators are.
 
+### ⚠️ A sample list is not a rebuild — record the preprocessing too
+
+The table above rebuilds **which samples**, not **how their reads were processed**, and for these
+cohorts the two differ. The Tier-2 CRAMs behind the 16/48/86/2-group runs were produced **2026-06-01
+with `trim_fastq: false` and no fastp step at all**; the pipeline default changed on **2026-09-04**
+(`948163c`) to `--trim_adapter --trim_quality_3prime tail`. Re-running any of these cohorts from
+FASTQ today therefore yields *a different experiment on the same samples*, not a reproduction.
+
+| To do this | Pass |
+|---|---|
+| Reproduce the SV benchmark **as run** | `--trim_adapter false`, leave `trim_quality_3prime` unset |
+| Re-cut it against the **current default** | nothing — the default is now trimming |
+
+A re-cut is a legitimate thing to want; it is just not the same number. Expect absolute counts to
+move and the architectural findings to hold — see the untrimmed-reads caveat at the top of
+[`manta_joint_at_scale/REPORT.md`](manta_joint_at_scale/REPORT.md) for which is which, and why Manta
+is more exposed to trimming than most callers. The same exposure is recorded for the Azure baseline
+in CLAUDE.md.
+
+**Rule of thumb for any future cohort here:** the reproducibility unit is *sample list + the
+parameters that touch reads*, and the second half is the one that silently goes stale when a default
+changes.
+
 ⚠️ **Selection is alphabetical, and clone names begin with their compound**, so cohorts cluster by
 compound (6 of 15 clones at 16 samples are CBR668) while distinct compounds rise with size (7 → 26 →
 43 at 16/48/86). Cohort size and clone diversity therefore co-vary; see the confound caveat in
