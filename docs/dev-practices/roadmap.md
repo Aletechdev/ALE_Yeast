@@ -401,9 +401,14 @@ pipeline; none is about the transport.
 
 - **[high] Accept a tarball for `--snpeff_cache`, keeping directories as they are.** Sarek's own
   precedent: `--chr_dir` takes a `.tar.gz` via `UNTAR` (`prepare_genome/main.nf`), ASCAT resources take
-  `.zip`. Branch on the `.tar.gz` suffix in `annotation_cache_initialisation`, drop `format:
-  directory-path` from the schema entry (upstream did the same), fail fast unless the unpacked tree holds
-  `<snpeff_db>/snpEffectPredictor.bin`. `snpeff_cache.tar.gz` (10.5 MB) is already published; republish
+  `.zip`. Placement (so it survives the 3.9.0+ rebase — see `ale_sarek_upgrade_runbook.md` → *Known
+  Rebase Hazards: SnpEff cache*): an **additive** `subworkflows/local/` file (UNTAR + fail-fast unless
+  the unpacked tree holds `<snpeff_db>/snpEffectPredictor.bin`, emits `[meta, dir]`) plus ~8 lines in
+  `main.nf` keyed on the `snpeff_enabled` boolean the cache subworkflow already takes; **not** inside
+  `annotation_cache_initialisation`, which upstream deletes. Drop `format: directory-path` from the
+  schema entry via the overlay (upstream did the same). Validation: the e2e is unaffected
+  (`ottilie_test` passes a directory) — add a short nf-test for the new subworkflow using the 6 MB
+  runtime cache as fixture. `snpeff_cache.tar.gz` (10.5 MB) is already published; republish
   it flat (database directory at the top level) and trimmed to the runtime files
   (`snpEffectPredictor.bin`, `sequence*.bin`, `snpEff.config` — 6 MB, verified 2026-09-04 to annotate the
   truth SNVs), named with the snpEff version. Same cache, same snpEff 5.1, so the snapshot holds. Fork
@@ -411,10 +416,24 @@ pipeline; none is about the transport.
 - **[high] Rebind `-profile test` to the public https profile.** Today `test` is upstream's human test.
   Self-contained: data URLs, tarball cache, and its own `process.resourceLimits` (upstream
   `conf/test.config` uses 4 cpus / 15 GB / 1 h). `ottilie_test` (local data) stays for the nf-test.
-  Drop the schema `default` for `snpeff_cache` (upstream still ships `s3://annotation-cache/…`):
-  Platform injects schema defaults over profile values (`azure_batch_execution.md` §13), so a
-  profile-only Launchpad run in another organisation would otherwise die on the s3 path. The overlay
-  script hides params but does not strip defaults; extend it or edit the schema directly.
+  **Flip the `snpeff_cache` default to null, in BOTH places, plus a guard.** (i) `nextflow.config`:
+  `snpeff_cache = null` (upstream's own `conf/test.config` already does this) — the inherited
+  `s3://annotation-cache/snpeff_cache/` is never right for a custom yeast genome and fails deep in the
+  run on Azure. (ii) Schema: remove the `default` key via the overlay (extend `apply_schema_overlay.py`
+  with a "remove keys" list rather than editing the schema directly; upstream 3.10.0 still ships the
+  s3 default). The two must move together — nf-core lint's `nextflow_config` test compares config
+  defaults against schema defaults, and Platform injects the *schema* default over profile values
+  (`azure_batch_execution.md` §13), which is what would kill a profile-only Launchpad run elsewhere.
+  (iii) Guard in `samplesheet_to_channel` (already ALE-modified): if `tools` contains `snpeff` and
+  neither `snpeff_cache` nor `download_cache` is set, error "Please specify --snpeff_cache (a directory;
+  az://, s3:// or gs:// prefixes are accepted) or --download_cache" — name only the forms accepted at
+  the time (add ".tar.gz" in the tarball commit, not before). Today only the reverse check exists
+  (cache without `snpeff_db`), so a missing cache would
+  reach `SNPEFF_SNPEFF` with no `-dataDir` and snpEff would try its dead download host. Behaviour
+  change → e2e contract test in the same commit (every ottilie profile sets `snpeff_cache`, so the
+  snapshot should be unchanged). Acceptance: a Launchpad launch with an EMPTY params box picks up the
+  profile's `snpeff_cache`; `nextflow run … --tools snpeff` without a cache fails at launch with that
+  message.
 - **[med] Standalone SnpEff cache builder, then plug in.** `build_snpeff_cache.nf` beside
   `generate_mutation_report.nf`: FASTA + GFF3 or GenBank in, versioned tarball out (consumed by the
   tarball item above), same `snpeff:5.1` container. Acceptance tests: chromosome-name overlap between
@@ -433,6 +452,15 @@ pipeline; none is about the transport.
   cache in 90/100 ANN strings on the test VCF (differences only in Gene_Name/Gene_ID for tRNAs), so it
   would drift the snapshot. Revisit at the sarek rebase (snpEff 5.4.0c; check the cache compatibility
   window first).
+- **[med — before the next sarek rebase] Two SnpEff-cache rebase hazards, written up in
+  `ale_sarek_upgrade_runbook.md` → *Known Rebase Hazards: SnpEff cache*.** (1) snpEff 5.1 → 5.4.0c
+  invalidates every 5.1-built cache: rebuild all caches, re-record the e2e snapshot. (2)
+  `annotation_cache_initialisation` is deleted upstream in 3.9.0; its nf-core replacement applies the
+  `<db>/<db>/` key to every cloud URL and keeps the directory check, so our flat `az://` cache dirs
+  (`ottilie_test_az`, `ottilie_pilot_az`, Launchpad box) fail unless the cloud-path skip is ported as a
+  subworkflow patch — or the caches move to tarballs, which is what the tarball item above buys: a patch
+  to drop instead of a patch to port. Also re-apply the schema `default` removal for `snpeff_cache`
+  after taking the upstream schema (3.10.0 still ships the s3 default).
 - **Decided against: test data inside the repo** (`assets/` or raw GitHub). Two FASTQs exceed GitHub's
   100 MB cap, LFS pointers are not fetched by Nextflow, every Seqera clone would drag 400 MB, and nf-core
   keeps test data out of pipeline repos for these reasons. A 6 MB runtime-only cache under `assets/` is

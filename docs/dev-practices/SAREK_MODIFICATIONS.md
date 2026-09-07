@@ -92,7 +92,7 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 | `utils_nfcore_sarek_pipeline` | YAML `processVersionsFromYAML()` fix for custom VCF filters. |
 | `bam_variant_calling_somatic_all` | FreeBayes somatic channel disabled (noise for ALE). |
 | `bam_variant_calling_somatic_mutect2` | FilterMutectCalls placeholder-channel fix (runs without germline resource/PoN). |
-| `annotation_cache_initialisation` | Custom SnpEff cache handling. |
+| `annotation_cache_initialisation` | Skip `exists()/isDirectory()` for `az|s3|gs://` cache paths (blob prefixes are not directories). ⚠️ **File deleted upstream in 3.9.0** (#2194), replaced by nf-core `utils_annotation_cache`, which also applies the `<db>/<db>/` key to every cloud URL — our flat `az://` cache dirs fail under it. Port as a subworkflow patch, or make it moot with a tarball cache: `ale_sarek_upgrade_runbook.md` → *Known Rebase Hazards: SnpEff cache*. |
 | `bam_variant_calling_somatic_controlfreec`, `bam_variant_calling_tumor_only_controlfreec` | Ploidy/germline adjustments. |
 
 ## `modules/local/` — ADDED (16, additive)

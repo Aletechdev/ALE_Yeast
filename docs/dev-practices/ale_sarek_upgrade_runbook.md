@@ -146,6 +146,49 @@ on a 25.3.x compute environment until the 26.x migration is done.
 
 Line numbers drift as the config changes — match on the construct, not the number.
 
+## Known Rebase Hazards: SnpEff cache (couples with any 3.9.0+ rebase; verified 2026-09-07)
+
+Two upstream changes in this one area land together at the next rebase. Neither is caused by ALE code,
+both break ALE's current cache handling, and the second is **dropped rather than ported** if the
+tarball item in `roadmap.md` → *Onboarding* is done first.
+
+1. **snpEff 5.1 → 5.4.0c** (sarek master `modules/nf-core/snpeff/snpeff/environment.yml`). snpEff
+   refuses a database outside its compatibility window — `Database version: '5.2', Program version:
+   '5.1', Compatible versions: '[5.1, 5.0]'` (sarek #1654). **Every ALE cache was built with 5.1**:
+   `gen_cache.sh`, `02_reference_prep/prepare_s288c_reference.sh`, the published `snpeff_cache.tar.gz`,
+   and the `az://aletest/ottilie/v1/*/snpeff_cache/` directories. At the rebase: read the 5.4 window,
+   expect to **rebuild every cache** with the new container, and **re-record the e2e snapshot** (ANN
+   strings can move with a rebuild). The standalone cache builder (roadmap) turns this into a re-run.
+   `--download_cache` and the stock `R64-1-1.105` only become options again if the bumped snpEff reaches
+   the current AWS database host — the 5.1 container's built-in host is dead (sarek #1980).
+
+2. **`subworkflows/local/annotation_cache_initialisation` is deleted upstream (3.9.0, #2194)**, replaced
+   by nf-core `subworkflows/nf-core/utils_annotation_cache`. ALE's edit to the local file — skip
+   `exists()/isDirectory()` for `az|s3|gs://` paths, because Azure blob prefixes are not directories —
+   has no file to land on. The nf-core version applies the `<db>/<db>/` key to **every** cloud URL (3.5.1
+   applied it only to the exact `s3://annotation-cache/…` URL) *and* still runs the directory check. So
+   a flat `az://…/snpeff_cache/R64-1-1.105/` directory — what `ottilie_test_az`, `ottilie_pilot_az` and
+   the Launchpad params box use today — **fails at DAG build** under the new code. Two ways out:
+   - (a) port the cloud-path skip as an `nf-core subworkflows patch` on the managed file — the
+     highest-maintenance patch class this fork carries;
+   - (b) ship the cache as a `.tar.gz` blob: staged as a plain file, it never enters that subworkflow,
+     so the patch is dropped instead of ported. Needs the tarball item first, then the az profiles and
+     the params box switched to the tarball.
+
+   Related, same rebase: 3.10.0 (#2184) removed `format: directory-path` from `snpeff_cache` and added
+   it to `validation.defaultIgnoreParams`, but **kept the schema `default`**
+   `s3://annotation-cache/snpeff_cache/`. The Seqera launch form injects that default over profile
+   values (`azure_batch_execution.md` §13), so the overlay's key-removal for `snpeff_cache` must be
+   re-applied after taking the upstream schema.
+
+**Where the tarball hook must live to survive this:** an additive `subworkflows/local/` file plus ~8
+lines in `main.nf` around the cache block, keyed on the `snpeff_enabled` boolean — a `take:` of both the
+3.5.1 local subworkflow and `utils_annotation_cache`, and both emit `[meta, cache]`, so the hook is the
+same on either side of the rebase. **Do not** put it inside `annotation_cache_initialisation`.
+
+Sources (read 2026-09-07): sarek #1654, #1980, #2184, #2194; nf-core/modules
+`subworkflows/nf-core/utils_annotation_cache/main.nf`; sarek master `main.nf` cache block.
+
 ## Current Patches (maintain this list)
 
 | Patch | Modifies | Purpose | Spec |
