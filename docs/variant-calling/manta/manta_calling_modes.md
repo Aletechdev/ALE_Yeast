@@ -1,9 +1,10 @@
 # Manta calling modes: which one to use
 
-**Date**: 2026-09-03 · Evidence: [`manta_joint_at_scale/REPORT.md`](../../benchmarking/ottilie_xenobiotic_ale/04_validate/manta_joint_at_scale/REPORT.md)
+**Date**: 2026-09-03, revised 2026-09-07 · Evidence: [`manta_joint_at_scale/REPORT.md`](../../benchmarking/ottilie_xenobiotic_ale/04_validate/manta_joint_at_scale/REPORT.md)
 
-Three modes were compared on the same CRAMs at three cohort sizes (4, 16 and 86 samples), scoring the
-**merged SV pass table** (`sv_cohort_matrix_union_pass.csv`) — the deliverable, not intermediate VCFs.
+Three modes were compared on the same CRAMs at **four** cohort sizes (4, 16, 48 and 86 samples),
+scoring the **merged SV pass table** (`sv_cohort_matrix_union_pass.csv`) — the deliverable, not
+intermediate VCFs. A separate 2-group run tested multi-experiment splitting.
 
 ## Use joint per-experiment Manta (the default)
 
