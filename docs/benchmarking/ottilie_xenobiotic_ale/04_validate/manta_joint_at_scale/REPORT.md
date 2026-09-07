@@ -127,6 +127,31 @@ an engineered locus the parent must also carry — a deleted ABC transporter, or
 [`run_sv_mode_series.sh`](../run_sv_mode_series.sh). Counts here include URA3/CYC1; a first revision
 of this table omitted them and read 1 lower for high-sens and 2 lower for per-sample at 16 samples.
 
+> ### ⚠️ What "FALSE" assumes — read before quoting any number below
+>
+> FALSE is scored against a **curated list of engineered loci** (the 16 deleted ABC transporters, the
+> ADH1 terminator anchor, and the cassette components URA3 and CYC1), maintained in
+> [`compare_sv_pass_tables.py`](../compare_sv_pass_tables.py). It is an **assumption about the
+> strain**, derived from Ottilie et al. 2022 plus our own read-level audit — *not* an independent
+> verification that any individual row is wrong.
+>
+> **The error is one-directional: an incomplete list makes FALSE too low.** A background junction at a
+> locus we have not listed is scored as a genuine clone-specific call, never the reverse. So every
+> FALSE count in this report is a **lower bound**, and the gap between per-sample and joint mode is if
+> anything *understated*.
+>
+> The list has already proved incomplete twice: it originally omitted URA3 and CYC1 (corrected
+> 2026-09-04 — this table read 1 lower for high-sens and 2 lower for per-sample at 16 samples), and
+> the 2-group analysis surfaced a second breakend star at V:117.1 kb plus a pair anchored ~300 bp
+> outside the ADH1 window, neither of which the list covers.
+>
+> **The converse matters more.** A clone-specific row that is *not* FALSE is **not a validated
+> mutation** — it means only "not at a locus we know to be engineered". Nothing in this report is
+> confirmed at read level except the URA3 → CYC1 junction (parent carries 201 read pairs against 215
+> and 217 in the two clones the matrix calls carriers — see
+> [`../../DATA_PROVENANCE.md`](../../DATA_PROVENANCE.md)). Treat every "real" count here as
+> *candidates pending read-level confirmation*, and label it that way anywhere it is quoted.
+
 **4 samples**
 
 | Mode | Pass rows | Parent present | Clone-specific | of which FALSE | Parent via Manta |
