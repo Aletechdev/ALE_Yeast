@@ -573,7 +573,9 @@ commits made by hand install it as a git hook — `ln -s ../../bin/check_snapsho
 §12 covers changes to the pipeline. This covers the other thing we commit: **numbers** — the
 concordance rates, retention percentages and pass-table counts that end up in `04_validate/` reports
 and in user-facing docs. They get quoted back months later as settled fact, so they need the same
-discipline as code. Three rules, each learned on 2026-09-02..04 during the Manta calling-mode work.
+discipline as code. Five rules, each learned during the Manta calling-mode work: 13.1–13.3 on
+2026-09-02..04, and 13.4–13.5 on 2026-09-07 — both from failures that the first three did not
+prevent.
 
 **13.1 Commit the analysis script before publishing numbers from it.** The joint-vs-per-sample
 pass-table comparison ran as ad-hoc code for two days while its results were already written into
@@ -603,6 +605,43 @@ every run, that "candidate real" means only "not at a known engineered locus".
 **Corollary — corrections stay visible.** When a number changes, say so where the old one lived, and
 why. `REPORT.md` marks its falsified "~15–20" guard threshold in place rather than quietly deleting
 it, because that figure had already been quoted into a plan file.
+
+**13.4 A corrected number has copies — grep for them.** The corollary above says mark the old value
+where it lived. That is not enough on its own, because a number lives in more places than the table
+that produced it. `d178e34` raised the FALSE counts (13.1) and updated `REPORT.md`'s **tables**,
+leaving the pre-correction values in four prose passages across three files. For three days
+`manta_calling_modes.md` read "26 of 34" nine lines above a series reading "13 → 28 → 33 → 36" — the
+page contradicting itself, on a public repo. It surfaced on 2026-09-07 only because someone asked
+about an unrelated *caveat*, which prompted a re-read of the numbers; nothing structural would have
+caught it.
+
+So: when a number changes, grep the repo for the old value **and its derived phrasings** before
+committing. The forms that survived here were `26 of 34`, `13 → 26` and `6 / 1` — prose restates
+numbers in shapes that do not match the table's format, so grepping for the table layout finds
+nothing. Tables are the easy half.
+
+**13.5 Provenance includes the parameters, and defaults move under you.** A benchmark's inputs are
+not only *which data* but *how it was processed*. The whole SV mode comparison — four cohort sizes,
+three modes, every count in `manta_joint_at_scale/REPORT.md` — is **untrimmed-read data**, because
+the Tier-2 CRAMs were made 2026-06-01 with `trim_fastq: false` and no fastp step, while the pipeline
+default changed on 2026-09-04 (`948163c`) to `--trim_adapter --trim_quality_3prime tail`. Nothing
+recorded this until 2026-09-07. The cohort **sample lists** were properly tracked (§F.2 of the plan
+file, generators committed), so the traceability bar as written was met — and the benchmark was still
+not reproducible, because rebuilding those cohorts from FASTQ today applies the new default and
+yields a different experiment on the same samples.
+
+Two rules follow:
+
+- **Record the parameters that touch the data alongside the inputs.** The reproducibility unit is
+  *sample list + read-touching parameters*. `04_validate/README.md` now states, per cohort, what to
+  pass to reproduce a run **as run** versus to re-cut it against current defaults.
+- **A default change is a provenance event for every number already published.** When you change a
+  default, ask what it reclassifies. `948163c` retroactively made three months of SV benchmarking
+  historical without altering a single file in `04_validate/`. This is the failure mode where nobody
+  is wrong at any point: existing numbers change *meaning* without changing *value*, so nothing looks
+  stale. CLAUDE.md already carried this caveat for the Azure baseline; the SV benchmark had identical
+  exposure and no one connected the two for three days. On the next default change, grep for what
+  else was built on the old one.
 
 ## 14. Cross-session state lives in one file
 

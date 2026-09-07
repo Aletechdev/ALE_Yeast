@@ -90,7 +90,11 @@ needs in-session are repeated here.
   published number name the script and run directory that produced it, and label a claim by its
   evidence — *measured* / *inferred* / *assumed* — never upgrading it silently. Learned 2026-09-04:
   "2 real clone-specific rows" was really "2 rows not on my artifact list", and survived two commits
-  before a read-level check disproved it.
+  before a read-level check disproved it. Two further rules added 2026-09-07: **a corrected number has
+  copies** — grep for the old value *and its prose phrasings*, since a correction applied to the tables
+  left three docs contradicting themselves for three days; and **provenance includes the parameters** —
+  the whole SV benchmark is untrimmed-read data because its CRAMs predate `948163c`, so *a default
+  change is a provenance event for every number already published*.
   [`testing_best_practices.md` §13](docs/dev-practices/testing_best_practices.md#13-benchmark-claims--provenance-evidence-labels-script-before-numbers).
 - **Shared repo state goes in `PLAN_next_checklist.md`, not session memory** — several sessions run in
   parallel and their memories cannot stay consistent about what is committed, pushed or running.
