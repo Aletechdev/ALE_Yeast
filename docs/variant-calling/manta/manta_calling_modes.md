@@ -12,10 +12,19 @@ clones. The reason is the parent:
 
 - **Per-sample Manta makes shared background look clone-specific.** The parent's own VCF misses the
   strain's engineered cassette junctions, so every clone that calls them appears to carry a unique SV.
-  Measured false clone-specific rows: **13 of 16** at 4 samples, **26 of 34** at 16 — the error *grows*
+  Measured false clone-specific rows: **13 of 16** at 4 samples, **28 of 34** at 16 — the error *grows*
   with cohort size, because the parent's blind spot is constant while each added clone re-reports it.
 - **Joint mode fixes it once, for everyone**: 3 clone-specific rows, **0 false**, at both 4 and 16
-  samples — flat with cohort size.
+  samples. (Flat only up to 16 — it slips to 2 at 48 and 3 at 86; see the next section.)
+
+> **What "false" means here.** A clone-specific row is scored false when its breakpoints touch a locus
+> the ABC16-Green Monster parent *must* carry — a deleted ABC transporter, the ADH1 terminator anchor,
+> or a cassette component (URA3, CYC1). That is an **assumption about the strain** checked against a
+> curated locus list, not verification of an individual row, and the error runs one way: an incomplete
+> list scores background as genuine, never the reverse. So these are **lower bounds**. Conversely, a
+> clone-specific row that is *not* false is **not a confirmed mutation** — only one not at a locus we
+> know to be engineered. Full statement of the assumption, and where the list has already proved
+> incomplete: [`REPORT.md`](../../benchmarking/ottilie_xenobiotic_ale/04_validate/manta_joint_at_scale/REPORT.md).
 - The SVDB merge and TIDDIT do **not** repair this. They rescue events (so row counts look similar:
   51 vs 50 at 4 samples) but cannot restore the parent's missing Manta genotypes.
 
