@@ -30,6 +30,52 @@ The proper fix for large cohorts — splitting discovery from genotyping, as Hap
 GVCFs — is [a documented roadmap item](../sv_uniform_genotyping_roadmap.md), deliberately **not**
 built: joint per-experiment Manta is good enough at the sizes ALE experiments actually run.
 
+## Group by biological ancestor — and don't split an experiment to manage size
+
+`experiment` groups samples for joint calling, and the only correct basis for it is the biology:
+**one experiment per ancestral strain, each with its own parent.** A submission holding three ALE
+experiments from three ancestors should be three experiments at any cohort size. Doing this first
+also keeps most submissions under the sizes where joint calling degrades — so it is the first
+question to settle, before anything about cohort size.
+
+What does **not** work is splitting a *single* experiment into artificial groups to keep each one
+small. Measured on the 16-sample cohort split into two groups of 8
+([`compare_group_split.py`](../../benchmarking/ottilie_xenobiotic_ale/04_validate/compare_group_split.py),
+2026-09-07; breakend pairs count as two rows throughout):
+
+- **Group membership changes what Manta calls.** The `MaxDepth` filter tracks *pooled* cohort depth,
+  so the same junction can PASS in one group and be filtered in another. The parentless group
+  (62× pooled) passed five cassette junctions with fully resolved insert sequence; the group holding
+  the parent (75× pooled) passed **none** — it called three of them and filtered all three as
+  `MaxDepth`. The same precise rows are `MaxDepth` in the single-group runs at 16 and 48 samples,
+  and are not called at all at 86.
+- **Splitting gained 22 PASS rows and lost none** against the single 16-sample group; 14 of the 22
+  are known engineered background that the single group had suppressed.
+- **The parent's evidence stops at the group boundary.** A parent can be in only one group, so a
+  junction called elsewhere has no parent column and scores as clone-specific. Three cassette
+  junctions (6 rows) were exactly there: PASS in the parentless group, `MaxDepth` in the parent's.
+  The merge cannot repair this — it unifies rows that exist, and the parent's group emitted none.
+
+Replicating one parent into every group would fix that last point, but it does not run today
+(per-sample outputs are keyed on `meta.id`, so a duplicated sample collides at `BUILD_CONTIG_CN`),
+it is unmeasured, and it leaves the divergence itself untouched. It trades a visible failure for an
+invisible one: results that depend on an arbitrary grouping choice.
+
+**Consequence for reading the cohort SV matrix — compare within an experiment, not across.** Nine
+engineered-background junctions (18 rows) failed to unify between the two groups, so a genuine
+multi-experiment cohort should be expected to carry parallel rows for the same physical junction.
+Within an experiment its own parent exculpates those rows correctly; across experiments, an absent
+column may mean "filtered there", not "not present there".
+
+More than ~30 clones sharing one ancestor remains the unsolved regime, and is what the
+[uniform-genotyping roadmap](../sv_uniform_genotyping_roadmap.md) targets.
+
+*Evidence class:* the call-level facts are **measured**, on one split of one cohort. The merge
+behaviour is **inferred** — that run failed downstream at `SPLIT_JOINT_VCF` (the tier-2 CRAMs carry
+`@RG SM` from the original experiment name, which a renamed experiment cannot match), so the
+unification counts come from applying the merge's 1 kb proximity rule to the pre-merge VCFs rather
+than from the merge itself.
+
 ## `--manta_high_sensitivity` stays opt-in
 
 The flag disables Manta's two human-WGS repeat heuristics (depth filters via `--exome`, and the

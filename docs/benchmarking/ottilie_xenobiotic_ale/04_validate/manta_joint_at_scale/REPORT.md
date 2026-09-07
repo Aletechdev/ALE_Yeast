@@ -202,3 +202,57 @@ Measured points are now 4 ✓, 16 ✓, 86 ✗ (raw-VCF level). Any guard must th
 16**, and the interval 16–86 is unmeasured — so either measure an intermediate cohort (e.g. 40) before
 naming a number, or word the guidance as "validated to 16 samples; joint discovery degrades by 86"
 without a hard cutoff.
+
+### Multi-experiment: splitting one cohort into two groups (2026-09-07)
+
+Run: 16 tier-2 samples split into `Ottilie_grpA` (parent NODRUG-GM2 + 7 clones) and `Ottilie_grpB`
+(8 clones, parentless), `--joint_manta`, high sensitivity off — the same params as the single-group
+16-sample run, so **cohort membership is the only variable**. Samplesheet:
+[`samplesheet_2groups_v2.csv`](samplesheet_2groups_v2.csv); scoring:
+[`compare_group_split.py`](../compare_group_split.py). Breakend pairs count as two rows below.
+
+**The run failed downstream** at `SPLIT_JOINT_VCF_MANTA`: the split names samples
+`<patient>_<sample>`, correct for a from-FASTQ run, but the tier-2 CRAMs carry
+`@RG SM=Ottilie_tier2_*` burned in under the original experiment name. Any run that renames the
+experiment while reusing these CRAMs hits this — a constraint of CRAM reuse, **not a pipeline
+defect**. (It is also the error that removing `--force-samples` in `6656c50` was meant to expose;
+previously it would have emitted a sample-less VCF.) Both joint Manta calls completed first, so the
+calling question is answerable from the pre-merge VCFs; **merge behaviour is inferred**, by applying
+the matrix's 1 kb both-breakpoints rule to those VCFs.
+
+| | grpA (8, parent present) | grpB (8, parentless) | single group (16) |
+|---|---|---|---|
+| records / PASS | 38 / 30 | 43 / 41 | 37 / 28 |
+| engineered-locus PASS | 21 | 27 | — |
+| cassette junctions with resolved insert | **0 PASS, 3 `MaxDepth`** | **5 PASS, 0 filtered** | 0 PASS, 3 `MaxDepth` |
+| parent on engineered PASS rows | 21/21 | n/a | 10/10 (merged table) |
+| pooled mean coverage | 75× | 62× | 69× |
+
+Findings:
+
+1. **Membership changes what is called.** grpB passed five fully insert-resolved cassette junctions;
+   grpA called three of the same and filtered all three as `MaxDepth`. Across the single-group series
+   the precise cassette rows are `MaxDepth` at 16 and 48 and absent at 86 — grpB is the *only*
+   configuration in the whole series where they survive, and it is the lowest-depth group. Mechanism
+   (`MaxDepth` tracking pooled cohort depth) is **plausible but unverified**; the divergence itself is
+   measured.
+2. **Splitting is additive, not lossy**: 22 PASS rows appear that the single group never called, 0
+   are lost. 14 of the 22 are engineered background the single group had suppressed. Of the 8 scored
+   "candidate real", 6 form a second breakend star at V:117.1 kb and a pair anchored ~300 bp from the
+   cassette anchor — same architecture as known background, so 8 is an **upper bound**, not a count
+   of mutations, and the engineered-locus list in the script is probably still too narrow.
+3. **Parent evidence stops at the group boundary.** Three cassette junctions (6 rows) PASS in grpB
+   and are `MaxDepth` in grpA. Since the parent exists only in grpA, a merged table would carry them
+   with the parent absent → scored clone-specific. The single 16-sample group has no such rows
+   (0 false). **Artificial splitting manufactures a false-positive class.**
+4. **Cross-group unification is partial**: 9 engineered junctions (18 rows — 12 grpB-only, 6
+   grpA-only) have no counterpart within 1 kb in the other group, so a real multi-experiment cohort
+   should be expected to carry parallel rows for one physical junction.
+
+**Conclusion.** Group by biological ancestor, always — that is what `experiment` means, and real
+multi-experiment cohorts (each with its own parent) are fine. Do **not** split one experiment to
+manage cohort size. Replicating a single parent into every group would fix finding 3 but does not
+run today (per-sample publishes are keyed on `meta.id`; a duplicated sample collides at
+`BUILD_CONTIG_CN` on `NODRUG-GM2.tiddit.ploidies.tab`), is unmeasured, and leaves findings 1 and 4
+untouched. Guidance written up in
+[`manta_calling_modes.md`](../../../../variant-calling/manta/manta_calling_modes.md).
