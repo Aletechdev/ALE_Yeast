@@ -148,3 +148,8 @@ null/
 .ottilie_publish/
 docs/igvreports/ottilie_4samples/
 docs/igvreports/demo/
+
+# Per-sample audit intermediates (manta_joint_vs_single.py). summary.tsv and REPORT.md are the
+# committed record; these are regenerated from them by run_manta_joint_at_scale.sh. Verified
+# byte-identical on regeneration 2026-09-07 -- see that script's header for the inputs required.
+docs/benchmarking/**/details_*.tsv

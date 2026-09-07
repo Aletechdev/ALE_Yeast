@@ -16,7 +16,10 @@ One joint `MANTA_GERMLINE` call over all 86 Tier-2 `md.cram`s (one `experiment` 
 - Joint output: `output_manta_joint_test/variant_calling/manta/` (joint VCF + 86 split per-sample VCFs)
 - Per-sample baseline: `output_ottilie_tier2/variant_calling/manta/<sample>/` — **same CRAMs**
 - Audit tool: [`manta_joint_vs_single.py`](../manta_joint_vs_single.py) → `summary.tsv` (committed) plus
-  per-sample `details_<sample>.tsv` (not committed — regenerate by re-running the tool)
+  per-sample `details_<sample>.tsv` (not committed, and gitignored — regenerate by re-running
+  [`run_manta_joint_at_scale.sh`](../run_manta_joint_at_scale.sh), whose header lists the three input
+  sets that must stay on disk. Regeneration verified byte-identical 2026-09-07 before the files were
+  deleted, so this is a tested claim rather than an assumption.)
 
 ## Resource verdict: runs, after an fd-limit fix
 

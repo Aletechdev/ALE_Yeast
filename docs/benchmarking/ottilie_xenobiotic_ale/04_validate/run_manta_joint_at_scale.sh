@@ -8,6 +8,18 @@
 #
 # The joint VCFs come from runs made with `--step variant_calling --tools manta [--joint_manta]`
 # over the 86 Tier-2 md.crams; the per-sample baseline is the Tier-2 pipeline output.
+#
+# REGENERATION IS VERIFIED, NOT ASSUMED (2026-09-07): re-running this against the retained inputs
+# reproduced all 86 details_*.tsv plus summary.tsv BYTE-IDENTICALLY. That is why the details are
+# deleted and gitignored rather than committed.
+#
+# ⚠️ It needs THREE input sets kept on disk. Delete or archive any of them and the details stop being
+# locally regenerable:
+#     output_ottilie_tier2/variant_calling/manta/*/   86 per-sample baseline VCFs
+#     output_manta_joint_test/                        joint Manta, default settings
+#     output_manta_joint_test_hs/                     joint Manta, --manta_high_sensitivity
+# The planned archive of output_ottilie_tier2/ (44 GB) is mostly CRAMs -- keep variant_calling/manta/
+# out of the tarball, or extract it back before re-running this.
 # Findings: manta_joint_at_scale/REPORT.md · guidance: docs/variant-calling/manta/manta_calling_modes.md
 #
 # Usage: bash run_manta_joint_at_scale.sh [default|hs|both]     (default: both)
