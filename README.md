@@ -71,7 +71,10 @@ Results land in `output_ottilie_test/`; open `output_ottilie_test/mutation_repor
 > test with the samplesheet and every reference file read straight from the public blob URLs, so you can
 > skip the `download_test_data.sh` step above. The SnpEff cache is the one exception — it is a
 > *directory* param and cannot be streamed from an https URL, so the script fetches and untars the
-> published `snpeff_cache.tar.gz` (~23 MB, once) into `.ottilie_ci_cache/`.
+> published `snpeff_cache.tar.gz` (~10 MB download, 23 MB unpacked, once) into `.ottilie_ci_cache/`.
+> On a machine or cloud with no such pre-step (a Seqera Launchpad, AWS Batch, an HPC), put the
+> unpacked `R64-1-1.105/` directory in your own bucket and pass `--snpeff_cache <bucket path>` — see
+> [Running the SnpEff cache from cloud storage](#running-the-snpeff-cache-from-cloud-storage).
 >
 > This doesn't reduce disk use — Nextflow copies each remote file once into
 > `<workdir>/stage-<session-uuid>/`, so the ~366 MB of inputs lands in the work dir instead of
@@ -209,6 +212,33 @@ underscores) — e.g. `Ogataea polymorpha` → `ogataea_polymorpha`, matching th
 records the name in `organism_info.sh`. Only GenBank inputs are tracked in git; processed outputs are
 generated locally. To (re)build only the SnpEff cache, use
 `docs/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`.
+
+### Running the SnpEff cache from cloud storage
+
+`--snpeff_cache` is a *directory* parameter. It works from a local path or from `az://`, `s3://` or
+`gs://`, but **not** from an https URL (Nextflow cannot list or stage a directory over http). So for a
+run whose head job cannot prepare the cache first — a Seqera Launchpad entry, AWS Batch, an HPC — build
+the cache once, upload the directory to your own bucket, and point the parameter at it. This is how the
+project's own Seqera entry runs. What the directory must satisfy:
+
+- **Layout:** `<snpeff_cache>/<snpeff_db>/snpEffectPredictor.bin` plus the `sequence*.bin` files and
+  `snpEff.config`, with `--snpeff_db` equal to that directory name. Flat — not the `<db>/<db>/` form used
+  by nf-core's `annotation-cache` bucket. `genes.gff` and `sequences.fa` are build inputs only and may
+  be left out (the runtime set is ~6 MB for yeast).
+- **snpEff version:** build with the same snpEff the pipeline runs, **5.1** (e.g.
+  `quay.io/biocontainers/snpeff:5.1--hdfd78af_2`, which `gen_cache.sh` uses). A cache built with 5.2 or
+  later is refused: `Database version: '5.2', Program version: '5.1'`.
+- **Azure with a service-principal credential:** the cache must sit in the same blob *container* as
+  the work directory, like every other input
+  ([`azure_batch_execution.md` §3](docs/dev-practices/azure_batch_execution.md)).
+- **Seqera launch form:** type `snpeff_cache` into the form (or the params box), not only into a config
+  profile — the form injects the schema default `s3://annotation-cache/snpeff_cache/` over profile
+  values ([§13](docs/dev-practices/azure_batch_execution.md)).
+
+For the ottilie test on your own infrastructure: download the published `snpeff_cache.tar.gz`, unpack
+it, upload the `R64-1-1.105/` directory to your bucket, then launch `-profile ottilie_test_ci` with
+`--snpeff_cache <bucket path>`. Every other input of that profile is an https URL and stages from
+anywhere; the parameter override beats the profile's local default.
 
 ## Variant calling tools
 

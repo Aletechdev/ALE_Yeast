@@ -374,6 +374,72 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `generate_index.py` call at the end of `generate_ottilie_reports.sh`. Fix: create symlinks before the
   Python call inside the process, or pass sample-report paths as explicit process inputs.
 
+## Onboarding — a test run anyone can launch (public repo)
+
+Public since 2026-09-04, so someone registering the repo on their own Seqera workspace, AWS Batch or
+HPC must be able to run the contract test with no Aletechdev credentials and no pre-launch step. The
+data side is solved: the 2-sample set (402 MB) is on the public account `aletestdatapublic` (anonymous
+read, SHA256SUMS, per-file https samplesheet). One blocker remains: `snpeff_cache` is a *directory*
+param and Nextflow's http provider cannot stage a directory, so `ottilie_test_ci` relies on a local
+untar by `bin/test_ottilie_blob.sh`, which a Platform head job never runs (the run aborts in
+`ANNOTATION_CACHE_INITIALISATION`).
+
+**Current-stage workaround (no code change, documented in README "Running the SnpEff cache from cloud
+storage"):** build the cache with the module's snpEff 5.1, upload the `<snpeff_db>/` directory to your own
+`az://` / `s3://` / `gs://` bucket, and pass it as `--snpeff_cache`; every other test input streams from
+the public https URLs. This is how our own Launchpad entry runs today. It does not give a zero-edit
+`-profile test` launch from a stranger's Launchpad — they still need a bucket and two typed fields.
+
+Background (2026-09-04 review of upstream): sarek's cache pain is four things — `snpeff_db` naming
+churn (3.2.0, #1014); two layouts (`<db>/` local vs `<db>/<db>/` cloud, #1122 — the nf-core
+`utils_annotation_cache` that replaced the local subworkflow in 3.9.0 applies the doubled key to EVERY
+s3/az/gs URL, so our flat az:// layout breaks at the next rebase); path validation on cloud paths (we
+patched it; upstream dropped schema validation in 3.10.0, #2184); and the snpEff version lock (a 5.2
+cache is refused by the 5.1 container, #1654; sarek master pins 5.4.0c). The snpEff download host died
+2025-08 (#1980), moved twice, and is now an AWS bucket. All four are about caches built outside the
+pipeline; none is about the transport.
+
+- **[high] Accept a tarball for `--snpeff_cache`, keeping directories as they are.** Sarek's own
+  precedent: `--chr_dir` takes a `.tar.gz` via `UNTAR` (`prepare_genome/main.nf`), ASCAT resources take
+  `.zip`. Branch on the `.tar.gz` suffix in `annotation_cache_initialisation`, drop `format:
+  directory-path` from the schema entry (upstream did the same), fail fast unless the unpacked tree holds
+  `<snpeff_db>/snpEffectPredictor.bin`. `snpeff_cache.tar.gz` (10.5 MB) is already published; republish
+  it flat (database directory at the top level) and trimmed to the runtime files
+  (`snpEffectPredictor.bin`, `sequence*.bin`, `snpEff.config` — 6 MB, verified 2026-09-04 to annotate the
+  truth SNVs), named with the snpEff version. Same cache, same snpEff 5.1, so the snapshot holds. Fork
+  feature: upstream's subworkflow has no tarball support.
+- **[high] Rebind `-profile test` to the public https profile.** Today `test` is upstream's human test.
+  Self-contained: data URLs, tarball cache, and its own `process.resourceLimits` (upstream
+  `conf/test.config` uses 4 cpus / 15 GB / 1 h). `ottilie_test` (local data) stays for the nf-test.
+  Drop the schema `default` for `snpeff_cache` (upstream still ships `s3://annotation-cache/…`):
+  Platform injects schema defaults over profile values (`azure_batch_execution.md` §13), so a
+  profile-only Launchpad run in another organisation would otherwise die on the s3 path. The overlay
+  script hides params but does not strip defaults; extend it or edit the schema directly.
+- **[med] Standalone SnpEff cache builder, then plug in.** `build_snpeff_cache.nf` beside
+  `generate_mutation_report.nf`: FASTA + GFF3 or GenBank in, versioned tarball out (consumed by the
+  tarball item above), same `snpeff:5.1` container. Acceptance tests: chromosome-name overlap between
+  FASTA and annotation (sarek #415 — silent empty output otherwise), CDS/protein check from derived
+  sequences (errors < 2–3 %, snpEff docs), load + one-variant-per-gene smoke annotation, version stamp.
+  Replaces the manual `gen_cache.sh` step and its Ensembl ID-prefix sed fixes. No nf-core `snpeff/build`
+  module exists (checked 2026-09-04). When stable, call the module from the main pipeline when a GFF3 is
+  given instead of a cache. Removes the naming/layout/version failures by construction; GFF-quality
+  failures remain, which is what the tests are for.
+- **[med] Freeze and mirror the published test data.** `publish_test_data.sh` republishes `ottilie/v1`
+  in place; bump the prefix on any change (SHA256SUMS already covers it). The host is one institution's
+  account with 7-day soft delete — add a DOI'd mirror (Zenodo, free, versioned) and document
+  `OTTILIE_BLOB_BASE` as the switch. Egress per external run is ~0.4 GB, negligible.
+- **[low] `--download_cache` is inherited but dead on snpEff 5.1** (its built-in host was deprecated
+  2025-08). The stock `R64-1-1.105` exists and, fetched from snpEff's current AWS host, matches our
+  cache in 90/100 ANN strings on the test VCF (differences only in Gene_Name/Gene_ID for tRNAs), so it
+  would drift the snapshot. Revisit at the sarek rebase (snpEff 5.4.0c; check the cache compatibility
+  window first).
+- **Decided against: test data inside the repo** (`assets/` or raw GitHub). Two FASTQs exceed GitHub's
+  100 MB cap, LFS pointers are not fetched by Nextflow, every Seqera clone would drag 400 MB, and nf-core
+  keeps test data out of pipeline repos for these reasons. A 6 MB runtime-only cache under `assets/` is
+  proven stageable (GENERATE_INDEX's `report_templates_dir` is a `projectDir` directory and ran on both
+  Platform runs) but the tarball item makes it unnecessary; the Launchpad cannot browse repo files anyway,
+  so a profile has to set the path either way.
+
 ## Deployment — Seqera launch UI / schema
 
 **Policy (decided 2026-07-22): curate the surface, not the code.** Upstream sarek ships many tools
