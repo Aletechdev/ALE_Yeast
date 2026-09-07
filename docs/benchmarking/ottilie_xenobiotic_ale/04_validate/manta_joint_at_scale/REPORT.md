@@ -169,6 +169,31 @@ Findings:
    So the deliverable-level gain of high sensitivity is **zero real clone-specific calls** — it adds
    background completeness only. An analysis switch, not a default.
 
+### Caveat: cohort size and clone diversity are confounded (2026-09-07)
+
+The cohorts are the parent plus the first N−1 clones **in alphabetical order**
+(`make_cohort_samplesheet.py`), which is deterministic but not neutral. Clone names begin with their
+compound, so alphabetical selection clusters by compound: the 16-sample cohort holds 6 CBR668, 3
+CBR868, 2 CBR113 and 2 CBR110 clones — 13 of 15 from four selections — while distinct compounds rise
+with cohort size (7 at 16 samples, 26 at 48, 43 at 86). **So this series varies diversity as well as
+size**, and the degradation curve (parent-Manta support 19 → 16 → 11 → 5) cannot cleanly separate
+"more samples" from "more distinct SV candidates competing in the pooled graph".
+
+What this does and does not touch:
+
+- **Unaffected** — the cassette-row and parent-coverage findings. Cassette junctions are strain
+  background carried by every clone whatever its compound, and per-sample mode's *parent on zero
+  cassette rows at every size* does not depend on which clones surround it.
+- **Weakened** — the clone-specific counts (already flagged as not size-comparable; at 16 samples
+  they are further skewed by six clones sharing one compound, which by design share mutations).
+- **Confounded** — the degradation curve itself. Direction almost certainly right; attribution to
+  size alone is *inferred*, not measured.
+
+The controlled test is cheap (TIDDIT for all 86 is cached): a diversity-matched 16-sample cohort —
+one clone from each of 15 different compounds — needs only Manta plus the merge. If it reproduces the
+single-group 16-sample result (47 rows, parent on 10/10 cassette rows, 0 false) the size reading
+holds; if it looks like the 48-sample result, diversity was doing the work. **Not yet run.**
+
 ### Guard threshold — revised
 
 The earlier "~15–20 samples" caution in this report was **interpolated between 4 (good) and 86 (bad)
