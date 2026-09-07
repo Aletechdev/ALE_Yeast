@@ -1,0 +1,140 @@
+nextflow_workflow {
+
+    name "BAM_VARIANT_CALLING_GERMLINE_MANTA experiment grouping"
+    script "../subworkflows/local/bam_variant_calling_germline_manta/main.nf"
+    workflow "BAM_VARIANT_CALLING_GERMLINE_MANTA"
+    tag "ottilie"
+    tag "subworkflow"
+
+    // Run with: nf-test test -c tests/nf-test-ottilie.config tests/manta_experiment_grouping.nf.test
+    //
+    // Guards the invariant behind the "group by biological ancestor" guidance in
+    // docs/variant-calling/manta/manta_calling_modes.md: with --joint_manta, Manta runs ONCE PER
+    // EXPERIMENT (meta.patient), genotyping every sample of that experiment together. The ottilie
+    // e2e cohort is a SINGLE experiment, so nothing else in the suite would notice if the
+    // groupTuple on line 28 of the subworkflow were dropped or re-keyed.
+    //
+    // STUB MODE (`options "-stub"`). Manta itself never runs -- its stub block just writes empty
+    // VCFs with the right names. That is the point: what is under test is the channel plumbing
+    // (how many tasks, keyed on what, named what), not SV calling. Seconds instead of ~10 min, and
+    // no CRAMs needed.
+    //
+    // The cram/crai/fasta slots are OPAQUE PLACEHOLDERS -- zero-byte files under
+    // tests/fixtures/stub_cram/, there only so Nextflow has something to stage. Nothing reads them.
+    // They must have DISTINCT NAMES per sample: joint mode groups several CRAMs into one task, and
+    // identical basenames abort it with "input file name collision". (Same reason the cram slots in
+    // split_joint_vcf.nf.test are ignorable, but that test never groups, so it can reuse one file.)
+
+    def FIX  = "\$projectDir/tests/fixtures/stub_cram"
+
+    // 4 samples across 2 experiments -- the shape the guidance recommends.
+    def FOUR_SAMPLES = """
+        input[0] = Channel.of(
+            [ [ patient:'expA', sample:'s1', id:'expA_s1' ], file("${FIX}/s1.cram"), file("${FIX}/s1.cram.crai") ],
+            [ [ patient:'expA', sample:'s2', id:'expA_s2' ], file("${FIX}/s2.cram"), file("${FIX}/s2.cram.crai") ],
+            [ [ patient:'expB', sample:'s3', id:'expB_s3' ], file("${FIX}/s3.cram"), file("${FIX}/s3.cram.crai") ],
+            [ [ patient:'expB', sample:'s4', id:'expB_s4' ], file("${FIX}/s4.cram"), file("${FIX}/s4.cram.crai") ]
+        )
+        input[1] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.fasta") ])
+        input[2] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.fasta.fai") ])
+        input[3] = Channel.value([ [], [] ])
+    """
+
+    // BAM_VARIANT_CALLING_GERMLINE_MANTA wraps exactly one process (MANTA_GERMLINE), so the
+    // subworkflow's task count IS the number of Manta calls -- no filtering by process name needed.
+
+    test("joint mode: 2 experiments x 2 samples -> one Manta call per experiment") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                ${FOUR_SAMPLES}
+                input[4] = true   // joint_manta
+                input[5] = []     // manta_config
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // The invariant: one call per experiment, NOT one per sample and NOT one pooled call.
+            assert workflow.trace.tasks().size() == 2
+
+            // Each call is keyed on the experiment, so outputs publish under
+            // variant_calling/manta/<experiment>/ and the joint VCF is named for it.
+            def ids = workflow.out.vcf.collect { meta, vcf -> meta.id }.sort()
+            assert ids == ['expA', 'expB']
+
+            // meta is reduced to patient-level keys -- a per-sample key surviving here would mean
+            // the groupTuple collapsed on the wrong field.
+            workflow.out.vcf.each { meta, vcf ->
+                assert meta.patient == meta.id
+                assert meta.sample == null
+                assert meta.variantcaller == 'manta'
+            }
+
+            assert workflow.out.vcf.collect { meta, vcf -> file(vcf).name }.sort() ==
+                   ['expA.manta.diploid_sv.vcf.gz', 'expB.manta.diploid_sv.vcf.gz']
+            assert workflow.out.tbi.size() == 2
+        }
+    }
+
+    test("per-sample mode: the same input gives one Manta call per sample") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                ${FOUR_SAMPLES}
+                input[4] = false  // joint_manta off
+                input[5] = []
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Same input, no grouping: 4 calls, keyed per sample. This is the control that proves
+            // the assertion above is measuring the grouping and not just the input size.
+            assert workflow.trace.tasks().size() == 4
+
+            def ids = workflow.out.vcf.collect { meta, vcf -> meta.id }.sort()
+            assert ids == ['expA_s1', 'expA_s2', 'expB_s3', 'expB_s4']
+
+            // Per-sample keeps the full meta, including the sample key joint mode drops.
+            workflow.out.vcf.each { meta, vcf -> assert meta.sample != null }
+        }
+    }
+
+    test("joint mode: a single experiment gives a single call (the e2e cohort's shape)") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [ [ patient:'expA', sample:'s1', id:'expA_s1' ], file("${FIX}/s1.cram"), file("${FIX}/s1.cram.crai") ],
+                    [ [ patient:'expA', sample:'s2', id:'expA_s2' ], file("${FIX}/s2.cram"), file("${FIX}/s2.cram.crai") ]
+                )
+                input[1] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.fasta") ])
+                input[2] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.fasta.fai") ])
+                input[3] = Channel.value([ [], [] ])
+                input[4] = true
+                input[5] = []
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() == 1
+            assert workflow.out.vcf.collect { meta, vcf -> meta.id } == ['expA']
+        }
+    }
+}
