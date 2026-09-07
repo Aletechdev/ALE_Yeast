@@ -692,6 +692,14 @@ came through untouched on the same run.
 full-depth pilot. So a single Launchpad entry serving both profiles needs that field edited at launch
 time, alongside `outdir`.
 
+✅ **Since 2026-09-07 `snpeff_cache` has NO schema default** — `nextflow.config` sets `null` and the
+overlay deletes the upstream `default` (`property_removals` in `conf/schema_overlay.yml`), so the
+param has left the injection class: a profile-only value now survives a Launchpad launch. The params
+box still carries it because it differs per dataset, not because it must. A launch with no cache at
+all now fails at DAG build with `Please specify --snpeff_cache …` (guard in `samplesheet_to_channel`)
+instead of in `SNPEFF_SNPEFF` hours later. The rule above still holds for every other param with a
+schema default (`joint_manta`, `split_fastq`, `genome`, `generate_reports`, …).
+
 ⚠️ **Hiding a param does not protect it from injection** — `custom_config_base` was `hidden: true`
 in the stock schema and was injected anyway. So the 2026-09 launch-form trim (the
 `conf/schema_overlay.yml` allowlist) changes nothing about this rule: box coverage is the only

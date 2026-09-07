@@ -9,6 +9,8 @@ Policy implemented here:
   * visible allowlist — every parameter NOT listed gets "hidden": true, listed ones have the
     key removed (upstream style for visible params). Parameters new in an upgrade are born hidden.
   * property_overrides — merged key-by-key into the named parameter's entry, wherever it lives.
+  * property_removals — per parameter, keys DELETED from its entry (e.g. an upstream `default` the
+    fork must not carry; applied after property_overrides).
   * group_overrides — title/description merged into the named group.
   * property_order — per group, listed parameters first in that order; the rest keep their order.
   * a listed name missing from the schema warns (renamed/removed upstream) but does not fail.
@@ -31,6 +33,7 @@ def apply_overlay(schema: dict, overlay: dict) -> tuple[dict, list[str]]:
     groups = schema.get("$defs") or schema.get("definitions") or {}
     visible = set(overlay.get("visible") or [])
     overrides = overlay.get("property_overrides") or {}
+    removals = overlay.get("property_removals") or {}
 
     seen = set()
     for group in groups.values():
@@ -42,11 +45,15 @@ def apply_overlay(schema: dict, overlay: dict) -> tuple[dict, list[str]]:
                 prop["hidden"] = True
             if name in overrides:
                 prop.update(overrides[name])
+            for key in removals.get(name) or []:
+                prop.pop(key, None)
 
     for name in sorted(visible - seen):
         warnings.append(f"visible-list parameter not in schema (renamed/removed upstream?): {name}")
     for name in sorted(set(overrides) - seen):
         warnings.append(f"property_overrides parameter not in schema: {name}")
+    for name in sorted(set(removals) - seen):
+        warnings.append(f"property_removals parameter not in schema: {name}")
 
     # group_overrides: title/description text for groups the fork owns outright.
     for gname, over in (overlay.get("group_overrides") or {}).items():

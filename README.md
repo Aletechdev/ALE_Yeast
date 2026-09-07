@@ -231,9 +231,11 @@ project's own Seqera entry runs. What the directory must satisfy:
 - **Azure with a service-principal credential:** the cache must sit in the same blob *container* as
   the work directory, like every other input
   ([`azure_batch_execution.md` §3](docs/dev-practices/azure_batch_execution.md)).
-- **Seqera launch form:** type `snpeff_cache` into the form (or the params box), not only into a config
-  profile — the form injects the schema default `s3://annotation-cache/snpeff_cache/` over profile
-  values ([§13](docs/dev-practices/azure_batch_execution.md)).
+- **Seqera launch form:** a value set in a config profile survives — this pipeline ships `snpeff_cache`
+  with no default, so the form has nothing to inject over it (upstream sarek would inject
+  `s3://annotation-cache/snpeff_cache/`, [§13](docs/dev-practices/azure_batch_execution.md)). Typing it
+  into the form is still fine and is what the project's own entry does, since the path differs per
+  dataset. Without any cache, a run with `snpeff` in `--tools` fails at launch with a clear message.
 
 For the ottilie test on your own infrastructure: download the published `snpeff_cache.tar.gz`, unpack
 it, upload the `R64-1-1.105/` directory to your bucket, then launch `-profile ottilie_test_ci` with

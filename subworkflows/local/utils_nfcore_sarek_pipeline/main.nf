@@ -145,6 +145,7 @@ if (params.tools && (params.tools.split(',').contains('vep')    || params.tools.
         params.bcftools_annotations_tbi,
         params.bcftools_header_lines,
         params.build_only_index,
+        params.download_cache,
         params.dbsnp,
         params.fasta,
         params.germline_resource,

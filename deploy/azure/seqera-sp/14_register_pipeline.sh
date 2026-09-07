@@ -282,7 +282,7 @@ chk(l.get('configProfiles') == want_profiles, f"configProfiles = {want_profiles}
 box = yaml.safe_load(l.get('paramsText') or '') or {}
 chk(isinstance(box, dict) and bool(box), f"params box is a non-empty object: {box}")
 chk('snpeff_cache' in box,
-    "snpeff_cache present in the box — the launch form injects the schema default otherwise (§13)")
+    "snpeff_cache present in the box — kept because it differs per dataset (the schema default the form used to inject is gone since 2026-09-07, §13)")
 want_nf = sys.argv[4] or None
 chk(l.get('nextflowVersion') == want_nf,
     f"nextflowVersion = {want_nf!r} (got {l.get('nextflowVersion')!r}) — the CE no longer pins the "

@@ -11,6 +11,7 @@ workflow  SAMPLESHEET_TO_CHANNEL{
     bcftools_annotations_tbi        //
     bcftools_header_lines           //
     build_only_index                //
+    download_cache                  //
     dbsnp                           //
     fasta                           //
     germline_resource               //
@@ -286,6 +287,15 @@ Joint germline variant calling also requires intervals in order to genotype the 
     if ((snpeff_cache && tools && (tools.split(',').contains("snpeff") || tools.split(',').contains('merge'))) &&
         !snpeff_db) {
         error("Please specify --snpeff_db")
+    }
+
+    // Fails when snpeff annotation is enabled but no cache is given and none will be downloaded.
+    // snpeff_cache has no default (nextflow.config): without this check a missing cache silently
+    // disables the cache channel and SNPEFF_SNPEFF runs with no -dataDir, failing hours later on
+    // snpEff's download host. Name only the forms accepted today (a directory; .tar.gz is not yet).
+    if ((tools && (tools.split(',').contains("snpeff") || tools.split(',').contains('merge'))) &&
+        !snpeff_cache && !download_cache) {
+        error("Please specify --snpeff_cache (a directory; az://, s3:// or gs:// prefixes are accepted) or --download_cache")
     }
 
     emit:

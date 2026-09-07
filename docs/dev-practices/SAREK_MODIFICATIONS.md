@@ -48,7 +48,9 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   call); otherwise close to upstream.
 - **`nextflow.config`** — ALE params (report_* / generate_reports / split & hard-filter HC / read
   preprocessing `trim_adapter`, `trim_quality_*`, `filter_quality*`, `adapter_sequence*`), extra
-  `includeConfig`s, ALE profiles.
+  `includeConfig`s, ALE profiles. **`snpeff_cache` default `null`** (2026-09-07; upstream
+  `s3://annotation-cache/snpeff_cache/` dropped from config AND schema — the launch form injected it over
+  profiles, `azure_batch_execution.md` §13; explicit use of that URL still works).
 - **`nextflow_schema.json`** — schema entries for the new params. ⚠️ **GENERATED since 2026-09:**
   upstream schema + [`conf/schema_overlay.yml`](../../conf/schema_overlay.yml) (visible-param
   allowlist for the Seqera launch form + ALE-owned help texts), applied by
@@ -88,7 +90,7 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 | `bam_variant_calling_germline_manta` | `joint_manta` input + one `groupTuple` branch (per-patient multi-sample run); `manta_config` input (optional configManta.py ini → module `config`, `[]` otherwise); `tbi` emit (3.8.1 shape). Deliberately mirrors upstream `joint_mutect2`; new lines in 3.10 strict-syntax dialect, no versions plumbing → pastes onto sarek `dev` unchanged. **Upstream PR candidate** — keep free of ALE-specific logic. |
 | `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report. |
 | `bam_joint_calling_germline_gatk` | `VARIANTFILTRATION_FALLBACK` when VQSR can't run (custom genomes, no known-sites). |
-| `samplesheet_to_channel` | ALE metadata columns (ploidy; all-samples-as-normal). |
+| `samplesheet_to_channel` | ALE metadata columns (ploidy; all-samples-as-normal). Launch-time guard (2026-09-07): `snpeff` in `tools` with neither `snpeff_cache` nor `download_cache` → error; new `download_cache` take (caller `utils_nfcore_sarek_pipeline` passes it). |
 | `utils_nfcore_sarek_pipeline` | YAML `processVersionsFromYAML()` fix for custom VCF filters. |
 | `bam_variant_calling_somatic_all` | FreeBayes somatic channel disabled (noise for ALE). |
 | `bam_variant_calling_somatic_mutect2` | FilterMutectCalls placeholder-channel fix (runs without germline resource/PoN). |

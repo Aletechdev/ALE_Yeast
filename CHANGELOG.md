@@ -65,6 +65,14 @@
 
 ### Changed
 
+- **`snpeff_cache` has no default any more** (`nextflow.config` → `null`; the schema `default` is deleted
+  by the overlay's new `property_removals`). Upstream's `s3://annotation-cache/snpeff_cache/` holds no
+  custom genome, and the Seqera launch form injected that schema default over profile values, killing
+  profile-only launches (`docs/dev-practices/azure_batch_execution.md` §13). A run with `snpeff` in
+  `--tools` and neither `--snpeff_cache` nor `--download_cache` now fails at launch with
+  `Please specify --snpeff_cache …` (guard in `samplesheet_to_channel`, new `download_cache` input)
+  instead of in `SNPEFF_SNPEFF` hours later. Passing the annotation-cache URL explicitly is unchanged.
+
 - **`trim_nextseq` documented correctly.** Its description claimed Trim Galore's `--nextseq=X`
   quality-cutoff semantics; fastp's flag takes no value and only its non-zero-ness is used. At 0
   nothing is passed and fastp's read-name poly-G auto-detection applies, unchanged from upstream.

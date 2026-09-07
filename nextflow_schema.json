@@ -530,7 +530,6 @@
                     "type": "string",
                     "format": "directory-path",
                     "fa_icon": "fas fa-cloud-download-alt",
-                    "default": "s3://annotation-cache/snpeff_cache/",
                     "description": "Path to snpEff cache.",
                     "help_text": "Path to snpEff cache which should contain the relevant genome and build directory in the path ${snpeff_species}.${snpeff_version}\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
                 },
