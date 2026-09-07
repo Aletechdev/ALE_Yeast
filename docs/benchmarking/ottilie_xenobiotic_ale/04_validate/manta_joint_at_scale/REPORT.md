@@ -143,6 +143,36 @@ of this table omitted them and read 1 lower for high-sens and 2 lower for per-sa
 | Joint, default | 47 | 44 | 3 | **0** | 16 |
 | Joint, high-sens | 62 | 56 | 6 | 2 | 28 |
 
+**48 samples** (added 2026-09-07)
+
+| Mode | Pass rows | Parent present | Clone-specific | of which FALSE | Parent via Manta |
+|---|---|---|---|---|---|
+| Per-sample | 154 | 35 | 119 | **33** | 7 |
+| Joint, default | 127 | 41 | 86 | **2** | 11 |
+| Joint, high-sens | 141 | 51 | 90 | 4 | 22 |
+
+**86 samples** (added 2026-09-07)
+
+| Mode | Pass rows | Parent present | Clone-specific | of which FALSE | Parent via Manta |
+|---|---|---|---|---|---|
+| Per-sample | 275 | 35 | 240 | **36** | 7 |
+| Joint, default | 233 | 35 | 198 | **3** | 5 |
+| Joint, high-sens | 245 | 44 | 201 | 3 | 16 |
+
+⚠️ Clone-specific *totals* are not comparable across sizes — they scale with clone count. The
+size-comparable columns are **parent present**, **parent via Manta**, and **FALSE**.
+
+Reading the four sizes together (4 / 16 / 48 / 86):
+
+- **Per-sample fails identically at every size and gets louder**: parent via Manta is **7 at all four
+  sizes**, and FALSE grows 13 → 28 → 33 → 36. The parent's blind spot is constant; each added clone
+  re-reports it.
+- **Joint default degrades**: parent via Manta 19 → 16 → 11 → 5, and — the finding that moves the
+  guard — **FALSE is no longer 0 past 16**: 0 → 0 → **2** → **3**. Joint's one clean property does not
+  survive to 48. By 86 its parent-Manta support (5) has fallen *below* per-sample's (7).
+- **High sensitivity holds the parent up** (30 → 28 → 22 → 16) but costs FALSE at 48 (4 vs 2). Since
+  joint is not recommended at these sizes anyway, this does not change the opt-in decision.
+
 Findings:
 
 1. **Row counts hide the difference; the genotypes are the story.** At 4 samples per-sample (51) and
@@ -198,10 +228,14 @@ holds; if it looks like the 48-sample result, diversity was doing the work. **No
 
 The earlier "~15–20 samples" caution in this report was **interpolated between 4 (good) and 86 (bad)
 and is now falsified at its lower end**: at 16 samples joint mode's merged table is as clean as at 4.
-Measured points are now 4 ✓, 16 ✓, 86 ✗ (raw-VCF level). Any guard must therefore sit **well above
-16**, and the interval 16–86 is unmeasured — so either measure an intermediate cohort (e.g. 40) before
-naming a number, or word the guidance as "validated to 16 samples; joint discovery degrades by 86"
-without a hard cutoff.
+**Resolved 2026-09-07 — the intermediate cohort was measured.** Merged-table points are now
+4 ✓, 16 ✓, **48 partial**, 86 ✗. Joint default holds 0 FALSE at 4 and 16, slips to 2 at 48 and 3 at
+86, while its parent-Manta support decays 19 → 16 → 11 → 5. So the degradation starts *between 16 and
+48* and is complete by 86: **the guard is ~30–50, now measured rather than interpolated.** Wording to
+use: joint per-experiment is validated to 16, eroding by 48, and not recommended at 86.
+
+Caveat unchanged: size and clone diversity co-vary in this series (see above), so attributing the
+erosion to sample count alone remains *inferred*.
 
 ### Multi-experiment: splitting one cohort into two groups (2026-09-07)
 

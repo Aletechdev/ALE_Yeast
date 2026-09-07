@@ -22,9 +22,14 @@ clones. The reason is the parent:
 ## Don't use it for very large cohorts
 
 At **86 samples** joint calling pools discovery too hard: only 34% of per-sample PASS calls survive
-(74% with high sensitivity), and clone-specific calls are lost in both modes. Measured points are
-4 ✓, 16 ✓, 86 ✗; the interval between 16 and 86 is unmeasured. For cohorts far beyond 16, set
-`--joint_manta false` and rely on per-sample calling + the SVDB merge.
+(74% with high sensitivity), and clone-specific calls are lost in both modes.
+
+Merged-table points are **4 ✓, 16 ✓, 48 partial, 86 ✗**. Joint default's defining property — zero
+false clone-specific rows — **holds at 4 and 16, then slips to 2 at 48 and 3 at 86**, while the parent
+keeps Manta support in 19 → 16 → 11 → 5 rows. By 86 that has fallen *below* per-sample (7). So the
+guard is **~30–50 samples, measured**: validated to 16, eroding by 48, not recommended at 86. Past it,
+set `--joint_manta false` and rely on per-sample calling + the SVDB merge — accepting that per-sample's
+own error (false clone-specific rows: 13 → 28 → 33 → 36) is worse in kind, just flat in mechanism.
 
 The proper fix for large cohorts — splitting discovery from genotyping, as HaplotypeCaller does with
 GVCFs — is [a documented roadmap item](../sv_uniform_genotyping_roadmap.md), deliberately **not**
@@ -100,8 +105,9 @@ So it is a useful *analysis* switch — run it beside the default and treat the 
 particularly when you want the engineered-background record complete — but not a default. Note it also
 costs runtime that grows with cohort size (11 → 16 min at 16 samples; 1h40m → 6h27m at 86).
 
-**Scope of this evidence:** the judgement above comes from the 4- and 16-sample merged pass tables.
-The 86-sample runs were `--tools manta` only, so they have no TIDDIT corroboration or merged table to
-test. In that large-cohort regime high sensitivity in fact helps a lot — raw retention 34% → 74% — but
-that is rescuing joint discovery's own suppression, in a regime where joint calling isn't recommended
-anyway. Neither mode has been tested on a clean, non-engineered strain.
+**Scope of this evidence:** merged pass tables now exist at all four sizes (4, 16, 48, 86), and the
+opt-in judgement survives them. High sensitivity holds the parent up as cohorts grow (Manta-supported
+parent rows 30 → 28 → 22 → 16 vs default's 19 → 16 → 11 → 5) but costs false clone-specific rows at 48
+(4 vs 2) and matches at 86 (3 vs 3) — so it rescues joint discovery's own suppression in a regime
+where joint calling isn't recommended anyway. The TIDDIT-corroboration numbers (0/14, 0/15) are from
+the 4- and 16-sample tables. Neither mode has been tested on a clean, non-engineered strain.
