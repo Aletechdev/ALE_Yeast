@@ -205,11 +205,13 @@ Findings:
    junctions the parent failed to call (SNQ2, YCF1 ×2, PDR15, YOR1, VMR1, PDR11, NFT1, YBT1 + four
    ADH1-anchored). The SVDB merge and TIDDIT do **not** repair this: TIDDIT rescues some events
    (which is why counts converge) but cannot restore the parent's Manta genotypes.
-2. **Per-sample mode's false specificity GROWS with cohort size** — 13 → 26 false rows from 4 → 16
-   samples, because each added clone independently re-reports the junctions the parent misses, while
-   the parent's own Manta support stays pinned at 7 rows at both sizes.
-3. **Joint mode is FLAT from 4 → 16 samples**: 3 clone-specific / 0 false (default) and 6 / 1
-   (high-sens) at *both* sizes. No degradation of the deliverable at 16.
+2. **Per-sample mode's false specificity GROWS with cohort size** — 13 → 28 false rows from 4 → 16
+   samples (→ 33 at 48, → 36 at 86), because each added clone independently re-reports the junctions
+   the parent misses, while the parent's own Manta support stays pinned at 7 rows at *every* size.
+3. **Joint mode is FLAT from 4 → 16 samples**: 3 clone-specific / 0 false (default) and 6 / 2
+   (high-sens) at *both* sizes. No degradation of the deliverable at 16 — but this flatness does
+   **not** extend further: see the 48- and 86-sample tables above, where default slips to 2 and 3
+   false rows.
 4. **High sensitivity is additive but weakly evidenced.** It adds 15 rows over default at 16 samples
    with **zero** rows lost (14 / 0 at 4 samples), and the parent gains Manta support (16 → 28 rows).
    But **none of the added rows has TIDDIT agreement** (0/14 and 0/15 — all Manta-only, with Manta's

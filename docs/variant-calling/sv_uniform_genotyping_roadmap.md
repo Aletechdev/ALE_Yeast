@@ -12,7 +12,8 @@ pipeline runs joint germline calling. For SVs the pipeline has no equivalent gua
 - **Per-sample Manta**: each VCF lists only the sites that sample discovered. Absence is ambiguous,
   and the ambiguity is not neutral — it manufactures false clone-specificity when the *parent* is the
   sample that misses a shared junction (measured: 13 of 16 clone-specific rows false at 4 samples,
-  26 of 34 at 16 — and the error grows with cohort size).
+  28 of 34 at 16, and 33 / 36 at 48 / 86 — the error grows with cohort size while the parent's own
+  Manta support stays pinned at 7 rows).
 - **Joint Manta** (`--joint_manta`, the current default) fixes that by pooling *discovery*, which is
   where its cost lives: at 86 samples it retains only 34% of per-sample PASS calls (74% with
   `--manta_high_sensitivity`) and destroys clone-specific calls that no flag recovers.
