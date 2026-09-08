@@ -8,6 +8,7 @@ how to run it, start at the [**root README**](../README.md).
 | Install / run the pipeline | [`../README.md`](../README.md) |
 | Set up a brand-new machine | [`usage/new_machine_setup.md`](usage/new_machine_setup.md) |
 | Write the input samplesheet | [`usage/input_samplesheet.md`](usage/input_samplesheet.md) |
+| Prepare your reference (FASTA, GFF3, SnpEff cache) | [`usage/prepare_reference.md`](usage/prepare_reference.md) |
 | Know what's in this release (incl. tool tiers) | [`../CHANGELOG.md`](../CHANGELOG.md) |
 | Know what changed vs upstream Sarek | [`dev-practices/SAREK_MODIFICATIONS.md`](dev-practices/SAREK_MODIFICATIONS.md) |
 | Understand a specific tool's behaviour | [Variant calling & CNV/SV](#variant-calling--cnvsv) |
@@ -22,7 +23,7 @@ how to run it, start at the [**root README**](../README.md).
 | Doc | What it covers |
 |---|---|
 | [`usage/input_samplesheet.md`](usage/input_samplesheet.md) | Samplesheet columns (`experiment`, `status`, `ploidy`, `clonal_or_population`, …), conventions, and the one-normal-per-experiment rule |
-| [`prepare_input/process_GeneBank/`](prepare_input/) | GenBank → FASTA + GFF3 + SnpEff cache (`generate_cache/gen_cache.sh`) |
+| [`usage/prepare_reference.md`](usage/prepare_reference.md) | **Preparing a reference** — GenBank → FASTA + GFF3 + SnpEff cache (`prepare_input/process_GeneBank/process_genbank_auto.sh`), or FASTA + GFF3 → cache (`prepare_input/build_snpeff_cache.sh`); snpEff 5.1 lock, flat layout, chromosome-name rule, GenBank-converter limitation |
 | [`prepare_input/sarek_csv_to_XPMD/README.md`](prepare_input/sarek_csv_to_XPMD/README.md) | Samplesheet conversion to XPMD format |
 | [`benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md`](benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md) | Test-data lineage, truth set, and how to regenerate or download it |
 

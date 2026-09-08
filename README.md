@@ -101,7 +101,7 @@ folder and point at `main.nf` by path:
 ```
 ~/projects/myproject/
 ├── data/              # FASTQs (or leave them wherever they already are)
-├── ref/               # FASTA + SnpEff cache, from process_genbank_auto.sh
+├── ref/               # FASTA + GFF3 + SnpEff cache — docs/usage/prepare_reference.md
 ├── samplesheet.csv    # ABSOLUTE paths to the FASTQs
 ├── run.sh
 ├── work/              # created here, not in the repo
@@ -165,6 +165,7 @@ If you'll reuse a machine often, promote the file to a named profile
 nextflow -c conf/mymachine.config run main.nf -profile docker \
     --input samplesheet.csv --outdir ./output \
     --fasta ref.fasta --snpeff_cache ./snpeff_cache --snpeff_db <genome_name> \
+    --report_gff3 ref.gff3 \
     --genome null --igenomes_ignore \
     --skip_tools baserecalibrator \
     --tools snpeff,haplotypecaller,cnvkit,manta,tiddit \
@@ -196,10 +197,12 @@ Ottilie_test,CBR110-15-R3a,0,clonal,1,XX,L001,/data/CBR110-15-R3a_R1.fastq.gz,/d
 Full column reference and conventions:
 [`docs/usage/input_samplesheet.md`](docs/usage/input_samplesheet.md).
 
-### Preparing a reference from GenBank
+### Preparing a reference (GenBank, or FASTA + GFF3)
 
-`docs/prepare_input/process_GeneBank/process_genbank_auto.sh` converts a `.gbk`/`.gb` file into
-everything the pipeline needs — reference FASTA (`--fasta`), GFF3 annotations, and a SnpEff cache
+Full page, both paths, rules and known limitations: [`docs/usage/prepare_reference.md`](docs/usage/prepare_reference.md).
+
+**From GenBank** — `docs/prepare_input/process_GeneBank/process_genbank_auto.sh` converts a `.gbk`/`.gb` file into
+everything the pipeline needs — reference FASTA (`--fasta`), GFF3 annotations (`--report_gff3`), and a SnpEff cache
 (`--snpeff_cache` / `--snpeff_db`):
 
 ```bash
@@ -209,9 +212,18 @@ bash docs/prepare_input/process_GeneBank/process_genbank_auto.sh <input.gbk> [ou
 `--snpeff_db` is the genome name derived from the GenBank `ORGANISM` field (lowercase, spaces →
 underscores) — e.g. `Ogataea polymorpha` → `ogataea_polymorpha`, matching the
 `snpeff_cache/ogataea_polymorpha/` subdirectory. The script prints the exact parameters to use and
-records the name in `organism_info.sh`. Only GenBank inputs are tracked in git; processed outputs are
-generated locally. To (re)build only the SnpEff cache, use
-`docs/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`.
+records the name in `organism_info.sh`. Processed outputs are generated locally and are not tracked in git.
+⚠️ Its GenBank → GFF3 step is lossy (no transcript hierarchy or phase, gene symbols dropped) — fine for
+yeast, see the page above before using it on an intron-rich genome.
+
+**From FASTA + GFF3** (Ensembl, NCBI, your own annotation) — builds only the cache:
+
+```bash
+bash docs/prepare_input/build_snpeff_cache.sh <snpeff_db> <reference.fa> <annotation.gff3> [out_dir] [genome_description]
+```
+
+It checks that contig names match, strips the Ensembl ID prefixes that break snpEff's gene models, and
+prints the parameters to use. Verified to reproduce the project's own S288C cache byte for byte.
 
 ### Running the SnpEff cache from cloud storage
 
@@ -226,7 +238,7 @@ project's own Seqera entry runs. What the directory must satisfy:
   by nf-core's `annotation-cache` bucket. `genes.gff` and `sequences.fa` are build inputs only and may
   be left out (the runtime set is ~6 MB for yeast).
 - **snpEff version:** build with the same snpEff the pipeline runs, **5.1** (e.g.
-  `quay.io/biocontainers/snpeff:5.1--hdfd78af_2`, which `gen_cache.sh` uses). A cache built with 5.2 or
+  `quay.io/biocontainers/snpeff:5.1--hdfd78af_2`, which both preparation scripts pin). A cache built with 5.2 or
   later is refused: `Database version: '5.2', Program version: '5.1'`.
 - **Azure with a service-principal credential:** the cache must sit in the same blob *container* as
   the work directory, like every other input
@@ -252,7 +264,7 @@ anywhere; the parameter override beats the profile's local default.
 | CNVKit | CNV | Diploid baseline | `--ploidy` not passed; use `fold_change = 2^log2`. See [`cnvkit_ploidy_behavior.md`](docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md) |
 | TIDDIT | SV | `-n` ploidy | Affects coverage normalization and DUP/DEL GT thresholds. See [`tiddit_ploidy_behavior.md`](docs/variant-calling/tiddit/tiddit_ploidy_behavior.md) |
 | Manta | SV | Diploid only | Breakpoint caller — no ploidy parameter by design; used for cross-validation |
-| SnpEff | Annotation | — | Custom cache built from GenBank |
+| SnpEff | Annotation | — | Custom cache built from GenBank or FASTA + GFF3 (`docs/usage/prepare_reference.md`) |
 
 **Tier 2 — functional but not release-validated for ALE:** Control-FREEC, breseq, Mutect2, FreeBayes,
 DeepVariant, Strelka. Enable via `--tools`; see

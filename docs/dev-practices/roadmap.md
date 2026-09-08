@@ -439,10 +439,22 @@ pipeline; none is about the transport.
   tarball item above), same `snpeff:5.1` container. Acceptance tests: chromosome-name overlap between
   FASTA and annotation (sarek #415 — silent empty output otherwise), CDS/protein check from derived
   sequences (errors < 2–3 %, snpEff docs), load + one-variant-per-gene smoke annotation, version stamp.
-  Replaces the manual `gen_cache.sh` step and its Ensembl ID-prefix sed fixes. No nf-core `snpeff/build`
+  Replaces the two manual scripts (`process_genbank_auto.sh`, `build_snpeff_cache.sh`; user page
+  `docs/usage/prepare_reference.md`) and their Ensembl ID-prefix sed fixes. No nf-core `snpeff/build`
   module exists (checked 2026-09-04). When stable, call the module from the main pipeline when a GFF3 is
   given instead of a cache. Removes the naming/layout/version failures by construction; GFF-quality
   failures remain, which is what the tests are for.
+- **[med] The GenBank → GFF3 converter in `process_genbank_auto.sh` is lossy** (measured 2026-09-08 on the
+  4-chromosome S288C test GenBank; documented in `docs/usage/prepare_reference.md`). It writes every
+  feature as one flat line: no gene → mRNA → CDS `Parent` links, no CDS phase, and the 5,281 `/gene=`
+  symbols are dropped (`ID=locus_tag`, `Name=product`). snpEff invents one transcript per CDS
+  (`WARNING_TRANSCRIPT_NOT_FOUND … Created transcript`), collapses the 83 multi-exon CDS to a single span,
+  and names genes `YDL140C` where the Ensembl cache says `RPO21`. Against the Ensembl-built cache on the
+  100-variant contract-test VCF: 89 same primary effect, 92 same impact, 4/4 truth SNVs identical —
+  tolerable for a near-intronless yeast, wrong for an intron-rich genome. Fix (either): emit
+  gene/mRNA/exon/CDS with `Parent` and phase from the location parts (BioPython `CompoundLocation`) and
+  `Name` from `/gene`; or let snpEff read the GenBank directly (`snpEff build -genbank`), which is what
+  the standalone builder above should do, retiring the converter.
 - **[med] Freeze and mirror the published test data.** `publish_test_data.sh` republishes `ottilie/v1`
   in place; bump the prefix on any change (SHA256SUMS already covers it). The host is one institution's
   account with 7-day soft delete — add a DOI'd mirror (Zenodo, free, versioned) and document

@@ -65,6 +65,15 @@
 
 ### Changed
 
+- **Reference preparation documented as two paths** — new user page `docs/usage/prepare_reference.md`:
+  Path A GenBank → FASTA + GFF3 + SnpEff cache (`process_genbank_auto.sh`, verified on the S288C test
+  GenBank; its GenBank → GFF3 step is documented as lossy — flat features, no phase, gene symbols dropped),
+  Path B FASTA + GFF3 → cache with the new `docs/prepare_input/build_snpeff_cache.sh` (contig-name check,
+  Ensembl ID-prefix clean-up, snpEff 5.1 pinned; rebuilds the project's S288C cache byte for byte). README launch
+  example now passes `--report_gff3`. **Removed** `docs/prepare_input/process_GeneBank/generate_cache/
+  gen_cache.sh` — hard-coded to a dev-VM path and a private genome, sarek-3.4-era layouts; every doc that
+  named it as the cache generator now points at the two scripts above.
+
 - **The per-sample HaplotypeCaller hard filter is no longer part of the ALE recipe.**
   `conf/test/ottilie_common.config`, `conf/params_ottilie_test_blob.yml`, the Launchpad box and the
   pilot/tier-2 launchers stop setting `hard_filter_haplotypecaller_joint`, so it follows the pipeline

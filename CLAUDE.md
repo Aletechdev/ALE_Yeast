@@ -186,7 +186,10 @@ non-obvious rules, each learned by running it — full detail in the same doc:
 - **Launchers**: `bin/test_ottilie.sh` (minimal 2-sample test) · `bin/test_ottilie_blob.sh` (same test, `ottilie_test_ci` profile — inputs streamed from the public blob, **no local `data/ottilie/`**; `snpeff_cache` is a directory param and can't come from an https URL, so the script untars the published `snpeff_cache.tar.gz` locally first) · `docs/benchmarking/ottilie_xenobiotic_ale/03_pipeline/run_ottilie_pilot.sh` (full-depth **4-sample** run, same S288C data). The 2-sample test set is a **chromosome subset** (chr I/IV/VII/XV) of **2 of** the pilot's 4 `--save_mapped` CRAMs, extracted by `generate_test_data.sh` — not a read-subsample. Both use `-profile azureD4as,docker`.
 - **Resources config**: [`conf/azured4as.config`](conf/azured4as.config) (the `azureD4as` local-VM profile;
   use `-profile azureD4as`, no `-c` needed). See [`docs/dev-practices/compute_resources.md`](docs/dev-practices/compute_resources.md).
-- **SnpEff cache generation**: `docs/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`.
+- **SnpEff cache generation**: `docs/prepare_input/process_GeneBank/process_genbank_auto.sh` (GenBank in) or
+  `docs/prepare_input/build_snpeff_cache.sh` (FASTA + GFF3 in) — user page
+  [`docs/usage/prepare_reference.md`](docs/usage/prepare_reference.md). `gen_cache.sh` retired 2026-09-08
+  (hard-coded dev paths). snpEff **5.1** only; flat `<db>/` layout; `snpeff_cache` has **no default**.
 - **Fork base**: nf-core/sarek 3.5.1 — the fork tree lives at the **repo root** (`main.nf`, `conf/`,
   `workflows/`, `modules/`, `subworkflows/`); consult the upstream 3.5.1 docs for base behavior.
   A pristine copy for diffing sits in the `sarek-compare` worktree (see `docs/dev-practices/SAREK_MODIFICATIONS.md`).
@@ -224,7 +227,7 @@ Canonical column reference, conventions, and non-Tier-1 notes:
   edge cap — the human-repeat heuristics that hide engineered multi-copy junctions and Ty/LTR
   insertions; audit + how to re-run: [`pilot_results_v2/NOTES.md`](docs/benchmarking/ottilie_xenobiotic_ale/04_validate/pilot_results_v2/NOTES.md).
   `--wes` is a pipeline-wide data-type flag (CNVKit method, mosdepth, HC GenomicsDB, Control-FREEC…) — never use it for this.
-- **Annotation — SnpEff**: custom cache (`docs/prepare_input/process_GeneBank/generate_cache/gen_cache.sh`).
+- **Annotation — SnpEff**: custom cache built per genome ([`docs/usage/prepare_reference.md`](docs/usage/prepare_reference.md)).
 
 ### Tier-2 tools — functional, not release-validated for ALE
 
