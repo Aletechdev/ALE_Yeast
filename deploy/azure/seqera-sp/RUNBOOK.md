@@ -962,6 +962,22 @@ the `18wEWW90THA2Ek` recipe): **307/307 tasks, 63 min**, outdir
   `generate_test_data.sh --from-cram`): 4× `BAM_TO_CRAM_MAPPING` + 4× `INDEX_MERGE_BAM`,
   publish-only, zero analytic effect (also the two extra entries in the local versions yml).
 
+### 2026-09-08 — ✅ Hard filter out of the recipe; entry re-registered (id `166797736834160`)
+
+Launch-form batch D closed. `hard_filter_haplotypecaller_joint` left every ALE recipe (`4acec56`:
+`ottilie_common.config`, the blob params file, the pilot/tier-2 launchers; the pipeline default was
+already `false`) — the step only produced a per-sample VCF lineage the mutation report drops, at a
+filter + SnpEff + stats task per sample. e2e re-recorded (175 → 159 tasks, only the `hard_filtered.*`
+family moved). `custom_config_base` lost its schema default the same day (`4461f20`), closing the last
+config-vs-schema default mismatch, so a Launchpad run no longer pulls nf-core's institutional configs
+from GitHub while a local run does not (`azure_batch_execution.md` §13). Box regenerated with
+`--generate` (the one diff: the hard-filter line gone) and the entry re-registered by
+`14_register_pipeline.sh` after the push: **new pipeline id `166797736834160`** (replaces
+`164422644302756` — id churn per the four-route table above). Readback all-green, engine pin `25.10.4`
+preserved, box 13 keys. The next Launchpad run is the first cloud run without the hard filter and with
+trimming on by default — it is the §A2 baseline re-cut, and its expected differences against the
+2026-08-03 baseline are tabled in `output_comparison.md` §2.10.
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |
