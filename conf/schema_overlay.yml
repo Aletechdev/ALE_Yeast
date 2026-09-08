@@ -168,6 +168,13 @@ property_overrides:
 # over profile values (docs/dev-practices/azure_batch_execution.md §13), which killed profile-only
 # launches. nextflow.config sets `snpeff_cache = null` to match — nf-core lint compares the two.
 # Passing the annotation-cache URL explicitly still works unchanged.
+# custom_config_base: same pattern (2026-09-08). nextflow.config sets it `null` so no run pulls
+# nf-core's institutional configs from GitHub at runtime; the schema still carried upstream's URL and
+# the launch form injected it (§13, run 2eiGBEA0NXagap), so a Platform run `includeConfig`ed
+# nfcore_custom.config + pipeline/sarek.config while a local run did not — a latent local-vs-Seqera
+# difference. Setting the URL explicitly still works unchanged.
 property_removals:
   snpeff_cache:
+    - default
+  custom_config_base:
     - default

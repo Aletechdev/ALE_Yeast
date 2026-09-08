@@ -50,7 +50,9 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   preprocessing `trim_adapter`, `trim_quality_*`, `filter_quality*`, `adapter_sequence*`), extra
   `includeConfig`s, ALE profiles. **`snpeff_cache` default `null`** (2026-09-07; upstream
   `s3://annotation-cache/snpeff_cache/` dropped from config AND schema — the launch form injected it over
-  profiles, `azure_batch_execution.md` §13; explicit use of that URL still works).
+  profiles, `azure_batch_execution.md` §13; explicit use of that URL still works). **`custom_config_base`
+  default `null`** likewise (config since the nf-core download days; schema default dropped 2026-09-08 so
+  a Platform launch no longer pulls nf-core's institutional configs from GitHub while a local run does not).
 - **`nextflow_schema.json`** — schema entries for the new params. ⚠️ **GENERATED since 2026-09:**
   upstream schema + [`conf/schema_overlay.yml`](../../conf/schema_overlay.yml) (visible-param
   allowlist for the Seqera launch form + ALE-owned help texts), applied by

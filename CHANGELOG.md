@@ -65,6 +65,13 @@
 
 ### Changed
 
+- **`custom_config_base` has no schema default any more** (`nextflow.config` was already `null`; the
+  overlay's `property_removals` now drops upstream's `https://raw.githubusercontent.com/nf-core/configs/master`
+  from the schema too). The Seqera launch form injected that URL over the config value
+  (`azure_batch_execution.md` §13), so a Platform run loaded nf-core's institutional configs from GitHub
+  at runtime while a local run did not. Local behaviour unchanged; every schema default now matches
+  its `nextflow.config` default. Setting the URL explicitly still works.
+
 - **`snpeff_cache` has no default any more** (`nextflow.config` → `null`; the schema `default` is deleted
   by the overlay's new `property_removals`). Upstream's `s3://annotation-cache/snpeff_cache/` holds no
   custom genome, and the Seqera launch form injected that schema default over profile values, killing

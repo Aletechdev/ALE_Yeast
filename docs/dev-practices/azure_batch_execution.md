@@ -700,6 +700,15 @@ all now fails at DAG build with `Please specify --snpeff_cache …` (guard in `s
 instead of in `SNPEFF_SNPEFF` hours later. The rule above still holds for every other param with a
 schema default (`joint_manta`, `split_fastq`, `genome`, `generate_reports`, …).
 
+✅ **Since 2026-09-08 `custom_config_base` has NO schema default either** — the same overlay rule.
+`nextflow.config` had set it `null` since the nf-core download days, so a local run never fetched
+nf-core's institutional configs; but the injected URL made a Platform run `includeConfig`
+`nfcore_custom.config` + `pipeline/sarek.config` from GitHub at runtime — a latent local-vs-Seqera
+difference that no comparison had caught because those configs happen to be inert for this
+pipeline. Setting the URL explicitly still works. With both gone, every schema default now agrees
+with `nextflow.config` (49 checked), so the remaining injection class is all no-ops *unless a
+profile diverges from the default* — the `joint_manta` case below.
+
 ⚠️ **Hiding a param does not protect it from injection** — `custom_config_base` was `hidden: true`
 in the stock schema and was injected anyway. So the 2026-09 launch-form trim (the
 `conf/schema_overlay.yml` allowlist) changes nothing about this rule: box coverage is the only
