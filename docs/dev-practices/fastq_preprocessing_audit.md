@@ -87,9 +87,11 @@ for fastp; a gap the moment a second trimmer exists.
 nothing in this repo runs. Any change in this area is currently unguarded.
 
 **H. Cross-reference — the `split_fastq` schema-lint error.** `nf-core pipelines schema lint` already
-fails on `split_fastq`'s `oneOf` construction (upstream boilerplate; tracked separately in
-[`roadmap.md`](roadmap.md#deployment--seqera-launch-ui--schema)). Any restructuring of the
-preprocessing schema should absorb that fix rather than work around it.
+fails on `split_fastq`'s `oneOf`. Diagnosed 2026-09-08 as an **nf-core/tools bug, not a schema defect**
+(its default-validation helper strips zero-valued `minimum`/`maximum` keys; the entry is upstream
+sarek's and validates correctly under plain jsonschema and at runtime) — tracked in
+[`roadmap.md`](roadmap.md#deployment--seqera-launch-ui--schema). Do not restructure the schema for it;
+report upstream, and use the overlay workaround there only if nf-core lint has to gate CI first.
 
 ---
 

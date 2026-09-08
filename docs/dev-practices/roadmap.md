@@ -319,7 +319,10 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   commit gate added 2026-09-04 (`bin/check_snapshot_staged.sh`: an output-affecting path must ship the
   re-recorded e2e snapshot or a `Snapshot: unchanged` trailer, plus a `Module test: <name> green` line
   per mapped unit test). The gate is a stop-gap for a single developer; CI is where the tests should
-  actually run.
+  actually run. ⚠️ **Prerequisite for any `nf-core pipelines lint` / `schema lint` step in that CI:** the
+  lint currently aborts on `split_fastq` because of an nf-core/tools bug, not a schema defect — see the
+  `split_fastq` item under *Deployment — Seqera launch UI / schema* (report upstream first; the overlay
+  workaround there is the fallback if the fix has not shipped by the time CI needs the gate).
 
 ## Documentation
 
@@ -508,16 +511,28 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
     at `generate_reports=true`; assets git-tracked → resolve on Seqera); remove dead `report_multiqc_path`.
   - **`ottilie_test.config`:** remove `report_multiqc_path`; drop the 5 static overrides (now == defaults).
   - Validate with `nf-core pipelines schema lint` + e2e re-run.
-- **[low, post-1.0.0] Fix the pre-existing `split_fastq` schema-lint error.** `nf-core pipelines schema
-  lint` fails with *"Default parameters are invalid: 50000000 is valid under each of {'type':'integer'},
-  {'type':'integer','minimum':250}"*. This is **upstream sarek 3.5.1 boilerplate** (confirmed identical on
-  the pristine schema — not introduced by ALE): `split_fastq` carries both a top-level `"type":"integer"`
-  and a `oneOf` (`{minimum:250}` / `{minimum:0,maximum:0}`), and the default `50000000` matches more than
-  one, which nf-core's stricter lint rejects. **Lint-only — runtime nf-schema validation passes** (the
-  pipeline runs fine), so it does not block v1.0.0. Fix = restructure the `split_fastq` schema (drop the
-  redundant top-level type or re-model the "≥250 or exactly 0" constraint). Best done as part of a
-  template/schema refresh (couples with the nf-core 4.x / sarek-4.x migration — see
-  `ale_sarek_upgrade_runbook.md`), not a standalone patch.
+- **[low] The `split_fastq` schema-lint error is an nf-core/tools bug — report it upstream; work around
+  it only when nf-core lint becomes a CI gate.** `nf-core pipelines schema lint` (and therefore
+  `nf-core pipelines lint`) aborts with *"Default parameters are invalid: 50000000 is valid under each
+  of {'type':'integer'}, {'type':'integer','minimum':250}"*. **Root cause (established 2026-09-08):**
+  the schema is fine — `split_fastq`'s `oneOf` (`{minimum:250}` / `{minimum:0,maximum:0}`, byte-identical
+  to upstream sarek 3.5.1) validates correctly under plain `jsonschema` (50000000 and 0 accepted, 100
+  rejected). nf-core's `validate_default_params` first passes the schema through `strip_required()`
+  (`nf_core/pipelines/schema.py`), which drops every key whose value is *falsy* — so `"minimum": 0` and
+  `"maximum": 0` vanish, the "exactly 0" branch collapses to a bare `{"type":"integer"}`, the default now
+  matches both branches, and `oneOf` fails. The quoted subschemas in the message are the stripped ones,
+  which is why they match nothing in the file. Still present in nf-core/tools 4.1.0; no issue found in
+  nf-core/tools or sarek (searched 2026-09-08). **Runtime nf-schema validation is unaffected** (reads the
+  real file; verified with `-preview` at 0 / 100 / 1000), so nothing in the pipeline is wrong.
+  - **Option 1 (do first, any time):** file the bug on nf-core/tools — the fix is keeping zero-valued keys
+    in `strip_required` (`0 == False` in Python, so `y is False` does not rescue an integer 0). Every
+    pipeline with a `minimum: 0`/`maximum: 0` inside a `oneOf` hits it.
+  - **Option 2 (prerequisite for the CI item — do NOT do it before then):** if nf-core lint must pass as a
+    CI gate before the upstream fix ships, override the zero branch via `conf/schema_overlay.yml`
+    `property_overrides` as `{"type":"integer","minimum":0,"exclusiveMaximum":1}` — same runtime meaning,
+    survives the stripping because `1` is truthy. Needs a comment naming this item, `--check` green, and
+    the three `-preview` values above; schema-only, no e2e. It diverges from upstream in a way that
+    looks odd on a sarek rebase, which is why it waits for a real need.
 - **[med, post-1.0.0] Full launch-form curation.** `hidden: true` on the advanced/Tier-2 tool params
   (ascat_*, sentieon_*, mutect2/controlfreec extras, tumor-only knobs); set Tier-1 defaults
   (`--tools snpeff,cnvkit,tiddit,manta,haplotypecaller`, joint-germline + report flags on) so a user
