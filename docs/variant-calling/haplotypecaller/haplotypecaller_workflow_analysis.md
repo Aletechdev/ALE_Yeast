@@ -13,7 +13,7 @@ HaplotypeCaller in Sarek has two distinct modes with significantly different beh
 1. **Individual Calling Mode** - Each sample is called independently
 2. **Joint Calling Mode** - All samples are jointly genotyped, then split into individual VCFs
 
-**Critical Finding**: For proper VCF QC (bcftools stats, vcftools) and filtering to work reliably, **joint calling mode with splitting and hard filtering is required**.
+**Critical Finding**: For proper per-sample VCF QC (bcftools stats, vcftools) to work reliably, **joint calling mode with splitting is required** — the QC and SnpEff steps run on the per-sample split VCFs. The optional hard filter (`--hard_filter_haplotypecaller_joint`) adds a second, hard-filtered lineage of those files; it left the ALE recipe on 2026-09-08 because nothing downstream consumed it (see [HARD_FILTER_HAPLOTYPECALLER_JOINT.md](HARD_FILTER_HAPLOTYPECALLER_JOINT.md)).
 
 ---
 
@@ -357,14 +357,13 @@ nextflow run ${ale_nextflow_folder}/nf-core-sarek_3.5.1/3_5_1/main.nf \
     --joint_germline \                              # ✅ Enable joint calling
     --save_mapped \
     --split_haplotypecaller_joint_vcf \             # ✅ Split joint VCF into individual VCFs
-    --hard_filter_haplotypecaller_joint \           # ✅ Apply hard filtering
-    -resume
+    -resume                                         # (--hard_filter_haplotypecaller_joint is opt-in; off in every ALE recipe since 2026-09-08)
 ```
 
 **Benefits**:
 - ✅ Joint genotyping improves variant calling accuracy
 - ✅ Individual VCFs extracted and renamed
-- ✅ Hard filtering applied with sample-specific quality metrics
+- ✅ Optional hard filtering with sample-specific quality metrics (`--hard_filter_haplotypecaller_joint`)
 - ✅ bcftools stats and vcftools QC reports generated
 - ✅ Clean MultiQC integration
 

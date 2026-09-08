@@ -65,6 +65,17 @@
 
 ### Changed
 
+- **The per-sample HaplotypeCaller hard filter is no longer part of the ALE recipe.**
+  `conf/test/ottilie_common.config`, `conf/params_ottilie_test_blob.yml`, the Launchpad box and the
+  pilot/tier-2 launchers stop setting `hard_filter_haplotypecaller_joint`, so it follows the pipeline
+  default (`false`, unchanged). The step only produced a third `sample_hard` VCF lineage that
+  `MUTATION_REPORT` drops and no validation read, at a filter + SnpEff + bcftools/vcftools stats task
+  per sample. Outputs: the `hard_filtered.*` family disappears (`variant_calling_filtered/`, its `tabix/`
+  indexes and their annotation/report siblings; 16 fewer tasks on the 2-sample test); the joint VCF, the soft
+  per-sample splits and all nine cohort deliverables are byte-identical. Opt back in with
+  `--hard_filter_haplotypecaller_joint`. Expected difference against pre-2026-09-08 outputs
+  (`docs/dev-practices/output_comparison.md` §2.10).
+
 - **`custom_config_base` has no schema default any more** (`nextflow.config` was already `null`; the
   overlay's `property_removals` now drops upstream's `https://raw.githubusercontent.com/nf-core/configs/master`
   from the schema too). The Seqera launch form injected that URL over the config value

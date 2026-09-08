@@ -1,6 +1,24 @@
 # Hard Filter HaplotypeCaller Joint VCF (`--hard_filter_haplotypecaller_joint`)
 
-## Status: FIXED (March 2026) - `--force` added to `bcftools norm`
+## Status: OPT-IN, off in every ALE recipe since 2026-09-08
+
+The step works (the March 2026 `bcftools norm --force` fix below still applies) but is no longer
+part of the Tier-1 recipe: `conf/test/ottilie_common.config`, the blob params file, the Launchpad
+box and the pilot/tier-2 launchers stopped setting it, so it now follows the pipeline default
+(`false`). Reasons: the soft-filtered joint VCF and its per-sample splits are the deliverable
+([SOFT_FILTER_HAPLOTYPECALLER_JOINT.md](SOFT_FILTER_HAPLOTYPECALLER_JOINT.md)); the hard filter
+only added a third `sample_hard` VCF lineage that `MUTATION_REPORT` drops on purpose and no
+validation reads, at the cost of a filter + SnpEff + bcftools/vcftools stats task per sample. On
+the 2-sample contract test it removed 16 tasks and the whole `hard_filtered.*` output family
+(`variant_calling_filtered/`, its `tabix/` indexes, and their annotation and report siblings); the joint VCF,
+the per-sample splits and all nine cohort deliverables are byte-identical. Pass
+`--hard_filter_haplotypecaller_joint` to get the outputs described below.
+
+⚠️ Outputs produced before 2026-09-08 (the Azure baseline, the tier-2 and pilot runs) carry the
+hard-filtered family; a comparison against them shows it as an expected removal — see
+`docs/dev-practices/output_comparison.md`.
+
+## History: FIXED (March 2026) - `--force` added to `bcftools norm`
 
 ## What It Does
 

@@ -10,7 +10,9 @@ nextflow_pipeline {
     // Tools exercised (from ottilie_test.config): snpeff, cnvkit, tiddit, manta, haplotypecaller
     //   + FASTP with the default read-preprocessing recipe (trim_adapter, trim_quality_3prime tail;
     //     snapshot re-recorded 2026-09-04 when it became the default).
-    //   + joint germline, split joint VCF, hard filter, and the MUTATION_REPORT dashboard.
+    //   + joint germline, split joint VCF, and the MUTATION_REPORT dashboard. The per-sample hard
+    //     filter (--hard_filter_haplotypecaller_joint) is NOT exercised: it left the ottilie recipe
+    //     on 2026-09-08 (snapshot re-recorded then — the hard_filtered.* family vanished).
     //
     // This is the ALE end-to-end contract test: a clean single run with inline --generate_reports
     // must complete and produce the CN/SV cohort deliverables.

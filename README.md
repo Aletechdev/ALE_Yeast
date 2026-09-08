@@ -264,7 +264,7 @@ DeepVariant, Strelka. Enable via `--tools`; see
 <outdir>/
 ├── preprocessing/            # markduplicates CRAMs
 ├── variant_calling/          # per-caller VCFs (haplotypecaller, cnvkit, manta, tiddit)
-├── variant_calling_filtered/ # hard-filtered HC VCFs
+├── variant_calling_filtered/ # per-sample hard-filtered HC VCFs — only with --hard_filter_haplotypecaller_joint
 ├── annotation/               # SnpEff-annotated VCFs
 ├── reports/ multiqc/         # QC (fastqc, mosdepth, samtools, bcftools, snpeff) + MultiQC
 ├── mutation_reports/         # the ALE dashboard — start at index.html

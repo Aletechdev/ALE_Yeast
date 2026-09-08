@@ -63,7 +63,7 @@ Output-directory layout is in the [root README](../README.md#output).
 |---|---|
 | [`variant-calling/haplotypecaller/haplotypecaller_workflow_analysis.md`](variant-calling/haplotypecaller/haplotypecaller_workflow_analysis.md) | Joint vs individual calling; the known-sites starvation pattern on custom genomes (why BQSR/VQSR are off) |
 | [`variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`](variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md) | `VARIANTFILTRATION_FALLBACK` — thresholds, FILTER tags, PASS extraction |
-| [`variant-calling/haplotypecaller/HARD_FILTER_HAPLOTYPECALLER_JOINT.md`](variant-calling/haplotypecaller/HARD_FILTER_HAPLOTYPECALLER_JOINT.md) | `--hard_filter_haplotypecaller_joint` (clonal/population AF thresholds) |
+| [`variant-calling/haplotypecaller/HARD_FILTER_HAPLOTYPECALLER_JOINT.md`](variant-calling/haplotypecaller/HARD_FILTER_HAPLOTYPECALLER_JOINT.md) | `--hard_filter_haplotypecaller_joint` (clonal/population AF thresholds) — opt-in, off in every ALE recipe since 2026-09-08 |
 | [`variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md`](variant-calling/haplotypecaller/SPLIT_JOINT_VCF_PIPELINE.md) | `--split_haplotypecaller_joint_vcf` — per-sample extraction, channel flow |
 | [`compare_single_pop_HpCaller/README.md`](compare_single_pop_HpCaller/README.md) | Single-sample vs joint calling comparison |
 

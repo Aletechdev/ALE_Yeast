@@ -145,6 +145,18 @@ recurs by chance); run once with the samplesheet rows **reversed**. Full lesson,
 other `groupTuple` calls are safe: [`testing_best_practices.md`](testing_best_practices.md)
 §"`groupTuple` order is not deterministic".
 
+### 2.10 Recipe defaults that changed AFTER the baseline was cut — expected, dated differences
+
+Not noise and not a regression: the reference outputs were produced under an older recipe. A default
+change is a provenance event for every output already published (`testing_best_practices.md` §13), so
+each one is listed here with its date; a comparison against anything older than the date must expect
+the difference, and the baseline re-cut (`PLAN`: §A2) retires the list.
+
+| Since | Change | What differs against older outputs |
+|---|---|---|
+| 2026-09-04 (`948163c`) | fastp `--trim_adapter --trim_quality_3prime tail` is the default | every read-derived file: CRAMs, all VCFs, coverage, the cohort matrices; new `reports/fastp/` |
+| 2026-09-08 | `hard_filter_haplotypecaller_joint` left the ALE recipe (pipeline default `false`) | the whole `hard_filtered.*` family is **absent**: `variant_calling_filtered/`, its two `tabix/*.hard_filtered.vcf.gz.tbi` indexes, and the per-sample `annotation/`, `reports/{bcftools,snpeff,vcftools}/` siblings; the MultiQC bcftools/vcftools aggregate tables lose those rows; 16 fewer tasks on the 2-sample set. The joint VCF, the soft per-sample splits and all nine cohort deliverables are unaffected |
+
 ---
 
 ## 3. Method: comparing two runs directly

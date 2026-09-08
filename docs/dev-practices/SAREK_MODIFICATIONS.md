@@ -78,7 +78,7 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 |-------------|---------|
 | `mutation_report` | Multi-caller dashboard (CN/SV matrices + igv-reports + index). Channel-based. |
 | `split_joint_vcf` | Split joint germline VCF → per-sample VCFs (channel-based metadata). |
-| `vcf_filter_haplotypecaller_joint` | Hard-filter per-sample VCFs from joint calling. |
+| `vcf_filter_haplotypecaller_joint` | Hard-filter per-sample VCFs from joint calling. Opt-in (`--hard_filter_haplotypecaller_joint`); off in every ALE recipe since 2026-09-08. |
 | `vcf_filter_freebayes` | AF-based somatic-style filter for FreeBayes (dev/troubleshooting). |
 | `vcf_filter_mutect2` | AF-based filter for Mutect2 (dev/troubleshooting). |
 | `bam_variant_calling_germline_controlfreec` | Single-sample Control-FREEC (germline). |

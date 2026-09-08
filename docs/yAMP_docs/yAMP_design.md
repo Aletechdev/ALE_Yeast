@@ -31,7 +31,7 @@ Requirement: Each experiment must have one normal sample (status: 0)
 
 Reference genome: (if the genome is not registered on https://github.com/nf-core/sarek/blob/3.5.1/conf/igenomes.config): provide reference genome (--fastq), SnpEff cache (--snpeff_cache), and SnpEff database name (--snpeff_db) 
 
-ALE customized filter:
+ALE customized filter (opt-in since 2026-09-08 — off in every ALE recipe; the soft-filtered joint VCF and its per-sample splits are the deliverable):
 Variable allele frequency filter for HaplotypeCaller variants ( --split_haplotypecaller_joint_vcf --hard_filter_haplotypecaller_joint, custom_haplotypecaller_joint_filter.config:26):
 AF>=5% for population samples
 AF>=80% for clonal samples (relaxed from 90% in June 2026; see HARD_FILTER_HAPLOTYPECALLER_JOINT.md)

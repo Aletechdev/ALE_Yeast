@@ -208,6 +208,9 @@ The one operational point worth repeating here: **BQSR is a manual opt-out**, no
 
 ## Relationship to Hard Filter
 
+The hard filter is **opt-in** (`--hard_filter_haplotypecaller_joint`, off in every ALE recipe since
+2026-09-08); the soft-filtered joint VCF and its per-sample splits are the Tier-1 deliverable.
+
 | Aspect | Soft Filter (this doc) | [Hard Filter](HARD_FILTER_HAPLOTYPECALLER_JOINT.md) |
 |--------|----------------------|-----------------------------------------------------|
 | Tool | GATK VariantFiltration | bcftools filter |
