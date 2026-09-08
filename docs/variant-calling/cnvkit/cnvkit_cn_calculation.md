@@ -103,6 +103,15 @@ After centering, `log2 = 0` means "same depth as the median autosome" (the basel
 `fold_change`; multiplying by a ploidy to get "absolute CN" only holds under a clean-diploid assumption
 CNVKit's flat reference doesn't encode.
 
+**ALE always runs against a flat reference.** Every sample is germline (`status = 0`), so
+`CNVKIT_BATCH` receives the sample as the sole input with an empty `--normal`, and `cnvkit.py batch`
+builds its reference from the FASTA + targets alone — no pooled normals. `--cnvkit_reference` (a
+pre-built `.cnn`) is left `null` and is hidden in the launch form (2026-09-01): supplying one would
+redefine what `log2 = 0` means (depth relative to *that* pool instead of the sample's own median
+autosome), so every `fold_change` in the matrices would change meaning relative to all Tier-1
+validation, and its format is easily confused with the pipeline's own `*coverage.cnn` outputs. If a
+pooled reference is ever wanted, treat it as a new CN scale, re-validated from the truth set.
+
 ## Files
 
 - Scripts: [`bin/build_cn_matrix.py`](../../../bin/build_cn_matrix.py),

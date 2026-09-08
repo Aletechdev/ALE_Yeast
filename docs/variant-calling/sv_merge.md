@@ -153,6 +153,14 @@ Cells: `Manta` / `TIDDIT` / `Manta+TIDDIT` / `-`. Rows sorted by yeast chromosom
 - `DUP` vs `DUP:TANDEM` labels merge fine (svdb normalises; F10a). Manta `INS` vs TIDDIT `DUP` does
   not arise on this data (F10b) — revisit if a caller with different INS/DUP conventions (Delly)
   joins.
+- **Multi-experiment samplesheets** (several `experiment` values): joint Manta runs **per
+  experiment**, while everything from `SVDB_MERGE_TIDDIT` onward — the cross-caller merge, both
+  views and the matrix — is **cohort-wide**. Group membership changes what Manta calls (`MaxDepth`
+  tracks pooled depth), so one physical junction can surface as parallel rows that the 1 kb merge
+  never unifies, and a sample absent from a row may be "filtered in its group", not "not present".
+  Read the matrix **within** an experiment; group by biological ancestor, never split one experiment
+  for size. Evidence and guidance: [`manta/manta_calling_modes.md`](manta/manta_calling_modes.md)
+  → *Group by biological ancestor*.
 
 ## History — the SURVIVOR chain (retired 2026-08-31)
 
