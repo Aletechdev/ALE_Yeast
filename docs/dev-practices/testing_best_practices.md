@@ -489,9 +489,9 @@ A workflow test covers both by feeding the three inputs directly and asserting w
 no GATK run needed for the selection logic itself.
 
 **Then**, all `subworkflows/local/`: `vcf_filter_haplotypecaller_joint`, `mutation_report` (tool-presence branching on `params.tools`),
-`fastq_variant_calling_breseq` (the `subMap` regrouping), `bam_variant_calling_germline_controlfreec`,
+`fastq_variant_calling_breseq` (the `subMap` regrouping),
 `prepare_reference_cnvkit`. Assert what §3 calls out: ploidy/status/sex surviving the joins, and the
-conditional skips (VCFtools for Mutect2/ploidy>2, `ASSESS_SIGNIFICANCE` for ploidy=1) actually firing.
+conditional skips (VCFtools for Mutect2/ploidy>2) actually firing.
 
 ### Layer 4 — `nextflow_pipeline`
 

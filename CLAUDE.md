@@ -237,10 +237,10 @@ Canonical column reference, conventions, and non-Tier-1 notes:
   (germline mode only; somatic disabled — too noisy) — SNV/INDEL, exactly as upstream sarek runs them.
   The fork's AF-based post-filters for both were **removed 2026-09-09** (never part of the Tier-1
   recipe; archived at tag `tier2-tools-archive`, index [`docs/archive/tier2/README.md`](docs/archive/tier2/README.md)).
-- **Control-FREEC** (germline CNV — see the [Control-FREEC section](#control-freec-tier-2-cnv)) · **breseq** (bacterial, not released).
+- **Control-FREEC** (exactly as upstream sarek: somatic / tumor-only, `cf_*` params — the fork's germline single-sample mode was removed 2026-09-09, see the [Control-FREEC section](#control-freec-tier-2-cnv)) · **breseq** (bacterial, not released).
 
 **Ploidy Support:**
-- Passed to: HaplotypeCaller (`--sample-ploidy`), `controlfreec`, `FreeBayes`, `Tiddit`
+- Passed to: HaplotypeCaller (`--sample-ploidy`), `FreeBayes`, `Tiddit` (Control-FREEC reads upstream's `cf_ploidy` again since 2026-09-09)
 - **Manta**: has **no** ploidy parameter — it's an SV breakpoint caller (no genotype-by-ploidy), so it's excluded by design, not an omission.
 - **Note**: `bcftools mpileup` still uses ploidy=1 in `conf/modules/ngscheckmate.config`
 - **CNVKit**: does **not** take `--ploidy` (reverted May 2026 → defaults to 2; CN scale is always `cn=2` baseline regardless). Use `fold_change`/log2 for true signal — see the [CNVKit section](#cnvkit-tier-1-cnv-deliverable) and [`docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md`](docs/variant-calling/cnvkit/cnvkit_ploidy_behavior.md).
@@ -387,12 +387,15 @@ ext.when = { !(params.skip_tools.contains('vcftools')) &&
 
 ### Control-FREEC (Tier-2 CNV)
 
-**Tier-2 (functional, not release-validated for ALE).** Not the Tier-1 CNV deliverable because:
-no SNP database → no BAF (copy number from read depth only); no standard VCF output → no SnpEff
-annotation; `ASSESS_SIGNIFICANCE` fails for haploid (ploidy=1) samples (empty `*.gz_CNVs` → R
-script error, auto-skipped via `conf/modules/controlfreec.config`); and it crashes on some
-samples with `std::length_error`. **CNVKit is the Tier-1 CNV deliverable instead.** Single-sample
-germline mode (April 2026) is implemented — see
+**Tier-2 (functional, not release-validated for ALE) — upstream behaviour only since 2026-09-09.**
+Not the Tier-1 CNV deliverable because: no SNP database → no BAF (copy number from read depth only);
+no standard VCF output → no SnpEff annotation; `ASSESS_SIGNIFICANCE` fails for haploid (ploidy=1)
+samples; and it crashed on 4 of 86 tier-2 samples with `std::length_error`. **CNVKit is the Tier-1
+CNV deliverable instead.** The fork's single-sample germline mode (April 2026: `meta.ploidy` instead
+of `cf_ploidy`, a `FREEC_GERMLINE` config block, the ploidy-1 skip, a `BAF`-optional module patch) was
+**removed** and every Control-FREEC file reverted to pristine sarek 3.5.1 — Control-FREEC now runs only
+in sarek's somatic/tumor-only modes, which an all-germline ALE samplesheet never triggers. Code at tag
+`tier2-tools-archive`; design record
 [`docs/archive/tier2/controlfreec_germline_changes.md`](docs/archive/tier2/controlfreec_germline_changes.md).
 
 ## Variant Analysis Dashboard System

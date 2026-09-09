@@ -153,6 +153,13 @@
   upstream callers are untouched. Also removed: `conf/params_seqera_test.yml`, the CEN.PK Launchpad
   preset superseded by the generated box. Everything is at git tag `tier2-tools-archive`; index and
   retrieval commands in `docs/archive/tier2/README.md`.
+- **Control-FREEC germline mode** (2026-09-09): `subworkflows/local/bam_variant_calling_germline_controlfreec`
+  and its wiring in `bam_variant_calling_germline_all` (the `controlfreec` branch of the mpileup condition,
+  the `chr_files`/`mappability` takes) removed; `conf/modules/controlfreec.config`,
+  `modules/nf-core/controlfreec/freec/main.nf` and the somatic/tumor-only Control-FREEC subworkflows
+  reverted to pristine sarek 3.5.1 (patched nf-core modules 3 → 2). `--tools controlfreec` behaves as in
+  upstream (somatic/tumor-only, `cf_ploidy`); it never runs on an all-germline ALE samplesheet. CNVKit
+  remains the CNV deliverable. Same archive tag and index.
 
 ### Fixed
 

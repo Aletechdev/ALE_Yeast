@@ -757,8 +757,6 @@ workflow SAREK {
             params.sentieon_dnascope_emit_mode,
             params.sentieon_dnascope_pcr_indel_model,
             sentieon_dnascope_model,
-            chr_files,
-            mappability,
             params.wes)
 
         // TUMOR ONLY VARIANT CALLING

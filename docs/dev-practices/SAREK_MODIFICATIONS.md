@@ -29,10 +29,10 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 |----------|-------|-----------------------------------|
 | Root files | — | `main.nf`, `nextflow.config`, `nextflow_schema.json` |
 | Core workflow | — | `workflows/sarek/main.nf` ⚠️ heaviest |
-| `subworkflows/local/` | 7 | 11 |
+| `subworkflows/local/` | 4 | 9 |
 | `modules/local/` | 16 | 0 |
-| `modules/nf-core/` | 5 (installed) | **3 patched** ⚠️ |
-| `conf/` | 11 | 8 |
+| `modules/nf-core/` | 5 (installed) | **2 patched** ⚠️ |
+| `conf/` | 8 | 7 |
 
 ---
 
@@ -72,21 +72,20 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 
 ---
 
-## `subworkflows/local/` — ADDED (5, additive — low rebase cost)
+## `subworkflows/local/` — ADDED (4, additive — low rebase cost)
 
 | Subworkflow | Purpose |
 |-------------|---------|
 | `mutation_report` | Multi-caller dashboard (CN/SV matrices + igv-reports + index). Channel-based. |
 | `split_joint_vcf` | Split joint germline VCF → per-sample VCFs (channel-based metadata). |
 | `vcf_filter_haplotypecaller_joint` | Hard-filter per-sample VCFs from joint calling. Opt-in (`--hard_filter_haplotypecaller_joint`); off in every ALE recipe since 2026-09-08. |
-| `bam_variant_calling_germline_controlfreec` | Single-sample Control-FREEC (germline). |
 | `fastq_variant_calling_breseq` | breseq path (AMP-v1 legacy integration, not Tier 1). |
 
-## `subworkflows/local/` — MODIFIED (11, in place)
+## `subworkflows/local/` — MODIFIED (9, in place)
 
 | Subworkflow | ALE change (why) |
 |-------------|------------------|
-| `bam_variant_calling_germline_all` | ⚠️ Core ALE wiring: CNVKit `.cnr/.cns` emits + 4 `hc_kind` lineage tags; FreeBayes somatic disabled; Control-FREEC germline; split/hard-filter HC; split of the joint Manta VCF (`SPLIT_JOINT_VCF_MANTA`, ALE-only — not part of the `joint_manta` PR candidate). |
+| `bam_variant_calling_germline_all` | ⚠️ Core ALE wiring: CNVKit `.cnr/.cns` emits + 4 `hc_kind` lineage tags; FreeBayes somatic disabled; split/hard-filter HC; split of the joint Manta VCF (`SPLIT_JOINT_VCF_MANTA`, ALE-only — not part of the `joint_manta` PR candidate). |
 | `bam_variant_calling_germline_manta` | `joint_manta` input + one `groupTuple` branch (per-patient multi-sample run); `manta_config` input (optional configManta.py ini → module `config`, `[]` otherwise); `tbi` emit (3.8.1 shape). Deliberately mirrors upstream `joint_mutect2`; new lines in 3.10 strict-syntax dialect, no versions plumbing → pastes onto sarek `dev` unchanged. **Upstream PR candidate** — keep free of ALE-specific logic. |
 | `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report. |
 | `bam_joint_calling_germline_gatk` | `VARIANTFILTRATION_FALLBACK` when VQSR can't run (custom genomes, no known-sites). |
@@ -95,7 +94,6 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 | `bam_variant_calling_somatic_all` | FreeBayes somatic channel disabled (noise for ALE). |
 | `bam_variant_calling_somatic_mutect2` | FilterMutectCalls placeholder-channel fix (runs without germline resource/PoN). |
 | `annotation_cache_initialisation` | Skip `exists()/isDirectory()` for `az|s3|gs://` cache paths (blob prefixes are not directories). ⚠️ **File deleted upstream in 3.9.0** (#2194), replaced by nf-core `utils_annotation_cache`, which also applies the `<db>/<db>/` key to every cloud URL — our flat `az://` cache dirs fail under it. Port as a subworkflow patch, or make it moot with a tarball cache: `ale_sarek_upgrade_runbook.md` → *Known Rebase Hazards: SnpEff cache*. |
-| `bam_variant_calling_somatic_controlfreec`, `bam_variant_calling_tumor_only_controlfreec` | Ploidy/germline adjustments. |
 
 ## `modules/local/` — ADDED (16, additive)
 
@@ -106,7 +104,11 @@ Report/analysis modules (all consumed by `mutation_report`): `build_cn_matrix`, 
 
 ---
 
-## `modules/nf-core/` — PATCHED (3 — ⚠️ highest rebase risk)
+## `modules/nf-core/` — PATCHED (2 — ⚠️ highest rebase risk)
+
+> 2026-09-09: `controlfreec/freec/main.nf`, `conf/modules/controlfreec.config` and the somatic/tumor-only
+> Control-FREEC subworkflows were reverted to pristine sarek 3.5.1 and the fork's germline Control-FREEC
+> subworkflow removed — tag `tier2-tools-archive`, `docs/archive/tier2/README.md`.
 
 These are in-place edits to upstream nf-core modules. On rebase, re-apply or re-evaluate each:
 
@@ -114,7 +116,6 @@ These are in-place edits to upstream nf-core modules. On rebase, re-apply or re-
 |--------|------------|
 | `gatk4/haplotypecaller/main.nf` | `--sample-ploidy ${meta.ploidy}` for variable-ploidy yeast (Tier 1). |
 | `vcftools/main.nf` | Conditional-skip guards (ploidy>2, Mutect2 phased GT, joint-calling segfault). |
-| `controlfreec/freec/main.nf` | Ploidy / custom-genome adjustments. |
 
 ## `modules/nf-core/` — ADDED (5, via `nf-core modules install`)
 
@@ -137,10 +138,10 @@ Upstream-managed modules (clean installs, low rebase cost).
   `seqera_azure.config`, `params_seqera_381.yml`. (`params_seqera_test.yml`, the CEN.PK preset, removed
   2026-09-09 — the generated Launchpad box in `deploy/azure/seqera-sp/` is the live preset.)
 
-## `conf/` — MODIFIED (8, in place)
+## `conf/` — MODIFIED (7, in place)
 
 `base.config`, `modules/cnvkit.config` (ploidy on call+export; germline CNVKIT_CALL prefix),
-`modules/controlfreec.config` (ASSESS_SIGNIFICANCE skip on ploidy=1), `modules/joint_germline.config`
+`modules/joint_germline.config`
 (VARIANTFILTRATION_FALLBACK params only — the SPLIT_JOINT_VCF rules moved to `split_joint_vcf.config`), `modules/freebayes.config`,
 `modules/tiddit.config`, `modules/modules.config` (vcftools conditional `ext.when`),
 `modules/trimming.config` (fastp: `filter_quality` off-switch for the read filter, `--cut_<mode>` per
@@ -151,7 +152,7 @@ end, explicit adapters — `fastq_preprocessing_audit.md` §2.1).
 ## Rebase guidance
 
 1. **Additive files** (added subworkflows/modules/configs) carry forward with no conflict — copy them in.
-2. **The 3 patched nf-core modules + `workflows/sarek/main.nf`** are the real work: re-apply each edit
+2. **The 2 patched nf-core modules + `workflows/sarek/main.nf`** are the real work: re-apply each edit
    against the new upstream, then re-run the ALE contract test (`tests/ottilie_e2e.nf.test`) to confirm
    the deliverables still match. If a deliverable shifts, the CSV/tree assertions pinpoint it.
 3. **Do NOT** surgically delete unused upstream tools (sentieon, ascat, dragmap, tumor-only) — leaving
