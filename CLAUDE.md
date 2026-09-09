@@ -291,8 +291,9 @@ exactly as sequenced set `--trim_adapter false` and unset `trim_quality_3prime`;
 (`workflows/sarek/main.nf`). ⚠️ The **Azure baseline and earlier Seqera comparisons were produced
 with no preprocessing**. ✅ **Baseline re-cut 2026-09-08** (`az://aletest/seqera-runs/yAMP-out-test-recut-20260908`,
 trimming on + no HC hard filter, cloud reproduces local — see Cloud execution above); older outputs are
-compared per `output_comparison.md` §2.10. The 4-sample pilot's sensitivity re-check (41/42, measured
-pre-trimming) is **pending** (`PLAN_next_checklist.md` §A2).
+compared per `output_comparison.md` §2.10. ✅ The 4-sample pilot's sensitivity was **re-measured on the
+current recipe on 2026-09-09: 41/42 unchanged** (PASS-only 40/42, CNV 1/1; SV matrix 426 → 385 rows) —
+`04_validate/pilot_results_v3/NOTES.md`.
 
 The steps, in run order (user page:
 [`docs/usage/read_preprocessing.md`](docs/usage/read_preprocessing.md)): step 0 UMI consensus (hidden,

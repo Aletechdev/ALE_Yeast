@@ -256,7 +256,8 @@ for Nextera libraries where the auto-detection reports *unspecified*.
 **Default since 2026-09-04** (user decision): `trim_adapter = true`, `trim_quality_3prime = 'tail'` in
 `nextflow.config`, every ALE profile inheriting. The e2e snapshot was re-recorded with it; the Azure
 baseline byte-comparison is invalidated until the baseline is re-cut (Seqera run per the RUNBOOK), and
-the 4-sample pilot's truth-set sensitivity (41/42 on 2026-09-01) is re-confirmed with that re-cut rather
+the 4-sample pilot's truth-set sensitivity (41/42 on 2026-09-01; **re-confirmed 41/42 on the trimmed
+recipe 2026-09-09, `04_validate/pilot_results_v3/`, SV matrix 426 → 385 rows**) is re-confirmed with that re-cut rather
 than now. Set `--trim_adapter false` and leave `trim_quality_3prime` unset for reads as sequenced.
 
 

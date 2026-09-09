@@ -1,0 +1,4 @@
+sample,truth_n,pipeline_total,evolved_unique,tp_sensitivity,fn_sensitivity,sensitivity_pct,tp_precision,fp_precision,precision_pct
+Doxorubicin16-R2b,23,331,111,22,1,95.7,22,89,19.8
+CBR110-15-R3a,4,265,42,4,0,100.0,4,38,9.5
+Carmaphycin-R9-2,15,296,58,15,0,100.0,15,43,25.9

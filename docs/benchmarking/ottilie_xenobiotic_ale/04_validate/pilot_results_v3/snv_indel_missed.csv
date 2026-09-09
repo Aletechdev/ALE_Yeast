@@ -1,0 +1,2 @@
+sample,chrom,pos,ref,alt,type,gene,effect,flags
+Doxorubicin16-R2b,Mito,53278,TTATTTAATATTTAA,T,INDEL,intergenic,intergenic_region,
