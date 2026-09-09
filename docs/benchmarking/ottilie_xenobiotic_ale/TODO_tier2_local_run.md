@@ -1,5 +1,13 @@
 # TODO: Tier 2 Local Run
 
+> **📦 2026-09-09 — Tier 2 outputs archived.** `output_ottilie_tier2/preprocessing/` (86 CRAMs +
+> indexes, 43 GB) → `az://aledata/Yeast/archive-projects/ottilie_tier2/preprocessing/` (Cool tier,
+> one blob per file so a single sample can be fetched; verified by count, size and md5 after upload).
+> `work_ottilie_tier2/` (201 GB) deleted. Everything else in `output_ottilie_tier2/` (~1 GB: VCFs,
+> annotation, CN matrices, reports) stays on disk — the SV scale scripts read
+> `variant_calling/manta/`, and `04_validate/tier2_results/` is committed. Restore the CRAMs with:
+> `azcopy copy "https://aledata.blob.core.windows.net/aledata/Yeast/archive-projects/ottilie_tier2/preprocessing" output_ottilie_tier2/ --recursive   # after `azcopy login`; Cool tier, ~43 GB`
+>
 > **⚠️ ON HOLD (2026-08):** Tier 2 is deferred and may be retired. Current focus is the 2-sample
 > chr-subset test set, with the 4-sample full-depth pilot (already staged on Azure) next. Do not
 > action this checklist until Tier 2 is re-confirmed — see the tier table in [README.md](README.md).

@@ -32,6 +32,9 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[4]
+# 2026-09-09: the CRAMs were archived to az://aledata/Yeast/archive-projects/ottilie_tier2/preprocessing/
+# (Cool tier) and deleted locally. Restore before running:
+#     azcopy copy "https://aledata.blob.core.windows.net/aledata/Yeast/archive-projects/ottilie_tier2/preprocessing" output_ottilie_tier2/ --recursive   # after `azcopy login`; Cool tier, ~43 GB
 CRAM_DIR = REPO / "output_ottilie_tier2/preprocessing/markduplicates"
 TIER2_SHEET = REPO / "data/ottilie/samplesheet_tier2.csv"
 FIELDS = ["experiment", "sample", "status", "clonal_or_population", "ploidy", "sex", "cram", "crai"]

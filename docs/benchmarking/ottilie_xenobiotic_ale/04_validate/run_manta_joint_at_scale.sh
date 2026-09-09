@@ -18,8 +18,11 @@
 #     output_ottilie_tier2/variant_calling/manta/*/   86 per-sample baseline VCFs
 #     output_manta_joint_test/                        joint Manta, default settings
 #     output_manta_joint_test_hs/                     joint Manta, --manta_high_sensitivity
-# The planned archive of output_ottilie_tier2/ (44 GB) is mostly CRAMs -- keep variant_calling/manta/
-# out of the tarball, or extract it back before re-running this.
+# 2026-09-09: output_ottilie_tier2/preprocessing/ (the 86 CRAMs + indexes, 43 GB) was ARCHIVED to
+# az://aledata/Yeast/archive-projects/ottilie_tier2/preprocessing/ (Cool tier, file by file) and
+# deleted locally; variant_calling/manta/ and the rest (~1 GB) stay on disk. The CRAMs are the input
+# of this script and of make_cohort_samplesheet.py -- restore them first:
+#     azcopy copy "https://aledata.blob.core.windows.net/aledata/Yeast/archive-projects/ottilie_tier2/preprocessing" output_ottilie_tier2/ --recursive   # after `azcopy login`; Cool tier, ~43 GB
 # Findings: manta_joint_at_scale/REPORT.md · guidance: docs/variant-calling/manta/manta_calling_modes.md
 #
 # Usage: bash run_manta_joint_at_scale.sh [default|hs|both]     (default: both)

@@ -66,6 +66,10 @@ cohorts the two differ. The Tier-2 CRAMs behind the 16/48/86/2-group runs were p
 with `trim_fastq: false` and no fastp step at all**; the pipeline default changed on **2026-09-04**
 (`948163c`) to `--trim_adapter --trim_quality_3prime tail`. Re-running any of these cohorts from
 FASTQ today therefore yields *a different experiment on the same samples*, not a reproduction.
+**The CRAMs themselves are preserved** — archived 2026-09-09 to
+`az://aledata/Yeast/archive-projects/ottilie_tier2/preprocessing/` (Cool tier, one blob per file) and
+deleted from disk; `make_cohort_samplesheet.py` and `run_manta_joint_at_scale.sh` carry the restore
+command in their headers. Restoring them, not re-aligning, is how these cohorts are rebuilt.
 
 | To do this | Pass |
 |---|---|
