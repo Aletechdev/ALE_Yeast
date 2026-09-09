@@ -1,6 +1,6 @@
 # Tier-2 AF-based somatic filters (Mutect2 & FreeBayes)
 
-> **📦 ARCHIVED 2026-09-09.** The feature this page describes was removed from the pipeline (PLAN §C); the code is at git tag `tier2-tools-last`. Index and retrieval: [`README.md`](README.md). Kept verbatim below.
+> **📦 ARCHIVED 2026-09-09.** The feature this page describes was removed from the pipeline (PLAN §C); the code is at git tag `tier2-tools-archive`. Index and retrieval: [`README.md`](README.md). Kept verbatim below.
 
 
 **Tier status: Tier-2 (functional, not release-validated for ALE).** Mutect2 and FreeBayes

@@ -1,6 +1,6 @@
 # FreeBayes Variant Filtering Pipeline
 
-> **📦 ARCHIVED 2026-09-09.** The feature this page describes was removed from the pipeline (PLAN §C); the code is at git tag `tier2-tools-last`. Index and retrieval: [`README.md`](README.md). Kept verbatim below.
+> **📦 ARCHIVED 2026-09-09.** The feature this page describes was removed from the pipeline (PLAN §C); the code is at git tag `tier2-tools-archive`. Index and retrieval: [`README.md`](README.md). Kept verbatim below.
 
 
 ## Summary

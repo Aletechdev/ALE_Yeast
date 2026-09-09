@@ -267,8 +267,9 @@ anywhere; the parameter override beats the profile's local default.
 | SnpEff | Annotation | — | Custom cache built from GenBank or FASTA + GFF3 (`docs/usage/prepare_reference.md`) |
 
 **Tier 2 — functional but not release-validated for ALE:** Control-FREEC, breseq, Mutect2, FreeBayes,
-DeepVariant, Strelka. Enable via `--tools`; see
-[`docs/archive/tier2/tier2_af_filters.md`](docs/archive/tier2/tier2_af_filters.md).
+DeepVariant, Strelka. Enable via `--tools`; they run as in upstream sarek. The fork's former AF
+post-filters for Mutect2/FreeBayes were removed 2026-09-09
+([`docs/archive/tier2/README.md`](docs/archive/tier2/README.md)).
 
 ## Output
 

@@ -234,8 +234,9 @@ Canonical column reference, conventions, and non-Tier-1 notes:
 
 - **GATK Mutect2** (somatic; runs without `--germline-resource`/`--panel-of-normals` on the custom
   genome — see [`mutect2_custom_genome_resources.md`](docs/variant-calling/mutect2/mutect2_custom_genome_resources.md)) and **FreeBayes**
-  (germline mode only; somatic disabled — too noisy) — SNV/INDEL. AF-based filters for both:
-  [`docs/archive/tier2/tier2_af_filters.md`](docs/archive/tier2/tier2_af_filters.md).
+  (germline mode only; somatic disabled — too noisy) — SNV/INDEL, exactly as upstream sarek runs them.
+  The fork's AF-based post-filters for both were **removed 2026-09-09** (never part of the Tier-1
+  recipe; archived at tag `tier2-tools-archive`, index [`docs/archive/tier2/README.md`](docs/archive/tier2/README.md)).
 - **Control-FREEC** (germline CNV — see the [Control-FREEC section](#control-freec-tier-2-cnv)) · **breseq** (bacterial, not released).
 
 **Ploidy Support:**
@@ -248,24 +249,25 @@ Canonical column reference, conventions, and non-Tier-1 notes:
 
 ## Implementation Details
 
-### Tier-2 somatic AF filters (Mutect2 / FreeBayes)
+### Tier-2 somatic AF filters (Mutect2 / FreeBayes) — REMOVED 2026-09-09
 
-**Tier-2 (functional, not release-validated for ALE).** Mutect2 and FreeBayes are somatic
-callers — too sensitive/noisy for ALE (FreeBayes somatic mode alone gave 248,248 variants vs
-10,965 germline). Custom AF-based filters (Normal AF < 0.10, Tumor AF > 0.05, diff > 0.05,
-depth tumor ≥ 10 / normal ≥ 8), multi-allelic `bcftools norm -m-` splitting, strand-bias
-filtering, FreeBayes-somatic disabled, and the FilterMutectCalls channel-join fix all live in
-[`docs/archive/tier2/tier2_af_filters.md`](docs/archive/tier2/tier2_af_filters.md).
+The fork's AF-based post-filters (`vcf_filter_freebayes`, `vcf_filter_mutect2`, their configs, the
+`freebayes_*` params and the `TABIX_TABIX` index step that fed them) are gone: they never served the
+Tier-1 recipe and every removed file shrinks the next sarek rebase. Code at tag `tier2-tools-archive`;
+what they did and how to get them back: [`docs/archive/tier2/README.md`](docs/archive/tier2/README.md).
+Still in place because they are caller-level, not filters: FreeBayes-somatic disabled
+(`bam_variant_calling_somatic_all`), the FilterMutectCalls channel-join fix
+(`bam_variant_calling_somatic_mutect2`), the FreeBayes `--ploidy` passthrough.
 **HaplotypeCaller is the Tier-1 SNV/INDEL deliverable.**
 
 ### Bug Fixes
 
-#### ✅ YAML Processing Error (Custom VCF Filters)
+#### ✅ `processVersionsFromYAML()` on cloud paths
 
-Groovy method-resolution ambiguity in `processVersionsFromYAML()`
-(`subworkflows/nf-core/utils_nfcore_pipeline/main.nf`) fixed via
-explicit `java.io.FileInputStream(path.toFile())` + null/empty validation, so
-`VCF_FILTER_FREEBAYES` / `VCF_FILTER_MUTECT2` work correctly.
+`subworkflows/nf-core/utils_nfcore_pipeline/main.nf` reads the versions YAML content explicitly
+(`Path` → text) and drops empty documents, avoiding a SnakeYAML method-resolution ambiguity and
+cloud-path (`az://`) failures. Found while building the now-removed VCF filters; kept because it is
+general robustness of the versions manifest, not filter-specific.
 
 ---
 

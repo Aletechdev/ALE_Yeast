@@ -80,7 +80,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   the HaplotypeCaller joint pattern in `bam_variant_calling_germline_all/main.nf`. Filter individuals
   first, then merge, so allele frequencies are population-correct.
 - ~~**[med] FreeBayes AF miscalculation for multi-allelic sites (real bug).**~~ **Moot 2026-09-09:** the
-  filter subworkflow was removed (archived at tag `tier2-tools-last`, `docs/archive/tier2/`). Kept as a
+  filter subworkflow was removed (archived at tag `tier2-tools-archive`, `docs/archive/tier2/`). Kept as a
   note for anyone restoring it: After `bcftools norm -m-`
   splits a multi-allelic record, `AO` is split per row but `RO` is not, so `AF = AO/(AO+RO)` uses a wrong
   denominator. Fix: compute `AF = sum(AO)/(sum(AO)+RO)` **before** splitting, then split. See
@@ -94,7 +94,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `window` / `breakpointthreshold` for small yeast chromosomes. Coupled with the ploidy=1 item below.
 - ~~**[low] Investigate ASSESS_SIGNIFICANCE skip for ploidy=1.**~~ **Moot 2026-09-09:** the Control-FREEC
   germline mode and the ploidy-1 skip were reverted to pristine sarek 3.5.1 (archived at tag
-  `tier2-tools-last`, `docs/archive/tier2/`). The `cf_window` item above is likewise dormant. Was: `conf/modules/controlfreec.config:19` skips
+  `tier2-tools-archive`, `docs/archive/tier2/`). The `cf_window` item above is likewise dormant. Was: `conf/modules/controlfreec.config:19` skips
   it for haploid samples (Control-FREEC emits empty `*_CNVs`, R script fails). Determine whether this is
   inherent (no gain/loss relative to a haploid baseline) or a window/config issue that yeast-tuned
   parameters would resolve.
@@ -269,7 +269,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 - **[low] Sample-table "starting strain" column.** Add a column naming the ancestral strain per sample;
   test that one ancestral name (e.g. `A0-F0-I1-R1`) can map to multiple samples across different
   experiments.
-- **[low] Seqera launchpad schema polish.** Drop `cf_ploidy` from `params_seqera_test.yml` (schema default
+- **[low] Seqera launchpad schema polish.** ~~Drop `cf_ploidy` from `params_seqera_test.yml`~~ (file removed 2026-09-09; the generated Launchpad box has no `cf_*`) (schema default
   is 2 and it's ignored at runtime — ploidy comes from the sample table); set `"hidden": true` in
   `nextflow_schema.json` for `ascat_ploidy`, `ascat_purity`, `cf_window` (not used for yeast).
 - **[low] SURVIVOR SV-merge input-sort guard.** `modules/local/survivor_sv_merge` and

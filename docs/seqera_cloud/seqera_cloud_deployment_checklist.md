@@ -1,5 +1,9 @@
 # Seqera Platform Deployment Checklist — ALE Sarek Pipeline on Azure
 
+> **Historical (April 2026).** The `conf/params_seqera_test.yml` preset this page relies on was removed
+> on 2026-09-09; the live Launchpad entry is generated from the `ottilie_test_az` profile by
+> `deploy/azure/seqera-sp/14_register_pipeline.sh` (see `deploy/azure/seqera-sp/RUNBOOK.md`).
+
 **Created**: 2026-04-16
 **Workspace**: RECON-ALE (DTU-Biosustain) — workspace ID: 79597273081110
 **Platform**: https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE

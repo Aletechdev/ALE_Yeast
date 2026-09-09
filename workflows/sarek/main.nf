@@ -84,10 +84,8 @@ include { VCF_QC_BCFTOOLS_VCFTOOLS                          } from '../../subwor
 include { VCF_ANNOTATE_ALL                                  } from '../../subworkflows/local/vcf_annotate_all/main'
 
 // FreeBayes filtering
-include { VCF_FILTER_FREEBAYES                              } from '../../subworkflows/local/vcf_filter_freebayes/main'
 
 // Mutect2 filtering
-include { VCF_FILTER_MUTECT2                                 } from '../../subworkflows/local/vcf_filter_mutect2/main'
 
 // breseq variant calling directly from FASTQs
 include { FASTQ_VARIANT_CALLING_BRESEQ                       } from '../../subworkflows/local/fastq_variant_calling_breseq/main'
@@ -96,7 +94,6 @@ include { FASTQ_VARIANT_CALLING_BRESEQ                       } from '../../subwo
 include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main'
 
 // TABIX — index VCFs before custom AF filtering
-include { TABIX_TABIX                                       } from '../../modules/nf-core/tabix/tabix/main'
 
 // MUTATION_REPORT — multi-caller dashboard (opt-in, --generate_reports); channel-based
 include { MUTATION_REPORT                                   } from '../../subworkflows/local/mutation_report/main'
@@ -839,38 +836,7 @@ workflow SAREK {
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_TUMOR_ONLY_ALL.out.vcf_all)
         vcf_to_annotate = vcf_to_annotate.mix(BAM_VARIANT_CALLING_SOMATIC_ALL.out.vcf_all)
 
-        // Index VCFs for custom AF filtering (requires indexed VCFs)
-        TABIX_TABIX(vcf_to_annotate)
-        // Combine VCF and TBI for filtering input
-        // Use a more specific key including variantcaller to avoid duplicates
-        vcf_with_tbi = vcf_to_annotate
-            .map { meta, vcf -> [[meta.id, meta.variantcaller], meta, vcf] }
-            .join(TABIX_TABIX.out.tbi.map { meta, tbi -> [[meta.id, meta.variantcaller], meta, tbi] })
-            .map { key, meta1, vcf, meta2, tbi -> [meta1, vcf, tbi] }
-
-        VCF_FILTER_FREEBAYES(vcf_with_tbi)
-        versions = versions.mix(VCF_FILTER_FREEBAYES.out.versions)
-
-        // update vcf_to_annotate
-        vcf_to_annotate = vcf_to_annotate.mix(VCF_FILTER_FREEBAYES.out.vcf_filtered.map{ meta, vcf, tbi ->
-            [ meta, vcf ]
-        })
-
-        // filter Mutect2 VCFs:
-        if (params.tools && params.tools.split(',').contains('mutect2')) {
-            // Filter Mutect2 VCFs
-            VCF_FILTER_MUTECT2(
-                vcf_with_tbi)
-            versions = versions.mix(VCF_FILTER_MUTECT2.out.versions)
-
-            // update vcf_to_annotate
-            vcf_to_annotate = vcf_to_annotate.mix(VCF_FILTER_MUTECT2.out.vcf_filtered.map{ meta, vcf, tbi ->
-                [ meta, vcf ]
-            })
-        }
-
-
-        // QC on both original and filtered VCFs for comparison in reports
+        // QC
         VCF_QC_BCFTOOLS_VCFTOOLS(vcf_to_annotate, intervals_bed_combined)
 
         reports = reports.mix(VCF_QC_BCFTOOLS_VCFTOOLS.out.bcftools_stats.collect{ meta, stats -> [ stats ] })

@@ -143,6 +143,17 @@
   2-sample test set, `I:206105 DEL` and `VII:530034 INS` become shared PASS calls; breakpoints are
   estimated once from pooled reads, so coordinates shift slightly vs per-sample runs).
 
+### Removed
+
+- **Tier-2 AF post-filters for FreeBayes and Mutect2** (2026-09-09): `subworkflows/local/vcf_filter_freebayes`
+  and `vcf_filter_mutect2`, `conf/modules/custom_{freebayes,mutect2}_filter.config`, the never-wired
+  `filter_freebayes` / `freebayes_{qual,dp,af}_threshold` / `freebayes_high_impact` params (config + schema),
+  and the `TABIX_TABIX` index step in `workflows/sarek/main.nf` that existed only to feed them (its
+  `tabix/*.tbi` publishes for HC/Manta/TIDDIT VCFs go with it; the CNVKit `tabix/` files remain). The
+  upstream callers are untouched. Also removed: `conf/params_seqera_test.yml`, the CEN.PK Launchpad
+  preset superseded by the generated box. Everything is at git tag `tier2-tools-archive`; index and
+  retrieval commands in `docs/archive/tier2/README.md`.
+
 ### Fixed
 
 - **Joint Manta output was not deterministic.** The grouped CRAM list came out of `groupTuple()` in

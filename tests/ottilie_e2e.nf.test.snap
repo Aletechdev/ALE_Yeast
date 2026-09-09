@@ -1,7 +1,7 @@
 {
     "ottilie 2-sample: full ALE workflow + mutation report": {
         "content": [
-            159,
+            150,
             {
                 "BCFTOOLS_FILTER": {
                     "bcftools": 1.21
@@ -598,15 +598,8 @@
                 "tabix",
                 "tabix/CBR110-15-R3a.cnvcall.vcf.gz",
                 "tabix/CBR110-15-R3a.cnvcall.vcf.gz.tbi",
-                "tabix/CBR110-15-R3a.haplotypecaller.from_joint_calling.vcf.gz.tbi",
-                "tabix/CBR110-15-R3a.manta.diploid_sv.vcf.gz.tbi",
-                "tabix/CBR110-15-R3a.tiddit.vcf.gz.tbi",
-                "tabix/HaplotypeCaller_joint_calling_soft_filtered.vcf.gz.tbi",
                 "tabix/NODRUG-GM2.cnvcall.vcf.gz",
                 "tabix/NODRUG-GM2.cnvcall.vcf.gz.tbi",
-                "tabix/NODRUG-GM2.haplotypecaller.from_joint_calling.vcf.gz.tbi",
-                "tabix/NODRUG-GM2.manta.diploid_sv.vcf.gz.tbi",
-                "tabix/NODRUG-GM2.tiddit.vcf.gz.tbi",
                 "variant_calling",
                 "variant_calling/cnvkit",
                 "variant_calling/cnvkit/CBR110-15-R3a",
@@ -828,6 +821,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-09-08T16:09:55.961028477"
+        "timestamp": "2026-09-09T14:44:08.800836864"
     }
 }

@@ -14,7 +14,7 @@ This document outlines a testing strategy for the ALE_nextflow fork of nf-core/S
 - Use **nf-test snapshots** to catch regressions in output structure
 
 ### Integration Tests (subworkflow-level)
-- Test custom subworkflows end-to-end: `vcf_filter_mutect2`, `vcf_filter_freebayes`, `split_joint_vcf`
+- Test custom subworkflows end-to-end: `split_joint_vcf`, `vcf_filter_haplotypecaller_joint` (the Mutect2/FreeBayes AF filters were removed 2026-09-09)
 - Verify channel wiring — especially custom joins (e.g., the FilterMutectCalls fix, channel-based metadata propagation)
 
 ### System/Pipeline Tests (full workflow)
@@ -488,8 +488,7 @@ on remapped keys. Two reasons it needs a test:
 A workflow test covers both by feeding the three inputs directly and asserting which VCF comes out —
 no GATK run needed for the selection logic itself.
 
-**Then**, all `subworkflows/local/`: `vcf_filter_mutect2`, `vcf_filter_freebayes`,
-`vcf_filter_haplotypecaller_joint`, `mutation_report` (tool-presence branching on `params.tools`),
+**Then**, all `subworkflows/local/`: `vcf_filter_haplotypecaller_joint`, `mutation_report` (tool-presence branching on `params.tools`),
 `fastq_variant_calling_breseq` (the `subMap` regrouping), `bam_variant_calling_germline_controlfreec`,
 `prepare_reference_cnvkit`. Assert what §3 calls out: ploidy/status/sex surviving the joins, and the
 conditional skips (VCFtools for Mutect2/ploidy>2, `ASSESS_SIGNIFICANCE` for ploidy=1) actually firing.

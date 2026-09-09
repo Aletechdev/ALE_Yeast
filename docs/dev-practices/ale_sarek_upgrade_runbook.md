@@ -212,11 +212,11 @@ Purely additive, so a rebase carries them over untouched. Full list and per-file
   `build_sv_matrix/`, `survivor_sv_merge/`, `survivor_cohort_merge/`, `igvreports_cohort/`,
   `igvreports_sample/`, `igvreports_sv_cnv/`, `prepare_gff3/`, `prepare_vcf/`, `generate_index/`,
   `cnr_to_bedgraph/`, `filter_pass_vcf/`, `publish_vcfs/`.
-- **`subworkflows/local/`** (6 added) — `mutation_report/`, `fastq_variant_calling_breseq/`,
-  `split_joint_vcf/`, `vcf_filter_haplotypecaller_joint/`, `vcf_filter_mutect2/`, `vcf_filter_freebayes/`.
+- **`subworkflows/local/`** (4 added) — `mutation_report/`, `fastq_variant_calling_breseq/`,
+  `split_joint_vcf/`, `vcf_filter_haplotypecaller_joint/`. (`vcf_filter_mutect2/`, `vcf_filter_freebayes/`
+  removed 2026-09-09 — tag `tier2-tools-archive`, `docs/archive/tier2/README.md`.)
 - **`conf/`** (added) — `conf/modules/mutation_report.config`, `conf/modules/breseq.config`,
-  `conf/modules/custom_haplotypecaller_joint_filter.config`, `conf/modules/custom_mutect2_filter.config`,
-  `conf/modules/custom_freebayes_filter.config`, `conf/test/ottilie_test.config`,
+  `conf/modules/custom_haplotypecaller_joint_filter.config`, `conf/test/ottilie_test.config`,
   `conf/azured4as.config`, `conf/seqera_azure.config`.
 
 The hard-filter fallback is **not** a local module: it reuses the nf-core module

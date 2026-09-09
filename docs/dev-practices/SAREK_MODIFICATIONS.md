@@ -72,15 +72,13 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 
 ---
 
-## `subworkflows/local/` — ADDED (7, additive — low rebase cost)
+## `subworkflows/local/` — ADDED (5, additive — low rebase cost)
 
 | Subworkflow | Purpose |
 |-------------|---------|
 | `mutation_report` | Multi-caller dashboard (CN/SV matrices + igv-reports + index). Channel-based. |
 | `split_joint_vcf` | Split joint germline VCF → per-sample VCFs (channel-based metadata). |
 | `vcf_filter_haplotypecaller_joint` | Hard-filter per-sample VCFs from joint calling. Opt-in (`--hard_filter_haplotypecaller_joint`); off in every ALE recipe since 2026-09-08. |
-| `vcf_filter_freebayes` | AF-based somatic-style filter for FreeBayes (dev/troubleshooting). |
-| `vcf_filter_mutect2` | AF-based filter for Mutect2 (dev/troubleshooting). |
 | `bam_variant_calling_germline_controlfreec` | Single-sample Control-FREEC (germline). |
 | `fastq_variant_calling_breseq` | breseq path (AMP-v1 legacy integration, not Tier 1). |
 
@@ -93,7 +91,7 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 | `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report. |
 | `bam_joint_calling_germline_gatk` | `VARIANTFILTRATION_FALLBACK` when VQSR can't run (custom genomes, no known-sites). |
 | `samplesheet_to_channel` | ALE metadata columns (ploidy; all-samples-as-normal). Launch-time guard (2026-09-07): `snpeff` in `tools` with neither `snpeff_cache` nor `download_cache` → error; new `download_cache` take (caller `utils_nfcore_sarek_pipeline` passes it). |
-| `utils_nfcore_sarek_pipeline` | YAML `processVersionsFromYAML()` fix for custom VCF filters. |
+| `utils_nfcore_sarek_pipeline` | YAML `processVersionsFromYAML()` reads content explicitly (cloud paths, SnakeYAML ambiguity) and drops empty documents. |
 | `bam_variant_calling_somatic_all` | FreeBayes somatic channel disabled (noise for ALE). |
 | `bam_variant_calling_somatic_mutect2` | FilterMutectCalls placeholder-channel fix (runs without germline resource/PoN). |
 | `annotation_cache_initialisation` | Skip `exists()/isDirectory()` for `az|s3|gs://` cache paths (blob prefixes are not directories). ⚠️ **File deleted upstream in 3.9.0** (#2194), replaced by nf-core `utils_annotation_cache`, which also applies the `<db>/<db>/` key to every cloud URL — our flat `az://` cache dirs fail under it. Port as a subworkflow patch, or make it moot with a tarball cache: `ale_sarek_upgrade_runbook.md` → *Known Rebase Hazards: SnpEff cache*. |
@@ -125,18 +123,19 @@ Upstream-managed modules (clean installs, low rebase cost).
 
 ---
 
-## `conf/` — ADDED (11)
+## `conf/` — ADDED (8)
 
 - **Manta overrides:** `modules/manta_ale.config` — `--exome` when `manta_high_sensitivity` (or `wes`); keeps
   upstream `manta.config` 0-diff. Pairs with `assets/manta_high_sensitivity.ini`.
 - **Split rules:** `modules/split_joint_vcf.config` — per-caller (HC, Manta) rules for `SPLIT_JOINT_VCF`,
   keyed on `meta.variantcaller`; moved out of `joint_germline.config` so that upstream file only
   carries the VARIANTFILTRATION_FALLBACK change.
-- **Report/filter:** `modules/mutation_report.config`, `modules/custom_freebayes_filter.config`,
-  `modules/custom_mutect2_filter.config`, `modules/custom_haplotypecaller_joint_filter.config`,
-  `modules/breseq.config`.
+- **Report/filter:** `modules/mutation_report.config`, `modules/custom_haplotypecaller_joint_filter.config`,
+  `modules/breseq.config`. (`custom_freebayes_filter.config` / `custom_mutect2_filter.config` removed
+  2026-09-09 with their subworkflows — `docs/archive/tier2/README.md`.)
 - **Profiles/params:** `test/ottilie_test.config` (the ALE test dataset + tool set),
-  `seqera_azure.config`, `params_seqera_381.yml`, `params_seqera_test.yml`.
+  `seqera_azure.config`, `params_seqera_381.yml`. (`params_seqera_test.yml`, the CEN.PK preset, removed
+  2026-09-09 — the generated Launchpad box in `deploy/azure/seqera-sp/` is the live preset.)
 
 ## `conf/` — MODIFIED (8, in place)
 

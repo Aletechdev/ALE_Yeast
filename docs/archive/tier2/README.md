@@ -1,7 +1,7 @@
 # Archived Tier-2 additions — FreeBayes/Mutect2 AF filters, Control-FREEC germline mode
 
 **Removed from the pipeline on 2026-09-09** (PLAN §C, user decision). The code is not lost: every
-file is in git history, and the tag **`tier2-tools-last`** (= commit `cd1a7d0`) marks the last commit
+file is in git history, and the tag **`tier2-tools-archive`** (= commit `cd1a7d0`) marks the last commit
 that still carries all of it. This page is the index for finding it again.
 
 ## Why removed
@@ -16,7 +16,7 @@ untouched: `--tools freebayes`, `mutect2` and `controlfreec` still run exactly a
 
 ## What was removed, and where it lived
 
-| Feature | Files (at `tier2-tools-last`) | Removing commit |
+| Feature | Files (at `tier2-tools-archive`) | Removing commit |
 |---|---|---|
 | FreeBayes AF filter | `subworkflows/local/vcf_filter_freebayes/` (+ `bcftools/filter_normal`), `conf/modules/custom_freebayes_filter.config`, params `freebayes_qual_threshold`, `freebayes_dp_threshold`, `freebayes_af_threshold`, `freebayes_high_impact` (never wired — "TODO: implement" in `nextflow.config`), the `TABIX_TABIX` index step in `workflows/sarek/main.nf` that fed the filters (published `tabix/*.tbi`) | see CHANGELOG "Removed" |
 | Mutect2 AF filter | `subworkflows/local/vcf_filter_mutect2/` (+ `bcftools/filter_somatic`), `conf/modules/custom_mutect2_filter.config`, the `VCF_FILTER_MUTECT2` call in `workflows/sarek/main.nf` | see CHANGELOG "Removed" |
@@ -33,11 +33,11 @@ the upstream caller, still runnable), the FilterMutectCalls channel fix in
 ## Getting it back
 
 ```bash
-git show tier2-tools-last:subworkflows/local/vcf_filter_freebayes/main.nf          # read one file
-git checkout tier2-tools-last -- subworkflows/local/vcf_filter_freebayes           # restore a tree
-git diff tier2-tools-last -- workflows/sarek/main.nf                                # see the wiring that went
+git show tier2-tools-archive:subworkflows/local/vcf_filter_freebayes/main.nf          # read one file
+git checkout tier2-tools-archive -- subworkflows/local/vcf_filter_freebayes           # restore a tree
+git diff tier2-tools-archive -- workflows/sarek/main.nf                                # see the wiring that went
 ```
-Browse on GitHub: `https://github.com/Aletechdev/ALE_Yeast/tree/tier2-tools-last/<path>`.
+Browse on GitHub: `https://github.com/Aletechdev/ALE_Yeast/tree/tier2-tools-archive/<path>`.
 Restoring means re-wiring against whatever `workflows/sarek/main.nf` looks like then — the tag is a
 reference, not a patch that applies cleanly after a sarek upgrade.
 
