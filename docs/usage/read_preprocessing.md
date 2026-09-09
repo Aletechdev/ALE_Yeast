@@ -95,7 +95,7 @@ Evaluated on the read **after** steps 1–3. A pair is discarded when either mat
 
 | Parameter | Default | Use |
 |---|---|---|
-| `filter_quality` | **on** | fastp's read-level quality filter: discard a read when more than `filter_quality_percent` (40) of its bases are below `filter_quality_phred` (Q15), or it has more than 5 N. On by default whenever fastp runs, exactly as in upstream sarek. `--filter_quality false` keeps every read (trimming only). |
+| `filter_quality` | **on** | fastp's read-level quality filter: discard a read when more than `filter_quality_percent` (40) of its bases are below `filter_quality_phred` (Q15), or it has more than 5 N. Counted base by base — the read's *mean* quality is never used (that is step 3's sliding window). On by default whenever fastp runs, exactly as in upstream sarek. `--filter_quality false` keeps every read (trimming only). |
 | `filter_quality_phred`, `filter_quality_percent` | 15, 40 | the two thresholds (fastp `-q`, `-u`). |
 | `length_required` | 15 | discard reads shorter than this after trimming (fastp `-l`). Always applied when fastp runs. |
 

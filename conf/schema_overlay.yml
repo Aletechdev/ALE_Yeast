@@ -64,14 +64,15 @@ visible:
   - snpeff_db
   - report_gff3
 
-# Launch-form section order (2026-09-02): reference-genome options right after FASTQ
-# preprocessing, so the dataset-shaped fields sit together near the top. Groups not listed
-# keep their original relative order after the listed ones (new upstream groups land last).
+# Launch-form section order (2026-09-09, user review): every dataset-shaped field first (input,
+# output, reference, cache), then the recipe (`tools`), then the processing groups in run order.
+# Groups not listed keep their original relative order after the listed ones (new upstream
+# groups land last).
 group_order:
   - input_output_options
+  - reference_genome_options
   - main_options
   - fastq_preprocessing
-  - reference_genome_options
   - preprocessing
   - variant_calling
   - annotation
@@ -81,6 +82,11 @@ group_order:
 
 # Group title/description the fork owns (merged into the group entry).
 group_overrides:
+  # Upstream calls this group "Preprocessing" — next to "Read preprocessing" that reads as a
+  # duplicate. Its visible fields are all alignment-output choices (2026-09-09).
+  preprocessing:
+    title: "Alignment"
+    description: "bwa-mem alignment of the (preprocessed) reads and duplicate marking, and what to publish of it: save_mapped keeps the aligned CRAM before duplicate marking; save_output_as_bam publishes BAM instead of CRAM. Base quality recalibration is always skipped on custom genomes (no known-sites VCFs; skip_tools = baserecalibrator in every ALE profile)."
   fastq_preprocessing:
     title: "Read preprocessing"
     description: "Optional steps between the samplesheet and alignment, in run order: step 0 UMI consensus (fgbio, only with umi_read_structure) → fastp: step 1 adapter trimming · step 2 fixed-count clipping · step 3 quality trimming per read end · step 4 read filtering. ALE default: step 1 adapter trimming + step 3 tail quality trimming (+ step 4 read filter). For reads exactly as sequenced set trim_adapter = false and trim_quality_3prime unset; fastp then runs only if step 2 is set or split_fastq > 0. Details: docs/usage/read_preprocessing.md\n\n![One read through the preprocessing steps in run order; ALE default path in colour, optional steps in grey](https://raw.githubusercontent.com/Aletechdev/ALE_Yeast/main/docs/dev-practices/figures/fastq_trimming/read_preprocessing_steps.svg)"
@@ -141,6 +147,8 @@ property_overrides:
     description: "Step 2 · Fixed-count clipping: remove this many bp from the 3' end of read 2 regardless of quality (fastp `--trim_tail2`)."
     help_text: "fastp: `--trim_tail2` / `-T`."
 
+  filter_quality:
+    description: "Step 4 · Read filtering: discard read pairs with too many low-quality bases (fastp's read-level filter; thresholds below). Counted base by base against filter_quality_phred — the read's mean quality is never used; that is step 3's window. On by default whenever fastp runs, as in upstream sarek."
   length_required:
     description: "Step 4 · Read filtering: discard reads shorter than this after trimming (fastp `--length_required`)."
     help_text: "fastp's default is 15 bp. A pair is discarded when either mate is too short. Always applied when fastp runs, independent of `filter_quality`.\n\nfastp: `--length_required` / `-l`; the length filter itself can only be disabled by fastp's `-L`, which is not exposed."
