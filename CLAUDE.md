@@ -235,7 +235,7 @@ Canonical column reference, conventions, and non-Tier-1 notes:
 - **GATK Mutect2** (somatic; runs without `--germline-resource`/`--panel-of-normals` on the custom
   genome — see [`mutect2_custom_genome_resources.md`](docs/variant-calling/mutect2/mutect2_custom_genome_resources.md)) and **FreeBayes**
   (germline mode only; somatic disabled — too noisy) — SNV/INDEL. AF-based filters for both:
-  [`docs/variant-calling/tier2_af_filters.md`](docs/variant-calling/tier2_af_filters.md).
+  [`docs/archive/tier2/tier2_af_filters.md`](docs/archive/tier2/tier2_af_filters.md).
 - **Control-FREEC** (germline CNV — see the [Control-FREEC section](#control-freec-tier-2-cnv)) · **breseq** (bacterial, not released).
 
 **Ploidy Support:**
@@ -255,7 +255,7 @@ callers — too sensitive/noisy for ALE (FreeBayes somatic mode alone gave 248,2
 10,965 germline). Custom AF-based filters (Normal AF < 0.10, Tumor AF > 0.05, diff > 0.05,
 depth tumor ≥ 10 / normal ≥ 8), multi-allelic `bcftools norm -m-` splitting, strand-bias
 filtering, FreeBayes-somatic disabled, and the FilterMutectCalls channel-join fix all live in
-[`docs/variant-calling/tier2_af_filters.md`](docs/variant-calling/tier2_af_filters.md).
+[`docs/archive/tier2/tier2_af_filters.md`](docs/archive/tier2/tier2_af_filters.md).
 **HaplotypeCaller is the Tier-1 SNV/INDEL deliverable.**
 
 ### Bug Fixes
@@ -391,7 +391,7 @@ annotation; `ASSESS_SIGNIFICANCE` fails for haploid (ploidy=1) samples (empty `*
 script error, auto-skipped via `conf/modules/controlfreec.config`); and it crashes on some
 samples with `std::length_error`. **CNVKit is the Tier-1 CNV deliverable instead.** Single-sample
 germline mode (April 2026) is implemented — see
-[`docs/variant-calling/controlfreec/controlfreec_germline_changes.md`](docs/variant-calling/controlfreec/controlfreec_germline_changes.md).
+[`docs/archive/tier2/controlfreec_germline_changes.md`](docs/archive/tier2/controlfreec_germline_changes.md).
 
 ## Variant Analysis Dashboard System
 

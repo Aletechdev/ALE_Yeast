@@ -268,7 +268,7 @@ anywhere; the parameter override beats the profile's local default.
 
 **Tier 2 — functional but not release-validated for ALE:** Control-FREEC, breseq, Mutect2, FreeBayes,
 DeepVariant, Strelka. Enable via `--tools`; see
-[`docs/variant-calling/tier2_af_filters.md`](docs/variant-calling/tier2_af_filters.md).
+[`docs/archive/tier2/tier2_af_filters.md`](docs/archive/tier2/tier2_af_filters.md).
 
 ## Output
 

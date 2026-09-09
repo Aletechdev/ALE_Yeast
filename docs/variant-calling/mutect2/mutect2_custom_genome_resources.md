@@ -22,7 +22,7 @@ expected, not a defect.
 ## Effect
 
 Mutect2 still runs and calls, just without population-based pre-filtering. Downstream, the ALE-specific
-AF-based filters do the noise reduction — see [`../tier2_af_filters.md`](../tier2_af_filters.md).
+AF-based filters do the noise reduction — see [`../tier2_af_filters.md`](../../archive/tier2/tier2_af_filters.md).
 
 ## References
 

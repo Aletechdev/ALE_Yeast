@@ -1,5 +1,8 @@
 # FreeBayes Variant Filtering Pipeline
 
+> **📦 ARCHIVED 2026-09-09.** The feature this page describes was removed from the pipeline (PLAN §C); the code is at git tag `tier2-tools-last`. Index and retrieval: [`README.md`](README.md). Kept verbatim below.
+
+
 ## Summary
 FreeBayes variants are filtered through a **custom quality filtering subworkflow** that removes low-quality variants before annotation. The pipeline uses `bcftools view` with germline-optimized filters designed for yeast ALE experiments.
 

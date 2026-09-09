@@ -1,5 +1,8 @@
 # Tier-2 AF-based somatic filters (Mutect2 & FreeBayes)
 
+> **📦 ARCHIVED 2026-09-09.** The feature this page describes was removed from the pipeline (PLAN §C); the code is at git tag `tier2-tools-last`. Index and retrieval: [`README.md`](README.md). Kept verbatim below.
+
+
 **Tier status: Tier-2 (functional, not release-validated for ALE).** Mutect2 and FreeBayes
 are *somatic* callers designed for cancer genomics. On ALE data they are too sensitive/noisy
 (FreeBayes somatic mode alone produced 248,248 variants vs 10,965 in germline mode), so the

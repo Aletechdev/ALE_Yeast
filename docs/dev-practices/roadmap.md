@@ -79,7 +79,9 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `subworkflows/local/bam_joint_calling_freebayes/` (bcftools merge of individual germline VCFs), mirroring
   the HaplotypeCaller joint pattern in `bam_variant_calling_germline_all/main.nf`. Filter individuals
   first, then merge, so allele frequencies are population-correct.
-- **[med] FreeBayes AF miscalculation for multi-allelic sites (real bug).** After `bcftools norm -m-`
+- ~~**[med] FreeBayes AF miscalculation for multi-allelic sites (real bug).**~~ **Moot 2026-09-09:** the
+  filter subworkflow was removed (archived at tag `tier2-tools-last`, `docs/archive/tier2/`). Kept as a
+  note for anyone restoring it: After `bcftools norm -m-`
   splits a multi-allelic record, `AO` is split per row but `RO` is not, so `AF = AO/(AO+RO)` uses a wrong
   denominator. Fix: compute `AF = sum(AO)/(sum(AO)+RO)` **before** splitting, then split. See
   `subworkflows/local/vcf_filter_freebayes/`.
@@ -90,7 +92,9 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 
 - **[low] Control-FREEC yeast `cf_window` tuning.** `nextflow.config` sets `cf_window = null` (auto). Tune
   `window` / `breakpointthreshold` for small yeast chromosomes. Coupled with the ploidy=1 item below.
-- **[low] Investigate ASSESS_SIGNIFICANCE skip for ploidy=1.** `conf/modules/controlfreec.config:19` skips
+- ~~**[low] Investigate ASSESS_SIGNIFICANCE skip for ploidy=1.**~~ **Moot 2026-09-09:** the Control-FREEC
+  germline mode and the ploidy-1 skip were reverted to pristine sarek 3.5.1 (archived at tag
+  `tier2-tools-last`, `docs/archive/tier2/`). The `cf_window` item above is likewise dormant. Was: `conf/modules/controlfreec.config:19` skips
   it for haploid samples (Control-FREEC emits empty `*_CNVs`, R script fails). Determine whether this is
   inherent (no gain/loss relative to a haploid baseline) or a window/config issue that yeast-tuned
   parameters would resolve.

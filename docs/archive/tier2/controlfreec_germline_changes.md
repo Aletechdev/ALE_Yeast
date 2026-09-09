@@ -1,5 +1,8 @@
 # Control-FREEC Germline Mode — Implementation Review
 
+> **📦 ARCHIVED 2026-09-09.** The feature this page describes was removed from the pipeline (PLAN §C); the code is at git tag `tier2-tools-last`. Index and retrieval: [`README.md`](README.md). Kept verbatim below.
+
+
 **Branch**: `worktree-controlfreec-germline`
 **Date**: 2026-04-13
 

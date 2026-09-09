@@ -39,7 +39,7 @@ Enabling population mode for BreSeq (Not released): for population samples run `
 
 Next release variant calling candidates (Not fully customized/validated):
 FreeBayes (SNP + InDel): lacks HaplotypeCaller’s joint calling mode, custom cohort joint VCF too noisy (multi-allelic sites normalization issues)
-Control-FREEC (CNV): lacks standard VCF output, thus no functional annotation by SnpEff. Also crashes on some samples (std::length_error in v11.6b). See `docs/variant-calling/controlfreec/controlfreec_germline_changes.md`
+Control-FREEC (CNV): lacks standard VCF output, thus no functional annotation by SnpEff. Also crashes on some samples (std::length_error in v11.6b). See `docs/archive/tier2/controlfreec_germline_changes.md`
   - Ottilie pilot (4 samples, S288C R64): no Control-FREEC crashes
   - Ottilie Tier 2 (86 samples, S288C R64): 4 samples crashed (exit 134 / SIGABRT), all `std::length_error` during copy number annotation:
     - `BMS983970-2R1e` (failed 3 times: initial + 2 retries)

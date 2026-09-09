@@ -91,11 +91,11 @@ Output-directory layout is in the [root README](../README.md#output).
 
 | Doc | What it covers |
 |---|---|
-| [`variant-calling/tier2_af_filters.md`](variant-calling/tier2_af_filters.md) | AF-based somatic filters for Mutect2 & FreeBayes, and why they're Tier 2 |
+| [`archive/tier2/tier2_af_filters.md`](archive/tier2/tier2_af_filters.md) | AF-based somatic filters for Mutect2 & FreeBayes, and why they're Tier 2 |
 | [`variant-calling/mutect2/mutect2_custom_genome_resources.md`](variant-calling/mutect2/mutect2_custom_genome_resources.md) | Running Mutect2 without germline-resource / panel-of-normals |
 | [`variant-calling/mutect2/MUTECT2_JOINT_CALLING_TIMEOUT.md`](variant-calling/mutect2/MUTECT2_JOINT_CALLING_TIMEOUT.md) | Joint-Mutect2 timeout behavior |
-| [`variant-calling/freebayes/FREEBAYES_FILTERING_PIPELINE.md`](variant-calling/freebayes/FREEBAYES_FILTERING_PIPELINE.md) | FreeBayes filtering chain (germline mode only) |
-| [`variant-calling/controlfreec/controlfreec_germline_changes.md`](variant-calling/controlfreec/controlfreec_germline_changes.md) | Control-FREEC single-sample germline mode |
+| [`archive/tier2/FREEBAYES_FILTERING_PIPELINE.md`](archive/tier2/FREEBAYES_FILTERING_PIPELINE.md) | FreeBayes filtering chain (germline mode only) |
+| [`archive/tier2/controlfreec_germline_changes.md`](archive/tier2/controlfreec_germline_changes.md) | Control-FREEC single-sample germline mode |
 | [`variant-calling/breseq/BRESEQ_LOW_COVERAGE_BEHAVIOR.md`](variant-calling/breseq/BRESEQ_LOW_COVERAGE_BEHAVIOR.md) | ⚠️ breseq calls **false whole-chromosome deletions** on low-coverage / subsampled data — read before trusting any breseq output |
 | [`variant-calling/breseq/BRESEQ_INTEGRATION_PLAN.md`](variant-calling/breseq/BRESEQ_INTEGRATION_PLAN.md) | breseq subworkflow design & integration record (as-built) |
 | [`investigate_filter/mutect2_filter/README.md`](investigate_filter/mutect2_filter/README.md) | Mutect2 filtering-strategy investigation |
