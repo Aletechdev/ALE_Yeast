@@ -621,6 +621,12 @@ identical and **all 9 cohort deliverables were byte-identical by md5**. The rest
 | `csv/markduplicates_no_table.csv`, `csv/variantcalled.csv` | these **embed the absolute output path**, so a longer `outdir` string changes the byte count |
 | `versions.yml` | a run from a **Git clone** appends the short commit (`v1.0.0-g86c4672`); a local-directory run does not |
 | `pipeline_info/*` file *count* | timestamped per execution — the baseline has two sets because it was run twice |
+| `multiqc_data/snpeff_effects.txt`, `snpeff_variant_effects_region.txt` | MultiQC lists the effect categories of the **last SnpEff report parsed**, and file order differs between ext4 and the Batch node — a MultiQC bug (`output_comparison.md` §2.11), shared cells identical |
+| CRAM read-level | identical — but the cloud CRAM's `UR:` is a Batch path, so `samtools view` needs `-T <fasta>` or it decodes nothing and silently hashes empty output |
+
+Re-verified 2026-09-08/09 on the recipe re-cut (run `2W0uOsPYt03NAL`, `RUNBOOK.md`): 477 common files,
+240 byte-identical incl. all 14 cohort tables, 42/42 VCFs record-identical, both CRAMs read-identical;
+everything else in the classes above.
 
 ⚠️ **`contentMd5` is NOT populated on published blobs** (0/534) — Azure stores it only when the uploader
 supplies it, and Nextflow's publish path does not. So the "compare blob `Content-MD5` against local md5"

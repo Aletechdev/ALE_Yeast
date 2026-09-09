@@ -31,7 +31,10 @@ mutation_reports/data/cn_matrices/cn_matrices/cn_chr_summary_{call,germline}.csv
 mutation_reports/data/cn_matrices/cn_matrices/cn_segments_{call,germline}.csv
 ```
 
-All nine were **byte-identical** across local and cloud. If one of those differs, it is a real finding.
+All nine were **byte-identical** across local and cloud — first on 2026-08-06, and again on the
+2026-09-08 re-cut (`az://aletest/seqera-runs/yAMP-out-test-recut-20260908`, run `2W0uOsPYt03NAL`, the
+current reference; there all 14 tables under `mutation_reports/data/` matched, 42/42 VCFs were
+record-identical and both CRAMs read-identical). If one of those differs, it is a real finding.
 Everything else needs normalising before it means anything.
 
 ---
@@ -150,12 +153,29 @@ other `groupTuple` calls are safe: [`testing_best_practices.md`](testing_best_pr
 Not noise and not a regression: the reference outputs were produced under an older recipe. A default
 change is a provenance event for every output already published (`testing_best_practices.md` §13), so
 each one is listed here with its date; a comparison against anything older than the date must expect
-the difference, and the baseline re-cut (`PLAN`: §A2) retires the list.
+the difference. **The reference baseline was re-cut on 2026-09-08 and carries both changes**, so this
+table now only matters when comparing against outputs older than that (tier-2, the pilots, the
+2026-08 baselines).
 
 | Since | Change | What differs against older outputs |
 |---|---|---|
 | 2026-09-04 (`948163c`) | fastp `--trim_adapter --trim_quality_3prime tail` is the default | every read-derived file: CRAMs, all VCFs, coverage, the cohort matrices; new `reports/fastp/` |
 | 2026-09-08 | `hard_filter_haplotypecaller_joint` left the ALE recipe (pipeline default `false`) | the whole `hard_filtered.*` family is **absent**: `variant_calling_filtered/`, its two `tabix/*.hard_filtered.vcf.gz.tbi` indexes, and the per-sample `annotation/`, `reports/{bcftools,snpeff,vcftools}/` siblings; the MultiQC bcftools/vcftools aggregate tables lose those rows; 16 fewer tasks on the 2-sample set. The joint VCF, the soft per-sample splits and all nine cohort deliverables are unaffected |
+
+### 2.11 MultiQC's SnpEff breakdown tables — the categories of whichever report was parsed last
+
+`multiqc/multiqc_data/snpeff_effects.txt` and `snpeff_variant_effects_region.txt` (and the plots built
+from them) list a **different set of effect categories** depending on the run: 8 columns on the local
+e2e (a HaplotypeCaller report's effect types), 14 on the 2026-09-08 Platform run (a Manta report's), 9
+standalone (TIDDIT's) — from **identical** SnpEff summary CSVs. Cause (MultiQC 1.25.1,
+`modules/snpeff/snpeff.py` `parse_snpeff_log`): the module does
+`self.snpeff_section_totals[section] = dict()` **every time a file reaches a section header**, so the
+totals that drive the category list are those of the *last file parsed*, and file order follows the
+filesystem (ext4 locally, the Batch node's staged directory on Platform). It is **deterministic per
+filesystem** (the exact local task re-run twice is byte-identical) and different across them; the cells
+for shared categories agree exactly, and the general SnpEff table (`multiqc_snpeff.txt`) is
+cell-identical. Not a pipeline defect and not a deliverable; excluded from the e2e snapshot. Upstream
+report pending (roadmap). Verified 2026-09-09 on the re-cut comparison.
 
 ---
 

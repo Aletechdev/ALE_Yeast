@@ -113,8 +113,9 @@ principal + RBAC provisioning lives in [`deploy/azure/`](deploy/azure/) (per-res
 resource-group-wide).
 
 **Status: validated end-to-end for BOTH head-job locations** —
-- **Local head job** (2026-08-03): 138 tasks (+32 cached), 540 blobs → `az://aletest/ottilie-azurebatch-out/`. **This is the reference baseline.**
-- **Seqera Platform head job** (2026-08-06): 170/170 tasks, **all 9 cohort deliverables byte-identical** to that baseline. Launchpad entry `yAMP-ottilie-test` in `DTU-Biosustain/RECON-ALE`.
+- **Reference baseline (2026-09-08, current recipe — trimming on, no HC hard filter):** Seqera Platform head job, run `2W0uOsPYt03NAL`, 159/159 tasks, 26 min, commit `bc31fd2` → **`az://aletest/seqera-runs/yAMP-out-test-recut-20260908`**. Compared against the local e2e output of the same code: all 14 cohort tables byte-identical, 42/42 VCFs record-identical, both CRAMs read-identical (`RUNBOOK.md` 2026-09-08 entry; classes in `output_comparison.md`).
+- **Superseded baselines:** local head job 2026-08-03 (`az://aletest/ottilie-azurebatch-out/`, 540 blobs, untrimmed + hard filter) and the 2026-08-06 Platform run that reproduced it. Still valid for comparing *older* outputs; see `output_comparison.md` §2.10.
+- **Seqera Platform head job** (2026-08-06): 170/170 tasks, **all 9 cohort deliverables byte-identical** to that baseline. Launchpad entry `yAMP-ottilie-tes` in `DTU-Biosustain/RECON-ALE`.
 
 ⚠️ **A Platform head job needs a `--dual-pool` CE with an enlarged worker boot disk.** On a single-pool
 compute environment it fails at ~98% completion, with **zero failed tasks** — the node's OS disk fills
@@ -288,8 +289,10 @@ section below) and FilterVariantTranches. Full mechanism:
 exactly as sequenced set `--trim_adapter false` and unset `trim_quality_3prime`; FASTP's gate is
 `trim_adapter || trim_fastq || trim_quality_3prime || trim_quality_5prime || split_fastq > 0`
 (`workflows/sarek/main.nf`). ⚠️ The **Azure baseline and earlier Seqera comparisons were produced
-with no preprocessing**, so byte-comparison against them is invalidated until the baseline is re-cut
-with the new default; the 4-sample pilot's sensitivity re-check (41/42) goes with that re-cut.
+with no preprocessing**. ✅ **Baseline re-cut 2026-09-08** (`az://aletest/seqera-runs/yAMP-out-test-recut-20260908`,
+trimming on + no HC hard filter, cloud reproduces local — see Cloud execution above); older outputs are
+compared per `output_comparison.md` §2.10. The 4-sample pilot's sensitivity re-check (41/42, measured
+pre-trimming) is **pending** (`PLAN_next_checklist.md` §A2).
 
 The steps, in run order (user page:
 [`docs/usage/read_preprocessing.md`](docs/usage/read_preprocessing.md)): step 0 UMI consensus (hidden,

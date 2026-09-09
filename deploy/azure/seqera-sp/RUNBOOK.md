@@ -978,6 +978,42 @@ preserved, box 13 keys. The next Launchpad run is the first cloud run without th
 trimming on by default — it is the §A2 baseline re-cut, and its expected differences against the
 2026-08-03 baseline are tabled in `output_comparison.md` §2.10.
 
+### 2026-09-08 — ✅ BASELINE RE-CUT on the current recipe (run `2W0uOsPYt03NAL`) — cloud reproduces local
+
+**The reference output set for local-vs-cloud comparison is now
+`az://aletest/seqera-runs/yAMP-out-test-recut-20260908`** (replaces `ottilie-azurebatch-out/`, cut
+2026-08-03 with no trimming and the hard filter on). Launched from the re-registered entry
+(`166797736834160`) via `tw launch --params-file` = the box **minus `snpeff_cache`** (doubling as the
+§13 acceptance test: 12 params submitted, no `snpeff_cache`/`custom_config_base` injected, profile's
+`az://` cache path resolved), `-p docker,ottilie_test_az`, commit `bc31fd2`, engine 25.10.4.
+**SUCCEEDED 159/159 tasks, 0 failed, 26 min** (15:05–15:32Z) — the same 159 the local e2e runs.
+
+Compared 2026-09-09 against the local e2e output of the same commit range (`4acec56`'s re-record),
+by the 3-tier method in `output_comparison.md` §3:
+
+- **Tier 1 (names):** 569 blobs = 477 files + 85 `.azure_blob_dir` markers + 7 `pipeline_info/`;
+  local 483 files. **Nothing on one side only** outside `pipeline_info/`.
+- **Tier 2 (sizes):** 404/477 same size; 73 differ, every one in a known class.
+- **Tier 3 (content):** 240 byte-identical, incl. **all 14 cohort tables** under `mutation_reports/data/`
+  (the nine deliverables + `contig_copy_number.csv` + 4 `pass_stats.tsv`). **42/42 VCFs record-identical**
+  (`bcftools view -H`), **10/10 igv-report `tableJson` identical**, **both CRAMs read-identical**
+  (3,611,680 and 1,726,650 records; `samtools view -T <fasta>` — the cloud CRAM's embedded `UR:` is a
+  Batch path, so without `-T` samtools decodes nothing and hashes empty output — a trap, not a diff).
+  Remaining differences: timestamps (snpEff CSV `Date`, fastp `time used`, report `Generated`),
+  embedded paths (`csv/*.csv`, `##reference`, `@RG DS`, MultiQC sources/log), gzip/tabix framing,
+  MultiQC renders, `versions.yml` `-gbc31fd2`.
+- **One new class found — MultiQC's SnpEff breakdown tables show the effect categories of whichever
+  report was parsed LAST** (`snpeff_effects.txt`, `snpeff_variant_effects_region.txt`): the module resets
+  its per-section totals at every file's section header, so the plotted category set is the last file's
+  (Manta's on the Batch node, HaplotypeCaller's on ext4, TIDDIT's standalone); shared cells agree
+  exactly and the general SnpEff table is cell-identical. Deterministic per filesystem (the exact local
+  task re-run twice is byte-identical), different across them. MultiQC 1.25.1 bug, not ALE's; recorded
+  as `output_comparison.md` §2.11 and a roadmap item to report upstream. Already excluded from the e2e
+  snapshot (the `.nftignore` reason was wrong and is corrected).
+
+The 4-sample pilot sensitivity re-check runs locally (`output_ottilie_pilot_2026-09-09/`); its result
+goes to `04_validate/`, not here.
+
 ## GitHub PAT (fine-grained — current credential)
 
 | Seqera credential | Provider | Scope | Owner | Created | **Expires** |

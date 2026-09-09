@@ -511,6 +511,14 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
     at `generate_reports=true`; assets git-tracked → resolve on Seqera); remove dead `report_multiqc_path`.
   - **`ottilie_test.config`:** remove `report_multiqc_path`; drop the 5 static overrides (now == defaults).
   - Validate with `nf-core pipelines schema lint` + e2e re-run.
+- **[low] MultiQC SnpEff breakdown tables show only the last-parsed report's categories — report
+  upstream.** `parse_snpeff_log` resets `snpeff_section_totals[section]` at every file's section
+  header (MultiQC 1.25.1; check whether current MultiQC still does), so `snpeff_effects` /
+  `snpeff_variant_effects_region` list the effect types of whichever CSV came last in filesystem
+  order — 8 columns locally, 14 on Azure Batch, from identical inputs (`output_comparison.md`
+  §2.11, found 2026-09-09). Cosmetic for us (excluded from the snapshot; shared cells identical),
+  but a real bug for anyone reading those plots. Fix upstream = accumulate totals across files
+  (`setdefault`). After the v1 release, with the nf-core/tools item below.
 - **[low] The `split_fastq` schema-lint error is an nf-core/tools bug — report it upstream; work around
   it only when nf-core lint becomes a CI gate.** `nf-core pipelines schema lint` (and therefore
   `nf-core pipelines lint`) aborts with *"Default parameters are invalid: 50000000 is valid under each

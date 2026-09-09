@@ -65,5 +65,8 @@ mutation_reports/**/*.vcf.{gz,gz.tbi}
 mutation_reports/**/*.vcf
 # fork-only TABIX publish dir (bgzipped VCF + index):
 tabix/**
-# snpeff MultiQC tables (SnpEff version-dependent):
+# snpeff MultiQC breakdown tables: MultiQC 1.25.1 lists the effect categories of whichever SnpEff
+# report it parsed LAST (per-section totals are reset at every file), so the column set follows
+# filesystem order — differs between ext4 and the Batch node (output_comparison.md §2.11). Was
+# wrongly annotated "SnpEff version-dependent" until 2026-09-09.
 multiqc/multiqc_data/*snpeff*.txt
