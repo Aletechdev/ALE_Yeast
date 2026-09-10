@@ -64,17 +64,18 @@ visible:
   - snpeff_db
   - report_gff3
 
-# Launch-form section order (2026-09-09, user review): every dataset-shaped field first (input,
-# output, reference, cache), then the recipe (`tools`), then the processing groups in run order.
+# Launch-form section order (2026-09-10, user review): every dataset-shaped field first (input,
+# output, reference, cache), then the recipe (`tools`) and its switches (Variant calling), then the
+# read-level groups (Read preprocessing, Alignment) that most launches leave at their defaults.
 # Groups not listed keep their original relative order after the listed ones (new upstream
 # groups land last).
 group_order:
   - input_output_options
   - reference_genome_options
   - main_options
+  - variant_calling
   - fastq_preprocessing
   - preprocessing
-  - variant_calling
   - annotation
   - general_reference_genome_options
   - institutional_config_options

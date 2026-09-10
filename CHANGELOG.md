@@ -65,10 +65,11 @@
 
 ### Changed
 
-- **Launch form: sections reordered and the alignment group renamed** (2026-09-09): Input/output →
-  Reference genome → Main options → Read preprocessing → **Alignment** (was sarek's "Preprocessing",
+- **Launch form: sections reordered and the alignment group renamed** (2026-09-09; order refined
+  2026-09-10 — Variant calling now directly after Main options, the read-level groups last): Input/output →
+  Reference genome → Main options → Variant calling → Read preprocessing → **Alignment** (was sarek's "Preprocessing",
   a near-duplicate of "Read preprocessing"; the group covers bwa-mem alignment, duplicate marking and
-  what to publish) → Variant calling. `filter_quality`'s description now says the filter counts bases
+  what to publish). `filter_quality`'s description now says the filter counts bases
   against `filter_quality_phred` and never uses the read's mean quality (that is step 3). Schema text
   and order only (`conf/schema_overlay.yml`); no behaviour change.
 
