@@ -32,7 +32,7 @@ The default recipe (see [Defaults and the baseline](#defaults-and-the-baseline))
 Only when `--umi_read_structure` is given: reads carrying unique molecular identifiers are grouped
 (`--group_by_umi_strategy`) and collapsed into consensus reads, which then continue into fastp. This
 step is independent of the fastp steps below. **No ALE library uses UMIs**, so both parameters are
-hidden in the launch form (still accepted from a params file).
+hidden in the launch form (still accepted from a params file — [`launch_params_file.md`](launch_params_file.md)).
 
 ## Step 1 — Adapter trimming
 

@@ -175,6 +175,13 @@ nextflow -c conf/mymachine.config run main.nf -profile docker \
 `--skip_tools baserecalibrator` is **required**: BQSR needs known-sites VCFs, which custom microbial
 references don't have. Omitting it aborts the run.
 
+Rather than a long command line, put the parameters in a **params file**: copy
+[`docs/usage/params_template.yml`](docs/usage/params_template.yml) (every launch-form field in
+launch-form order, at the Tier-1 recipe values, plus the hidden ones a run needs), fill the six
+dataset lines, and launch with `-params-file my_project.yml`, upload it in the Seqera launch form, or
+pass it to `tw launch --params-file`. Precedence and traps:
+[`docs/usage/launch_params_file.md`](docs/usage/launch_params_file.md).
+
 ### Input samplesheet
 
 | Column | Description |

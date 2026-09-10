@@ -9,6 +9,7 @@ how to run it, start at the [**root README**](../README.md).
 | Set up a brand-new machine | [`usage/new_machine_setup.md`](usage/new_machine_setup.md) |
 | Write the input samplesheet | [`usage/input_samplesheet.md`](usage/input_samplesheet.md) |
 | Prepare your reference (FASTA, GFF3, SnpEff cache) | [`usage/prepare_reference.md`](usage/prepare_reference.md) |
+| Launch with a params file (template, precedence, traps) | [`usage/launch_params_file.md`](usage/launch_params_file.md) |
 | Know what's in this release (incl. tool tiers) | [`../CHANGELOG.md`](../CHANGELOG.md) |
 | Know what changed vs upstream Sarek | [`dev-practices/SAREK_MODIFICATIONS.md`](dev-practices/SAREK_MODIFICATIONS.md) |
 | Understand a specific tool's behaviour | [Variant calling & CNV/SV](#variant-calling--cnvsv) |
@@ -31,6 +32,7 @@ how to run it, start at the [**root README**](../README.md).
 
 | Doc | What it covers |
 |---|---|
+| [`usage/launch_params_file.md`](usage/launch_params_file.md) · [`usage/params_template.yml`](usage/params_template.yml) | **Launching with a params file** — generated template of every launch-form field (+ the hidden Tier-1 ones) in form order; `-params-file` / Seqera upload / `tw launch`; precedence; the `null`-is-a-string and directory-cache traps |
 | [`dev-practices/compute_resources.md`](dev-practices/compute_resources.md) | Resource model, `resourceLimits` clamp, per-VM porting, cloud notes |
 | [`dev-practices/azure_batch_execution.md`](dev-practices/azure_batch_execution.md) | **Start here for Azure Batch.** Why the config differs from the stock tutorial (4 settings), plus the execution gotchas: work-dir/container rule, node-agent SKU, pool ids, `-resume`, cost |
 | [`seqera_cloud/seqera_cloud_deployment_checklist.md`](seqera_cloud/seqera_cloud_deployment_checklist.md) | Seqera Platform + Azure Batch deployment checklist (April 2026 — predates the service-principal work; verify against `deploy/azure/seqera-sp/RUNBOOK.md`) |

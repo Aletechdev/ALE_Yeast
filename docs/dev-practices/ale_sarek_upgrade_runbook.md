@@ -71,6 +71,8 @@ Then regenerate the launch-form schema from the overlay (see the note under *Cur
 ```bash
 python bin/apply_schema_overlay.py          # heed its warnings — they flag params renamed upstream
 python bin/apply_schema_overlay.py --check
+python bin/make_params_template.py          # docs/usage/params_template.yml follows the visible set
+python bin/make_params_template.py --check
 ```
 
 ### 3. If a patch fails

@@ -59,7 +59,10 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   [`bin/apply_schema_overlay.py`](../../bin/apply_schema_overlay.py). Never hand-edit `hidden`
   flags or overridden texts in the JSON — edit the overlay and re-run the script
   (`--check` verifies the committed schema matches). On a sarek upgrade: take the upstream
-  schema wholesale, re-run the script, review the diff.
+  schema wholesale, re-run the script, review the diff. The user-facing
+  [`docs/usage/params_template.yml`](../usage/params_template.yml) is generated from the result by
+  [`bin/make_params_template.py`](../../bin/make_params_template.py) (also `--check`) — re-run it
+  whenever the visible set or `conf/test/ottilie_common.config` changes.
 
 ### New params (nextflow.config / schema)
 
