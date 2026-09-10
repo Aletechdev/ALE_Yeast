@@ -32,6 +32,13 @@ The final truth set (`03_table_s8_genomic_locations.csv`) contains 24 SNVs with:
 - Clonal: Single-colony isolates from evolved lineages
 - Population: Spore-seq pools (~100 spores per pool, sequenced as bulk)
 
+**Pipeline output the benchmark scripts read** (`output_all/variant_calling/`, run 2026-04-22, 9 tools,
+untrimmed reads — predates the 2026-09-04 trimming default): the local directory was deleted on
+2026-09-10; its `variant_calling/` subtree (16,077 files, 3.3 GB — the breseq and HaplotypeCaller VCFs
+the benchmark scripts read, at the paths listed in `../README.md`, plus the other callers' output) is
+archived at `az://aledata/Yeast/adipic_acid_ale_benchmark/output_all_2026-04-22/variant_calling/`.
+The CRAMs (`preprocessing/`) were not archived; they are reproducible from the inputs below.
+
 A canonical copy of all inputs (FASTQs, reference genome, annotation, SnpEff cache, and samplesheet) is on Azure Blob Storage:
 ```
 https://aledata.blob.core.windows.net/aledata/Yeast/adipic_acid_ale_benchmark/

@@ -949,7 +949,7 @@ Same commit (`fedfab7`) both sides. **Seqera** run `4sagA2Le4rx1m2` (`ottilie-pi
 launched via `tw launch yAMP-ottilie-test-az -p docker,ottilie_pilot_az` + the two-line params file per
 the `18wEWW90THA2Ek` recipe): **307/307 tasks, 63 min**, outdir
 `az://aletest/seqera-runs/yAMP-out-pilot-sorfs-compare-20260902`. **Local** `run_ottilie_pilot.sh`:
-**315/315 tasks, 1h57m**, `output_ottilie_pilot_2026-09-02/`. 146 Seqera deliverables compared
+**315/315 tasks, 1h57m**, `output_ottilie_pilot_2026-09-02/` (local dir deleted 2026-09-10 — superseded by the 2026-09-08 re-cut comparison; this result stands). 146 Seqera deliverables compared
 (mutation_reports, all VCFs, csv/, versions yml):
 
 - **Every cohort table byte-identical**: `cn_cohort_*.csv`, `sv_cohort_matrix_*` (union + pass),

@@ -395,6 +395,10 @@ name**. Worth a comment in the config, since it reads backwards.
    the pipeline. This should be settled with the team before any module is installed — it is the
    difference between zero files and a permanent second tool with a rebase cost. Note that §2 already
    reproduces Trimmomatic's `ILLUMINACLIP` + `TRAILING`/`SLIDINGWINDOW` + `MINLEN` behaviour.
+   **Deferred 2026-09-10 (user decision): review after user feedback on the shipped read-preprocessing
+   parameters and defaults** — together with the roadmap's user-feedback-gated item on trimming the
+   "Read preprocessing" launch-form group (`roadmap.md` → *Deployment — Seqera launch UI / schema*).
+   If the fastp recipe holds up in real use, this closes as "not a production option".
 2. ~~Symmetric or asymmetric quality trimming?~~ **Resolved (§2.2):** one mode at a time via the enum;
    `front` + `tail` in a single run is not representable and was not asked for.
 3. ~~**Does the ALE default change?**~~ **Resolved 2026-09-04: yes** — `--trim_adapter --trim_quality_3prime
