@@ -468,6 +468,18 @@ density:
    assertable record counts — same idiom as `split_joint_vcf.nf.test`.
 5. **Report/format** — `generate_index`, `igvreports_*`, `cnr_to_bedgraph`, `prepare_gff3`. Watch
    determinism: igv-report HTML varies run-to-run; assert the `tableJson` blob, not the file hash.
+6. **`MANTA_GERMLINE` under `--manta_high_sensitivity`** — the second upstream module whose behaviour
+   we own via config, and the flag has **no automated coverage** (added 2026-09-10; it is opt-in
+   only, so nothing is pending on it). Two halves, in two places: `--exome` from the `ext.args`
+   closure in `conf/modules/manta_ale.config` (selector `MANTA_GERMLINE|MANTA_TUMORONLY|MANTA_SOMATIC`,
+   gated on `tools` containing `manta`), and `assets/manta_high_sensitivity.ini`
+   (`graphNodeMaxEdgeCount = 0`) passed as the module's config-file input from
+   `workflows/sarek/main.nf` (`file(…, checkIfExists: true)` when on, `[]` when off). Fixture-less:
+   run the process with the ini as input and assert the rendered command (`--exome` present, the
+   `.ini` referenced) with the flag on, and neither with it off — no CRAM needed, the assertion is
+   on `process.trace`/the `.command.sh`, not on a VCF. Same selector caveat as item 1, plus the
+   `tools` gate must be set in the test's params. The `file`-vs-`[]` choice in the workflow is
+   layer-4 territory (a `-preview`-style pipeline test), not this test.
 
 ### Layer 3 — `nextflow_workflow`
 
@@ -566,6 +578,22 @@ Wiring: `.claude/settings.json` runs it as a `PreToolUse` hook on every `git com
 (`bin/hook_git_commit_gate.sh` extracts the `-F` file or heredoc message from the command); for
 commits made by hand install it as a git hook — `ln -s ../../bin/check_snapshot_staged.sh
 .git/hooks/commit-msg` (git passes the message file as `$1`). An exit code of 2 blocks with the reason.
+
+**Known gaps in the path list (2026-09-10, both observed, neither fixed):**
+
+- **Too narrow — `conf/test/` is not a behaviour path.** A recipe edit in
+  `conf/test/ottilie_common.config` (tools, `skip_tools`, the joint-calling flags) moves the e2e
+  snapshot, yet passes the gate with no trailer because only `conf/modules/` is matched. Widening the
+  pattern to `conf/test/` would also catch the `_az` / `_ci` profiles, which change only paths and
+  never outputs, and every such commit would then need a `Snapshot: unchanged` trailer it does not
+  deserve. The precise fix is to match `conf/test/ottilie_common.config` by name (the profiles include
+  it; it is the only file under `conf/test/` that holds recipe). Undecided; decide before the recipe
+  next changes.
+- **Too wide — every `bin/*.py` is a "task script".** The pattern also catches the docs and schema
+  generators (`bin/apply_schema_overlay.py`, `bin/make_params_template.py`), which no module calls. A
+  commit touching one needs a trailer that states truthfully that nothing behavioural changed and no
+  e2e ran (as `8f84662` does). Accepted as noise: an occasional honest trailer is cheaper than a
+  second list of exempt scripts that will go stale.
 
 ## 13. Benchmark claims — provenance, evidence labels, script-before-numbers
 

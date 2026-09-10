@@ -322,7 +322,8 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   particular how they decide which tests to run for a change — that is the general form of the local
   commit gate added 2026-09-04 (`bin/check_snapshot_staged.sh`: an output-affecting path must ship the
   re-recorded e2e snapshot or a `Snapshot: unchanged` trailer, plus a `Module test: <name> green` line
-  per mapped unit test). The gate is a stop-gap for a single developer; CI is where the tests should
+  per mapped unit test; its two known path gaps are listed under *The commit gate* in
+  `testing_best_practices.md` §12). The gate is a stop-gap for a single developer; CI is where the tests should
   actually run. ⚠️ **Prerequisite for any `nf-core pipelines lint` / `schema lint` step in that CI:** the
   lint currently aborts on `split_fastq` because of an nf-core/tools bug, not a schema defect — see the
   `split_fastq` item under *Deployment — Seqera launch UI / schema* (report upstream first; the overlay
@@ -552,6 +553,16 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
   `--tools` free-text (do NOT add an `enum`)** — an enum must be re-applied on every rebase and can
   reject valid upstream tool combos; default it to Tier-1 and document Tier-2 as advanced/unvalidated
   instead of hard-blocking it.
+- **[open — USER CHECK, minutes] Eyeball the launch form after the 2026-09-09/10 schema changes.**
+  No re-registration needed: the form reads `nextflow_schema.json` from `main` (pushed through
+  `fd722ca`). Open the Launchpad entry `yAMP-ottilie-test-az` (id `166797736834160`) and confirm:
+  (a) section order is Input/output → Reference genome → Main options → Variant calling → Read
+  preprocessing → Alignment (`group_order` in `conf/schema_overlay.yml`); (b) the read-preprocessing
+  figure renders in the "Read preprocessing" group description and in the `trim_adapter` /
+  `trim_quality_3prime` tooltips — if the group-description image does not render, drop that link
+  from `group_overrides` (keep the tooltip links and the user-page figures); (c) `filter_quality`'s
+  text reads "counted base by base … mean quality is never used". Record the outcome here or in
+  `deploy/azure/seqera-sp/RUNBOOK.md`, then delete this item.
 - **[low, post-1.0.0, user-feedback-gated] Trim the Read preprocessing group on the launch form.**
   All 17 fastp params are deliberately visible (decided 2026-09-02, reaffirmed 2026-09-10) so a user
   can review the ALE default recipe and adapt the trimming to their library — the step-numbered group
