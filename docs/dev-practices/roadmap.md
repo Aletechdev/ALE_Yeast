@@ -552,6 +552,18 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
   `--tools` free-text (do NOT add an `enum`)** — an enum must be re-applied on every rebase and can
   reject valid upstream tool combos; default it to Tier-1 and document Tier-2 as advanced/unvalidated
   instead of hard-blocking it.
+- **[low, post-1.0.0, user-feedback-gated] Trim the Read preprocessing group on the launch form.**
+  All 17 fastp params are deliberately visible (decided 2026-09-02, reaffirmed 2026-09-10) so a user
+  can review the ALE default recipe and adapt the trimming to their library — the step-numbered group
+  description, figure and tooltips exist for that review. Once real launches show which knobs nobody
+  touches, hide those via the overlay's `visible` allowlist (`conf/schema_overlay.yml`; drop from the
+  list, regenerate, `--check`; schema-only, no e2e). Likely candidates: the four `clip_*`,
+  `trim_quality_mean`/`_window`, `filter_quality_phred`/`_percent`, `length_required`, `trim_nextseq`,
+  `adapter_sequence_r2` — leaving the six switches (`trim_adapter`, `adapter_sequence`,
+  `trim_quality_3prime`/`_5prime`, `filter_quality`, `save_trimmed`). Do NOT hide the whole group, and
+  note there is no schema key for a collapsed group (nf-schema spec checked 2026-09-10): `hidden: true`
+  per param is the only lever, and it also drops the param from plain `--help` (`--help_full` shows it).
+  Power users bypass the form anyway via a params file (user page planned: `docs/usage/launch_params_file.md`).
 - **[post-1.0.0] Cherry-pick `worktree-seqera-cloud` into `main`** once the Seqera cloud run is
   validated. Not a strict/clean merge — cherry-pick the cloud-specific changes as needed. The branch
   lives on `Aletechdev/ALE_Yeast`; don't merge before cloud validation (avoids pulling unvalidated

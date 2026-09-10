@@ -750,7 +750,11 @@ mitigation. 📌 Do **not** "fix" it by moving dataset paths into `nextflow_sche
 are pipeline-wide, are applied by nf-schema at runtime, and would make an ottilie samplesheet the
 default for every use of this pipeline — besides diverging from upstream Sarek 3.5.1.
 
-**`outdir` is not pinned in the box.** Both `_az` profiles now compute
+**The profiles compute a timestamped `outdir`** (⚠️ *corrected 2026-09-10: this paragraph originally
+began "`outdir` is not pinned in the box" — true on 2026-08-12, superseded the next day by `b7f91a4`,
+which pins the box to the disposable `yAMP-out-test-DUMP` default described above; the box value wins on
+Platform, so the timestamp below now governs local runs and Platform launches whose `outdir` field is
+cleared*). Both `_az` profiles compute
 `az://aletest/seqera-runs/yAMP-out-{test,pilot}-<YYYYMMDD-HHMMSS>` in Groovy, so two launches can never
 publish into the same directory even if nobody edits anything. Verified at run time: consecutive runs
 resolved `…-20260812-150202` and `…-20260812-150208`, and an explicit `outdir` still overrides. ⚠️ It is
