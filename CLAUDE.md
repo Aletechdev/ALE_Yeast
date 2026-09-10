@@ -193,7 +193,9 @@ non-obvious rules, each learned by running it — full detail in the same doc:
   (hard-coded dev paths). snpEff **5.1** only; flat `<db>/` layout; `snpeff_cache` has **no default**.
 - **Fork base**: nf-core/sarek 3.5.1 — the fork tree lives at the **repo root** (`main.nf`, `conf/`,
   `workflows/`, `modules/`, `subworkflows/`); consult the upstream 3.5.1 docs for base behavior.
-  A pristine copy for diffing sits in the `sarek-compare` worktree (see `docs/dev-practices/SAREK_MODIFICATIONS.md`).
+  For diffing against pristine 3.5.1, fetch it per `docs/dev-practices/SAREK_MODIFICATIONS.md` (`nf-core pipelines
+  download sarek --revision 3.5.1`, or single files from `raw.githubusercontent.com/nf-core/sarek/3.5.1/<path>`);
+  no worktree of it is kept.
 - **Production/example data (CENPK, dicarboxylic acids)** — real-experiment dataset, not the test set:
   `https://aledata.blob.core.windows.net/aledata/Yeast/dicarboxylic_acids_all_clones/REDACTED-CUSTOMER-ID/ANP_Dev_2025Q3/data/`
 
