@@ -308,6 +308,15 @@ mutation_reports/
 How the reports are built and how to read them:
 [`docs/README.md#output--reporting`](docs/README.md#output--reporting).
 
+**On Seqera Platform**, the run's *Outputs* tab lists the entry points of this bundle (index, cohort
+report, per-sample IGV reports, the three cohort CSVs) plus one MultiQC — the list comes from
+[`tower.yml`](tower.yml). Two limits to know: files under 10 MB preview in the browser, 10–25 MB are
+download-only, larger ones are listed by path only (per-sample HaplotypeCaller reports on a
+full-depth run are 14–40 MB). And the tab serves every file on its own, so the index's links do not
+resolve there — use the tab's own list to move between reports. For the full dashboard, download
+the `mutation_reports/` folder (Data Explorer on the run's `outdir`, or
+`az storage blob download-batch`) and open `index.html` locally.
+
 ## Testing
 
 ```bash
@@ -324,7 +333,7 @@ Batch either way:
 | | Head process | Launched with | Status |
 |---|---|---|---|
 | **Local head job** | your machine | `nextflow run … -c conf/azure_batch.config` | ✅ validated end-to-end (2026-08-03) |
-| **Cloud head job** | an Azure Batch node | `tw launch` / Seqera Platform UI | not yet run |
+| **Cloud head job** | an Azure Batch node | `tw launch` / Seqera Platform UI | ✅ validated end-to-end (2026-08-06); reference baseline re-cut 2026-09-08 |
 
 Start here: [`docs/dev-practices/azure_batch_execution.md`](docs/dev-practices/azure_batch_execution.md)
 — it opens with why the config differs from the stock Azure Batch tutorial (only 4 settings, 3 of them

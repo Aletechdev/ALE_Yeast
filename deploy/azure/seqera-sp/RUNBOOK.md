@@ -1291,3 +1291,19 @@ segment, and averaging only the existing samples. The two pools are the CE's own
 creation, free at 0 nodes. Residual risks (hung head job, 7-day worker cap, work-dir growth) and the
 three-command audit are now in
 [`azure_batch_execution.md` §8.1](../../../docs/dev-practices/azure_batch_execution.md).
+
+### 2026-09-11 — ✅ ALE-specific `tower.yml` verified on Platform (run `5s5ufIqc8nWdNn`)
+
+Sarek's inherited `tower.yml` filled the run's *Outputs* tab with per-sample mosdepth / bcftools-stats /
+snpEff txt tables and the MultiQC report twice, and never listed `mutation_reports/`. Replaced in
+`db94fe3` with eight patterns: index, cohort report, `samples/*_report.html`, the three cohort CSVs,
+`multiqc/multiqc_report.html`. Launched the test entry (`tw launch --params-file`, box minus
+`snpeff_cache`, outdir `az://aletest/seqera-runs/yAMP-out-test-toweryml-20260911`): **SUCCEEDED
+150/150 tasks, 0 failed, 27 min** (11:29–11:56Z), commit `db94fe3`. 150 not 159 because `153be06`
+removed the nine `TABIX_TABIX` tasks (local snapshot re-recorded then). `GET /workflow/<id>/reports`
+returned exactly **14 entries** — the 8 patterns, each per-sample report auto-suffixed with its
+filename — no txt, one MultiQC, every file < 10 MB on the test set so all preview. Not testable
+from the CLI: whether the preview frame lets igv.js / Tabulator load from their CDNs (user's browser
+check). Zip-the-folder was rejected before running: the pilot's `mutation_reports/` is 137 MB against
+a 25 MB download cap, and igv-reports embed base64 alignments so it would not compress.
+
