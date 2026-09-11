@@ -308,6 +308,9 @@ def versions = yaml.load(java.nio.file.Files.newInputStream(path)).collectEntrie
 - `PL: null` — `seq_platform` param was not set in the Seqera launch params
 - **Fix**: `seq_platform: "ILLUMINA"` in `conf/params_seqera_test.yml` resolves the `PL:null` issue
 
+> `conf/params_seqera_381.yml` and `conf/params_seqera_test.yml`, referenced below, were removed on
+> 2026-09-11 and 2026-09-09 (git history: `63eacf9`). The passage is kept as the record of that launch.
+
 **Root cause**: The Seqera UI launch used **different params** than our `params_seqera_381.yml`:
 - `seq_platform` was `None` (our file has `ILLUMINA`)
 - `tools` included `breseq` (our file excludes it)

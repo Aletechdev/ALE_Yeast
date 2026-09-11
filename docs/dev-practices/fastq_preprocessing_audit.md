@@ -40,8 +40,9 @@ publishes to `reports/fastqc/<id>/`, and feeds MultiQC. Nothing downstream reads
 [`ottilie_test_ci.config:67`](../../conf/test/ottilie_test_ci.config#L67),
 [`params_ottilie_test_blob.yml:63`](../../conf/params_ottilie_test_blob.yml#L63),
 [`run_ottilie_pilot.sh:28`](../benchmarking/ottilie_xenobiotic_ale/03_pipeline/run_ottilie_pilot.sh#L28).
-So no adapter removal, no clipping, no length filter, no quality filter. `params_seqera_381.yml:34`
-records the rationale — *"No trimming (good quality Illumina reads assumed)"*. **This is a defensible
+So no adapter removal, no clipping, no length filter, no quality filter. The legacy 3.8.1 preset
+(`conf/params_seqera_381.yml:34`, removed 2026-09-11; in git history at `63eacf9`) recorded the
+rationale — *"No trimming (good quality Illumina reads assumed)"*. **This is a defensible
 choice, but it is currently an unstated one**: it is implied by a splitting parameter rather than
 declared.
 

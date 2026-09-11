@@ -138,8 +138,10 @@ Upstream-managed modules (clean installs, low rebase cost).
   `modules/breseq.config`. (`custom_freebayes_filter.config` / `custom_mutect2_filter.config` removed
   2026-09-09 with their subworkflows — `docs/archive/tier2/README.md`.)
 - **Profiles/params:** `test/ottilie_test.config` (the ALE test dataset + tool set),
-  `seqera_azure.config`, `params_seqera_381.yml`. (`params_seqera_test.yml`, the CEN.PK preset, removed
-  2026-09-09 — the generated Launchpad box in `deploy/azure/seqera-sp/` is the live preset.)
+  `seqera_azure.config`. (The two legacy Seqera presets are gone — `params_seqera_test.yml`, the CEN.PK
+  preset, removed 2026-09-09; `params_seqera_381.yml`, the upstream-sarek-3.8.1 comparison preset,
+  removed 2026-09-11, last at `63eacf9` — the generated Launchpad box in `deploy/azure/seqera-sp/` is
+  the live preset and `docs/usage/params_template.yml` the user-facing one.)
 
 ## `conf/` — MODIFIED (7, in place)
 
