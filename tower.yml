@@ -6,9 +6,8 @@
 #
 # Limits (docs.seqera.io/platform-cloud/reports/overview): < 10 MB previews in the browser,
 # 10–25 MB download-only, > 25 MB listed by path only. Per-sample HaplotypeCaller igv-reports on a
-# full-depth run are 14–40 MB, so the tab is a quick look, not the delivery route: the full
-# dashboard (index.html + relative links) only works from the downloaded folder or a local outdir.
-# Each report is served on its own here, so the index's links do not resolve inside the tab.
+# full-depth run are 14–40 MB, so the tab is a quick look; the downloaded folder is the delivery
+# route. The index's relative links DO resolve inside the tab's preview (verified 2026-09-11).
 reports:
   "**/mutation_reports/index.html":
     display: "Mutation report dashboard (index)"

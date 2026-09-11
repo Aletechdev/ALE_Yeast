@@ -312,10 +312,10 @@ How the reports are built and how to read them:
 report, per-sample IGV reports, the three cohort CSVs) plus one MultiQC — the list comes from
 [`tower.yml`](tower.yml). Two limits to know: files under 10 MB preview in the browser, 10–25 MB are
 download-only, larger ones are listed by path only (per-sample HaplotypeCaller reports on a
-full-depth run are 14–40 MB). And the tab serves every file on its own, so the index's links do not
-resolve there — use the tab's own list to move between reports. For the full dashboard, download
-the `mutation_reports/` folder (Data Explorer on the run's `outdir`, or
-`az storage blob download-batch`) and open `index.html` locally.
+full-depth run are 14–40 MB). The index's relative links **do** resolve inside the tab (verified
+2026-09-11), so opening *index* there gives the same navigation as a local copy, subject to the size
+limits. To keep or share the whole bundle, download the `mutation_reports/` folder (Data Explorer
+on the run's `outdir`, or `az storage blob download-batch`) and open `index.html` locally.
 
 ## Testing
 

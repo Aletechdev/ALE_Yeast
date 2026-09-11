@@ -1302,8 +1302,10 @@ snpEff txt tables and the MultiQC report twice, and never listed `mutation_repor
 150/150 tasks, 0 failed, 27 min** (11:29–11:56Z), commit `db94fe3`. 150 not 159 because `153be06`
 removed the nine `TABIX_TABIX` tasks (local snapshot re-recorded then). `GET /workflow/<id>/reports`
 returned exactly **14 entries** — the 8 patterns, each per-sample report auto-suffixed with its
-filename — no txt, one MultiQC, every file < 10 MB on the test set so all preview. Not testable
-from the CLI: whether the preview frame lets igv.js / Tabulator load from their CDNs (user's browser
-check). Zip-the-folder was rejected before running: the pilot's `mutation_reports/` is 137 MB against
+filename — no txt, one MultiQC, every file < 10 MB on the test set so all preview. Browser check
+(user, same day): per-sample IGV reports render — igv.js / Tabulator load from their CDNs — **and the
+index's relative links resolve inside the preview**, so the tab navigates like a local copy. That
+disproves the earlier assumption (stated in the plan and briefly in the README) that each report is
+served in isolation; corrected the same day. Zip-the-folder was rejected before running: the pilot's `mutation_reports/` is 137 MB against
 a 25 MB download cap, and igv-reports embed base64 alignments so it would not compress.
 
