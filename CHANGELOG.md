@@ -11,6 +11,20 @@
 
 ### Added
 
+- **Dashboard header names the complete-output folder.** `mutation_reports/index.html` now prints
+  "Complete output: `<outdir>`" (the run's resolved `outdir` — a local absolute path or the `az://`
+  URL on a cloud run — plus the report bundle's own folder when `report_outdir` moves it). Motivation:
+  in Seqera's *Outputs* tab the index is what people open, and the outdir was hard to find in the
+  launch view. Resolved as a string (not `file()`) so a cloud outdir needs no credentials at
+  DAG-build time. `GENERATE_INDEX` takes two new `val` inputs; `generate_index.py --outdir /
+  --report-dir`.
+
+- **ALE-specific `tower.yml`** (Seqera *Outputs* tab): lists the mutation-report entry points
+  (index, cohort report, per-sample IGV reports), the three cohort CSVs and one MultiQC — replacing
+  sarek's inherited list of per-sample txt tables and never-produced ASCAT/Control-FREEC/VEP entries.
+  Verified on Platform 2026-09-11 (run `5s5ufIqc8nWdNn`); the index's relative links resolve inside
+  the tab's preview.
+
 - **Read preprocessing organised as four steps** (schema group "Read preprocessing", user page
   `docs/usage/read_preprocessing.md`): step 0 UMI consensus (hidden) → fastp step 1 adapter trimming
   `trim_adapter` (+ `adapter_sequence`, `adapter_sequence_r2` for kits fastp cannot infer;

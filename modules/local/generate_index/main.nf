@@ -25,6 +25,8 @@ process GENERATE_INDEX {
     path cnv_sv_data, stageAs: "data/*"   // CN/SV CSVs + pass_stats staged into data/ subdir
     path multiqc_report                   // real multiqc_report.html file (or NO_FILE sentinel)
     path prepared_cohort_vcf
+    val  outdir_label                     // where the complete output lands, shown in the header
+    val  report_dir_label                 // only when report_outdir differs from <outdir>/mutation_reports, else ''
 
     output:
     path "index.html",          emit: index
@@ -47,6 +49,7 @@ process GENERATE_INDEX {
     // Files are staged via `stageAs: "data/*"`, so it.name already includes the `data/` prefix.
     def pass_stats_arg = stats_files ? "--pass-stats ${stats_files.collect { it.name }.join(' ')}" : ""
     def python_bin = task.ext.python_bin ?: 'python'
+    def report_dir_arg = report_dir_label ? "--report-dir '${report_dir_label}'" : ""
 
     """
     # Create samples/ symlinks so discover_igv_reports() can find reports.
@@ -63,6 +66,7 @@ process GENERATE_INDEX {
         --cohort-report ${cohort_report} \\
         --sample-reports-dir samples \\
         --templates-dir ${templates_dir} \\
+        --outdir '${outdir_label}' ${report_dir_arg} \\
         ${cnv_sv_arg} ${mqc_path_arg} ${prepared_vcf_arg} ${pass_stats_arg}
 
     cat <<-END_VERSIONS > versions.yml

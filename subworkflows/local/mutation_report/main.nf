@@ -107,6 +107,15 @@ workflow MUTATION_REPORT {
     ch_index_script    = Channel.value(file(params.report_index_script))
     ch_templates_dir   = Channel.value(file(params.report_templates_dir))
 
+    // Where the complete output lands, printed in the dashboard header so a viewer (Seqera Outputs
+    // tab, a downloaded copy) knows which folder holds everything. Resolved as a STRING, not via
+    // file(): a cloud outdir (az://) would need credentials at DAG-build time, and a relative local
+    // outdir must resolve against launchDir exactly as publishDir does. The report bundle's own
+    // folder is shown only when report_outdir moves it out of <outdir>/mutation_reports.
+    def to_label = { v -> v.toString() =~ /^[a-zA-Z][a-zA-Z0-9+.\-]*:\/\// ? v.toString() : workflow.launchDir.resolve(v.toString()).normalize().toString() }
+    def outdir_label     = to_label(params.outdir)
+    def report_dir_label = params.report_outdir ? to_label(params.report_outdir) : ''
+
     // =========================================================================
     // 3. Reconstruct per-caller VCF channels from the combined input channel
     // =========================================================================
@@ -500,7 +509,9 @@ workflow MUTATION_REPORT {
             ch_templates_dir,
             ch_cnv_sv_data,
             ch_multiqc_report,
-            ch_prepared_cohort_vcf.collect()
+            ch_prepared_cohort_vcf.collect(),
+            outdir_label,
+            report_dir_label
         )
         versions = versions.mix(GENERATE_INDEX.out.versions)
 

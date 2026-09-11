@@ -291,7 +291,9 @@ post-filters for Mutect2/FreeBayes were removed 2026-09-09
 └── pipeline_info/            # execution report, timeline, trace, software versions
 ```
 
-The **mutation report bundle** is the ALE-specific deliverable — start at its `index.html`:
+The **mutation report bundle** is the ALE-specific deliverable — start at its `index.html`. Its header
+prints the **complete-output folder** (the run's resolved `outdir`, an `az://` URL on a cloud run), so a
+viewer in Seqera or of a downloaded copy knows where everything else lives:
 
 ```
 mutation_reports/

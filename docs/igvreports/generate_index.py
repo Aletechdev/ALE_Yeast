@@ -719,6 +719,14 @@ def main():
         "--pass-stats", type=Path, nargs="*", default=None,
         help="PASS filter stats TSV files from FILTER_PASS_VCF (sample, caller, total, pass)",
     )
+    parser.add_argument(
+        "--outdir", type=str, default=None,
+        help="Where the complete pipeline output lands (local path or az:// URL); printed in the header",
+    )
+    parser.add_argument(
+        "--report-dir", type=str, default=None,
+        help="Where this report bundle lands when it is not <outdir>/mutation_reports; printed next to --outdir",
+    )
     args = parser.parse_args()
 
     context = build_context(
@@ -731,6 +739,8 @@ def main():
         prepared_vcf=args.prepared_vcf,
         pass_stats_files=args.pass_stats,
     )
+    context["outdir"] = args.outdir
+    context["report_dir"] = args.report_dir
 
     # Template directory: explicit arg or relative to this script
     template_dir = args.templates_dir or (Path(__file__).parent / "templates")

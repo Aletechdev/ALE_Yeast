@@ -262,6 +262,11 @@
         {{ callers | length }} mutation callers
         ({{ callers | join(', ') }})
     </p>
+    {% if outdir %}
+    <p class="meta">
+        Complete output: <code>{{ outdir }}</code>{% if report_dir %} &middot; this report bundle: <code>{{ report_dir }}</code>{% endif %}
+    </p>
+    {% endif %}
     <p class="note">
         Single Nucleotide Variants (SNVs) and small Insertions/Deletions (InDels) by
         <a href="https://gatk.broadinstitute.org/hc/en-us/articles/5358864757787-HaplotypeCaller">GATK HaplotypeCaller</a>;
