@@ -1309,3 +1309,13 @@ disproves the earlier assumption (stated in the plan and briefly in the README) 
 served in isolation; corrected the same day. Zip-the-folder was rejected before running: the pilot's `mutation_reports/` is 137 MB against
 a 25 MB download cap, and igv-reports embed base64 alignments so it would not compress.
 
+### 2026-09-11 — ✅ Dashboard header names the complete-output folder (run `3BOrydQ9kJrgaH`)
+
+`fe055a1`: `mutation_reports/index.html` prints "Complete output: `<outdir>`" (string-resolved, no
+`file()` — a cloud outdir needs no credentials at DAG-build time). Test entry, `tw launch
+--params-file`, run **named after its outdir** (`yAMP-out-test-outdirhdr-20260911`; a `tw launch`
+habit only — the Platform launch form auto-names runs): **SUCCEEDED 150/150, 0 failed, 24 min**
+(14:54–15:18Z). Published index header reads
+`az://aletest/seqera-runs/yAMP-out-test-outdirhdr-20260911`; Outputs tab unchanged at 14 entries,
+0 txt. Local e2e (779 s, snapshot unchanged) had already shown the absolute-path form.
+
