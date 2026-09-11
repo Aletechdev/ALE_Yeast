@@ -124,6 +124,11 @@ the restarted head job cannot recover. Both halves are required: the disk stops 
 stops it being fatal. Full detail, plus the better `/mnt` relocation fix:
 [`azure_batch_execution.md` §9–§10](docs/dev-practices/azure_batch_execution.md).
 
+💰 **Nothing is always on.** The CE's two pools (`tower-pool-<ce-id>-{head,worker}`) autoscale to 0
+between runs and cost nothing there; the portal's dashed "Dedicated Core Count (Avg)" line is a sparse
+metric artefact, not a node. Three-command idle audit + residual risks (hung head job has no wall-clock
+limit): [`azure_batch_execution.md` §8.1](docs/dev-practices/azure_batch_execution.md#81-idle-state-cost-audit--is-anything-always-on).
+
 ⚠️ **Seqera clones from GitHub over HTTPS only** — an SSH deploy key cannot be used for a pipeline
 repository, so a GitHub App or PAT credential is required. See
 [`deploy/azure/seqera-sp/RUNBOOK.md`](deploy/azure/seqera-sp/RUNBOOK.md) for the credential in use and

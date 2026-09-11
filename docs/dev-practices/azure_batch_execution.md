@@ -338,6 +338,54 @@ Low priority is ~5× cheaper and well suited to resumable test runs. For scale r
 production jobs on the `ale` Batch account cost roughly **$30–40 each**. Cost Management returns **DKK**
 while the retail price API returns **USD** — do not mix them (~6.9 DKK/USD).
 
+### 8.1 Idle-state cost audit — "is anything always on?"
+
+Audited 2026-09-11 on `yAMP-ce-nofusion-256`, the only CE: **nothing runs between pipeline runs.** The
+account's steady-state cost is storage only. Three independent checks, each of which must agree; run
+them whenever the question comes up, after any run that ends in a non-terminal state, and after
+creating a CE.
+
+```bash
+# 1. Platform side — autoScale must be True on BOTH pools (the 2026-08-07 leak was this field)
+deploy/azure/seqera-sp/12_verify_compute_env.sh yAMP-ce-nofusion-256
+
+# 2. Azure side — both pools at 0 nodes, autoscale on, no active jobs
+az batch account login -g rg-ALEdb -n aledev4test
+az batch pool list --query "[].[id,currentDedicatedNodes,currentLowPriorityNodes,enableAutoScale]" -o tsv
+az batch job  list --query "[?state=='active'].id" -o tsv        # must print nothing
+
+# 3. Billing — charges only on run days (lags up to 48 h, so today is always missing)
+DAYS=30 deploy/azure/seqera-sp/11_check_cost.sh
+```
+
+2026-09-11 result: `True True`; `…-head 0 0 True`, `…-worker 0 0 True`, no active jobs; 33 DKK over
+30 days, all of it on the four run days (08-12/13, 09-02, 09-08), zero on the other 26.
+
+**The two pools are the CE's own.** `tower-pool-<ce-id>-head` (`D2s_v3`) and `tower-pool-<ce-id>-worker`
+(`E4ds_v4`) are forged when the dual-pool CE is created and persist between runs by design (§2). At
+0 nodes they cost nothing — the VM, managed-disk, load-balancer and public-IP meters all appear only on
+run days, so no disk or network resource is left behind when the nodes drain.
+
+⚠️ **The portal's "Dedicated Core Count (Avg)" chart lies while idle.** Batch emits `CoreCount` only
+while nodes exist — a pool at 0 produces *no sample*, not a sample of 0. Azure Monitor draws the gaps
+between sparse points as a **dashed line**, and the legend's "Avg" is the mean of the samples that
+exist, so a 30-day chart with four run days shows ~12 cores "average" for ~3 hours of actual runtime.
+Read it as Max at 1-hour granularity instead, or query it:
+
+```bash
+RID=$(az batch account show -g rg-ALEdb -n aledev4test --query id -o tsv)
+az monitor metrics list --resource "$RID" --metric CoreCount --aggregation Maximum \
+    --interval PT1H --offset 7d --query "value[0].timeseries[0].data[?maximum>\`0\`]" -o table
+```
+
+**Residual risks, in order of likelihood — none of them is a continuous cost:**
+
+| Risk | Bound | What to do |
+|---|---|---|
+| **Hung head job** (§15) — no wall-clock limit applies to the head task | one `D2s_v3` (~0.6 DKK/h) until someone cancels | after any run that shows `UNKNOWN`, or `RUNNING` long after outputs landed: check 2 above, then `tw runs cancel` |
+| **Stuck worker job** | `jobMaxWallClockTime = 7d` (CE template) × up to 4 `E4ds_v4` | bounded by Batch; the autoscale formula drains nodes as soon as tasks stop, so it needs a genuinely wedged task |
+| **Work-dir growth** — nothing cleans `az://aletest/nf-work` | storage only (≥ 5 000 blobs / ~1.2 GB on 2026-09-11) | purge manually after a large pilot or every few months; **not** while a run may `-resume` into it |
+
 ---
 
 ## 9. Batch nodes fill their **OS disk** with Docker images — not with task data

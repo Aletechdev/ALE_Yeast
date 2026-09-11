@@ -1279,3 +1279,15 @@ revoke the token** — see the open item below.
       still needs a freshly forged CE — not this one. ✅ Done exactly that way later the same day:
       `yAMP-ce-coldprobe-256`, forged for run `18wEWW90THA2Ek` and deleted after harvest (see the
       cold-pool baseline entry above), leaving the account again with only the keeper's two pools.
+
+### 2026-09-11 — ✅ Idle-state cost audit: nothing always on
+
+Prompted by the portal's "Dedicated Core Count (Avg)" chart showing a non-zero dashed line for
+`aledev4test`. Three checks, all clean: `12_verify_compute_env.sh` → `autoScale True True`; both
+`tower-pool-4xdBRYm1K1rbql3g5CgnSg-{head,worker}` at 0 nodes, autoscale on, no active jobs;
+`11_check_cost.sh` → 33 DKK over 30 days, entirely on the four run days. The portal line is Azure
+Monitor bridging a *sparse* metric (Batch emits `CoreCount` only while nodes exist) with a dashed
+segment, and averaging only the existing samples. The two pools are the CE's own, forged at
+creation, free at 0 nodes. Residual risks (hung head job, 7-day worker cap, work-dir growth) and the
+three-command audit are now in
+[`azure_batch_execution.md` §8.1](../../../docs/dev-practices/azure_batch_execution.md).
