@@ -30,7 +30,6 @@ Usage (from Nextflow GENERATE_INDEX process):
 import argparse
 import csv
 import json
-import re
 from datetime import datetime
 from pathlib import Path
 
@@ -70,23 +69,6 @@ def parse_sample_caller(name: str) -> tuple[str | None, str | None]:
             return sample_id, display
     return None, None
 
-
-def classify_sample(sample_id: str) -> dict:
-    """Classify a sample as Ancestral or Evolved and extract ALE lineage.
-
-    Supports both CEN.PK naming (A0-F0-I1-R1) and Ottilie naming
-    (CBR110-15-R3a, Carmaphycin-R9-2, NODRUG-GM2, etc.).
-    """
-    # CEN.PK ALE naming
-    if sample_id.startswith("A0-"):
-        return {"type": "Ancestral", "lineage": "CEN.PK parent"}
-    m = re.match(r"^(A\d+)-F(\d+)", sample_id)
-    if m:
-        return {"type": "Evolved", "lineage": f"{m.group(1)} (Flask {m.group(2)})"}
-    # Ottilie / generic naming: no-drug control vs evolved
-    if "NODRUG" in sample_id.upper():
-        return {"type": "Ancestral", "lineage": sample_id}
-    return {"type": "Evolved", "lineage": sample_id}
 
 
 # ---------------------------------------------------------------------------
@@ -563,7 +545,6 @@ def build_context(
 
     summary_data = []
     for sample in samples:
-        info = classify_sample(sample)
         counts = variant_pivot.get(sample, {})
         qc = qc_lookup.get(sample, {})
 
@@ -582,7 +563,6 @@ def build_context(
 
         entry = {
             "sample": sample,
-            "type": info["type"],
             # QC fields
             "median_coverage": qc.get("median_coverage"),
             "dup_pct": qc.get("dup_pct"),
