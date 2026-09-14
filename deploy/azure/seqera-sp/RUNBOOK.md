@@ -1309,6 +1309,18 @@ disproves the earlier assumption (stated in the plan and briefly in the README) 
 served in isolation; corrected the same day. Zip-the-folder was rejected before running: the pilot's `mutation_reports/` is 137 MB against
 a 25 MB download cap, and igv-reports embed base64 alignments so it would not compress.
 
+### 2026-09-14 — ✅ Seqera token: one file, one script, auto-exported (token only)
+
+A session spent four probes finding the Tower token because nothing pointed at
+`~/.config/ale-seqera/sp.env` (the tw skill named a worktree `.env` that no longer exists; the
+new-machine doc and CLAUDE.md never mentioned the file). Fixed in three places: `10_store_secret.sh`
+now prompts for BOTH secrets (Enter keeps the existing value, so rotating one never re-asks the other);
+`~/.bashrc` on the dev VM exports **only** `TOWER_ACCESS_TOKEN`/`SEQERA_ACCESS_TOKEN` into every shell,
+placed above the interactive guard so agent/IDE shells get it too (the SP secret stays on-demand via
+`00_vars.sh`, by decision); the tw skill, CLAUDE.md and `new_machine_setup.md` §9 all name the file and
+the snippet. Verified: fresh `bash -l` → token 76 chars, SP secret unset, `tw info` answers. A shell
+started before the edit (this session's) does not see it — restart the shell or export inline.
+
 ### 2026-09-14 — ⏳ Outputs tab reordered + relabelled (`tower.yml`; Platform check pending)
 
 On run `3BOrydQ9kJrgaH` the *Outputs* tab listed the 14 entries **sorted by display label** (Cohort…,

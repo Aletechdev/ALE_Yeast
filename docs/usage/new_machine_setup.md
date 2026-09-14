@@ -340,6 +340,31 @@ FASTA and a SnpEff cache — build both from a GenBank file with
 
 ---
 
+## 9. (Optional) Seqera Platform and Azure Batch credentials
+
+Only needed to launch or inspect runs on Seqera Platform (`tw`, `seqera`) or to run on Azure Batch.
+Local runs need none of this.
+
+1. **Store the secrets once, outside the repo.** In a real terminal:
+   ```bash
+   deploy/azure/seqera-sp/10_store_secret.sh
+   ```
+   It prompts for the Azure service-principal secret (from `03_create_secret.sh`; Enter to skip) and
+   the Seqera Platform token (cloud.seqera.io → *Your tokens*; Enter to skip) and writes
+   `~/.config/ale-seqera/sp.env` (mode 600). Re-run it to rotate either value — Enter keeps the other.
+2. **Export the token into every shell** (token only — the SP secret stays on-demand). Add this
+   *above* the "If not running interactively" guard in `~/.bashrc`, so agent and IDE shells get it too:
+   ```bash
+   if [ -r "$HOME/.config/ale-seqera/sp.env" ]; then
+       TOWER_ACCESS_TOKEN="$(sed -n 's/^TOWER_ACCESS_TOKEN=//p' "$HOME/.config/ale-seqera/sp.env")"
+       [ -n "$TOWER_ACCESS_TOKEN" ] && export TOWER_ACCESS_TOKEN SEQERA_ACCESS_TOKEN="$TOWER_ACCESS_TOKEN" || unset TOWER_ACCESS_TOKEN
+   fi
+   ```
+   Then `exec bash -l && tw info` should print the API endpoint instead of `Missing TOWER_ACCESS_TOKEN`.
+3. **For Azure Batch runs**, `source deploy/azure/seqera-sp/00_vars.sh` loads both secrets and the
+   Azure identifiers; see [`README.md`](../../README.md) → *Cloud execution* and
+   [`deploy/azure/seqera-sp/RUNBOOK.md`](../../deploy/azure/seqera-sp/RUNBOOK.md).
+
 ## Troubleshooting
 
 | Symptom | Cause |

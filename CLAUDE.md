@@ -141,6 +141,14 @@ session. It stays silent until a tracked credential is within its warning window
 **When a warning appears, treat it as the session's first priority.** After any rotation, update the
 script's dates and [`deploy/azure/seqera-sp/RUNBOOK.md`](deploy/azure/seqera-sp/RUNBOOK.md).
 
+🔑 **Secrets live in `~/.config/ale-seqera/sp.env`** (mode 600, outside the repo; written once per
+machine by [`deploy/azure/seqera-sp/10_store_secret.sh`](deploy/azure/seqera-sp/10_store_secret.sh)):
+the Azure SP secret and the Seqera token (`TOWER_ACCESS_TOKEN`, duplicated as `SEQERA_ACCESS_TOKEN`).
+On the dev VM `~/.bashrc` exports **only the token** into every shell, so `tw` and `seqera` work
+without setup; `source deploy/azure/seqera-sp/00_vars.sh` loads both secrets plus the Azure
+identifiers for Batch runs. Setup on a new machine:
+[`new_machine_setup.md` §9](docs/usage/new_machine_setup.md#9-optional-seqera-platform-and-azure-batch-credentials).
+
 **Before changing any Azure setting, read the orientation section** —
 [`azure_batch_execution.md` → why this config isn't the five-line example](docs/dev-practices/azure_batch_execution.md#orientation--why-this-config-isnt-the-five-line-example).
 Only 4 settings differ from the stock tutorial config (auth, `vmType`, image pin, `workDir`

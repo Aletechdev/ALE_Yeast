@@ -152,5 +152,5 @@ if [[ -n "${TOWER_ACCESS_TOKEN:-}" ]]; then
     echo "  seqera token : loaded (${#TOWER_ACCESS_TOKEN} chars) — tw + seqera CLI ready"
 else
     echo "  seqera token : NOT set. Needed for Phase 4/6 (tw compute-envs, tw launch)."
-    echo "                 Add TOWER_ACCESS_TOKEN=<token> to $HOME/.config/ale-seqera/sp.env (mode 600)."
+    echo "                 Run ./10_store_secret.sh (prompts for it; Enter keeps the SP secret)."
 fi

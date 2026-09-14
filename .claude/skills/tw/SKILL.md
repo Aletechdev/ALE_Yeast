@@ -19,15 +19,21 @@ metadata:
 
 ## Authentication
 
-```bash
-# Set token (stored in .env)
-export TOWER_ACCESS_TOKEN=<token>
+The token lives OUTSIDE the repo in `~/.config/ale-seqera/sp.env` (mode 600, written by
+`deploy/azure/seqera-sp/10_store_secret.sh`, alongside the Azure SP secret). On the dev VM
+`~/.bashrc` exports it into every shell, so `tw` normally just works. If `tw info` says
+`Missing TOWER_ACCESS_TOKEN`, load it for the current shell:
 
-# Verify connection
-tw info
+```bash
+# token only (what ~/.bashrc does)
+export TOWER_ACCESS_TOKEN="$(sed -n 's/^TOWER_ACCESS_TOKEN=//p' ~/.config/ale-seqera/sp.env)"
+# or both secrets + all Azure identifiers
+source deploy/azure/seqera-sp/00_vars.sh
+
+tw info     # verify
 ```
 
-Credentials file: `/home/azureuser/Docs/ALE_nextflow/.claude/worktrees/seqera-cloud/.env`
+Never paste a token literal into a command, a file in the tree, or a doc.
 
 ## Workspaces
 
