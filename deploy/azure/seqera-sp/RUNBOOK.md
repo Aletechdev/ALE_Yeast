@@ -1321,7 +1321,7 @@ placed above the interactive guard so agent/IDE shells get it too (the SP secret
 the snippet. Verified: fresh `bash -l` → token 76 chars, SP secret unset, `tw info` answers. A shell
 started before the edit (this session's) does not see it — restart the shell or export inline.
 
-### 2026-09-14 — ⏳ Outputs tab reordered + relabelled (`tower.yml`; Platform check pending)
+### 2026-09-14 — ✅ Outputs tab reordered + relabelled (`tower.yml`; run `3AqxTildpQMIE3`)
 
 On run `3BOrydQ9kJrgaH` the *Outputs* tab listed the 14 entries **sorted by display label** (Cohort…,
 Copy-number…, MultiQC…, Mutation report dashboard…, Per-contig…, Per-sample…, SV…), so the index sat
@@ -1332,6 +1332,13 @@ here*), 2 SNV & InDel report (all samples), 3 SV table, 4 CN windows table, 5 co
 samples", matching the dashboard's own section headings ("All Samples: …"); no file or path changed, so
 the patterns and the 14-entry count are the same. **To verify:** launch the test entry as on 2026-09-11
 and confirm the tab reads 1→7 and that `GET /workflow/<id>/reports` still returns 14 entries.
+**Done the same day:** test entry, `tw launch --params-file` (box minus `snpeff_cache`), run
+`yAMP-out-test-tabordering-20260914` → **SUCCEEDED 150/150, 0 failed, 25 min** (10:20–10:45Z), commit
+`7de1fbe`, outdir `az://aletest/seqera-runs/yAMP-out-test-tabordering-20260914`. `GET /workflow/<id>/reports`:
+**14 entries**, every label numbered as intended, every file < 10 MB (largest: MultiQC 5.0 MB, per-sample
+HC reports 2.9–3.4 MB), the seven per-sample reports auto-suffixed with their filenames. The API returns
+the list in arbitrary order (5, 4, 7…, 3, 2, 6, 1), confirming the tab's order is a client-side sort —
+which is exactly why the numbers live in the labels. Browser check of the 1→7 reading order: user.
 
 ### 2026-09-11 — ✅ Dashboard header names the complete-output folder (run `3BOrydQ9kJrgaH`)
 
