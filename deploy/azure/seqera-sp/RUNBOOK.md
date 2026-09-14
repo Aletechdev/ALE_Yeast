@@ -1309,6 +1309,18 @@ disproves the earlier assumption (stated in the plan and briefly in the README) 
 served in isolation; corrected the same day. Zip-the-folder was rejected before running: the pilot's `mutation_reports/` is 137 MB against
 a 25 MB download cap, and igv-reports embed base64 alignments so it would not compress.
 
+### 2026-09-14 — ⏳ Outputs tab reordered + relabelled (`tower.yml`; Platform check pending)
+
+On run `3BOrydQ9kJrgaH` the *Outputs* tab listed the 14 entries **sorted by display label** (Cohort…,
+Copy-number…, MultiQC…, Mutation report dashboard…, Per-contig…, Per-sample…, SV…), so the index sat
+fourth and the two CN tables were split. The Platform docs (`reports/overview`) do not document a sort,
+so the fix does not depend on one: every label now starts with a number. New order — 1 index (*Start
+here*), 2 SNV & InDel report (all samples), 3 SV table, 4 CN windows table, 5 contig copy-number table,
+6 MultiQC, 7 per-sample IGV reports (auto-suffixed per file). Labels also drop "cohort" for "all
+samples", matching the dashboard's own section headings ("All Samples: …"); no file or path changed, so
+the patterns and the 14-entry count are the same. **To verify:** launch the test entry as on 2026-09-11
+and confirm the tab reads 1→7 and that `GET /workflow/<id>/reports` still returns 14 entries.
+
 ### 2026-09-11 — ✅ Dashboard header names the complete-output folder (run `3BOrydQ9kJrgaH`)
 
 `fe055a1`: `mutation_reports/index.html` prints "Complete output: `<outdir>`" (string-resolved, no

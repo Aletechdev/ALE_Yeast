@@ -310,9 +310,10 @@ mutation_reports/
 How the reports are built and how to read them:
 [`docs/README.md#output--reporting`](docs/README.md#output--reporting).
 
-**On Seqera Platform**, the run's *Outputs* tab lists the entry points of this bundle (index, cohort
-report, per-sample IGV reports, the three cohort CSVs) plus one MultiQC — the list comes from
-[`tower.yml`](tower.yml). Two limits to know: files under 10 MB preview in the browser, 10–25 MB are
+**On Seqera Platform**, the run's *Outputs* tab lists the entry points of this bundle in reading
+order — *1. Start here* (index), *2. SNV & InDel report — all samples*, *3. SV table*, *4./5.* the two
+copy-number tables, *6. MultiQC*, *7.* the per-sample IGV reports — the list and its numbered labels
+come from [`tower.yml`](tower.yml) (the tab sorts by label). Two limits to know: files under 10 MB preview in the browser, 10–25 MB are
 download-only, larger ones are listed by path only (per-sample HaplotypeCaller reports on a
 full-depth run are 14–40 MB). The index's relative links **do** resolve inside the tab (verified
 2026-09-11), so opening *index* there gives the same navigation as a local copy, subject to the size

@@ -1,8 +1,13 @@
-# Seqera Platform "Outputs" tab — which published files are listed there.
+# Seqera Platform "Outputs" tab — which published files are listed there, and in what order.
 #
 # Replaces the nf-core/sarek 3.5.1 file (ASCAT / Control-FREEC / VEP / UMI entries never match an
-# ALE run; per-sample mosdepth, bcftools-stats and snpEff txt tables multiply with cohort size and
+# ALE run; per-sample mosdepth, bcftools-stats and snpEff txt tables multiply with sample count and
 # are all rendered by MultiQC anyway). Only the entry points people actually open are listed.
+#
+# Ordering: the tab sorts entries by display name (observed on run 3BOrydQ9kJrgaH, 2026-09-14; the
+# Platform docs do not specify a sort), so every label carries a number to fix the reading order:
+# index first, then the all-sample tables (SNV/InDel → SV → CN), MultiQC, per-sample reports last.
+# Labels follow the dashboard's own vocabulary ("all samples", not "cohort"); file names are unchanged.
 #
 # Limits (docs.seqera.io/platform-cloud/reports/overview): < 10 MB previews in the browser,
 # 10–25 MB download-only, > 25 MB listed by path only. Per-sample HaplotypeCaller igv-reports on a
@@ -10,16 +15,16 @@
 # route. The index's relative links DO resolve inside the tab's preview (verified 2026-09-11).
 reports:
   "**/mutation_reports/index.html":
-    display: "Mutation report dashboard (index)"
+    display: "1. Start here — mutation report index"
   "**/mutation_reports/cohort_report.html":
-    display: "Cohort mutation report"
-  "**/mutation_reports/samples/*_report.html":
-    display: "Per-sample IGV report"
-  "**/mutation_reports/data/cn_cohort_collapsed.csv":
-    display: "Copy-number cohort matrix (collapsed)"
+    display: "2. SNV & InDel report — all samples (HaplotypeCaller, IGV)"
   "**/mutation_reports/data/sv_cohort_matrix_union_pass.csv":
-    display: "SV cohort matrix (PASS)"
+    display: "3. SV table — all samples (Manta + TIDDIT, PASS)"
+  "**/mutation_reports/data/cn_cohort_collapsed.csv":
+    display: "4. CN windows table — all samples (CNVKit, collapsed)"
   "**/mutation_reports/data/contig_copy_number.csv":
-    display: "Per-contig copy number (incl. Mito)"
+    display: "5. Contig copy-number table — all samples (TIDDIT, incl. Mito)"
   "**/multiqc/multiqc_report.html":
-    display: "MultiQC report"
+    display: "6. MultiQC report — sequencing & alignment QC"
+  "**/mutation_reports/samples/*_report.html":
+    display: "7. Per-sample IGV report"
