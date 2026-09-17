@@ -23,7 +23,8 @@ custom cache, and an integrated igv-reports mutation dashboard.
   ```bash
   conda env create -f environment.yml && conda activate nf-env
   ```
-  The launch scripts then `export NXF_VER=25.10.4`, which makes Nextflow self-fetch that exact
+  The env also installs **`nf-test` 0.9.3**, which runs the contract test that verifies an install
+  (see [Testing](#testing)). The launch scripts then `export NXF_VER=25.10.4`, which makes Nextflow self-fetch that exact
   engine on first run (so the first launch needs network access). Why 26.x is blocked:
   [`ale_sarek_upgrade_runbook.md`](docs/dev-practices/ale_sarek_upgrade_runbook.md).
 - **Disk** — ~10 GB for the test run (≈400 MB test data + ~8 GB work dir + ~200 MB output).
@@ -323,8 +324,16 @@ on the run's `outdir`, or `az storage blob download-batch`) and open `index.html
 ## Testing
 
 ```bash
-nf-test test tests/ottilie_e2e.nf.test -c tests/nf-test-ottilie.config
+conda activate nf-env      # provides nf-test 0.9.3
+NXF_VER=25.10.4 nf-test test tests/ottilie_e2e.nf.test -c tests/nf-test-ottilie.config
 ```
+
+The end-to-end contract test (~25 min) — it is also how a fresh install is verified, not only a
+development tool. It needs the local test data (`download_test_data.sh`, see Quick start) and uses
+its own fixed resource clamp, so no machine config is passed. Keep the `NXF_VER=` prefix: nf-test
+runs whatever `nextflow` is on `PATH`. Without the conda env:
+`conda install -c bioconda nf-test=0.9.3`. Walkthrough:
+[`new_machine_setup.md` §7](docs/usage/new_machine_setup.md#7-verify).
 
 See [`docs/dev-practices/testing_best_practices.md`](docs/dev-practices/testing_best_practices.md).
 

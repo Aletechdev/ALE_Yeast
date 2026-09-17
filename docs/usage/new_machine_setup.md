@@ -19,7 +19,7 @@ nothing else has to be installed.
 | | Requirement |
 |---|---|
 | **OS** | Linux **x86_64**. Apple Silicon / ARM is **not supported** — GATK and MultiQC tasks stall or hang. |
-| **CPU / RAM** | 4 vCPU / 16 GB is the validated dev size. Less RAM works if you lower the clamp (step 5), but tasks run less concurrently. |
+| **CPU / RAM** | 4 vCPU / 16 GB is the validated dev size. Less RAM works if you lower the clamp (step 4), but tasks run less concurrently. |
 | **Disk** | **~30 GB free**, and check *which* filesystem — see below. |
 | **Network** | Needed for: git clone, conda, the test-data download (~400 MB), the Nextflow engine self-fetch, and container pulls on first run. |
 | **Privileges** | `sudo` for installing Docker. |
@@ -121,8 +121,16 @@ conda env create -f environment.yml
 conda activate nf-env
 ```
 
-This installs Nextflow **25.10.4**, Java 17, and `nf-test` (used to verify the install in step 7).
-That is the same version the launch scripts pin via `NXF_VER`, on purpose — see below.
+This installs Nextflow **25.10.4**, Java 17, and **`nf-test` 0.9.3** (runs the contract test that
+verifies the install in step 7). The Nextflow version is the same one the launch scripts pin via
+`NXF_VER`, on purpose — see below.
+
+`nf-test` is a separate tool, not part of Nextflow. If you add it to an existing environment instead
+of creating `nf-env`, match the pinned version:
+
+```bash
+conda install -c bioconda nf-test=0.9.3        # or: curl -fsSL https://get.nf-test.com | bash
+```
 
 > In this environment use `python`, not `python3` — the env's interpreter is at the conda prefix.
 
@@ -145,11 +153,12 @@ ignoring what is installed; if not, you get the installed one. Hence two rules:
 Because the pin overrides the install, **a machine with an existing Nextflow (even 26.x) can skip the
 conda env** — but it still needs `nf-test` for step 7, which ships in `nf-env`, not with Nextflow.
 
-Check both the engine and the parse (this runs no pipeline):
+Check the engine, the parse, and `nf-test` (this runs no pipeline):
 
 ```bash
 NXF_VER=25.10.4 nextflow -version                                    # must report 25.10.4
 NXF_VER=25.10.4 nextflow config -profile ottilie_test,docker >/dev/null && echo "CONFIG OK"
+nf-test version                                                      # must report 0.9.3
 ```
 
 ---
@@ -304,7 +313,10 @@ conda install -c bioconda nf-test=0.9.3        # or: curl -fsSL https://get.nf-t
 ```
 
 Match **0.9.3** — that is the version [`environment.yml`](../../environment.yml) pins and the one the
-contract test is written against.
+contract test is written against. A newer patch release is not a blocker: the contract test **passed
+unmodified under nf-test 0.9.5** on a separate server (2026-09-17, same command, `NXF_VER=25.10.4`).
+The snapshot's `meta` block records 0.9.3 but nf-test does not compare it. Stay on 0.9.3 for anything
+that **re-records** the snapshot, so the committed provenance stays consistent.
 
 ⚠️ **The `NXF_VER=` prefix is load-bearing.** No nf-test config can pin the engine — nf-test 0.9.3's
 config supports only `workDir`/`testsDir`/`profile`/`configFile`/`options`/`stageMode`/`ignore`/

@@ -128,9 +128,9 @@ nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test
 |----------|----------|-------------|--------------------|
 | Full FASTQs (~90 samples) | `data/ottilie/fastq/` | yes | ✅ Azure Blob (via `download_all_fastq.sh`) |
 | Pilot CRAMs (4 samples) | `output_ottilie/…/markduplicates/` | yes | ❌ regenerable from FASTQs or SRA |
-| Test FASTQs (2 samples, chr-subset) | `data/ottilie/fastq_test/` | yes | ✅ Azure Blob bundle (`download_test_data.sh`); also regenerable via `generate_test_data.sh` |
-| Reference (test subset) | `data/ottilie/S288C_reference_test/` | yes | ✅ Azure Blob bundle (`download_test_data.sh`); also regenerable |
-| Samplesheet | `data/ottilie/samplesheet_test.csv` | yes | ❌ written by `download_test_data.sh` / `generate_test_data.sh` (machine-local paths) |
+| Test FASTQs (2 samples, chr-subset) | `data/ottilie/fastq_test/` | yes | ✅ Azure Blob bundle ([`download_test_data.sh`](01_data_retrieval/release/download_test_data.sh)); also regenerable via `generate_test_data.sh` |
+| Reference (test subset) | `data/ottilie/S288C_reference_test/` | yes | ✅ Azure Blob bundle ([`download_test_data.sh`](01_data_retrieval/release/download_test_data.sh)); also regenerable |
+| Samplesheet | `data/ottilie/samplesheet_test.csv` | yes | ❌ written by [`download_test_data.sh`](01_data_retrieval/release/download_test_data.sh) / `generate_test_data.sh` (machine-local paths) |
 | **Pilot FASTQs (4 samples, full depth)** | `data/ottilie/fastq/SRR109855*` | yes | ✅ **private** blob `az://aletest/ottilie/v1/fastq_pilot_full/` (`upload_pilot_data.sh`) |
 | **Reference (full genome)** | `data/ottilie/S288C_reference/` | yes | ✅ **private** blob `az://aletest/ottilie/v1/S288C_reference/` (`upload_pilot_data.sh`) |
 
@@ -156,7 +156,7 @@ bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/download
 
 **Per-machine samplesheet (important for multi-VM deploy):** `data/ottilie/samplesheet_test.csv` (used by
 the local `ottilie_test` profile) contains *machine-specific absolute* FASTQ paths and is gitignored.
-`download_test_data.sh` (and `generate_test_data.sh`) **rewrite it with the current machine's paths** from
+[`download_test_data.sh`](01_data_retrieval/release/download_test_data.sh) (and `generate_test_data.sh`) **rewrite it with the current machine's paths** from
 `$OUT` — so it auto-adapts on each host. Never copy or hand-edit this CSV between machines; just re-run the
 script. This is **local-only**; the blob-URL variant (`samplesheet_test_blob.csv`, below) is separate and
 used only for Seqera/streaming — the two samplesheets are not interchangeable.
@@ -169,7 +169,7 @@ The data is published in **BOTH shapes** under a **versioned prefix** so each co
 | Object (under `…/ottilie/v1/`) | For | Notes |
 |---|---|---|
 | `README.md` | **anyone handed the URL** | sample↔FASTQ↔SRA mapping, the truth set, and the reference-pairing rule. Ships inside the bundle too. Source: `01_data_retrieval/release/bundle_README.md` |
-| `ottilie_test_data.tar.gz` | **local onboarding + CI** (download-then-run) | one atomic ~399 MB bundle; `download_test_data.sh` uses this. Carries **both** references + `README.md` |
+| `ottilie_test_data.tar.gz` | **local onboarding + CI** (download-then-run) | one atomic ~399 MB bundle; [`download_test_data.sh`](01_data_retrieval/release/download_test_data.sh) uses this. Carries **both** references + `README.md` |
 | `files/**` | **Seqera/Batch** per-file URL staging | mirrors `data/ottilie/` — fastq_test, S288C_reference_test, **and the full S288C_reference** (fa, gb, gff3, chromosomes/, snpeff_cache/) |
 | `snpeff_cache.tar.gz` | Seqera + URL-streaming **fallback** | cache-only; untar → point `--snpeff_cache` at the `snpeff_cache/` dir. **Required**, not optional, for the streaming profile — see below |
 | `SHA256SUMS`, `MD5SUMS` | integrity | same file set, generated from one list; each covers the individual files **and** both tarballs → proves they don't drift |
@@ -278,7 +278,7 @@ GitHub Actions remains post-v1.0.0. See Notes.
     validated truth set, zero empty-output risk. Intra-Azure streaming is fast.
   - ✅ **Public no-SAS blob, both shapes (v1.0.0):** `publish_test_data.sh` emits a tarball (local/CI) +
     an individual `files/**` tree (Seqera per-file staging) + a cache-only tarball (snpeff_cache fallback)
-    under a versioned `ottilie/v1/` prefix; `download_test_data.sh` curls the tarball (no creds).
+    under a versioned `ottilie/v1/` prefix; [`download_test_data.sh`](01_data_retrieval/release/download_test_data.sh) curls the tarball (no creds).
     See "Fetch on a new machine" above.
   - ✅ **URL-streaming profile:** `ottilie_test_ci` + `bin/test_ottilie_blob.sh` run the test off the
     `files/**` per-file URLs with no local data (snpeff cache staged from `snpeff_cache.tar.gz` —
