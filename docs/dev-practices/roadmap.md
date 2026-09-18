@@ -254,6 +254,34 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   work that enables BQSR. **The inline path (`workflows/sarek/main.nf`) is unaffected** — it passes
   `cram_variant_calling`, which Sarek points at the right CRAMs for any preprocessing configuration
   (`workflows/sarek/main.nf` ~L586-644). Warning comment is in the launcher at the branch itself.
+- **[med, only if restarts become supported] Starting from a later step via `<outdir>/csv/*.csv` loses
+  the ALE samplesheet columns.** Upstream sarek publishes restart samplesheets (`csv/mapped.csv`,
+  `csv/markduplicates_no_table.csv`, …) for `--step markduplicates|variant_calling|annotate`. The fork
+  never adapted that path, and nothing exercises it (no launcher, test or benchmark passes `--step` or
+  a `csv/` input). *Measured* 2026-09-15 by parsing the ottilie test run's own
+  `csv/markduplicates_no_table.csv` through `assets/schema_input.json` (nf-schema 2.2.1, Nextflow
+  25.10.4): every sample comes back as `patient:[]`, `ploidy:2`, `clonal_or_population:clonal`, where the
+  original samplesheet gives `patient:Ottilie_test`, `ploidy:1`. Two independent causes:
+  1. **Schema** — `experiment` is declared with `"meta": ["patient"]` *after* `patient`
+     (`assets/schema_input.json`); nf-schema writes `[]` for an absent column, so a sheet with a
+     `patient` header (upstream's convention and what the writers emit) loses its grouping key. Renaming
+     the header to `experiment` restores it (*measured*). The `experiment → patient` remap in
+     `subworkflows/local/utils_nfcore_sarek_pipeline/main.nf` never fires — no `meta.experiment` key
+     exists.
+  2. **Writers** — the five `subworkflows/local/channel_*_create_csv` are pristine upstream and write
+     `patient,sex,status,sample,…`; `ploidy` and `clonal_or_population` fall back to the schema defaults.
+     Ploidy 2 then reaches HaplotypeCaller (`--sample-ploidy`), TIDDIT (`-n`), the split-joint-VCF
+     non-ref filter and the contig copy-number table (*inferred* from the consumers; no restart run was
+     made). `clonal_or_population` is inert on the Tier-1 recipe (only the opt-in joint hard filter and
+     breseq read it).
+  **Not a problem for `-resume`**, which re-reads the original samplesheet and only reuses cached tasks.
+  Fix when wanted: give `experiment` its own meta key so the remap becomes live and `patient` headers
+  keep working; make the writers emit `experiment,…,ploidy,clonal_or_population`; add a parse-level
+  nf-test (original sheet, `patient`-header sheet, pipeline-written restart CSV); e2e re-record (CSV
+  contents change) plus one `--step variant_calling` run compared record-for-record with the one-shot
+  joint VCF; list `assets/schema_input.json`, the remap and the five writers in
+  [`SAREK_MODIFICATIONS.md`](SAREK_MODIFICATIONS.md). Until then a user who restarts from these CSVs
+  must add the `experiment`, `ploidy` and `clonal_or_population` columns by hand.
 - **[low] `generate_mutation_report.nf` has no automated test coverage.** `tests/ottilie_e2e.nf.test`
   runs `main.nf` (the inline, channel-based path); nothing under `tests/` exercises the standalone
   launcher. Its *whole* risk surface is filesystem-layout assumptions — the CRAM suffixes above plus
