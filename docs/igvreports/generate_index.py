@@ -177,45 +177,6 @@ def load_pass_stats(pass_stats_files: list[Path] | None) -> dict[tuple[str, str]
     return lookup
 
 
-def load_snpeff_stats(multiqc_dir: Path) -> pd.DataFrame:
-    """Load and parse multiqc_snpeff.txt.
-
-    Returns DataFrame with columns:
-        sample, caller, n_variants, high, moderate, low
-    """
-    path = multiqc_dir / "multiqc_snpeff.txt"
-    df = pd.read_csv(path, sep="\t")
-
-    # SnpEff uses _snpEff suffix appended to the bcftools-style name
-    rows = []
-    for _, row in df.iterrows():
-        name = row["Sample"]
-        # Strip _snpEff suffix if present
-        if name.endswith("_snpEff"):
-            name = name[: -len("_snpEff")]
-
-        sample_id, caller = parse_sample_caller(name)
-        if sample_id is None or caller is None:
-            continue
-        if caller not in TARGET_CALLERS:
-            continue
-        def safe_int(val, default=0):
-            try:
-                return int(val) if pd.notna(val) else default
-            except (ValueError, TypeError):
-                return default
-
-        rows.append({
-            "sample": sample_id,
-            "caller": caller,
-            "n_variants": safe_int(row.get("Number_of_variants_before_filter")),
-            "high": safe_int(row.get("HIGH")),
-            "moderate": safe_int(row.get("MODERATE")),
-            "low": safe_int(row.get("LOW")),
-        })
-    return pd.DataFrame(rows)
-
-
 def load_general_stats(multiqc_dir: Path, known_samples: set[str] | None = None) -> pd.DataFrame:
     """Load multiqc_general_stats.txt, keeping only sample-level rows.
 
@@ -504,7 +465,6 @@ def build_context(
     """Build the full template context dictionary."""
 
     bcftools_df = load_bcftools_stats(multiqc_dir)
-    snpeff_df = load_snpeff_stats(multiqc_dir)
 
     # Get unique samples (sorted) from bcftools stats
     samples = sorted(bcftools_df["sample"].unique())
@@ -517,15 +477,6 @@ def build_context(
     variant_pivot = {}
     for _, row in bcftools_df.iterrows():
         variant_pivot.setdefault(row["sample"], {})[row["caller"]] = row["n_records"]
-
-    # --- Impact pivot: {sample: {caller: {high, moderate, low}}} ---
-    impact_pivot = {}
-    for _, row in snpeff_df.iterrows():
-        impact_pivot.setdefault(row["sample"], {})[row["caller"]] = {
-            "high": row["high"],
-            "moderate": row["moderate"],
-            "low": row["low"],
-        }
 
     # --- Combined QC + variant summary table ---
     igv_links = discover_igv_reports(sample_reports_dir)

@@ -237,15 +237,6 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 
 ## Robustness / infrastructure
 
-- **[high] `--tools` without an annotator aborts at DAG build.** Since the Tier-2 filter removal
-  (2026-09-09) `workflows/sarek/main.nf` still assigns `ch_report_vcfs = vcf_with_tbi` in the
-  no-annotation branch, but `vcf_with_tbi` (the removed `TABIX_TABIX` join) no longer exists —
-  `MissingPropertyException`, surfacing as the misdirected "sample-sheet only contains
-  tumor-samples" error. *Measured* 2026-09-23 with `--tools haplotypecaller` and
-  `--tools haplotypecaller,freebayes` (`-preview`, ottilie profile); invisible to the e2e because the
-  recipe always includes `snpeff`. Fix: index the raw `vcf_to_annotate` VCFs (TABIX) in that branch
-  only, so the report gets `[meta, vcf, tbi]`; add a preview case to `tests/preflight.nf.test` or a
-  sibling. Snapshot expected unchanged.
 - **[med] Preflight, second tranche** (cut from the 2026-09-23 minimal version, design in the
   QC-first plan): an always-written MultiQC custom-content table of the `[yAMP preflight]` lines
   ("0 deviations" when clean); further warnings — `status = 1`, ploidy > 2 (vcftools skipped),

@@ -22,7 +22,7 @@
   Found while writing the test: **any `--tools` set without an annotator (`snpeff`, `vep`,
   `merge`, `bcfann`) aborts at DAG build** since the 2026-09-09 Tier-2 filter removal (a dangling
   `vcf_with_tbi` reference behind the mutation-report input; surfaces as the misdirected
-  "sample-sheet only contains tumor-samples" error) — tracked in the roadmap, not fixed here.
+  "sample-sheet only contains tumor-samples" error) — fixed in the next commit (see *Fixed*).
 
 - **Post-trim FastQC.** FastQC now also runs on the fastp output — the reads that are aligned — so
   trimming results are assessed, not only reported by fastp (`FASTQC_TRIMMED_QC`,
@@ -203,6 +203,24 @@
   remains the CNV deliverable. Same archive tag and index.
 
 ### Fixed
+
+- **`--tools` without an annotator aborted at DAG build** (2026-09-09 → 2026-09-23). The
+  mutation-report input's no-annotation branch still named `vcf_with_tbi`, the indexed-VCF channel
+  removed with the Tier-2 AF filters, so any tools set without `snpeff`/`vep`/`merge`/`bcfann` —
+  e.g. a calling-only run before a SnpEff cache exists — died with a `MissingPropertyException`
+  behind the misdirected "sample-sheet only contains tumor-samples" message. The branch now indexes
+  the raw caller VCFs itself (`TABIX_REPORT_VCFS`, unpublished — the report bundles VCF + index) and
+  hands the report the same `[meta, vcf, tbi]` tuples the annotators emit. The first real
+  calling-only run then exposed two more defects of the same path, fixed together: the dashboard's
+  index generator hard-required MultiQC's SnpEff table (`multiqc_snpeff.txt`) for an impact pivot
+  that was never rendered — loader and pivot removed, footer no longer names SnpEff as a data
+  source; and `PUBLISH_VCFS` derived sample names by stripping only the
+  annotated suffix (`_snpEff.ann.vcf.gz`), so raw inputs were published as
+  `<sample>.cnvcall.vcf.gz_cnvkit.vcf.gz` (now both name forms map to the same `<sample>_<caller>`
+  names; the `_annotated` in the HaplotypeCaller names is kept so the dashboard's links do not
+  change). Annotated runs are untouched (e2e snapshot unchanged). Preview test
+  `tests/tools_without_annotation.nf.test`; the whole path verified once end-to-end on the ottilie
+  set with `--tools cnvkit,tiddit,manta,haplotypecaller --generate_reports`.
 
 - **Joint Manta output was not deterministic.** The grouped CRAM list came out of `groupTuple()` in
   channel-arrival order, and Manta derives its record IDs (and the joint VCF's sample-column order)

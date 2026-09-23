@@ -295,8 +295,7 @@ experiment id (a `patient` header parses as empty, see `docs/usage/input_samples
 duplicate input files; warnings for drift from the Tier-1 recipe and for mixed ploidy / clonal flag
 within an experiment. Zero lines on the ottilie profile is a tested invariant
 (`tests/preflight.nf.test`). User page: [`docs/usage/preflight_checks.md`](docs/usage/preflight_checks.md);
-code in `subworkflows/local/utils_nfcore_sarek_pipeline/main.nf`. ⚠️ Known: `--tools` without an
-annotator aborts at DAG build (roadmap → Robustness).
+code in `subworkflows/local/utils_nfcore_sarek_pipeline/main.nf`.
 
 ### Read preprocessing — BQSR skipped
 

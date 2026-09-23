@@ -1,0 +1,48 @@
+nextflow_pipeline {
+
+    name "tools without an annotator"
+    script "../main.nf"
+    tag "ottilie"
+    tag "smoke"
+
+    // Run with:  nf-test test -c tests/nf-test-ottilie.config tests/tools_without_annotation.nf.test
+    //
+    // WHAT THIS GUARDS
+    // A `--tools` set with callers but none of the annotators (snpeff, vep, merge, bcfann) — e.g. a
+    // calling-only run before a SnpEff cache exists. The mutation report then takes the RAW caller
+    // VCFs, indexed in the workflow (TABIX_REPORT_VCFS). From 2026-09-09 to 2026-09-23 that branch
+    // referenced a variable removed with the Tier-2 filters and every such run died at DAG build,
+    // behind the misdirected "sample-sheet only contains tumor-samples" error; the e2e never saw it
+    // because the ottilie recipe always includes snpeff.
+    //
+    // WHY -preview IS ENOUGH
+    // The failure was a MissingPropertyException while the DAG was built, so building the DAG is
+    // the test (same idiom as report_gff3_optional.nf.test). Task-level behaviour of the raw branch
+    // was checked once by a real run (see the commit that added this test).
+    options "-preview"
+
+    test("--tools haplotypecaller alone builds the DAG") {
+        when {
+            params {
+                outdir = "$outputDir"
+                tools  = 'haplotypecaller'
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("Tier-1 callers without snpeff, report on: raw VCFs are indexed for the report") {
+        when {
+            params {
+                outdir           = "$outputDir"
+                tools            = 'cnvkit,tiddit,manta,haplotypecaller'
+                generate_reports = true
+            }
+        }
+        then {
+            assert workflow.success   // -preview: no tasks in the trace, the DAG build is the assertion
+        }
+    }
+}

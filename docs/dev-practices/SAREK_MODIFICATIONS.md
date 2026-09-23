@@ -46,6 +46,12 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   plus the `trim_fastq` deprecation warning — two lines added 2026-09-02. **Post-trim FastQC**
   (2026-09-23): a 5-line `FASTQC_TRIMMED_QC(FASTP.out.reads, params.split_fastq > 0)` call inside the
   fastp block, gated by the same `fastqc` skip token as upstream's raw `FASTQC`; its zips join `reports`.
+  **Mutation-report input** (`ch_report_vcfs`): annotated VCFs when an annotator runs, else the raw
+  `vcf_to_annotate` VCFs indexed in place by `TABIX_TABIX as TABIX_REPORT_VCFS` (2026-09-23; the
+  branch had referenced the `vcf_with_tbi` channel removed with the Tier-2 filters and aborted at DAG
+  build). Config block in `conf/modules/mutation_report.config` (unpublished). Same fix made
+  `modules/local/publish_vcfs` accept raw caller file names and `docs/igvreports/generate_index.py`
+  drop its never-rendered SnpEff impact loader.
 - **`assets/multiqc_config.yml`** — `module_order` has two `fastqc` entries with distinct `anchor`s
   (`fastqc_raw` with `path_filters_exclude`, `fastqc_trimmed` with `path_filters` on
   `*_trimmed*_fastqc.zip`) around fastp, and `extra_fn_clean_exts` strips `_trimmed` (2026-09-23;

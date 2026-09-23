@@ -95,7 +95,8 @@ include { FASTQ_VARIANT_CALLING_BRESEQ                       } from '../../subwo
 // MULTIQC
 include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main'
 
-// TABIX — index VCFs before custom AF filtering
+// TABIX — index the raw caller VCFs for the mutation report when no annotator runs
+include { TABIX_TABIX as TABIX_REPORT_VCFS                 } from '../../modules/nf-core/tabix/tabix/main'
 
 // MUTATION_REPORT — multi-caller dashboard (opt-in, --generate_reports); channel-based
 include { MUTATION_REPORT                                   } from '../../subworkflows/local/mutation_report/main'
@@ -892,11 +893,15 @@ workflow SAREK {
         }
 
         // MUTATION_REPORT input VCFs: annotated when annotation ran, else raw pre-annotation.
-        // Consumed by the inline MUTATION_REPORT call at the end of this workflow.
+        // Consumed by the inline MUTATION_REPORT call at the end of this workflow. Both branches
+        // emit [ meta, vcf, tbi ]: the annotators index their output, the raw caller VCFs are
+        // indexed here (the report bundles VCF + index).
         if (params.tools.split(',').contains('merge') || params.tools.split(',').contains('snpeff') || params.tools.split(',').contains('vep') || params.tools.split(',').contains('bcfann')) {
             ch_report_vcfs = VCF_ANNOTATE_ALL.out.vcf_ann
         } else {
-            ch_report_vcfs = vcf_with_tbi
+            TABIX_REPORT_VCFS(vcf_to_annotate)
+            ch_report_vcfs = vcf_to_annotate.join(TABIX_REPORT_VCFS.out.tbi, failOnMismatch: true)
+            versions = versions.mix(TABIX_REPORT_VCFS.out.versions)
         }
     }
 

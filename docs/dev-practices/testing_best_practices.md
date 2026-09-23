@@ -400,7 +400,7 @@ nf-test's four test types, and what each maps to in this fork:
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
 | Process | `nextflow_process` | the 19 `modules/local/` + upstream modules whose behaviour we own via config | **1** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 7 cases, 1 000-pair fixture) |
 | Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **2** (`split_joint_vcf`; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
-| Pipeline | `nextflow_pipeline` | supported end-to-end routes | **3** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`) |
+| Pipeline | `nextflow_pipeline` | supported end-to-end routes | **4** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `tools_without_annotation`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`) |
 
 The 99 upstream component tests do **not** count as coverage here — they test unmodified nf-core
 code (see the category table in §10). Only tests over fork-specific code do.
