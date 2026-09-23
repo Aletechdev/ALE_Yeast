@@ -1,0 +1,128 @@
+nextflow_pipeline {
+
+    name "ALE preflight checks"
+    script "../main.nf"
+    tag "ottilie"
+    tag "smoke"
+
+    // Run with:  nf-test test -c tests/nf-test-ottilie.config tests/preflight.nf.test
+    //
+    // Pins the `[yAMP preflight]` checks in subworkflows/local/utils_nfcore_sarek_pipeline/main.nf:
+    // recipe-drift WARNINGS (validateAleRecipe) and samplesheet ERRORS/warnings
+    // (validateAleSamplesheet). All fire at DAG build, so `-preview` (same idiom as
+    // report_gff3_optional.nf.test) exercises them in seconds with no snapshot.
+    //
+    // The sync rule: the ottilie profile IS the Tier-1 recipe, so it must produce zero preflight
+    // lines — the first case is what keeps the recipe map and conf/test/ottilie_common.config equal.
+    //
+    // log.warn goes to the Nextflow log, not stdout (see report_gff3_optional.nf.test), so the
+    // warnings are read from nf-test's copy of it (meta/nextflow.log under the launch dir); an
+    // error() message does reach workflow.stdout. Samplesheets for the negative cases are
+    // written to temp files pointing at the committed fastp fixtures (real, existing paths — the
+    // schema checks existence).
+    options "-preview"
+
+    def preflight = { dir -> new File("$dir/meta/nextflow.log").readLines().findAll { it.contains('[yAMP preflight]') } }
+    def root  = System.getProperty('user.dir')
+    def fq    = { String p -> "$root/tests/fixtures/${p}.fastq.gz" }
+    def sheet = { String header, List rows ->
+        def f = File.createTempFile('preflight_', '.csv')
+        f.deleteOnExit()
+        f.text = ([header] + rows).join('\n') + '\n'
+        f.absolutePath
+    }
+    def H = 'experiment,sample,status,clonal_or_population,ploidy,sex,lane,fastq_1,fastq_2'
+
+    test("ottilie profile — the Tier-1 recipe: zero preflight lines") {
+        when {
+            params { outdir = "$outputDir" }
+        }
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert preflight(launchDir) == [] }
+            )
+        }
+    }
+
+    test("recipe drift — tools and trimming off the recipe: one warning per deviation, run proceeds") {
+        when {
+            params {
+                outdir              = "$outputDir"
+                tools               = 'haplotypecaller,snpeff,mpileup'
+                trim_adapter        = false
+                trim_quality_3prime = null
+                joint_manta         = false
+            }
+        }
+        then {
+            def lines = preflight(launchDir)
+            assertAll(
+                { assert workflow.success },
+                { assert lines.any { it.contains('tools is missing Tier-1 caller(s) cnvkit,manta,tiddit') } },
+                { assert lines.any { it.contains('tools includes non-Tier-1 tool(s) mpileup') } },
+                { assert lines.any { it.contains('trim_adapter = false') } },
+                { assert lines.any { it.contains('trim_quality_3prime = null (Tier-1: tail)') } },
+                { assert lines.any { it.contains('joint_manta = false (Tier-1: true)') } },
+                { assert lines.any { it.contains('5 deviation(s)') } }
+            )
+        }
+    }
+
+    test("samplesheet — `patient` header parses as an empty experiment id: hard error") {
+        when {
+            params {
+                outdir = "$outputDir"
+                input  = sheet(H.replace('experiment', 'patient'), [
+                    "Exp1,S1,0,clonal,1,XX,L001,${fq('fastp_R1')},${fq('fastp_R2')}",
+                ])
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.failed },
+                { assert workflow.stdout.join('\n').contains('[yAMP preflight] no experiment id for sample(s) S1') }
+            )
+        }
+    }
+
+    test("samplesheet — the same FASTQ in two rows: hard error naming the file") {
+        when {
+            params {
+                outdir = "$outputDir"
+                input  = sheet(H, [
+                    "Exp1,S1,0,clonal,1,XX,L001,${fq('fastp_R1')},${fq('fastp_R2')}",
+                    "Exp1,S2,0,clonal,1,XX,L001,${fq('fastp_R1')},${fq('fastp_R2')}",
+                ])
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.failed },
+                { assert workflow.stdout.join('\n').contains('[yAMP preflight] input file(s) listed in more than one samplesheet row') },
+                { assert workflow.stdout.join('\n').contains('fastp_R1.fastq.gz') }
+            )
+        }
+    }
+
+    test("samplesheet — ploidy and clonal flag mixed within an experiment: warnings, run proceeds") {
+        when {
+            params {
+                outdir = "$outputDir"
+                input  = sheet(H, [
+                    "Exp1,S1,0,clonal,1,XX,L001,${fq('fastp_R1')},${fq('fastp_R2')}",
+                    "Exp1,S2,0,population,2,XX,L001,${fq('fastp_sra_R1')},${fq('fastp_sra_R2')}",
+                ])
+            }
+        }
+        then {
+            def lines = preflight(launchDir)
+            assertAll(
+                { assert workflow.success },
+                { assert lines.any { it.contains('experiment Exp1 mixes ploidy values') } },
+                { assert lines.any { it.contains('experiment Exp1 mixes clonal_or_population values') } },
+                { assert !lines.any { it.contains('recipe drift') } }
+            )
+        }
+    }
+}

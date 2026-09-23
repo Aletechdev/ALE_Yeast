@@ -121,9 +121,13 @@ if (params.tools && (params.tools.split(',').contains('vep')    || params.tools.
 
     params.input_restart = retrieveInput((!params.build_only_index && !params.input), params.step, params.outdir)
 
-    ch_from_samplesheet = params.build_only_index ? Channel.empty() : params.input ?
-        Channel.fromList(samplesheetToList(params.input, "$projectDir/assets/schema_input.json")) :
-        Channel.fromList(samplesheetToList(params.input_restart, "$projectDir/assets/schema_input.json"))
+    // The rows are materialised as a list first so the ALE samplesheet checks run at DAG build,
+    // before any task is submitted (validateAleSamplesheet below); the channel is built from the
+    // same list.
+    def samplesheet_rows = params.build_only_index ? [] :
+        samplesheetToList(params.input ?: params.input_restart, "$projectDir/assets/schema_input.json")
+    validateAleSamplesheet(samplesheet_rows)
+    ch_from_samplesheet = Channel.fromList(samplesheet_rows)
 
     // Convert experiment to patient if experiment column is used
     ch_from_samplesheet_processed = ch_from_samplesheet.map { meta, fastq_1, fastq_2, spring_1, spring_2, table, cram, crai, bam, bai, vcf, variantcaller ->
@@ -232,6 +236,99 @@ workflow PIPELINE_COMPLETION {
 //
 def validateInputParameters() {
     genomeExistsError()
+    validateAleRecipe()
+}
+
+//
+// ALE preflight (1/2): warn when the parameter set drifts from the validated Tier-1 recipe.
+//
+// The recipe is what conf/test/ottilie_common.config sets plus the read-preprocessing defaults of
+// nextflow.config — the configuration the ottilie contract test and the Azure baseline validate.
+// It is a second copy of those values on purpose: the ottilie profile must produce ZERO of these
+// warnings (tests/preflight.nf.test), which is what keeps the two in sync. Warnings only — any
+// other configuration is allowed, it just is not the validated one. Every line carries the
+// `[yAMP preflight]` prefix so it can be grepped out of .nextflow.log.
+//
+def validateAleRecipe() {
+    def recipe = [
+        // calling recipe (conf/test/ottilie_common.config)
+        tools                          : 'snpeff,cnvkit,tiddit,manta,haplotypecaller',
+        joint_germline                 : true,
+        split_haplotypecaller_joint_vcf: true,
+        joint_manta                    : true,
+        manta_high_sensitivity         : false,
+        // read preprocessing (nextflow.config defaults; docs/usage/read_preprocessing.md)
+        trim_adapter                   : true,
+        trim_quality_3prime            : 'tail',
+        trim_quality_5prime            : false,
+        trim_quality_window            : 4,
+        trim_quality_mean              : 20,
+        length_required                : 15,
+        filter_quality                 : true,
+        clip_r1                        : 0,
+        clip_r2                        : 0,
+        three_prime_clip_r1            : 0,
+        three_prime_clip_r2            : 0,
+    ]
+    def drift = []
+    recipe.each { key, expected ->
+        def actual = params[key]
+        if (key == 'tools') {
+            def want = expected.split(',') as Set
+            def have = (actual ?: '').toString().split(',').findAll { it } as Set
+            def missing = want - have
+            def extra   = have - want
+            if (missing) drift << "tools is missing Tier-1 caller(s) ${missing.sort().join(',')}"
+            if (extra)   drift << "tools includes non-Tier-1 tool(s) ${extra.sort().join(',')}"
+        } else if (key == 'trim_adapter') {
+            if (!(params.trim_adapter || params.trim_fastq)) drift << "trim_adapter = false (Tier-1: true)"
+        } else if (actual != expected) {
+            drift << "${key} = ${actual} (Tier-1: ${expected})"
+        }
+    }
+    drift.each { log.warn "[yAMP preflight] recipe drift: ${it}" }
+    if (drift) log.warn "[yAMP preflight] ${drift.size()} deviation(s) from the validated Tier-1 recipe — the run proceeds, but its outputs are not covered by the ottilie contract test or the Azure baseline (docs/usage/preflight_checks.md)"
+}
+
+//
+// ALE preflight (2/2): samplesheet facts that upstream does not check.
+//
+// Runs on the parsed rows at DAG build. Errors are for sheets that would run to completion and
+// produce wrong output silently; warnings for inconsistencies that are legal but unusual.
+//
+def validateAleSamplesheet(rows) {
+    if (!rows) return
+    def metas = rows.collect { it[0] }
+
+    // ERROR: no experiment id. assets/schema_input.json maps both `experiment` and `patient` to
+    // meta.patient; with a `patient` header nf-schema overwrites the value with [] (declaration
+    // order), so the run would proceed with read group SM:[]_<sample> and every experiment merged
+    // into one joint-calling cohort. Pipeline-written csv/*.csv restart sheets carry a `patient`
+    // header and hit this too — restart with -resume from the original samplesheet instead.
+    def no_experiment = metas.findAll { !(it.patient instanceof CharSequence) || !it.patient }.collect { it.sample }.unique()
+    if (no_experiment) {
+        error("[yAMP preflight] no experiment id for sample(s) ${no_experiment.join(', ')}: the samplesheet header must use an `experiment` column (a `patient` header, including the pipeline-written csv/*.csv restart sheets, is parsed as empty). Re-run from the original samplesheet — a finished run resumes with -resume.")
+    }
+
+    // ERROR: the same input file in more than one row (a copy-paste error that aligns one library
+    // twice under two names and doubles its evidence in every cohort table).
+    def paths = rows.collectMany { row -> row[1..10].findAll { it }.collect { it.toString() } }
+    def duplicated = paths.countBy { it }.findAll { _p, n -> n > 1 }.keySet().sort()
+    if (duplicated) {
+        error("[yAMP preflight] input file(s) listed in more than one samplesheet row: ${duplicated.join(', ')}")
+    }
+
+    // WARN: ploidy or clonal_or_population differing within an experiment. Legal, but joint calling
+    // genotypes every sample of an experiment together, and the clonal/population AF thresholds are
+    // per sample — a mixed experiment is usually a typo.
+    metas.groupBy { it.patient }.each { experiment, ms ->
+        ['ploidy', 'clonal_or_population'].each { key ->
+            def values = ms.collect { it[key] }.unique()
+            if (values.size() > 1) {
+                log.warn "[yAMP preflight] experiment ${experiment} mixes ${key} values ${values.join(' / ')} — check the samplesheet (a mixed experiment is usually a typo)"
+            }
+        }
+    }
 }
 
 //

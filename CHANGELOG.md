@@ -11,6 +11,19 @@
 
 ### Added
 
+- **Preflight checks at start-up** (`[yAMP preflight]`, user page `docs/usage/preflight_checks.md`).
+  Before any task runs: hard errors for a samplesheet with no experiment id (a `patient` header —
+  including the pipeline-written `csv/*.csv` restart sheets — is parsed as empty by the input
+  schema, and the run would silently merge every experiment into one cohort) and for the same
+  input file listed in two rows; warnings for every parameter that drifts from the validated
+  Tier-1 recipe (callers, joint-calling flags, read-preprocessing settings — `tools` compared as a
+  set) and for mixed ploidy or clonal/population flags within an experiment. The ottilie profile
+  produces zero lines; `tests/preflight.nf.test` (preview mode, 5 cases) pins that and each check.
+  Found while writing the test: **any `--tools` set without an annotator (`snpeff`, `vep`,
+  `merge`, `bcfann`) aborts at DAG build** since the 2026-09-09 Tier-2 filter removal (a dangling
+  `vcf_with_tbi` reference behind the mutation-report input; surfaces as the misdirected
+  "sample-sheet only contains tumor-samples" error) — tracked in the roadmap, not fixed here.
+
 - **Post-trim FastQC.** FastQC now also runs on the fastp output — the reads that are aligned — so
   trimming results are assessed, not only reported by fastp (`FASTQC_TRIMMED_QC`,
   `subworkflows/local/fastqc_trimmed/`). With `split_fastq > 0` the shards are concatenated per mate

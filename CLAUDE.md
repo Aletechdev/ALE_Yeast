@@ -288,6 +288,16 @@ general robustness of the versions manifest, not filter-specific.
 
 ## Tool-Specific Notes
 
+### Start-up preflight (`[yAMP preflight]`)
+
+Since 2026-09-23 the pipeline checks the ALE-specific facts at DAG build — errors for a missing
+experiment id (a `patient` header parses as empty, see `docs/usage/input_samplesheet.md`) and for
+duplicate input files; warnings for drift from the Tier-1 recipe and for mixed ploidy / clonal flag
+within an experiment. Zero lines on the ottilie profile is a tested invariant
+(`tests/preflight.nf.test`). User page: [`docs/usage/preflight_checks.md`](docs/usage/preflight_checks.md);
+code in `subworkflows/local/utils_nfcore_sarek_pipeline/main.nf`. ⚠️ Known: `--tools` without an
+annotator aborts at DAG build (roadmap → Robustness).
+
 ### Read preprocessing — BQSR skipped
 
 BQSR (BaseRecalibrator — a read-recalibration **preprocessing** step, before any variant calling) is

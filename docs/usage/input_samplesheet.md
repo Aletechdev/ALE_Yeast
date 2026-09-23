@@ -9,7 +9,7 @@ to non-Tier-1 tools.
 
 | Column | Meaning |
 |--------|---------|
-| `experiment` | Experiment ID (maps to Sarek's "patient"). Groups samples for joint calling. |
+| `experiment` | Experiment ID (maps to Sarek's "patient"). Groups samples for joint calling. ⚠️ Use this header, not `patient`: a `patient` header passes schema validation but is parsed as *empty* (both columns map to the same field and the last declaration wins), which the start-up preflight turns into a hard error ([`preflight_checks.md`](preflight_checks.md)). |
 | `sample` | Sample ID in ALE format, e.g. `A1-F6-I1-R1`. |
 | `status` | `0` = normal/germline, `1` = tumor. **ALE treats every sample as normal (`0`)** so HaplotypeCaller runs in joint-germline mode. `1` (tumor) is not used — see [`docs/archive/sarek_fork_ideas.md`](../archive/sarek_fork_ideas.md). |
 | `clonal_or_population` | `clonal` for clonal isolate sequencing; `population` for bulk/pooled sequencing. Drives the AF thresholds in the joint HC hard filter. |
