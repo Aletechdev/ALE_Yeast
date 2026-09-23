@@ -282,6 +282,24 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   joint VCF; list `assets/schema_input.json`, the remap and the five writers in
   [`SAREK_MODIFICATIONS.md`](SAREK_MODIFICATIONS.md). Until then a user who restarts from these CSVs
   must add the `experiment`, `ploidy` and `clonal_or_population` columns by hand.
+  *Cause of (1) confirmed 2026-09-21 (measured):* nf-schema fills `meta` in declaration order and
+  writes `[]` for an absent column, so of the two properties sharing `"meta": ["patient"]` the last
+  declared wins — swapping them in a scratch copy of the schema flips which header works. The fix is
+  one meta key on `experiment`, not a search-and-replace of `patient` through the code.
+- **[med] `PREFLIGHT_SNPEFF` — functional check of the snpEff cache before annotation.** Parked
+  2026-09-21 when the reference preflight for the QC-first run was cut down to contig names
+  (`PREFLIGHT_REFERENCE`: FASTA ⇄ GFF3/fai/dict, gawk only). The cache is a binary file, so its contig
+  namespace cannot be compared cheaply, and a cache built with a different snpEff version fails only
+  at annotation time — or annotates nothing, silently, on a contig mismatch. Design: a task in the
+  pinned snpEff 5.1 container asserts `<cache>/<snpeff_db>/snpEffectPredictor.bin` exists (this also
+  closes the cloud-path gap in `annotation_cache_initialisation`, since `az://` is staged inside a
+  task), builds a one-record-per-contig VCF from the FASTA headers, runs
+  `snpEff -dataDir … -noStats -noLog <db>` and greps for `ERROR_CHROMOSOME_NOT_FOUND`. Severity:
+  **error when no contig is found, warn + list when some are missing** (engineered strains carry
+  extra contigs legitimately — same rule as `build_snpeff_cache.sh`). Wiring rules as for
+  `PREFLIGHT_REFERENCE`: not an input to anything downstream (no task-hash change),
+  `errorStrategy = 'terminate'` in its own config block, its own MultiQC custom-content row, and added
+  to the `--qc_only` allow-list test. Skipped when `snpeff` is not in `tools`.
 - **[low] `generate_mutation_report.nf` has no automated test coverage.** `tests/ottilie_e2e.nf.test`
   runs `main.nf` (the inline, channel-based path); nothing under `tests/` exercises the standalone
   launcher. Its *whole* risk surface is filesystem-layout assumptions — the CRAM suffixes above plus
