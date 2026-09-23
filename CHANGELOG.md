@@ -11,6 +11,19 @@
 
 ### Added
 
+- **Post-trim FastQC.** FastQC now also runs on the fastp output — the reads that are aligned — so
+  trimming results are assessed, not only reported by fastp (`FASTQC_TRIMMED_QC`,
+  `subworkflows/local/fastqc_trimmed/`). With `split_fastq > 0` the shards are concatenated per mate
+  first (nf-core `cat/fastq`), so both modes give one report per mate per lane under
+  `reports/fastqc/<id>/trimmed/` (`<id>_trimmed_{1,2}_fastqc.*`). MultiQC shows two FastQC sections
+  — *FastQC (raw)*, fastp, *FastQC (after preprocessing)* — whose General Stats columns share the
+  sample rows (`_trimmed` stripped by an `extra_fn_clean_exts` rule; behaviour measured on the pinned
+  MultiQC 1.25.1). `--skip_tools fastqc` skips both passes. Nothing downstream consumes the new
+  outputs, so no existing task hash changes. Unit test `tests/fastqc_trimmed.nf.test` (unsplit, split
+  with an empty shard, single-end lone file); the e2e contract test asserts the MultiQC layout. Closes
+  finding F of `docs/dev-practices/fastq_preprocessing_audit.md`; user page
+  `docs/usage/read_preprocessing.md` → Post-trim QC.
+
 - **Dashboard header names the complete-output folder.** `mutation_reports/index.html` now prints
   "Complete output: `<outdir>`" (the run's resolved `outdir` — a local absolute path or the `az://`
   URL on a cloud run — plus the report bundle's own folder when `report_outdir` moves it). Motivation:

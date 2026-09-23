@@ -76,8 +76,39 @@ nextflow_pipeline {
             // validates the PUBLISH_VCFS rename/curate step.
             def hc_cohort_vcf = path("$reports/vcf/haplotypecaller/cohort_haplotypecaller_annotated.vcf.gz").vcf.variantsMD5
 
+            // Post-trim FastQC (2026-09-23): MultiQC must render FastQC twice — raw reads, then the fastp
+            // output — with fastp between them, and the two passes must share General Stats ROWS (the
+            // `_trimmed` clean rule in assets/multiqc_config.yml), not add rows. The general-stats
+            // table is .nftignore-excluded from the content snapshot, so it is asserted explicitly here.
+            def mqc_data     = "$outputDir/multiqc/multiqc_data"
+            def mqc_sections = path("$outputDir/multiqc/multiqc_report.html").readLines()
+                                   .findAll { it.contains('class="mqc-module-title"') }
+                                   .collect { (it =~ /id="([^"]+)"/)[0][1] }
+            def fastqc_samples = { pass -> path("$mqc_data/multiqc_fastqc_fastqc_${pass}.txt").readLines().drop(1).collect { it.split('\t')[0] }.sort() }
+            def gs_rows   = path("$mqc_data/multiqc_general_stats.txt").readLines().collect { it.split('\t', -1) }
+            def gs_col    = { name -> gs_rows[0].findIndexOf { it == name } }
+            def rows_with = { col -> gs_rows.drop(1).findAll { it[col] != '' }.collect { it[0] } }
+            def raw_total  = gs_col('fastqc_raw-total_sequences')
+            def trim_total = gs_col('fastqc_after_preprocessing-total_sequences')
+
             assertAll(
                 { assert workflow.success },
+
+                // Two FastQC sections in the report, fastp between them (section ids measured on MultiQC 1.25.1)
+                { assert mqc_sections.indexOf('fastqc_raw') >= 0 },
+                { assert mqc_sections.indexOf('fastqc_raw') < mqc_sections.indexOf('fastp') },
+                { assert mqc_sections.indexOf('fastp') < mqc_sections.indexOf('fastqc_trimmed') },
+                // The trimmed pass parsed the same four sample names as the raw one (suffix stripped) ...
+                { assert fastqc_samples('raw') == ['CBR110-15-R3a-L001_1', 'CBR110-15-R3a-L001_2', 'NODRUG-GM2-L001_1', 'NODRUG-GM2-L001_2'] },
+                { assert fastqc_samples('trimmed') == fastqc_samples('raw') },
+                // ... so both column groups exist and sit on exactly the same General Stats rows: the
+                // lane-merge rules (table_sample_merge) give a sample row plus a Read1/Read2 row per sample
+                { assert raw_total >= 0 && trim_total >= 0 },
+                { assert rows_with(trim_total) == rows_with(raw_total) },
+                { assert rows_with(raw_total) == ['CBR110-15-R3a', 'CBR110-15-R3a .Lane 1 Read1', 'CBR110-15-R3a .Lane 1 Read2',
+                                                  'NODRUG-GM2',    'NODRUG-GM2 .Lane 1 Read1',    'NODRUG-GM2 .Lane 1 Read2'] },
+                // and fastp's read filter is visible: trimmed read counts never exceed raw
+                { assert gs_rows.drop(1).findAll { it[raw_total] != '' }.every { (it[trim_total] as double) <= (it[raw_total] as double) } },
 
                 // Regression on task count + the software-versions manifest (Nextflow version stripped so
                 // the snapshot is portable across Nextflow releases), plus the content layers above.

@@ -31,6 +31,8 @@ include { FASTQC                                            } from '../../module
 
 // TRIM/SPLIT FASTQ Files
 include { FASTP                                             } from '../../modules/nf-core/fastp/main'
+// Post-trim FastQC on the fastp output (the reads that are aligned)
+include { FASTQC_TRIMMED_QC                                 } from '../../subworkflows/local/fastqc_trimmed/main'
 
 // Create umi consensus bams from fastq
 include { FASTQ_CREATE_UMI_CONSENSUS_FGBIO                  } from '../../subworkflows/local/fastq_create_umi_consensus_fgbio/main'
@@ -275,6 +277,15 @@ workflow SAREK {
 
             reports = reports.mix(FASTP.out.json.collect{ meta, json -> json })
             reports = reports.mix(FASTP.out.html.collect{ meta, html -> html })
+
+            // Post-trim QC on what fastp emits (the raw-read FASTQC above sees only the input);
+            // same skip token as the raw pass. Report-only: nothing downstream consumes it.
+            if (!(params.skip_tools && params.skip_tools.split(',').contains('fastqc'))) {
+                FASTQC_TRIMMED_QC(FASTP.out.reads, params.split_fastq > 0)
+
+                reports = reports.mix(FASTQC_TRIMMED_QC.out.zip.collect{ meta, logs -> logs })
+                versions = versions.mix(FASTQC_TRIMMED_QC.out.versions)
+            }
 
             if (params.split_fastq) {
                 reads_for_alignment = FASTP.out.reads.map{ meta, reads ->

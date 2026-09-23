@@ -119,12 +119,24 @@ run_modules:
   - vep
 
 module_order:
+  # Two FastQC sections (nf-core/rnaseq pattern): raw reads, then the fastp output. FASTQC_TRIMMED
+  # names its reports <id>_trimmed_{1,2}_fastqc.zip (conf/modules/modules.config) — that suffix is
+  # the only thing that tells the two apart, and the clean rule below strips it again so raw and
+  # trimmed columns land on the SAME General Stats row. Measured on MultiQC 1.25.1 (2026-09-23):
+  # section ids `fastqc_raw` / `fastqc_trimmed`, General Stats column prefixes `fastqc_raw-` /
+  # `fastqc_after_preprocessing-` (from the name, not the anchor).
   - fastqc:
+      anchor: "fastqc_raw"
       name: "FastQC (raw)"
       path_filters_exclude:
-        - "*_val_*.zip"
+        - "*_trimmed*_fastqc.zip"
   - fastp:
       name: "FastP (Read preprocessing)"
+  - fastqc:
+      anchor: "fastqc_trimmed"
+      name: "FastQC (after preprocessing)"
+      path_filters:
+        - "*_trimmed*_fastqc.zip"
   - picard:
       name: "GATK4 MarkDuplicates"
       info: " metrics generated either by GATK4 MarkDuplicates or EstimateLibraryComplexity
@@ -146,6 +158,8 @@ module_order:
 
 extra_fn_clean_exts:
   - "_val"
+  - type: remove
+    pattern: "_trimmed"   # <id>_trimmed_1 -> <id>_1: the lane-merge rules above then apply to both FastQC passes
   - type: regex_keep
     pattern: "^.*.(md|recal).mosdepth.(global|region).dist"
     module: mosdepth

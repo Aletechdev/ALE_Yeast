@@ -22,19 +22,25 @@ Two deliverables are described here and tracked as separate items in
 
 ### 1.1 The actual path
 
-| Stage | Process | Gate | Status on an ALE run |
+> **Stale since `948163c` (2026-09-04) — kept as the audit's record.** The table below is the state
+> on 2026-08-11. Today fastp **runs by default** (gate
+> `trim_adapter || trim_fastq || trim_quality_3prime || trim_quality_5prime || split_fastq > 0`, with
+> `trim_adapter` and `trim_quality_3prime` on — §2.5), bwa-mem receives the **trimmed** reads, and a
+> second FastQC pass runs on them (finding F, closed 2026-09-23). Current path:
+> [`docs/usage/read_preprocessing.md`](../usage/read_preprocessing.md).
+
+| Stage | Process | Gate (2026-08-11) | Status on an ALE run (2026-08-11) |
 |---|---|---|---|
 | Raw-read QC | `FASTQC` | `!skip_tools.contains('fastqc')` | **runs** — report only |
-| Trim / split | `FASTP` | `trim_fastq \|\| split_fastq > 0` ([`workflows/sarek/main.nf:266`](../../workflows/sarek/main.nf#L266)) | **never runs** |
-| Alignment | `bwa-mem` | — | receives the **raw** FASTQs |
+| Trim / split | `FASTP` | `trim_fastq \|\| split_fastq > 0` | **never ran** (now default-on, see above) |
+| Alignment | `bwa-mem` | — | received the **raw** FASTQs (now the fastp output) |
 
-FastQC runs on the *input* FASTQs ([`main.nf:228-232`](../../workflows/sarek/main.nf#L228-L232)) with
-`--quiet` as its only argument ([`modules.config:22-32`](../../conf/modules/modules.config#L22-L32)),
-publishes to `reports/fastqc/<id>/`, and feeds MultiQC. Nothing downstream reads its verdicts.
+FastQC runs on the *input* FASTQs with `--quiet` as its only argument, publishes to
+`reports/fastqc/<id>/`, and feeds MultiQC. Nothing downstream reads its verdicts.
 
 ### 1.2 Findings
 
-**A. fastp never executes on any ALE run.** `trim_fastq` defaults `false`
+**A. fastp never executes on any ALE run.** *(Superseded 2026-09-04 by §2.5: the ALE recipe is default-on.)* `trim_fastq` defaults `false`
 ([`nextflow.config:38`](../../nextflow.config#L38)) and every ALE config forces `split_fastq = 0` —
 [`ottilie_test.config:58`](../../conf/test/ottilie_test.config#L58),
 [`ottilie_test_ci.config:67`](../../conf/test/ottilie_test_ci.config#L67),
@@ -75,11 +81,18 @@ trim based on quality after removing poly-G tails"* — describes **Trim Galore'
 [`main.nf:268`](../../workflows/sarek/main.nf#L268), so when fastp does run there is no way to inspect
 *which* reads it dropped — only the aggregate counts in the JSON.
 
-**F. No post-trim QC pass.** FastQC runs before fastp only. Post-trim visibility comes entirely from
-fastp's own JSON/HTML, which are mixed into MultiQC at
-[`main.nf:278-279`](../../workflows/sarek/main.nf#L278-L279) and rendered under "FastP (Read
-preprocessing)" ([`multiqc_config.yml:126-127`](../../assets/multiqc_config.yml#L126-L127)). Adequate
-for fastp; a gap the moment a second trimmer exists.
+**F. No post-trim QC pass.** *(Closed 2026-09-23: `FASTQC_TRIMMED_QC`,
+[`subworkflows/local/fastqc_trimmed/`](../../subworkflows/local/fastqc_trimmed/main.nf), runs FastQC on
+the fastp output — shards concatenated per mate when `split_fastq > 0` — and MultiQC shows it as a
+second FastQC section whose General Stats columns share the raw pass's rows; measured on the pinned
+MultiQC 1.25.1 before wiring: two `fastqc` entries with distinct `anchor`s give sections `fastqc_raw` /
+`fastqc_trimmed` and column groups `fastqc_raw-*` / `fastqc_after_preprocessing-*`, and an
+`extra_fn_clean_exts` `remove: _trimmed` rule maps `<id>_trimmed_1` onto `<id>_1` so the existing
+lane-merge rules apply to both. Unit test `tests/fastqc_trimmed.nf.test`; the MultiQC contract is
+asserted in `tests/ottilie_e2e.nf.test`. User page:
+[`read_preprocessing.md` → Post-trim QC](../usage/read_preprocessing.md#post-trim-qc).)* FastQC ran before fastp only. Post-trim visibility came entirely from
+fastp's own JSON/HTML, which are mixed into MultiQC and rendered under "FastP (Read
+preprocessing)". Adequate for fastp; a gap the moment a second trimmer exists.
 
 **G. Zero automated coverage of the preprocessing path.** No test under `tests/` exercises `FASTP` —
 `ottilie_e2e` runs with `split_fastq = 0` and `trim_fastq = false`, and the `trimming` /

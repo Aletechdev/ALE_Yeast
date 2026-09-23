@@ -4,8 +4,9 @@ Everything between the samplesheet and bwa-mem, in run order. **The ALE default 
 is adapter trimming plus 3′ tail quality trimming**, with fastp's read filter on: `--trim_adapter
 --trim_quality_3prime tail`. Each step is its own switch; for reads exactly as sequenced set
 `--trim_adapter false` and leave `trim_quality_3prime` unset, and fastp then runs only if step 2 is set
-or `split_fastq > 0` (FastQC reports on the raw reads either way). Parameter group in the launch form /
-`--help`: **Read preprocessing**.
+or `split_fastq > 0`. FastQC reports on the raw reads either way, and — whenever fastp runs — a second
+time on its output, so the reads that are actually aligned are assessed too ([Post-trim QC](#post-trim-qc)).
+Parameter group in the launch form / `--help`: **Read preprocessing**.
 
 ```
 raw FASTQ → FastQC (report only)
@@ -14,6 +15,7 @@ raw FASTQ → FastQC (report only)
                     step 2  fixed-count clipping         --clip_r1/r2, --three_prime_clip_r1/r2
                     step 3  quality trimming per end     --trim_quality_3prime / --trim_quality_5prime
                     step 4  read filtering               --filter_quality (on), --length_required
+          → FastQC on the fastp output (report only)     whenever fastp runs
           → bwa-mem
 ```
 
@@ -102,6 +104,22 @@ Evaluated on the read **after** steps 1–3. A pair is discarded when either mat
 On the ottilie test set the quality filter removes 0.7 % (evolved clone) to 4.2 % (parent) of pairs.
 The per-sample counts are in `reports/fastp/<sample>/*.fastp.json` under `filtering_result`, and in
 the MultiQC fastp section.
+
+## Post-trim QC
+
+FastQC runs twice: on the input FASTQs (as upstream sarek does) and, whenever fastp runs, on what
+fastp emits — the reads bwa-mem receives. Both are report-only; nothing downstream reads their
+verdicts. `--skip_tools fastqc` skips both.
+
+- **Outputs**: `reports/fastqc/<id>/` (raw) and `reports/fastqc/<id>/trimmed/` (post-trim, files named
+  `<id>_trimmed_{1,2}_fastqc.{html,zip}`), one report per mate per lane in both cases. With
+  `split_fastq > 0` fastp emits shards; they are concatenated per mate before FastQC, so the trimmed
+  report describes the whole lane rather than one shard.
+- **In MultiQC** the two passes are the sections *FastQC (raw)* and *FastQC (after preprocessing)*,
+  with the fastp section between them, and their General Stats columns sit side by side on the same
+  sample row (column groups `fastqc_raw` and `fastqc_after_preprocessing`). What to compare: residual
+  adapter content, per-base quality at the 3′ end, sequence-length distribution (now variable), and
+  the read count — the after-preprocessing count is what fastp's step 4 let through.
 
 ## Not preprocessing steps
 

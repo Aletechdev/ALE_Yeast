@@ -41,6 +41,7 @@ declare -A TESTMAP=(
   ['modules/nf-core/fastp/']=fastp_preprocessing
   ['subworkflows/local/split_joint_vcf/']=split_joint_vcf
   ['conf/modules/split_joint_vcf.config']=split_joint_vcf
+  ['subworkflows/local/fastqc_trimmed/']=fastqc_trimmed
 )
 for path in "${!TESTMAP[@]}"; do
   if grep -q "^${path}" <<<"$staged"; then

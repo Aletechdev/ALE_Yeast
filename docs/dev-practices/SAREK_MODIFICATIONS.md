@@ -43,7 +43,15 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   MUTATION_REPORT** call at the end of the MultiQC block with the `ch_report_vcfs` annotated-or-raw
   fallback (commit `bb1439f`). Record the report's channel contract here on every rebase. Also the
   **FASTP gate** (`trim_adapter || trim_fastq || trim_quality_3prime || trim_quality_5prime || split_fastq > 0`)
-  plus the `trim_fastq` deprecation warning — two lines added 2026-09-02.
+  plus the `trim_fastq` deprecation warning — two lines added 2026-09-02. **Post-trim FastQC**
+  (2026-09-23): a 5-line `FASTQC_TRIMMED_QC(FASTP.out.reads, params.split_fastq > 0)` call inside the
+  fastp block, gated by the same `fastqc` skip token as upstream's raw `FASTQC`; its zips join `reports`.
+- **`assets/multiqc_config.yml`** — `module_order` has two `fastqc` entries with distinct `anchor`s
+  (`fastqc_raw` with `path_filters_exclude`, `fastqc_trimmed` with `path_filters` on
+  `*_trimmed*_fastqc.zip`) around fastp, and `extra_fn_clean_exts` strips `_trimmed` (2026-09-23;
+  replaces the trim_galore-era `*_val_*.zip` exclude). Behaviour measured on MultiQC 1.25.1 — re-measure
+  on a MultiQC bump: section ids and the `fastqc_after_preprocessing-` General Stats prefix are
+  asserted by the e2e test.
 - **`main.nf`** — removed the old outer MUTATION_REPORT path-discovery call (superseded by the inline
   call); otherwise close to upstream.
 - **`nextflow.config`** — ALE params (report_* / generate_reports / split & hard-filter HC / read
@@ -75,7 +83,7 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 
 ---
 
-## `subworkflows/local/` — ADDED (4, additive — low rebase cost)
+## `subworkflows/local/` — ADDED (5, additive — low rebase cost)
 
 | Subworkflow | Purpose |
 |-------------|---------|
@@ -83,6 +91,7 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 | `split_joint_vcf` | Split joint germline VCF → per-sample VCFs (channel-based metadata). |
 | `vcf_filter_haplotypecaller_joint` | Hard-filter per-sample VCFs from joint calling. Opt-in (`--hard_filter_haplotypecaller_joint`); off in every ALE recipe since 2026-09-08. |
 | `fastq_variant_calling_breseq` | breseq path (AMP-v1 legacy integration, not Tier 1). |
+| `fastqc_trimmed` | `FASTQC_TRIMMED_QC` (2026-09-23): FastQC on the fastp output (`CAT_FASTQ` per mate first when `split_fastq > 0`), report-only, mixed into MultiQC as a second FastQC section (`assets/multiqc_config.yml`: two `fastqc` anchors + `_trimmed` clean rule). Called from `workflows/sarek/main.nf` inside the fastp block under the `fastqc` skip token. Unit test `tests/fastqc_trimmed.nf.test`. |
 
 ## `subworkflows/local/` — MODIFIED (9, in place)
 
@@ -150,7 +159,10 @@ Upstream-managed modules (clean installs, low rebase cost).
 (VARIANTFILTRATION_FALLBACK params only — the SPLIT_JOINT_VCF rules moved to `split_joint_vcf.config`), `modules/freebayes.config`,
 `modules/tiddit.config`, `modules/modules.config` (vcftools conditional `ext.when`),
 `modules/trimming.config` (fastp: `filter_quality` off-switch for the read filter, `--cut_<mode>` per
-end, explicit adapters — `fastq_preprocessing_audit.md` §2.1).
+end, explicit adapters — `fastq_preprocessing_audit.md` §2.1). Post-trim FastQC (2026-09-23):
+`modules/modules.config` gains `FASTQC_TRIMMED` (`ext.prefix = "${meta.id}_trimmed"`, publish to
+`reports/fastqc/<id>/trimmed/`) and `CAT_FASTQ_TRIMMED` (unpublished); `base.config`'s `FASTQC`
+resource block became `FASTQC|FASTQC_TRIMMED`.
 
 ---
 

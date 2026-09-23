@@ -1,0 +1,94 @@
+nextflow_workflow {
+
+    name "FASTQC_TRIMMED_QC unit"
+    script "../subworkflows/local/fastqc_trimmed/main.nf"
+    workflow "FASTQC_TRIMMED_QC"
+    tag "ottilie"
+    tag "subworkflow"
+
+    // Run with: nf-test test -c tests/nf-test-ottilie.config tests/fastqc_trimmed.nf.test
+    //
+    // Unit test for the post-trim FastQC subworkflow (raw-vs-trimmed QC in MultiQC). Its contract:
+    // whatever fastp emitted for a lane — the pair, or every shard of it when split_fastq > 0 — comes
+    // out as ONE FastQC report per mate named <id>_trimmed_{1,2}, published under
+    // reports/fastqc/<id>/trimmed/. The name is what assets/multiqc_config.yml keys on, so it is
+    // pinned here; the MultiQC side (two sections, shared General Stats rows) is asserted by the
+    // e2e contract test, which runs the real MultiQC.
+    //
+    // Fixtures: tests/fixtures/fastp_sra_R{1,2} (1 000 pairs) for the unsplit case, and
+    // tests/fixtures/fastp_shards/ — the same 1 000 pairs cut into fastp-named shards
+    // (0001..0003 = 400/400/200 pairs, 0004 = an EMPTY pair: fastp really does leave 0-byte shards
+    // behind, see the fixtures README) — for the split case. The shard list is fed deliberately
+    // unsorted, since pairing mates relies on the subworkflow's own name sort.
+
+    def R1 = "\$projectDir/tests/fixtures/fastp_sra_R1.fastq.gz"
+    def R2 = "\$projectDir/tests/fixtures/fastp_sra_R2.fastq.gz"
+    def shard = { String n, int m -> "file(\"\$projectDir/tests/fixtures/fastp_shards/${n}.fx_${m}.fastp.fastq.gz\")" }
+    // FastQC's report carries the read count it saw: <td>Total Sequences</td><td>N</td>
+    def totalSequences = { html -> (path(html).readLines().join(' ') =~ /Total Sequences<\/td><td>(\d+)</)[0][1] as int }
+    def names = { files -> files.collect { file(it).name }.sort() }
+
+    test("unsplit pair: one report per mate, named <id>_trimmed_{1,2}, no concatenation task") {
+        when {
+            params { outdir = "$outputDir" }
+            workflow {
+                """
+                input[0] = Channel.of([ [ id:'fx', sample:'fx', single_end:false ], [ file("$R1"), file("$R2") ] ])
+                input[1] = false   // split_fastq = 0
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.succeeded().size() == 1 },                                     // FASTQC_TRIMMED only
+                { assert names(workflow.out.zip[0][1]) == ['fx_trimmed_1_fastqc.zip', 'fx_trimmed_2_fastqc.zip'] },
+                { assert workflow.out.html[0][1].collect { totalSequences(it) } == [1000, 1000] },
+                { assert path("$outputDir/reports/fastqc/fx/trimmed/fx_trimmed_1_fastqc.zip").exists() },
+                { assert path("$outputDir/reports/fastqc/fx/trimmed/fx_trimmed_2_fastqc.html").exists() }
+            )
+        }
+    }
+
+    test("split shards: concatenated per mate (empty shard tolerated), then the same one report per mate") {
+        when {
+            params { outdir = "$outputDir" }
+            workflow {
+                """
+                input[0] = Channel.of([ [ id:'fx', sample:'fx', single_end:false ],
+                    [ ${shard('0003',2)}, ${shard('0001',1)}, ${shard('0004',1)}, ${shard('0002',2)},
+                      ${shard('0001',2)}, ${shard('0003',1)}, ${shard('0002',1)}, ${shard('0004',2)} ] ])
+                input[1] = true    // split_fastq > 0
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.succeeded().size() == 2 },                                     // CAT_FASTQ_TRIMMED + FASTQC_TRIMMED
+                { assert names(workflow.out.zip[0][1]) == ['fx_trimmed_1_fastqc.zip', 'fx_trimmed_2_fastqc.zip'] },
+                { assert workflow.out.html[0][1].collect { totalSequences(it) } == [1000, 1000] },   // 400 + 400 + 200 + 0 per mate
+                { assert path("$outputDir/reports/fastqc/fx/trimmed/fx_trimmed_1_fastqc.zip").exists() }
+            )
+        }
+    }
+
+    test("single-end, one shard: a lone file (not a list) is accepted and named <id>_trimmed") {
+        when {
+            params { outdir = "$outputDir" }
+            workflow {
+                """
+                input[0] = Channel.of([ [ id:'fx', sample:'fx', single_end:true ], ${shard('0001',1)} ])
+                input[1] = true
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert names(workflow.out.zip[0][1] instanceof List ? workflow.out.zip[0][1] : [ workflow.out.zip[0][1] ]) == ['fx_trimmed_fastqc.zip'] },
+                { assert totalSequences(workflow.out.html[0][1]) == 400 }
+            )
+        }
+    }
+}

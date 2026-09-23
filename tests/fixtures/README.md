@@ -85,3 +85,22 @@ for r in 1 2; do zcat $D/CBR110-15-R3a_chrI_IV_VII_XV_R$r.fastq.gz | head -4000 
 (`@SRR10985585.<n> <n> length=100`), so the pair of fixtures isolates fastp's read-name poly-G
 auto-detection (fires on the NovaSeq-named pair, never on this one). Same recipe with the
 `NR%4==1` rewrite replaced by `$0="@SRR10985585."n" "n" length=100"`.
+
+## FASTQC_TRIMMED_QC (`tests/fastqc_trimmed.nf.test`)
+
+### `fastp_shards/000{1..4}.fx_{1,2}.fastp.fastq.gz` — the `fastp_sra` pairs as fastp-named shards, **synthetic**
+
+The split case of the post-trim FastQC subworkflow needs a lane that fastp emitted as several shards
+(`--split_by_lines`, i.e. `split_fastq > 0`), named `<NNNN>.<prefix>_<mate>.fastp.fastq.gz`. fastp
+cannot make them from the 1 000-pair fixture — it hands out reads to shard files in packs of 1 000, so
+everything lands in `0001` — hence the cut is done by hand: 400 / 400 / 200 pairs, plus `0004`, an
+**empty 0-byte pair**, because fastp really leaves those behind (it pre-creates one shard file per
+writer; measured 2026-09-23 with fastp 0.23.4: `--thread 3` on 1 000 pairs → `0001` full, `0002`–`0004`
+0 bytes). Names and per-shard read counts are all the subworkflow depends on.
+
+```bash
+cd tests/fixtures/fastp_shards
+for m in 1 2; do zcat ../fastp_sra_R$m.fastq.gz | split -l 1600 -d -a 4 --numeric-suffixes=1 --additional-suffix=.fx_${m}.fastq - ""; done
+for f in 0*.fx_*.fastq; do gzip -n -9 "$f"; mv "$f.gz" "${f%.fastq}.fastp.fastq.gz"; done
+: > 0004.fx_1.fastp.fastq.gz; : > 0004.fx_2.fastp.fastq.gz
+```

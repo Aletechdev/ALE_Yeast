@@ -388,8 +388,8 @@ a half-failed run makes everything look nondeterministic.
 
 ## 11. Target coverage: the four nf-test layers (post-1.0.0)
 
-v1.0.0 ships two owned tests — `ottilie_e2e` (`nextflow_pipeline`) and `split_joint_vcf`
-(`nextflow_workflow`). The long-term target is coverage of **our own modifications** at all four
+v1.0.0 shipped two owned tests — `ottilie_e2e` (`nextflow_pipeline`) and `split_joint_vcf`
+(`nextflow_workflow`); `fastp_preprocessing` (process) and `fastqc_trimmed` (subworkflow) followed. The long-term target is coverage of **our own modifications** at all four
 nf-test layers. This section is the durable target; the *scheduling* of it lives as a single
 prioritized item in `roadmap.md` (Robustness / infrastructure).
 
@@ -399,7 +399,7 @@ nf-test's four test types, and what each maps to in this fork:
 |-------|--------------|-------------|--------|
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
 | Process | `nextflow_process` | the 19 `modules/local/` + upstream modules whose behaviour we own via config | **1** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 7 cases, 1 000-pair fixture) |
-| Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **1** (`split_joint_vcf`) |
+| Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **2** (`split_joint_vcf`; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
 | Pipeline | `nextflow_pipeline` | supported end-to-end routes | **1** (`ottilie_e2e`) |
 
 The 99 upstream component tests do **not** count as coverage here — they test unmodified nf-core
@@ -570,8 +570,8 @@ claim is on record:
 2. Otherwise `tests/ottilie_e2e.nf.test.snap` must be staged too (outputs moved and were re-recorded),
    **or** the message must carry a trailer `Snapshot: unchanged (e2e green on <commit>, <date>)`.
 3. Paths with a unit test (`conf/modules/trimming.config` and `modules/nf-core/fastp/` →
-   `fastp_preprocessing`; `subworkflows/local/split_joint_vcf/` and its config → `split_joint_vcf`)
-   additionally need `Module test: <name> green` in the message. Extend the `TESTMAP` in the script
+   `fastp_preprocessing`; `subworkflows/local/split_joint_vcf/` and its config → `split_joint_vcf`;
+   `subworkflows/local/fastqc_trimmed/` → `fastqc_trimmed`) additionally need `Module test: <name> green` in the message. Extend the `TESTMAP` in the script
    when a test is added.
 
 Wiring: `.claude/settings.json` runs it as a `PreToolUse` hook on every `git commit` Claude issues

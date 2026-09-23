@@ -302,7 +302,10 @@ section below) and FilterVariantTranches. Full mechanism:
 ### Read preprocessing — fastp trimming on by default (adapter + 3′ tail)
 
 **Default since 2026-09-04: adapter trimming + 3′ tail quality trimming** (`--trim_adapter
---trim_quality_3prime tail`, fastp's read filter on). FastQC still reports on the raw FASTQs. For reads
+--trim_quality_3prime tail`, fastp's read filter on). FastQC reports on the raw FASTQs **and, since
+2026-09-23, on the fastp output** (`FASTQC_TRIMMED_QC`, `subworkflows/local/fastqc_trimmed/`; shards
+concatenated per mate when `split_fastq > 0`; `reports/fastqc/<id>/trimmed/`; two FastQC sections in
+MultiQC sharing General Stats rows — `read_preprocessing.md` → Post-trim QC). For reads
 exactly as sequenced set `--trim_adapter false` and unset `trim_quality_3prime`; FASTP's gate is
 `trim_adapter || trim_fastq || trim_quality_3prime || trim_quality_5prime || split_fastq > 0`
 (`workflows/sarek/main.nf`). ⚠️ The **Azure baseline and earlier Seqera comparisons were produced
