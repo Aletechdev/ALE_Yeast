@@ -2,9 +2,12 @@ process MULTIQC {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
+    // ALE patch (2026-09-24): container pinned to MultiQC 1.35 (what sarek >= 3.10 ships) while the
+    // module keeps its sarek-3.5.1-era nf-core signature; modules.json still records that module's
+    // git_sha. Rationale + rebase note: docs/dev-practices/SAREK_MODIFICATIONS.md -> modules/nf-core PATCHED.
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/multiqc:1.25.1--pyhdfd78af_0' :
-        'biocontainers/multiqc:1.25.1--pyhdfd78af_0' }"
+        'https://depot.galaxyproject.org/singularity/multiqc:1.35--pyhdfd78af_0' :
+        'biocontainers/multiqc:1.35--pyhdfd78af_0' }"
 
     input:
     path  multiqc_files, stageAs: "?/*"

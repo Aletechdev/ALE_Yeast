@@ -267,7 +267,7 @@ def validateQcOnly() {
 
 //
 // What a finished QC-only run prints: where the report is and the exact follow-up command.
-// The report name follows MultiQC 1.25.1's --title rule (write_results.py: whitespace/hyphen runs
+// The report name follows MultiQC's --title rule, measured on 1.25.1 and 1.35 (write_results.py: whitespace/hyphen runs
 // → '-', every other non-word character dropped). The command is the launch command with
 // --qc_only (any spelling: bare, `--qc_only true`, `--qc_only=true`) and any -resume (bare or with
 // a session id/name — never the option that follows a bare one) removed, plus -resume <this

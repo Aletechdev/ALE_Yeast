@@ -80,9 +80,11 @@ nextflow_pipeline {
             // output — with fastp between them, and the two passes must share General Stats ROWS (the
             // `_trimmed` clean rule in assets/multiqc_config.yml), not add rows. The general-stats
             // table is .nftignore-excluded from the content snapshot, so it is asserted explicitly here.
+            // Section headings are matched on their `<h2 … id="…">`, never on the CSS class — 1.25.1
+            // wrote class="mqc-module-title", 1.35 writes class="mb-0"; the ids are the stable contract.
             def mqc_data     = "$outputDir/multiqc/multiqc_data"
             def mqc_sections = path("$outputDir/multiqc/multiqc_report.html").readLines()
-                                   .findAll { it.contains('class="mqc-module-title"') }
+                                   .findAll { it =~ /<h2[^>]*\sid="/ }
                                    .collect { (it =~ /id="([^"]+)"/)[0][1] }
             def fastqc_samples = { pass -> path("$mqc_data/multiqc_fastqc_fastqc_${pass}.txt").readLines().drop(1).collect { it.split('\t')[0] }.sort() }
             def gs_rows   = path("$mqc_data/multiqc_general_stats.txt").readLines().collect { it.split('\t', -1) }
@@ -94,7 +96,7 @@ nextflow_pipeline {
             assertAll(
                 { assert workflow.success },
 
-                // Two FastQC sections in the report, fastp between them (section ids measured on MultiQC 1.25.1)
+                // Two FastQC sections in the report, fastp between them (section ids measured on MultiQC 1.25.1 and 1.35)
                 { assert mqc_sections.indexOf('fastqc_raw') >= 0 },
                 { assert mqc_sections.indexOf('fastqc_raw') < mqc_sections.indexOf('fastp') },
                 { assert mqc_sections.indexOf('fastp') < mqc_sections.indexOf('fastqc_trimmed') },

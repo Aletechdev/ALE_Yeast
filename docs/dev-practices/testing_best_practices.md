@@ -45,6 +45,7 @@ This document outlines a testing strategy for the ALE_nextflow fork of nf-core/S
 | **Filter logic** | Known variants pass/fail as expected (truth set) |
 | **Metadata propagation** | Ploidy, status, sex survive through channels |
 | **Conditional logic** | VCFtools skipped for Mutect2/ploidy>2, ASSESS_SIGNIFICANCE skipped for ploidy=1 |
+| **Report structure** | Assert on stable identifiers — a MultiQC section's `<h2 id="…">` — never on presentation: the 1.25.1 → 1.35 bump (2026-09-24) changed the heading's CSS class and kept every id |
 
 ---
 

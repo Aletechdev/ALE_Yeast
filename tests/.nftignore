@@ -70,3 +70,10 @@ tabix/**
 # filesystem order — differs between ext4 and the Batch node (output_comparison.md §2.11). Was
 # wrongly annotated "SnpEff version-dependent" until 2026-09-09.
 multiqc/multiqc_data/*snpeff*.txt
+# MultiQC 1.35 (2026-09-24), two new files. multiqc.parquet is the report's data store and differs
+# between two runs on identical staged inputs (measured on the e2e MULTIQC task's inputs, run twice).
+# llms-full.txt (the report rendered as text) is deterministic on fixed inputs but embeds the
+# workflow-summary section, which carries the Nextflow runName — per-execution, like pipeline_info/
+# (caught by the e2e pair on 2026-09-24: the only differing line between two runs was runName).
+multiqc/multiqc_data/multiqc.parquet
+multiqc/multiqc_data/llms-full.txt

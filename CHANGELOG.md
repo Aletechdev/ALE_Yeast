@@ -126,6 +126,21 @@
 
 ### Changed
 
+- **MultiQC 1.25.1 → 1.35** (2026-09-24; the version sarek ≥ 3.10 ships). Container pin only —
+  `modules/nf-core/multiqc/{main.nf,environment.yml}`; the module keeps its sarek-3.5.1 signature
+  (`docs/dev-practices/SAREK_MODIFICATIONS.md` → `modules/nf-core/` PATCHED; to be dropped at the next
+  rebase). `assets/multiqc_config.yml`: `report_comment` is now a yAMP sentence linking the user docs
+  (1.35 validates the config and rejects upstream's `false`). Same sections in the same order, General
+  Stats rows identical (+4 columns), the two FastQC passes and the `--title` file naming of the QC-only
+  run unchanged, dashboard unchanged (all measured on the e2e task's staged inputs). What moves in
+  `multiqc/` — the overrepresented-sequence tables dropped, picard histograms renamed by metric, new
+  `llms-full.txt` / `multiqc.parquet` / `samtools_insert_size.txt`, a few plots renamed — is tabled in
+  `docs/dev-practices/output_comparison.md` §2.10 (dated row); `multiqc.parquet` (non-deterministic) and
+  `llms-full.txt` (embeds the Nextflow run name) join `tests/.nftignore`. e2e snapshot re-recorded: only
+  `multiqc/` entries moved;
+  no version line moves, because MultiQC's own version is not in the software-versions manifest
+  (MultiQC consumes that file) — it is only in the excluded `multiqc_software_versions.txt`.
+
 - **Launch form: sections reordered and the alignment group renamed** (2026-09-09; order refined
   2026-09-10 — Variant calling now directly after Main options, the read-level groups last): Input/output →
   Reference genome → Main options → Variant calling → Read preprocessing → **Alignment** (was sarek's "Preprocessing",

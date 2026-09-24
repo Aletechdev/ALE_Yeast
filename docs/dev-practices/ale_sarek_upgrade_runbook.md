@@ -7,8 +7,9 @@
 > actual, as-built change inventory is [`SAREK_MODIFICATIONS.md`](SAREK_MODIFICATIONS.md).
 >
 > The parts of this document that describe **current reality** are
-> [Known Blocker: Nextflow 26.x](#known-blocker-nextflow-26x-couples-with-a-future-rebase),
-> "Current Additive Files", and "Key Principles".
+> [Known Blocker: Nextflow 26.x](#known-blocker-nextflow-26x-couples-with-a-future-rebase), the two
+> *Known Rebase Hazard* sections (SnpEff cache; MultiQC container pin), "Current Additive Files", and
+> "Key Principles".
 
 ## Architecture (proposed)
 
@@ -194,6 +195,19 @@ same on either side of the rebase. **Do not** put it inside `annotation_cache_in
 Sources (read 2026-09-07): sarek #1654, #1980, #2184, #2194; nf-core/modules
 `subworkflows/nf-core/utils_annotation_cache/main.nf`; sarek master `main.nf` cache block.
 
+## Known Rebase Hazard: MultiQC container pin (drop at any 3.10.0+ rebase; added 2026-09-24)
+
+`modules/nf-core/multiqc/main.nf` + `environment.yml` pin MultiQC **1.35** on the sarek-3.5.1-era
+module (container URIs + conda version only; `modules.json` still names that module's git_sha). sarek
+3.10.0 and `dev` pin the same 1.35, but through a **new-signature module**: one
+`[meta, files, config, logo, replace_names, sample_names]` input tuple, meta-tupled outputs
+(`GENERATE_INDEX` reads `MULTIQC.out.data`, so its input mapping changes), and the version reported via
+an `eval` topic that needs the `nf-core-utils` plugin and Nextflow ≥ 25.04. At the rebase: **take
+upstream's module and drop this pin** — do not port it — and expect the topic-channel /
+versions-manifest migration with it. The e2e snapshot was re-recorded for 1.35 on 2026-09-24, so the
+rebase's own MultiQC diff should be empty apart from the module's wiring. Rationale and the measured
+output changes: `SAREK_MODIFICATIONS.md` → `modules/nf-core/` PATCHED; `output_comparison.md` §2.10.
+
 ## Current Patches (maintain this list)
 
 | Patch | Modifies | Purpose | Spec |
@@ -201,6 +215,7 @@ Sources (read 2026-09-07): sarek #1654, #1980, #2184, #2194; nf-core/modules
 | `001-samplesheet-ale-columns.patch` | samplesheet_to_channel/, schema | Add ALE metadata columns to input CSV | `specs/samplesheet_extensions.md` |
 | `002-main-nf-fallback-wiring.patch` | main.nf | Wire VARIANTFILTRATION_FALLBACK after joint genotyping | `specs/variant_filtering.md` |
 | `003-schema-ale-params.patch` | nextflow_schema.json | Add ALE-specific params to Seqera launch UI | `specs/samplesheet_extensions.md` |
+| `004-multiqc-container-pin.patch` (as built: in-place edit, 2026-09-24) | modules/nf-core/multiqc/ | Pin the MultiQC 1.35 container on the 3.5.1-era module; **drop, don't port**, at a ≥ 3.10 rebase | `SAREK_MODIFICATIONS.md` → `modules/nf-core/` PATCHED |
 
 > **Schema visibility is NOT patched** (since 2026-09): the launch-form hidden/visible state and the
 > ALE-owned help texts live in `conf/schema_overlay.yml`, applied by `bin/apply_schema_overlay.py`.

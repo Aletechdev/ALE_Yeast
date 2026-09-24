@@ -87,6 +87,16 @@ deltas. Same for `pipeline_info/params_*.json`. Normalise by rewriting the path,
 same inputs (font metrics, dict ordering, embedded creation dates). PDFs can differ by **tens of KB**,
 which looks alarming and is not. Compare the underlying numbers instead, never the render.
 
+Measured again on MultiQC 1.35 (2026-09-24, the pinned version; the e2e MULTIQC task's staged inputs
+run twice): every `svg`/`pdf` differs between the pair while every `png` is byte-identical;
+`multiqc_report.html`, `multiqc.log` and the new **`multiqc.parquet`** (the report's data store)
+differ; the new **`llms-full.txt`** (a text rendering of the report for language models) is
+byte-identical on fixed inputs — but in the pipeline it embeds the workflow-summary section, which
+carries the Nextflow **`runName`**, so it differs between executions exactly like `pipeline_info/`
+(§2.7; the e2e pair caught it: one differing line, the run name). Both new files are excluded from
+the content snapshot. `multiqc_data.json` was identical across that pair but stays excluded (it was
+not on 1.25.1).
+
 ### 2.5 Embedded base64 blobs — igv-reports HTML
 
 `mutation_reports/samples/*_report.html` embeds a `sessionDictionary`: a base64-encoded gzip of IGV
@@ -161,14 +171,18 @@ table now only matters when comparing against outputs older than that (tier-2, t
 |---|---|---|
 | 2026-09-04 (`948163c`) | fastp `--trim_adapter --trim_quality_3prime tail` is the default | every read-derived file: CRAMs, all VCFs, coverage, the cohort matrices; new `reports/fastp/` |
 | 2026-09-08 | `hard_filter_haplotypecaller_joint` left the ALE recipe (pipeline default `false`) | the whole `hard_filtered.*` family is **absent**: `variant_calling_filtered/`, its two `tabix/*.hard_filtered.vcf.gz.tbi` indexes, and the per-sample `annotation/`, `reports/{bcftools,snpeff,vcftools}/` siblings; the MultiQC bcftools/vcftools aggregate tables lose those rows; 16 fewer tasks on the 2-sample set. The joint VCF, the soft per-sample splits and all nine cohort deliverables are unaffected |
+| 2026-09-24 | MultiQC 1.25.1 → **1.35** (container pin on the 3.5.1-era module; `SAREK_MODIFICATIONS.md` → `modules/nf-core/` PATCHED) | **`multiqc/` only** — no read-, alignment- or variant-derived file moves, task count unchanged. `multiqc_data/`: `fastqc_{raw,trimmed}_top_overrepresented_sequences_table.txt` gone; `llms-full.txt`, `multiqc.parquet`, `samtools_insert_size.txt` new; `picard_histogram{,_1,_2}.txt` renamed by metric (`picard_MarkIlluminaAdapters_histogram.txt`, `picard_MeanQualityByCycle_histogram{,_1}.txt`, `picard_QualityScoreDistribution_histogram.txt`; content identical); format-only content changes in `fastp_filtered_reads_plot.txt` (+`Low Complexity`, `Too Long` columns), `multiqc_samtools_stats.txt` (+`reads_mapped_MQ1`) and `vcftools_tstv_by_count.txt` (`nan` → `None`); General Stats rows identical, +4 columns (fastp `pct_surviving` → `pct_surviving_reads` + `pct_surviving_bases`, `before_filtering_read{1,2}_mean_length`; samtools `insert_size_average`); `multiqc_snpeff.txt` same width, different column set (excluded anyway, §2.11). `multiqc_plots/`: `bcftools_stats_indel-lengths` split into `-cnt`/`-log`, `general_stats_table` and the two overrepresented tables gone, `samtools_insert_size` new (216 → 213 files). Report HTML: section `<h2>` class `mqc-module-title` → `mb-0`, ids and order unchanged; a yAMP `report_comment` at the top. **No versions line moves**: MultiQC's own version is not in `pipeline_info/nf_core_sarek_software_mqc_versions.yml` (MultiQC consumes that file; the task's `versions.yml` is unpublished), only in the excluded `multiqc_data/multiqc_software_versions.txt`. The `--title` file naming of the QC-only run is unchanged. The tables the dashboard reads (`multiqc_bcftools_stats.txt`, the sample rows of `multiqc_general_stats.txt`) are cell-identical — the dashboard did not move |
 
 ### 2.11 MultiQC's SnpEff breakdown tables — the categories of whichever report was parsed last
 
 `multiqc/multiqc_data/snpeff_effects.txt` and `snpeff_variant_effects_region.txt` (and the plots built
 from them) list a **different set of effect categories** depending on the run: 8 columns on the local
 e2e (a HaplotypeCaller report's effect types), 14 on the 2026-09-08 Platform run (a Manta report's), 9
-standalone (TIDDIT's) — from **identical** SnpEff summary CSVs. Cause (MultiQC 1.25.1,
-`modules/snpeff/snpeff.py` `parse_snpeff_log`): the module does
+standalone (TIDDIT's) — from **identical** SnpEff summary CSVs. Cause (MultiQC 1.25.1; unchanged in
+kind on 1.35 — re-verified at the 2026-09-24 bump on the same staged inputs: still one report's
+categories, not the union, but a *different* report is last — 1.25.1 listed a HaplotypeCaller report's
+8 effect types, 1.35 lists an SV report's 9; `modules/snpeff/snpeff.py` `parse_snpeff_log`):
+the module does
 `self.snpeff_section_totals[section] = dict()` **every time a file reaches a section header**, so the
 totals that drive the category list are those of the *last file parsed*, and file order follows the
 filesystem (ext4 locally, the Batch node's staged directory on Platform). It is **deterministic per
@@ -176,6 +190,14 @@ filesystem** (the exact local task re-run twice is byte-identical) and different
 for shared categories agree exactly, and the general SnpEff table (`multiqc_snpeff.txt`) is
 cell-identical. Not a pipeline defect and not a deliverable; excluded from the e2e snapshot. Upstream
 report pending (roadmap). Verified 2026-09-09 on the re-cut comparison.
+
+### 2.12 MultiQC 1.35 log noise — `mqc_colour` lines
+
+`multiqc/multiqc_data/multiqc.log` (and the task's stderr) on 1.35 carries 96 lines of
+`mqc_colour | Error converting color '55,126,184' to RGB: input #55,126,184 is not in #RRGGBB format`
+(eight distinct RGB triplets). MultiQC-internal — the same lines appear with `assets/multiqc_config.yml`
+removed (measured 2026-09-23) — and the report, its tables and the exit code are unaffected. Not ours
+to fix; do not chase them when reading a log.
 
 ---
 

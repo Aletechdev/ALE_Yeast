@@ -577,7 +577,7 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
   - Validate with `nf-core pipelines schema lint` + e2e re-run.
 - **[low] MultiQC SnpEff breakdown tables show only the last-parsed report's categories — report
   upstream.** `parse_snpeff_log` resets `snpeff_section_totals[section]` at every file's section
-  header (MultiQC 1.25.1; **still present in v1.35, the latest release as of 2026-09-09, and on `main`**), so `snpeff_effects` /
+  header (MultiQC 1.25.1; **still present in v1.35 — the version the pipeline pins since 2026-09-24, re-verified on our inputs at the bump — and on `main`**), so `snpeff_effects` /
   `snpeff_variant_effects_region` list the effect types of whichever CSV came last in filesystem
   order — 8 columns locally, 14 on Azure Batch, from identical inputs (`output_comparison.md`
   §2.11, found 2026-09-09). Cosmetic for us (excluded from the snapshot; shared cells identical),
