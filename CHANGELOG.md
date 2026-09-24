@@ -17,7 +17,8 @@
   follow-up command: the same command without the flag plus `-resume <session id>`, which continues
   from alignment with every read-QC task cached (on Seqera Platform: *Resume* with `qc_only`
   cleared). The QC-only MultiQC report is titled *yAMP QC-only run*, so it lands as
-  `multiqc/yAMP-QC-only-run_multiqc_report.html` next to the final report. Refused at start-up
+  `multiqc/yAMP-QC-only-run_multiqc_report.html` next to the final report (a user `multiqc_title`
+  names both runs' reports the same, so the final one then replaces it). Refused at start-up
   (`[yAMP preflight]` errors): `--step` other than `mapping`, `multiqc` skipped, `cleanup = true`.
   breseq is not run in a QC-only run. Mechanism: one starvation gate before alignment in
   `workflows/sarek/main.nf` (the alignment input is emptied; everything downstream never gets a task,

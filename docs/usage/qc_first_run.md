@@ -79,7 +79,9 @@ directly rather than the alignment, so it is gated separately and is likewise no
 The QC-only MultiQC report is titled *yAMP QC-only run*, which MultiQC turns into the file name
 `yAMP-QC-only-run_multiqc_report.html` (plus `…_report_data/` and `…_report_plots/`), so it stays in
 `<outdir>/multiqc/` next to the final run's plain `multiqc_report.html` instead of being overwritten
-by it. A `--multiqc_title` of your own wins and names the file the same way.
+by it. A `--multiqc_title` of your own wins — but it then names **both** runs' reports the same, so
+run 2 replaces run 1's report. Leave `multiqc_title` unset if you want to keep the QC-only copy (it
+is unset by default and hidden on the Seqera launch form).
 
 ## Rules and errors
 

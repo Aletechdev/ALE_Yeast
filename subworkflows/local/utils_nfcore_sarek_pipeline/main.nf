@@ -269,8 +269,10 @@ def validateQcOnly() {
 // What a finished QC-only run prints: where the report is and the exact follow-up command.
 // The report name follows MultiQC 1.25.1's --title rule (write_results.py: whitespace/hyphen runs
 // → '-', every other non-word character dropped). The command is the launch command with
-// --qc_only and any -resume removed, plus -resume <this session>; when --qc_only did not come
-// from the command line (params file / config) the user is told to unset it there instead.
+// --qc_only (any spelling: bare, `--qc_only true`, `--qc_only=true`) and any -resume (bare or with
+// a session id/name — never the option that follows a bare one) removed, plus -resume <this
+// session>; when --qc_only did not come from the command line (params file / config — which is
+// how Seqera Platform passes every parameter) the user is told to unset it there instead.
 //
 def qcOnlyCompletion(qc_only, outdir, multiqc_title) {
     if (!qc_only || !workflow.success) return
@@ -278,9 +280,9 @@ def qcOnlyCompletion(qc_only, outdir, multiqc_title) {
     def slug   = title.replaceAll(/[-\s]+/, '-').replaceAll(/[^\w.\-]/, '').trim()
     def report = "${outdir}/multiqc/${slug}_multiqc_report.html"
     def cmd    = workflow.commandLine
-    def on_cli = cmd =~ /(^|\s)--qc_only(\s+(true|false))?(?=\s|$)/
-    cmd = cmd.replaceAll(/\s--qc_only(\s+(true|false))?(?=\s|$)/, '')
-             .replaceAll(/\s-resume(\s+\S+)?(?=\s|$)/, '')
+    def on_cli = cmd =~ /(^|\s)--qc_only((=|\s+)(true|false))?(?=\s|$)/
+    cmd = cmd.replaceAll(/\s--qc_only((=|\s+)(true|false))?(?=\s|$)/, '')
+             .replaceAll(/\s-resume(\s+(?!-)\S+)?(?=\s|$)/, '')
     def lines = [
         "",
         "[yAMP qc_only] QC-only run finished — nothing past read QC was run.",
