@@ -237,6 +237,12 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 
 ## Robustness / infrastructure
 
+- **[low, breseq held] breseq receives untrimmed reads under the default recipe.** Found 2026-09-24
+  while gating breseq for `--qc_only`: `reads_for_breseq` in `workflows/sarek/main.nf` tests the
+  deprecated `trim_fastq` (and `split_fastq`), not the fastp gate (`trim_adapter || trim_quality_*`),
+  so with today's defaults breseq gets `reads_for_fastp` — the raw reads — despite the "trimmed
+  FASTQs" comment. Harmless while breseq is held (AMP-v1 merger question in CLAUDE.md); fix = test the
+  same condition as the fastp block, validated by a breseq run (no test covers breseq today).
 - **[med] Preflight, second tranche** (cut from the 2026-09-23 minimal version, design in the
   QC-first plan): an always-written MultiQC custom-content table of the `[yAMP preflight]` lines
   ("0 deviations" when clean); further warnings — `status = 1`, ploidy > 2 (vcftools skipped),

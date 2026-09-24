@@ -90,6 +90,9 @@ Each spec markdown contains a verification checklist. Walk through them:
 - Do FastP defaults still match our expectations?
 - Is the variant filtering fallback wired correctly?
 - Do samplesheet extensions parse correctly?
+- Does the `--qc_only` starvation gate still hold? `tests/qc_gate.sh a` must pass (minutes) — a
+  rebase is when `toList()` / `ifEmpty` / value-channel inputs arrive unreviewed downstream of
+  alignment. Rule: `SAREK_MODIFICATIONS.md` → `workflows/sarek/main.nf` → the `--qc_only` gate.
 
 ### 5. Test
 

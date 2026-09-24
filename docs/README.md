@@ -32,6 +32,7 @@ how to run it, start at the [**root README**](../README.md).
 
 | Doc | What it covers |
 |---|---|
+| [`usage/qc_first_run.md`](usage/qc_first_run.md) | **QC-first run (`--qc_only`)** — stop after read QC, sign the reports off, continue the same run with `-resume`; what to look at, the errors, how the gate works and the test that guards it |
 | [`usage/launch_params_file.md`](usage/launch_params_file.md) · [`usage/params_template.yml`](usage/params_template.yml) | **Launching with a params file** — generated template of every launch-form field (+ the hidden Tier-1 ones) in form order; `-params-file` / Seqera upload / `tw launch`; precedence; the `null`-is-a-string and directory-cache traps |
 | [`dev-practices/compute_resources.md`](dev-practices/compute_resources.md) | Resource model, `resourceLimits` clamp, per-VM porting, cloud notes |
 | [`dev-practices/azure_batch_execution.md`](dev-practices/azure_batch_execution.md) | **Start here for Azure Batch.** Why the config differs from the stock tutorial (4 settings), plus the execution gotchas: work-dir/container rule, node-agent SKU, pool ids, `-resume`, cost |
@@ -123,7 +124,7 @@ Output-directory layout is in the [root README](../README.md#output).
 | [`dev-practices/output_comparison.md`](dev-practices/output_comparison.md) | **Which outputs are deterministic and which are not** — the classes of run-to-run noise (timestamps, gzip framing, embedded paths, MultiQC renders, igv-reports blobs) with normalisation recipes, plus the 3-tier method for diffing two runs. The *why* behind `tests/.nftignore` |
 | [`dev-practices/compute_resources.md`](dev-practices/compute_resources.md) | Resource model and config layout |
 | [`dev-practices/roadmap.md`](dev-practices/roadmap.md) | Prioritized post-1.0.0 work |
-| [`usage/preflight_checks.md`](usage/preflight_checks.md) | **Start-up preflight** — the `[yAMP preflight]` errors (no experiment id, duplicate input files) and warnings (Tier-1 recipe drift, mixed ploidy/clonal flag within an experiment) that run before the first task |
+| [`usage/preflight_checks.md`](usage/preflight_checks.md) | **Start-up preflight** — the `[yAMP preflight]` errors (no experiment id, duplicate input files, impossible `--qc_only` combinations) and warnings (Tier-1 recipe drift, mixed ploidy/clonal flag within an experiment) that run before the first task |
 | [`usage/read_preprocessing.md`](usage/read_preprocessing.md) | **Read preprocessing, user view** — the opt-in steps in run order (UMI consensus · adapter trimming · fixed-count clipping · quality trimming per end · read filtering), parameters, recommended recipe, schematic |
 | [`dev-practices/fastq_preprocessing_audit.md`](dev-practices/fastq_preprocessing_audit.md) | **What happens to reads before bwa-mem** — audit of the FastQC/fastp path, the 2026-09 trimming design, fastp measurements on the test set, validation, and the open Trimmomatic question |
 | [`dev-practices/troubleshooting.md`](dev-practices/troubleshooting.md) | Debugging guide |

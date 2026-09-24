@@ -183,6 +183,12 @@ dataset lines, and launch with `-params-file my_project.yml`, upload it in the S
 pass it to `tw launch --params-file`. Precedence and traps:
 [`docs/usage/launch_params_file.md`](docs/usage/launch_params_file.md).
 
+**Look at the reads first.** Add `--qc_only` to the same command and the run stops after read QC
+(FastQC raw and after trimming, fastp, MultiQC — about five minutes on the test set), prints where
+the report is and the exact follow-up command: the same command without the flag plus
+`-resume <session id>`, which continues from alignment with the QC tasks cached. What to check
+before signing off: [`docs/usage/qc_first_run.md`](docs/usage/qc_first_run.md).
+
 ### Input samplesheet
 
 | Column | Description |

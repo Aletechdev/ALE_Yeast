@@ -11,6 +11,26 @@
 
 ### Added
 
+- **QC-first run — `--qc_only`** (user page `docs/usage/qc_first_run.md`). A launch with the flag
+  stops after read QC — preflight checks, FastQC on the raw reads, fastp, FastQC on the fastp output,
+  MultiQC, plus reference preparation — exits 0 and prints where the report is and the exact
+  follow-up command: the same command without the flag plus `-resume <session id>`, which continues
+  from alignment with every read-QC task cached (on Seqera Platform: *Resume* with `qc_only`
+  cleared). The QC-only MultiQC report is titled *yAMP QC-only run*, so it lands as
+  `multiqc/yAMP-QC-only-run_multiqc_report.html` next to the final report. Refused at start-up
+  (`[yAMP preflight]` errors): `--step` other than `mapping`, `multiqc` skipped, `cleanup = true`.
+  breseq is not run in a QC-only run. Mechanism: one starvation gate before alignment in
+  `workflows/sarek/main.nf` (the alignment input is emptied; everything downstream never gets a task,
+  so the DAG is unchanged and the resume is exact). Guarded by `tests/qc_gate.sh` — part (a), minutes:
+  the QC-only run of the test set executes exactly the allow-listed processes (17 tasks, 14
+  processes); part (b), one e2e: the resumed run caches every run-1 task, matches a one-shot run's
+  task list and produces identical deliverables (`tests/qc_gate_compare.py`; measured 2026-09-24
+  against the e2e output: 16/152 tasks cached, 526 file names equal, 143 files md5-identical, 42/42
+  VCFs record-identical). The commit gate now
+  requires `Gate test: qc_gate (a) green` for changes under `workflows/` or `subworkflows/`. Default
+  path unchanged (e2e snapshot unchanged). Launch-form group *QC-first run*; `tests/preflight.nf.test`
+  gains three cases (8 in total).
+
 - **Preflight checks at start-up** (`[yAMP preflight]`, user page `docs/usage/preflight_checks.md`).
   Before any task runs: hard errors for a samplesheet with no experiment id (a `patient` header —
   including the pipeline-written `csv/*.csv` restart sheets — is parsed as empty by the input

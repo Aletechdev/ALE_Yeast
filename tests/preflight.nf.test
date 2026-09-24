@@ -8,8 +8,8 @@ nextflow_pipeline {
     // Run with:  nf-test test -c tests/nf-test-ottilie.config tests/preflight.nf.test
     //
     // Pins the `[yAMP preflight]` checks in subworkflows/local/utils_nfcore_sarek_pipeline/main.nf:
-    // recipe-drift WARNINGS (validateAleRecipe) and samplesheet ERRORS/warnings
-    // (validateAleSamplesheet). All fire at DAG build, so `-preview` (same idiom as
+    // recipe-drift WARNINGS (validateAleRecipe), samplesheet ERRORS/warnings (validateAleSamplesheet)
+    // and the --qc_only cross-parameter ERRORS (validateQcOnly) plus the gate's own messages. All fire at DAG build, so `-preview` (same idiom as
     // report_gff3_optional.nf.test) exercises them in seconds with no snapshot.
     //
     // The sync rule: the ottilie profile IS the Tier-1 recipe, so it must produce zero preflight
@@ -101,6 +101,58 @@ nextflow_pipeline {
                 { assert workflow.failed },
                 { assert workflow.stdout.join('\n').contains('[yAMP preflight] input file(s) listed in more than one samplesheet row') },
                 { assert workflow.stdout.join('\n').contains('fastp_R1.fastq.gz') }
+            )
+        }
+    }
+
+    test("qc_only — the QC-first gate: no preflight lines, the gate and the follow-up command announce themselves") {
+        when {
+            params {
+                outdir  = "$outputDir"
+                qc_only = true
+            }
+        }
+        then {
+            def log = new File("$launchDir/meta/nextflow.log").readLines()
+            assertAll(
+                { assert workflow.success },
+                { assert preflight(launchDir) == [] },
+                { assert log.any { it.contains('[yAMP qc_only] stopping after read QC') } },
+                { assert log.any { it.contains('[yAMP qc_only] QC-only run finished') } },
+                { assert log.any { it =~ /\[yAMP qc_only\].*with -resume [0-9a-f-]{36}/ } },
+                { assert log.any { it.contains('yAMP-QC-only-run_multiqc_report.html') } }
+            )
+        }
+    }
+
+    test("qc_only with --step variant_calling: hard error") {
+        when {
+            params {
+                outdir  = "$outputDir"
+                qc_only = true
+                step    = 'variant_calling'
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.failed },
+                { assert workflow.stdout.join('\n').contains('[yAMP preflight] --qc_only requires --step mapping') }
+            )
+        }
+    }
+
+    test("qc_only with multiqc skipped: hard error") {
+        when {
+            params {
+                outdir     = "$outputDir"
+                qc_only    = true
+                skip_tools = 'baserecalibrator,multiqc'
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.failed },
+                { assert workflow.stdout.join('\n').contains('[yAMP preflight] --qc_only with multiqc in --skip_tools') }
             )
         }
     }

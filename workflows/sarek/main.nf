@@ -301,9 +301,21 @@ workflow SAREK {
             reads_for_alignment = reads_for_fastp
         }
 
+        // QC-first run: the gate. Works by STARVATION — the alignment input is emptied and every
+        // process downstream of it never receives a task; nothing further down is wrapped, so the DAG
+        // is identical to a full run and the follow-up `-resume` is all cache hits. Anything downstream
+        // that can fire on EMPTY input (toList(), ifEmpty(...), a value channel or a plain-file input
+        // as its only inputs) breaks the gate silently — tests/qc_gate.sh part (a) pins the process
+        // allow-list; docs/dev-practices/SAREK_MODIFICATIONS.md → workflows/sarek/main.nf.
+        if (params.qc_only) {
+            log.info "[yAMP qc_only] stopping after read QC: alignment and everything downstream is skipped (docs/usage/qc_first_run.md)"
+            reads_for_alignment = Channel.empty()
+        }
+
         // BRESEQ: Parallel variant calling from trimmed FASTQs
-        // breseq uses its own internal aligner, so it branches before BWA alignment
-        if (params.tools && params.tools.split(',').contains('breseq') && params.genbank) {
+        // breseq uses its own internal aligner, so it branches before BWA alignment (and therefore
+        // needs its own --qc_only gate: starving alignment does not starve it)
+        if (!params.qc_only && params.tools && params.tools.split(',').contains('breseq') && params.genbank) {
             // Use pre-split FASTP output (breseq needs unsplit FASTQs per lane)
             def reads_for_breseq = (params.trim_fastq || params.split_fastq > 0)
                 ? FASTP.out.reads : reads_for_fastp

@@ -26,6 +26,8 @@ visible:
   - outdir
   # Main options
   - tools
+  # QC-first run (docs/usage/qc_first_run.md)
+  - qc_only
   # Read preprocessing (docs/usage/read_preprocessing.md) - visible = the four fastp steps and
   # the trimmed-FASTQ publish flag. Hidden: step 0 UMI consensus (no ALE library has UMIs), the deprecated trim_fastq alias,
   # save_split_fastqs.
@@ -73,6 +75,7 @@ group_order:
   - input_output_options
   - reference_genome_options
   - main_options
+  - qc_first_run
   - variant_calling
   - fastq_preprocessing
   - preprocessing

@@ -193,6 +193,8 @@ workflow PIPELINE_COMPLETION {
     monochrome_logs // boolean: Disable ANSI colour codes in log output
     hook_url        //  string: hook URL for notifications
     multiqc_report  //  string: Path to MultiQC report
+    qc_only         // boolean: QC-first run — print where the report is and the follow-up -resume command
+    multiqc_title   //  string: user MultiQC title, if any (it names the report file)
 
     main:
     summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
@@ -219,6 +221,9 @@ workflow PIPELINE_COMPLETION {
         if (hook_url) {
             imNotification(summary_params, hook_url)
         }
+        // neither `params` nor `workflow` resolves inside this handler (NPE at completion) — the
+        // flags are inputs, and the function reads `workflow` through the script binding
+        qcOnlyCompletion(qc_only, outdir, multiqc_title)
     }
 
     workflow.onError {
@@ -237,6 +242,57 @@ workflow PIPELINE_COMPLETION {
 def validateInputParameters() {
     genomeExistsError()
     validateAleRecipe()
+    validateQcOnly()
+}
+
+//
+// QC-first run (--qc_only): the combinations that would make the follow-up run impossible or the
+// QC run pointless are errors at DAG build; the gate itself is in workflows/sarek/main.nf.
+//
+def validateQcOnly() {
+    if (!params.qc_only) return
+    if (params.step != 'mapping') {
+        error("[yAMP preflight] --qc_only requires --step mapping (read QC is the first stage of the mapping step; a run starting from '${params.step}' has no reads to QC)")
+    }
+    if (params.skip_tools && params.skip_tools.split(',').contains('multiqc')) {
+        error("[yAMP preflight] --qc_only with multiqc in --skip_tools would produce no QC report to sign off — drop multiqc from --skip_tools")
+    }
+    if (workflow.session.config.cleanup) {
+        error("[yAMP preflight] --qc_only with cleanup = true: Nextflow would delete the work directory when the QC run completes, so the follow-up run could not -resume it — set cleanup = false")
+    }
+    if (params.skip_tools && params.skip_tools.split(',').contains('fastqc')) {
+        log.warn "[yAMP preflight] --qc_only with fastqc in --skip_tools: only fastp's report will be produced"
+    }
+}
+
+//
+// What a finished QC-only run prints: where the report is and the exact follow-up command.
+// The report name follows MultiQC 1.25.1's --title rule (write_results.py: whitespace/hyphen runs
+// → '-', every other non-word character dropped). The command is the launch command with
+// --qc_only and any -resume removed, plus -resume <this session>; when --qc_only did not come
+// from the command line (params file / config) the user is told to unset it there instead.
+//
+def qcOnlyCompletion(qc_only, outdir, multiqc_title) {
+    if (!qc_only || !workflow.success) return
+    def title  = multiqc_title ?: 'yAMP QC-only run'
+    def slug   = title.replaceAll(/[-\s]+/, '-').replaceAll(/[^\w.\-]/, '').trim()
+    def report = "${outdir}/multiqc/${slug}_multiqc_report.html"
+    def cmd    = workflow.commandLine
+    def on_cli = cmd =~ /(^|\s)--qc_only(\s+(true|false))?(?=\s|$)/
+    cmd = cmd.replaceAll(/\s--qc_only(\s+(true|false))?(?=\s|$)/, '')
+             .replaceAll(/\s-resume(\s+\S+)?(?=\s|$)/, '')
+    def lines = [
+        "",
+        "[yAMP qc_only] QC-only run finished — nothing past read QC was run.",
+        "[yAMP qc_only]   MultiQC report : ${report}",
+        "[yAMP qc_only]   FastQC / fastp : ${outdir}/reports/  (preflight verdicts: grep 'yAMP preflight' .nextflow.log)",
+        "[yAMP qc_only]   To continue, run the same command without --qc_only and with -resume ${workflow.sessionId}",
+        "[yAMP qc_only]   (same work directory and --outdir; every read-QC task is a cache hit):",
+        "[yAMP qc_only]     ${cmd} -resume ${workflow.sessionId}",
+    ]
+    if (!on_cli) lines << "[yAMP qc_only]   qc_only was set in a params file or config — set it to false there before re-launching."
+    lines << "[yAMP qc_only]   On Seqera Platform: open this run → Resume → set qc_only to false."
+    log.info lines.join('\n')
 }
 
 //

@@ -431,6 +431,21 @@
             },
             "fa_icon": "fas fa-user-cog"
         },
+        "qc_first_run": {
+            "title": "QC-first run",
+            "type": "object",
+            "fa_icon": "fas fa-clipboard-check",
+            "description": "Run read QC first, sign it off, then continue the same run with -resume. Details: docs/usage/qc_first_run.md",
+            "properties": {
+                "qc_only": {
+                    "type": "boolean",
+                    "default": false,
+                    "fa_icon": "fas fa-clipboard-check",
+                    "description": "Stop after read QC (FastQC on the raw reads, fastp, FastQC on the fastp output, MultiQC); alignment and everything downstream is skipped. Requires step = mapping; breseq is not run.",
+                    "help_text": "Two-run idiom for a first look at the data before the expensive part runs. Run 1: the full parameter set plus `--qc_only` — every parameter is validated, the reference is prepared and the read-QC reports land under `reports/` and `multiqc/` (report titled *yAMP QC-only run*, so it stays next to the final one). The run exits 0 and prints the follow-up command. Run 2: the identical command without `--qc_only`, plus `-resume <session id>` (same work directory and outdir) — the read-QC tasks are cache hits and the run continues from alignment. On Seqera Platform: open the finished run → Resume → set `qc_only` to false. Not compatible with `cleanup = true` (the work directory would be gone) or with `multiqc` in `skip_tools`."
+                }
+            }
+        },
         "variant_calling": {
             "title": "Variant Calling",
             "type": "object",
@@ -1254,6 +1269,9 @@
         },
         {
             "$ref": "#/$defs/main_options"
+        },
+        {
+            "$ref": "#/$defs/qc_first_run"
         },
         {
             "$ref": "#/$defs/variant_calling"

@@ -82,7 +82,8 @@ needs in-session are repeated here.
   of the three ran. Enforced at commit time by [`bin/check_snapshot_staged.sh`](bin/check_snapshot_staged.sh)
   (a Claude Code hook on `git commit`; installable as a git `commit-msg` hook) — it demands the staged
   `.snap` or a `Snapshot: unchanged (…)` trailer, plus `Module test: <name> green` for paths that have a
-  unit test. Learned 2026-09-02: the SOR_FS commit (`4c45fb8`) was "validated" by launcher + pilot
+  unit test, plus `Gate test: qc_gate (a) green` (`tests/qc_gate.sh a`, minutes) for anything under
+  `workflows/` or `subworkflows/` — the `--qc_only` starvation gate has no other symptom when broken. Learned 2026-09-02: the SOR_FS commit (`4c45fb8`) was "validated" by launcher + pilot
   only and left the snapshot stale for two days. Loop and rationale:
   [`testing_best_practices.md` §12](docs/dev-practices/testing_best_practices.md#12-what-counts-as-validated--the-contract-test-rule).
 - **What counts as validated for a *number*** (benchmark tables, concordance rates, the figures that
@@ -296,6 +297,21 @@ duplicate input files; warnings for drift from the Tier-1 recipe and for mixed p
 within an experiment. Zero lines on the ottilie profile is a tested invariant
 (`tests/preflight.nf.test`). User page: [`docs/usage/preflight_checks.md`](docs/usage/preflight_checks.md);
 code in `subworkflows/local/utils_nfcore_sarek_pipeline/main.nf`.
+
+### QC-first run (`--qc_only`)
+
+Since 2026-09-24: run 1 = the normal command + `--qc_only` stops after read QC (preflight, FastQC raw,
+fastp, FastQC on the fastp output, MultiQC, plus reference prep — 17 tasks / ~5 min on the test set),
+exits 0 and prints the follow-up; run 2 = the same command without the flag + `-resume <session id>`
+(every QC task cached; Platform: *Resume* with `qc_only` cleared). The QC-only MultiQC report is
+titled so it lands as `multiqc/yAMP-QC-only-run_multiqc_report.html` beside the final one. Errors:
+`--step` ≠ `mapping`, `multiqc` skipped, `cleanup = true`. breseq is not run. **The gate is one
+starvation point before alignment in `workflows/sarek/main.nf`** — anything downstream that can fire
+on empty input (`toList`/`ifEmpty`/value channel/plain file) breaks it silently, so `tests/qc_gate.sh a`
+(minutes, exact process allow-list) is a commit-gate trailer for `workflows/`/`subworkflows/` changes
+and part (b) (`-resume` equals a one-shot run) is the resume contract. User page:
+[`docs/usage/qc_first_run.md`](docs/usage/qc_first_run.md); rule:
+[`SAREK_MODIFICATIONS.md`](docs/dev-practices/SAREK_MODIFICATIONS.md) → `workflows/sarek/main.nf`.
 
 ### Read preprocessing — BQSR skipped
 

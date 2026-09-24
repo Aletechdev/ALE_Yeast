@@ -3,8 +3,9 @@
 #
 # Blocks a commit whose STAGED files can change pipeline outputs unless the commit carries a trace
 # that the tests were run: the re-recorded e2e snapshot staged alongside, or explicit trailer lines
-# in the commit message. It never runs a test and never inspects outputs - it only checks that the
-# commit says which validation happened, so it takes milliseconds and any false claim is on record.
+# in the commit message (Snapshot / Module test / Gate test). It never runs a test and never inspects
+# outputs - it only checks that the commit says which validation happened, so it takes milliseconds
+# and any false claim is on record.
 #
 #   bin/check_snapshot_staged.sh [commit-message-file]      exit 0 = allow, 2 = block (message on stderr)
 #
@@ -57,6 +58,18 @@ EOT
     fi
   fi
 done
+
+# 4. the --qc_only gate works by starvation, so any workflow/subworkflow change can break it silently
+#    (a toList()/ifEmpty()/value channel feeding a process downstream of alignment): part (a) of
+#    tests/qc_gate.sh (minutes) must be cited for changes under workflows/ or subworkflows/
+if grep -qE '^(workflows/|subworkflows/)' <<<"$staged" && ! grep -qi '^Gate test: qc_gate (a) green' <<<"$msg"; then
+  fail=1
+  cat >&2 <<EOT
+BLOCKED: a workflow/subworkflow file is staged; the --qc_only gate test must be cited in the commit message:
+      Gate test: qc_gate (a) green
+  (run: tests/qc_gate.sh a  — minutes; docs/dev-practices/SAREK_MODIFICATIONS.md → the --qc_only gate)
+EOT
+fi
 
 [ "$fail" -eq 0 ] && exit 0
 echo "See CLAUDE.md 'What counts as validated' / docs/dev-practices/testing_best_practices.md §12." >&2

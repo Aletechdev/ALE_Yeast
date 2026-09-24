@@ -52,6 +52,21 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   build). Config block in `conf/modules/mutation_report.config` (unpublished). Same fix made
   `modules/local/publish_vcfs` accept raw caller file names and `docs/igvreports/generate_index.py`
   drop its never-rendered SnpEff impact loader.
+  **The `--qc_only` gate** (2026-09-24, `docs/usage/qc_first_run.md`): right after the fastp block and
+  before breseq, `if (params.qc_only) reads_for_alignment = Channel.empty()` (+ a `log.info`), and
+  `!params.qc_only` added to the breseq condition (breseq reads the fastp output directly, so starving
+  alignment does not starve it). **The gate works by starvation**: nothing downstream is wrapped, the
+  DAG is identical to a full run, and the follow-up `-resume` is exact. It holds only while no process
+  downstream of alignment can fire on EMPTY input — a `toList()`, an `ifEmpty(...)`, a `Channel.value`
+  / `Channel.of`, or a plain-file input as a process's *only* inputs would make that process run in a
+  QC-only run, silently. Reference preparation and `PREPARE_GFF3` do exactly that and are on the
+  allow-list on purpose. **After any change or rebase that adds such an operator downstream of
+  alignment, run `tests/qc_gate.sh a`** (minutes; the commit gate demands its trailer for `workflows/`
+  and `subworkflows/` changes) — either gate the new process on `params.qc_only` or, if it is harmless
+  reference prep, add it to `ALLOW` in the script. Side finding recorded here, not fixed: the breseq
+  input test checks the deprecated `trim_fastq`, so with today's defaults (`trim_adapter`) breseq
+  receives the **untrimmed** reads despite its comment (`reads_for_breseq`); breseq is held pending the
+  AMP-v1 merger decision.
 - **`assets/multiqc_config.yml`** — `module_order` has two `fastqc` entries with distinct `anchor`s
   (`fastqc_raw` with `path_filters_exclude`, `fastqc_trimmed` with `path_filters` on
   `*_trimmed*_fastqc.zip`) around fastp, and `extra_fn_clean_exts` strips `_trimmed` (2026-09-23;
@@ -80,7 +95,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 
 ### New params (nextflow.config / schema)
 
-`joint_manta` (upstream-shaped, PR candidate), `manta_high_sensitivity`, `generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
+`qc_only` (2026-09-24; own schema group `qc_first_run`, fork-owned), `joint_manta` (upstream-shaped, PR candidate), `manta_high_sensitivity`, `generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
 `report_gff3`, `report_filter_config`, `report_cohort_template`, `report_sample_template`,
 `report_index_script`, `report_templates_dir`, `report_outdir`, `report_multiqc_path`;
 read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as deprecated alias),
@@ -108,7 +123,7 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 | `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report. |
 | `bam_joint_calling_germline_gatk` | `VARIANTFILTRATION_FALLBACK` when VQSR can't run (custom genomes, no known-sites). |
 | `samplesheet_to_channel` | ALE metadata columns (ploidy; all-samples-as-normal). Launch-time guard (2026-09-07): `snpeff` in `tools` with neither `snpeff_cache` nor `download_cache` → error; new `download_cache` take (caller `utils_nfcore_sarek_pipeline` passes it). |
-| `utils_nfcore_sarek_pipeline` | YAML `processVersionsFromYAML()` reads content explicitly (cloud paths, SnakeYAML ambiguity) and drops empty documents. **ALE preflight (2026-09-23):** `validateAleRecipe()` (called from `validateInputParameters()`; warns per parameter that drifts from the Tier-1 recipe map — a deliberate second copy of `conf/test/ottilie_common.config` + the read-preprocessing defaults, kept honest by the zero-warnings case of `tests/preflight.nf.test`) and `validateAleSamplesheet(rows)` (errors: empty experiment id after the schema's `patient`/`experiment` overwrite, duplicate input paths; warns: mixed ploidy / clonal flag within an experiment). To run the row checks at DAG build, `samplesheetToList()` is materialised into a list before `Channel.fromList` — same rows, same channel. Prefix `[yAMP preflight]`; user page `docs/usage/preflight_checks.md`. |
+| `utils_nfcore_sarek_pipeline` | YAML `processVersionsFromYAML()` reads content explicitly (cloud paths, SnakeYAML ambiguity) and drops empty documents. **ALE preflight (2026-09-23):** `validateAleRecipe()` (called from `validateInputParameters()`; warns per parameter that drifts from the Tier-1 recipe map — a deliberate second copy of `conf/test/ottilie_common.config` + the read-preprocessing defaults, kept honest by the zero-warnings case of `tests/preflight.nf.test`) and `validateAleSamplesheet(rows)` (errors: empty experiment id after the schema's `patient`/`experiment` overwrite, duplicate input paths; warns: mixed ploidy / clonal flag within an experiment). To run the row checks at DAG build, `samplesheetToList()` is materialised into a list before `Channel.fromList` — same rows, same channel. Prefix `[yAMP preflight]`; user page `docs/usage/preflight_checks.md`. **QC-first run (2026-09-24):** `validateQcOnly()` (errors for `--qc_only` with `step != mapping`, `multiqc` skipped, `cleanup = true` — read via `workflow.session.config.cleanup`), and `PIPELINE_COMPLETION` takes two more inputs (`qc_only`, `multiqc_title`; `main.nf` passes `params.*`) for `qcOnlyCompletion()`, which prints the report path (MultiQC 1.25.1's `--title` → filename rule reproduced) and the `-resume <sessionId>` command. Neither `params` nor `workflow` resolves inside the `onComplete` closure of a workflow body (NPE at completion) — hence the inputs and the script-level function. |
 | `bam_variant_calling_somatic_all` | FreeBayes somatic channel disabled (noise for ALE). |
 | `bam_variant_calling_somatic_mutect2` | FilterMutectCalls placeholder-channel fix (runs without germline resource/PoN). |
 | `annotation_cache_initialisation` | Skip `exists()/isDirectory()` for `az|s3|gs://` cache paths (blob prefixes are not directories). ⚠️ **File deleted upstream in 3.9.0** (#2194), replaced by nf-core `utils_annotation_cache`, which also applies the `<db>/<db>/` key to every cloud URL — our flat `az://` cache dirs fail under it. Port as a subworkflow patch, or make it moot with a tarball cache: `ale_sarek_upgrade_runbook.md` → *Known Rebase Hazards: SnpEff cache*. |
@@ -168,7 +183,10 @@ Upstream-managed modules (clean installs, low rebase cost).
 end, explicit adapters — `fastq_preprocessing_audit.md` §2.1). Post-trim FastQC (2026-09-23):
 `modules/modules.config` gains `FASTQC_TRIMMED` (`ext.prefix = "${meta.id}_trimmed"`, publish to
 `reports/fastqc/<id>/trimmed/`) and `CAT_FASTQ_TRIMMED` (unpublished); `base.config`'s `FASTQC`
-resource block became `FASTQC|FASTQC_TRIMMED`.
+resource block became `FASTQC|FASTQC_TRIMMED`. QC-first run (2026-09-24): `MULTIQC`'s `ext.args`
+title closure falls back to `yAMP QC-only run` when `params.qc_only` (a user `multiqc_title` wins) —
+`--title` renames the report and its `_data`/`_plots` dirs, so the QC-only report coexists with the
+final one; hash-safe because MULTIQC re-runs in the follow-up anyway.
 
 ---
 
@@ -182,3 +200,7 @@ resource block became `FASTQC|FASTQC_TRIMMED`.
    them inert is more upgrade-friendly than a delete-patch that conflicts forever (see runbook).
 4. Upstream-provided `*.diff` patches (dragmap, gatk4/intervallisttobed, bcftools/annotate,
    controlfreec/assesssignificance) ship with sarek — retain them, they are not ALE changes.
+5. **The `--qc_only` gate is a starvation gate** (see `workflows/sarek/main.nf` above). A rebase is
+   when `toList()` / `ifEmpty(...)` / value-channel / plain-file inputs arrive unreviewed downstream
+   of alignment: run `tests/qc_gate.sh a` after every rebase and after any such change, and either
+   gate the offending process on `params.qc_only` or add harmless reference prep to the allow-list.

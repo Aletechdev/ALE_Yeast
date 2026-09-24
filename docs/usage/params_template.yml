@@ -22,6 +22,9 @@ report_gff3: null   # <-- SET  gene track for the mutation report; optional
 # ===== Main options =====
 tools: "snpeff,cnvkit,tiddit,manta,haplotypecaller"  # (Tier-1 recipe) Comma-separated list of tools to run.
 
+# ===== QC-first run =====
+qc_only: false  # Stop after read QC (FastQC on the raw reads, fastp, FastQC on the fastp output, MultiQC); alignment and everything downstream is skipped.
+
 # ===== Variant Calling =====
 joint_germline: true          # (Tier-1 recipe) Turn on the joint germline variant calling for GATK haplotypecaller
 joint_manta: true             # One multi-sample Manta germline run per experiment, every sample of the experiment genotyped at each candidate SV.

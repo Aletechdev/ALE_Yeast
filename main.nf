@@ -350,7 +350,9 @@ workflow {
         params.outdir,
         params.monochrome_logs,
         params.hook_url,
-        NFCORE_SAREK.out.multiqc_report
+        NFCORE_SAREK.out.multiqc_report,
+        params.qc_only,       // QC-first run: completion prints the report path + the -resume command
+        params.multiqc_title
     )
 }
 

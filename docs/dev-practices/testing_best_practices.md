@@ -400,7 +400,8 @@ nf-test's four test types, and what each maps to in this fork:
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
 | Process | `nextflow_process` | the 19 `modules/local/` + upstream modules whose behaviour we own via config | **1** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 7 cases, 1 000-pair fixture) |
 | Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **2** (`split_joint_vcf`; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
-| Pipeline | `nextflow_pipeline` | supported end-to-end routes | **4** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `tools_without_annotation`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`) |
+| Pipeline | `nextflow_pipeline` | supported end-to-end routes | **4** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `tools_without_annotation`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`; 8 cases incl. the three `--qc_only` ones) |
+| Gate | bash, outside nf-test | the `--qc_only` starvation gate (`workflows/sarek/main.nf`) | **`tests/qc_gate.sh`** — (a) minutes: a QC-only run of the test set executes *exactly* the allow-listed processes (read QC + reference prep, 14 processes / 17 tasks); a stray process means something downstream of alignment fires on empty input (`toList`/`ifEmpty`/value channel) and the failure message names it. (b) one e2e: `-resume` of run (a) without the flag caches every run-1 task but MULTIQC, matches a one-shot run's task list, and `tests/qc_gate_compare.py` finds the deliverables identical (md5 for the `.nftignore`-kept files, records for every VCF). Not nf-test because it needs two launches sharing a session. Run (a) after any `workflows/`/`subworkflows/` change (commit-gate trailer), (b) when the gate or the resume contract itself changes |
 
 The 99 upstream component tests do **not** count as coverage here — they test unmodified nf-core
 code (see the category table in §10). Only tests over fork-specific code do.
@@ -574,6 +575,10 @@ claim is on record:
    `subworkflows/local/fastqc_trimmed/` → `fastqc_trimmed`; `subworkflows/local/utils_nfcore_sarek_pipeline/` →
    `preflight`) additionally need `Module test: <name> green` in the message. Extend the `TESTMAP` in the script
    when a test is added.
+4. Staged files under `workflows/` or `subworkflows/` additionally need `Gate test: qc_gate (a) green`
+   (`tests/qc_gate.sh a`, minutes): the `--qc_only` gate works by starvation, and a `toList()` /
+   `ifEmpty` / value-channel input added downstream of alignment breaks it with no other symptom
+   (§11, Gate row; added 2026-09-24).
 
 Wiring: `.claude/settings.json` runs it as a `PreToolUse` hook on every `git commit` Claude issues
 (`bin/hook_git_commit_gate.sh` extracts the `-F` file or heredoc message from the command); for
