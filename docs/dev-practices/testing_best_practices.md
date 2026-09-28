@@ -400,7 +400,7 @@ nf-test's four test types, and what each maps to in this fork:
 |-------|--------------|-------------|--------|
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
 | Process | `nextflow_process` | the 19 `modules/local/` + upstream modules whose behaviour we own via config | **2** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 7 cases, 1 000-pair fixture; `preflight_reference` — the task-level reference preflight, 4 cases on hand-made fixtures: OK with an embedded `##FASTA`, SKIPPED without a GFF3, ERROR/exit 65 on renamed contigs, OK-with-note when the GFF3 has a contig the FASTA lacks) |
-| Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **2** (`split_joint_vcf`; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
+| Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **3** (`split_joint_vcf`; `manta_experiment_grouping` — `BAM_VARIANT_CALLING_GERMLINE_MANTA` under `--joint_manta`, stub mode: one Manta task per experiment, keyed and named as documented; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
 | Pipeline | `nextflow_pipeline` | supported end-to-end routes | **4** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `tools_without_annotation`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`; 8 cases incl. the three `--qc_only` ones) |
 | Gate | bash, outside nf-test | the `--qc_only` starvation gate (`workflows/sarek/main.nf`) | **`tests/qc_gate.sh`** — (a) minutes: a QC-only run of the test set executes *exactly* the allow-listed processes (read QC + reference prep, 15 processes / 18 tasks (2026-09-28, with the reference preflight task; 17 before)); a stray process means something downstream of alignment fires on empty input (`toList`/`ifEmpty`/value channel) and the failure message names it. (b) one e2e: `-resume` of run (a) without the flag caches every run-1 task but MULTIQC, matches a one-shot run's task list, and `tests/qc_gate_compare.py` finds the deliverables identical (md5 for the `.nftignore`-kept files, records for every VCF). Not nf-test because it needs two launches sharing a session. Run (a) after any `workflows/`/`subworkflows/` change (commit-gate trailer), (b) when the gate or the resume contract itself changes |
 
@@ -567,21 +567,25 @@ The rule is enforced at commit time by a gate that checks **evidence, not output
 test, it checks that the commit says which validation happened, so it takes milliseconds and a false
 claim is on record:
 
+0. `bin/check_doc_drift.sh` runs first, on every commit: the docs that copy the tree — the three
+   ADDED inventories in `SAREK_MODIFICATIONS.md`, the `TESTMAP`, the docs index — must agree with it,
+   or the commit is blocked with one `DRIFT:` line per fix (2026-09-28; *Docs that copy the tree* below).
 1. If no *staged* file is under `conf/modules/`, `subworkflows/`, `modules/`, `workflows/`,
    `nextflow.config`, or is a task script — a `bin/` file that some `modules/**/main.nf` calls by name,
    derived at run time (2026-09-28; was `bin/*.py`) — the commit passes (docs / tests / tooling only).
 2. Otherwise `tests/ottilie_e2e.nf.test.snap` must be staged too (outputs moved and were re-recorded),
    **or** the message must carry a trailer `Snapshot: unchanged (e2e green on <commit>, <date>)`.
-3. Paths with a unit test (`conf/modules/trimming.config` and `modules/nf-core/fastp/` →
-   `fastp_preprocessing`; `subworkflows/local/split_joint_vcf/` and its config → `split_joint_vcf`;
-   `subworkflows/local/fastqc_trimmed/` → `fastqc_trimmed`; `subworkflows/local/utils_nfcore_sarek_pipeline/` →
-   `preflight`; `modules/local/preflight_reference/`, `bin/preflight_reference.sh` and `conf/modules/preflight.config` →
-   `preflight_reference`) additionally need `Module test: <name> green` in the message. Extend the `TESTMAP` in the script
-   when a test is added.
+3. Paths with a unit test additionally need `Module test: <name> green` in the message. The map is
+   the `TESTMAP` in the script and is deliberately not copied here (the copy that used to be here
+   went stale, 2026-09-28); `bin/check_doc_drift.sh` demands an entry for every process / workflow
+   test under `tests/` and checks that every entry's path and test exist.
 4. Staged files under `workflows/` or `subworkflows/` additionally need `Gate test: qc_gate (a) green`
    (`tests/qc_gate.sh a`, minutes): the `--qc_only` gate works by starvation, and a `toList()` /
    `ifEmpty` / value-channel input added downstream of alignment breaks it with no other symptom
    (§11, Gate row; added 2026-09-24).
+5. New or removed output names in the staged `.snap` need `docs/dev-practices/output_comparison.md`
+   staged too — a dated §2.10 row, since every comparison against an older run will show them — or a
+   trailer `Baseline diff: <why no row is needed>` (2026-09-28).
 
 Wiring: `.claude/settings.json` runs it as a `PreToolUse` hook on every `git commit` Claude issues
 (`bin/hook_git_commit_gate.sh` extracts the `-F` file or heredoc message from the command); for
@@ -604,6 +608,27 @@ commits made by hand install it as a git hook — `ln -s ../../bin/check_snapsho
   out of the rule without a second list, and `bin/preflight_reference.sh`, the first `.sh` task script,
   is in it. The `*.py` pattern had let a commit staging only that file through with no trailer at all
   (verified on a scratch index before the fix).
+
+### Docs that copy the tree (2026-09-28)
+
+Some docs hold content *derived* from the tree: the inventories of added files, the unit-test map,
+the docs index, task and file counts, the known-differences table. On 2026-09-28 the
+reference-preflight commit updated every doc its plan named and still left five such copies stale —
+two of them stale since August (the `modules/local/` list named two retired `survivor_*` modules and
+lacked four SV modules; nobody had compared it with the tree). Three rules follow:
+
+1. **A list that copies the tree is a table the drift script parses, or a pointer to one** — never a
+   second prose copy. The three ADDED tables in `SAREK_MODIFICATIONS.md` are the inventory; the rebase
+   runbook and this file point at them. `bin/check_doc_drift.sh` compares each table with the tree
+   both ways (undocumented path, phantom row) and checks the counts in the headings and Summary, the
+   `TESTMAP` against `tests/`, and `docs/README.md` against `docs/usage/` + `docs/dev-practices/`.
+2. **A measured count lives in one dated place** — its CHANGELOG entry — and other docs point there.
+   The gate cannot derive "18 tasks"; fewer copies is the only fix.
+3. **The doc set of a commit is derived from the *type* of change, not from the plan's doc column.**
+   The checklist is the `commit-review` skill (`.claude/skills/commit-review/SKILL.md`): a new
+   module / config / task script / test, a snapshot name delta, a changed count, new user-facing
+   behaviour — each names the docs that must move and how to check them. Its mechanical half is the
+   drift script; the gate runs it, so the skill can be skipped but its script cannot.
 
 ## 13. Benchmark claims — provenance, evidence labels, script-before-numbers
 

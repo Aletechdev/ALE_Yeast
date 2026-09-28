@@ -86,6 +86,17 @@ needs in-session are repeated here.
   `workflows/` or `subworkflows/` — the `--qc_only` starvation gate has no other symptom when broken. Learned 2026-09-02: the SOR_FS commit (`4c45fb8`) was "validated" by launcher + pilot
   only and left the snapshot stale for two days. Loop and rationale:
   [`testing_best_practices.md` §12](docs/dev-practices/testing_best_practices.md#12-what-counts-as-validated--the-contract-test-rule).
+- **What counts as reviewed (before any commit).** Run the `commit-review` skill
+  ([`.claude/skills/commit-review/SKILL.md`](.claude/skills/commit-review/SKILL.md)): the docs a commit
+  must move are derived from *what is staged* — a new module / config / task script / test, a snapshot
+  name delta, a changed count, new user-facing behaviour — never from a plan's doc list. Its mechanical
+  half, [`bin/check_doc_drift.sh`](bin/check_doc_drift.sh), runs inside the commit gate on every commit:
+  the three ADDED inventories in `SAREK_MODIFICATIONS.md`, the gate's test map and the docs index must
+  equal the tree. The gate also demands an `output_comparison.md` §2.10 row (or a `Baseline diff:`
+  trailer) when the staged snapshot adds or removes output names. Learned 2026-09-28: the
+  reference-preflight commit updated every doc its plan named and left five derived copies stale, two
+  of them since August.
+  [`testing_best_practices.md` §12 → Docs that copy the tree](docs/dev-practices/testing_best_practices.md#12-what-counts-as-validated--the-contract-test-rule).
 - **What counts as validated for a *number*** (benchmark tables, concordance rates, the figures that
   end up quoted as fact): commit the analysis script **before** publishing results from it, have every
   published number name the script and run directory that produced it, and label a claim by its

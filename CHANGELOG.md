@@ -32,6 +32,17 @@
   path unchanged (e2e snapshot unchanged). Launch-form group *QC-first run*; `tests/preflight.nf.test`
   gains three cases (8 in total).
 
+- **Commit gate: doc-drift check, snapshot name-delta rule, derived task scripts; `commit-review`
+  skill** (dev tooling, 2026-09-28). `bin/check_doc_drift.sh` runs on every commit and blocks when a
+  doc that copies the tree disagrees with it: the three ADDED inventories in `SAREK_MODIFICATIONS.md`
+  (now one-row-per-path tables; the module list had been stale since the SURVIVOR retirement), the
+  gate's unit-test map (every process / workflow test must be mapped — `manta_experiment_grouping`
+  was not) and the docs index. The gate also demands a dated `output_comparison.md` §2.10 row (or a
+  `Baseline diff:` trailer) when the staged e2e snapshot adds or removes output names, and derives
+  "task script" from what `modules/**/main.nf` calls instead of `bin/*.py`, which had let the first
+  `.sh` task script through with no trailer. `.claude/skills/commit-review/SKILL.md` is the judgement
+  half: the docs a commit must move, derived from what is staged. `testing_best_practices.md` §12.
+
 - **Reference preflight task** (`PREFLIGHT_REFERENCE`; `docs/usage/preflight_checks.md` → *Reference
   files*). The first task of every run — at every `--step`, and in a QC-only run — reads the reference
   files themselves (so cloud paths are staged) and checks that the `--report_gff3` contig names are the
