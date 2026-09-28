@@ -892,6 +892,18 @@ az batch pool list --query "[?contains(id,'<ce-id>')].[id,currentDedicatedNodes]
 
 ---
 
+**Second occurrence, 2026-09-28, run `464Scp5QNoznbD`** (the QC-first pair's Resume). The Tower client
+logged HTTP retries at 18:51–18:52 (`HTTP/1.1 header parser received no bytes`); Platform showed
+`UNKNOWN` from 19:00 while the workflow kept completing tasks and publishing files; the head log ends
+`Pipeline completed successfully` at 19:07:37 (136 succeeded, 17 cached, 0 failed) and then stops
+after `saving trace file` — the head process hung posting its terminal status, Batch task still
+`running` an hour later. Outputs verified identical to the local e2e of the same commit (RUNBOOK
+2026-09-28). Two additions to the playbook: `16_watch_run.sh` treats `UNKNOWN` as a grace period
+and prints the two authoritative commands; and **`az batch task file download` refuses an existing
+destination** (`ERROR: File … already exists`, exit 2 — measured; a poll loop that discards stderr
+never sees it), so delete the file before re-downloading, or the "fresh" log is the old one
+(13 minutes stale during this incident, which is how a completed workflow looked still busy).
+
 ## 16. Corrections — claims that were believed, then disproved
 
 **Read this before re-deriving anything.** Each line is a conclusion that was written down as fact and
@@ -917,3 +929,39 @@ is in [`RUNBOOK.md`](../../deploy/azure/seqera-sp/RUNBOOK.md).
 inspected, the result was correct *about that surface*, and the conclusion was then stated about the
 whole tool. When writing "X cannot do Y", name the surface actually checked. Three more (rows 4, 8, 10)
 are plain assumptions written in the voice of findings — if it was not run, say so.
+
+---
+
+## 17. The QC-first pair on Platform — launch, resume, watch, download (2026-09-28)
+
+Scripted so that a run is reproducible and recorded, not typed into a form (all in
+`deploy/azure/seqera-sp/`): `15_launch_run.sh` launches the Launchpad entry with parameter overrides
+or resumes a finished run (`--resume <run id>` = Platform's *Resume*: same session, work dir, CE,
+profiles and commit; params replaced), `16_watch_run.sh` prints status transitions until the run ends
+and then its task stats, `17_download_outdir.sh` fetches an outdir for a local comparison. Facts
+established on the first pair (runs `5m9NorL3JmkHFq` → `464Scp5QNoznbD`, RUNBOOK 2026-09-28):
+
+- **`tw launch --params-file` replaces the entry's params box; it does not merge.** The script
+  therefore always sends the committed box plus the overrides. A relaunch pins the original run's
+  commit (`-r <sha>` on its command line) even though the entry tracks `main`.
+- **Cold start is the head pool.** Both pools' autoscale formulas evaluate every 5 minutes and halve
+  the node count whenever nothing is pending; the head pool (D2s_v3, max 1 node) is deallocated within
+  ~5 min of a run ending, the worker pool (E4ds_v4, max 4) within ~15. Run 1 waited 10.5 min for a
+  head node; run 2, submitted a minute after run 1 ended, was running 2 min later. The head node has
+  **two task slots** (`taskSlotsPerNode = 2`), so two head jobs run side by side — run 3 started while
+  run 2 was still running — and a QC-only run launched ~15 min ahead keeps both pools warm for a
+  launch that must start fast (a demo); a third head job would queue.
+- **The Outputs tab lists only files matching `tower.yml`**, and a QC-only run publishes none of the
+  dashboard entry points; its report has its own pattern since `702a4c0` (verified through
+  `GET /workflow/<id>/reports`: one entry on run `1DtqOzNj59CITv`, none on run 1).
+- **The process list is the whole DAG** — 115 processes for a QC-only and a full run alike, 15 vs 61
+  with tasks; the Tasks tab is what ran.
+- **The az CLI user login expires under the tenant's 14-day sign-in policy** (it did mid-comparison);
+  `17_download_outdir.sh` reads with the pipeline's own service principal through azcopy — client and
+  tenant id from the workspace's Azure credential record via the Platform API, secret from
+  `~/.config/ale-seqera/sp.env` — and touches no CLI login state. Downloads drop the
+  `.azure_blob_dir` marker blobs (85 of the baseline's 569).
+- **Resume equals a one-shot run on Platform, measured:** 17/153 tasks cached (all of run 1 but
+  MultiQC), the local e2e's task list, and deliverables identical to the local e2e output of the same
+  commit (530 names, 145 md5, 42/42 VCFs). Against the 2026-09-08 baseline every name difference is a
+  dated `output_comparison.md` §2.10 row plus run 1's own QC-only report folder.

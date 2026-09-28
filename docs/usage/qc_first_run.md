@@ -43,8 +43,50 @@ prints, not a bare `-resume`: a bare `-resume` resumes whatever ran last in that
 (`azure_batch_execution.md` → `-resume` hazards). If `qc_only` came from a params file or config
 rather than the command line, the message says so — set it to `false` there.
 
-On **Seqera Platform**: open the finished run → *Resume* → clear `qc_only` → launch. Same compute
-environment and work directory; the resumed run reuses the QC tasks.
+### On Seqera Platform
+
+Run 1 from the Launchpad entry: in the launch form tick `qc_only` (group *QC-first run*) and give
+`outdir` a folder you intend to keep — or from a shell, which records exactly what was sent:
+
+```bash
+deploy/azure/seqera-sp/15_launch_run.sh --name yAMP-qc-first-run1-<date> \
+    --set outdir=az://aletest/seqera-runs/<folder> --set qc_only=true
+deploy/azure/seqera-sp/16_watch_run.sh <run id>        # one line per status change, then task stats
+```
+
+Run 2 is Platform's *Resume* on the **succeeded** run 1 with `qc_only` cleared — open the run →
+*Resume* → untick `qc_only` → launch — or:
+
+```bash
+deploy/azure/seqera-sp/15_launch_run.sh --resume <run-1 id> --name yAMP-qc-first-run2-<date> \
+    --set outdir=az://aletest/seqera-runs/<the same folder>
+```
+
+Resume keeps run 1's session, work directory, compute environment, profiles and **commit** (it pins
+the hash run 1 ran, even if `main` has moved since) and replaces only the parameters. The script sends
+the committed params box plus your overrides, so leaving `qc_only` out clears it; `outdir` must be
+run 1's. Measured 2026-09-28 on the test set (runs `5m9NorL3JmkHFq` → `464Scp5QNoznbD`;
+`deploy/azure/seqera-sp/RUNBOOK.md`):
+
+- **Run 1:** 18 tasks, the 15 read-QC and reference-preparation processes, 12 min wall time — of which
+  about 10 min is the head pool starting from zero. Both pools scale back to zero after a run
+  (5-minute evaluation, halving; the head pool is gone within ~5 min of idle), so launch run 2 within
+  those five minutes and it starts in ~2 min instead of ~10. The head node runs two head jobs at
+  once, so a QC-only run launched ~15 min ahead keeps the pools warm for a launch that must start fast.
+- **Run 2:** 17 of 153 tasks CACHED (every run-1 task but MultiQC, which must re-run: its inputs grow
+  with every alignment and calling stat), the task list of a one-shot run, deliverables identical to
+  the local e2e output of the same commit (530 names equal, 145 snapshot files md5-identical, 42/42
+  VCFs record-identical — `tests/qc_gate.sh` part (b) applied to the downloaded outdir).
+- **The QC-only MultiQC report survives run 2** under its own file name, so it can be read while run 2
+  runs — from run 1's page, whose *Outputs* tab lists it (since `702a4c0`; before that the tab of a
+  QC-only run was empty, none of the dashboard patterns matching read-QC files). A full run's tab
+  shows the seven dashboard entries.
+- **The run page lists all 115 processes for both runs** — the workflow map is registered whole; 15
+  carry tasks in run 1 (61 in a full run; the rest are sarek branches this recipe never uses). The
+  *Tasks* tab is the record of what ran.
+- **Platform's status is not the outcome.** Run 2 was shown as UNKNOWN from 19:00 while it kept
+  completing tasks and finished cleanly at 19:07; the watch script says what to check instead
+  ([`azure_batch_execution.md` §15](../dev-practices/azure_batch_execution.md)).
 
 ## What to look at before signing off
 

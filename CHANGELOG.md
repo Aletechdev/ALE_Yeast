@@ -30,7 +30,13 @@
   VCFs record-identical). The commit gate now
   requires `Gate test: qc_gate (a) green` for changes under `workflows/` or `subworkflows/`. Default
   path unchanged (e2e snapshot unchanged). Launch-form group *QC-first run*; `tests/preflight.nf.test`
-  gains three cases (8 in total).
+  gains three cases (8 in total). **Verified on Seqera Platform 2026-09-28** (runs `5m9NorL3JmkHFq` →
+  `464Scp5QNoznbD`, `deploy/azure/seqera-sp/RUNBOOK.md`): run 1 18 tasks / 15 processes; the Resume
+  17/153 cached with deliverables identical to the local e2e of the same commit. Scripted:
+  `deploy/azure/seqera-sp/15_launch_run.sh` (launch, or `--resume` = Platform's Resume, with `--set`
+  overrides on the committed params box), `16_watch_run.sh` (status until the run ends; UNKNOWN is a
+  grace period, not an outcome) and `17_download_outdir.sh` (outdir download with the pipeline's SP).
+  `tower.yml` lists the QC-only MultiQC report on the Outputs tab (`702a4c0`).
 
 - **Commit gate: doc-drift check, snapshot name-delta rule, derived task scripts; `commit-review`
   skill** (dev tooling, 2026-09-28). `bin/check_doc_drift.sh` runs on every commit and blocks when a

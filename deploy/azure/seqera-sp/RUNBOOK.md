@@ -1350,3 +1350,51 @@ habit only — the Platform launch form auto-names runs): **SUCCEEDED 150/150, 0
 `az://aletest/seqera-runs/yAMP-out-test-outdirhdr-20260911`; Outputs tab unchanged at 14 entries,
 0 txt. Local e2e (779 s, snapshot unchanged) had already shown the absolute-path form.
 
+### 2026-09-28 — ✅ QC-first pair on Platform (runs `5m9NorL3JmkHFq` → `464Scp5QNoznbD`): first cloud `PREFLIGHT_REFERENCE` and MultiQC 1.35; Outputs entry for the QC-only report (run `1DtqOzNj59CITv`)
+
+Entry `166797736834160` unchanged: `--generate` produced an identical box and the live readback
+equalled it, so no re-registration — the id survives. Commit `e761f66`, engine 25.10.4, CE
+`yAMP-ce-nofusion-256`.
+
+**Run 1, QC-only** — `15_launch_run.sh --set outdir=az://aletest/seqera-runs/yAMP-qc-first-20260928
+--set qc_only=true` (params = the box + the two overrides; `tw launch --params-file` replaces the
+box). Submitted 18:14:22Z, RUNNING 18:24:53 (head-pool cold start 10.5 min), SUCCEEDED 18:35:59;
+12.2 min wall, est. $0.05. Downloaded and checked against `tests/qc_gate.sh` part (a): 18 tasks,
+exactly the 15 allow-listed processes, `multiqc/yAMP-QC-only-run_multiqc_report.html`, preflight row
+OK with the 13-contig note, 4 post-trim FastQC zips, 187 files.
+
+**Run 2, Resume** — `15_launch_run.sh --resume 5m9NorL3JmkHFq --set outdir=<the same>` =
+`tw runs relaunch` (session `834a93c6…` kept, commit pinned `-r e761f66…`, profiles kept, params
+replaced by the box + outdir, no `qc_only`). Submitted 18:36:59, RUNNING 18:39:00 (warm head node,
+2 min). Head-job log: `Pipeline completed successfully` at 19:07:37 — 136 succeeded, **17 cached**,
+0 failed = 153 tasks. Part (b) of the gate applied to the downloaded outdir against the local e2e
+output of the same commit: (b1) every run-1 task except MULTIQC CACHED; (b2) task list == the local
+e2e's 153; (b3) `qc_gate_compare.py`: 530 names equal, 145 snapshot files md5-identical, 42/42 VCFs
+record-identical. **Cloud reproduces local; the QC-first pair equals a one-shot run on Platform.**
+Names vs the 2026-09-08 baseline: 270 only in run 2 = the 157 files of run 1's QC-only MultiQC folder
++ the 113 dated in `output_comparison.md` §2.10 (rows 09-09, 09-23, 09-24, 09-28 — the first three
+added today from the same comparison); 60 only in the baseline, all dated. Est. $0.14.
+
+**Platform lost run 2 (`azure_batch_execution.md` §15, second occurrence).** Tower-client HTTP
+retries at 18:51–18:52, status UNKNOWN from 19:00 while the workflow kept completing tasks and
+publishing; after the trace was saved at 19:07:40 the head job hung — stuck posting the terminal
+status (log ends there, Batch task `running` afterwards). Decided from the head log + outdir, never
+the status. `16_watch_run.sh` now treats UNKNOWN as a grace period with the two authoritative
+commands. Trap recorded in §15: `az batch task file download` refuses an existing destination
+(`ERROR: File … already exists`, exit 2) — a poll loop that discards stderr reads a stale log. Disposition: still `running` at 19:32Z, 25 min after completion, Platform still UNKNOWN → stopped on Batch at 19:34:00Z (`az batch task stop` — this CLI has no `terminate`; Batch reports state `completed`, exit code 137, result `failure`, ended 19:33:59Z) so the head node can drain; Platform keeps **UNKNOWN**, the honest record for a verified-successful run (`tw runs cancel` would have stamped CANCELLED, §15).
+
+**Outputs tab.** Run 1's was empty: every `tower.yml` pattern names a full-run deliverable and the
+QC-only report has its own file name. `702a4c0` adds the pattern (label `6b.`); verified on run 3
+`1DtqOzNj59CITv` — QC-only on `702a4c0`, launched while run 2 ran (the head node has **2 task
+slots**, so two head jobs run side by side), SUCCEEDED 19:02:50, 8.5 min on warm pools, $0.04, part
+(a) contract passes again: `GET /workflow/<id>/reports` → 1 entry (`6b. …`), run 1 → 0.
+
+**Pool facts read from Batch:** autoscale evaluates every 5 min and halves the count when idle → head
+pool (D2s_v3, max 1 node, 2 slots) gone within ~5 min of idle, worker (E4ds_v4, max 4) within ~15;
+a QC-only run launched ~15 min ahead pre-warms both for a demo. Platform lists 115 processes for a
+QC-only and a full run alike (the registered DAG); 15 vs 61 carry tasks.
+
+**New scripts, validated by use:** `15_launch_run.sh` (runs 2 and 3), `16_watch_run.sh` (runs 2
+and 3, incl. the UNKNOWN branch on run 2), `17_download_outdir.sh` (every download today — the az
+CLI user login had expired under the 14-day policy mid-session; the script reads with the pipeline's
+SP via azcopy and touches no CLI login state).
