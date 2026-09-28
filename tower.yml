@@ -14,6 +14,13 @@
 # full-depth run are 14–40 MB, so the tab is a quick look; the downloaded folder is the delivery
 # route. The index's relative links DO resolve inside the tab's preview (verified 2026-09-11).
 reports:
+  # The QC-first run (--qc_only, docs/usage/qc_first_run.md) publishes read QC only, and its MultiQC
+  # report carries a distinct title and file name so the resumed full run does not overwrite it —
+  # so none of the entries below match anything a QC-only run publishes. Without this pattern its
+  # Outputs tab is empty (observed 2026-09-28, run 5m9NorL3JmkHFq). "6b." keeps it beside the
+  # full run's MultiQC entry should the tab ever list both reports, so "1. Start here" stays first.
+  "**/multiqc/yAMP-QC-only-run_multiqc_report.html":
+    display: "6b. QC-only run — MultiQC report (read QC + reference preflight); Resume the run to continue"
   "**/mutation_reports/index.html":
     display: "1. Start here — mutation report index"
   "**/mutation_reports/cohort_report.html":
