@@ -1,0 +1,7 @@
+##gff-version 3
+##sequence-region chrA 1 60
+##sequence-region chrB 1 40
+chrA	test	gene	5	20	.	+	.	ID=gene:G1;Name=G1
+chrA	test	mRNA	5	20	.	+	.	ID=transcript:T1;Parent=gene:G1
+chrA	test	CDS	5	20	.	+	0	ID=CDS:T1;Parent=transcript:T1
+chrC	test	gene	1	50	.	+	.	ID=gene:G3;Name=G3

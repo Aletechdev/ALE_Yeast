@@ -29,10 +29,10 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 |----------|-------|-----------------------------------|
 | Root files | — | `main.nf`, `nextflow.config`, `nextflow_schema.json` |
 | Core workflow | — | `workflows/sarek/main.nf` ⚠️ heaviest |
-| `subworkflows/local/` | 4 | 9 |
-| `modules/local/` | 16 | 0 |
+| `subworkflows/local/` | 5 | 9 |
+| `modules/local/` | 19 | 0 |
 | `modules/nf-core/` | 5 (installed) | **3 patched** ⚠️ |
-| `conf/` | 8 | 7 |
+| `conf/` | 18 | 7 |
 
 ---
 
@@ -59,14 +59,20 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   DAG is identical to a full run, and the follow-up `-resume` is exact. It holds only while no process
   downstream of alignment can fire on EMPTY input — a `toList()`, an `ifEmpty(...)`, a `Channel.value`
   / `Channel.of`, or a plain-file input as a process's *only* inputs would make that process run in a
-  QC-only run, silently. Reference preparation and `PREPARE_GFF3` do exactly that and are on the
-  allow-list on purpose. **After any change or rebase that adds such an operator downstream of
+  QC-only run, silently. Reference preparation, `PREPARE_GFF3` and `PREFLIGHT_REFERENCE` do exactly that
+  and are on the allow-list on purpose. **After any change or rebase that adds such an operator downstream of
   alignment, run `tests/qc_gate.sh a`** (minutes; the commit gate demands its trailer for `workflows/`
   and `subworkflows/` changes) — either gate the new process on `params.qc_only` or, if it is harmless
   reference prep, add it to `ALLOW` in the script. Side finding recorded here, not fixed: the breseq
   input test checks the deprecated `trim_fastq`, so with today's defaults (`trim_adapter`) breseq
   receives the **untrimmed** reads despite its comment (`reads_for_breseq`); breseq is held pending the
   AMP-v1 merger decision.
+  **Task-level reference preflight** (2026-09-28, `docs/usage/preflight_checks.md`): right after the
+  channel initialisation, `PREFLIGHT_REFERENCE(fasta.map{ meta, f -> f }, report_gff3-or-[])`,
+  unconditional (every `--step`; in a QC-only run too — on the allow-list), its `mqc` table mixed into
+  `reports`, its versions into `versions`. Nothing else consumes it, so no other task hash moved when it
+  was added. Module `modules/local/preflight_reference` runs `bin/preflight_reference.sh`; its config
+  block `conf/modules/preflight.config` sets `errorStrategy 'terminate'` and `debug`.
 - **`assets/multiqc_config.yml`** — `module_order` has two `fastqc` entries with distinct `anchor`s
   (`fastqc_raw` with `path_filters_exclude`, `fastqc_trimmed` with `path_filters` on
   `*_trimmed*_fastqc.zip`) around fastp, and `extra_fn_clean_exts` strips `_trimmed` (2026-09-23;
@@ -130,12 +136,35 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 | `bam_variant_calling_somatic_mutect2` | FilterMutectCalls placeholder-channel fix (runs without germline resource/PoN). |
 | `annotation_cache_initialisation` | Skip `exists()/isDirectory()` for `az|s3|gs://` cache paths (blob prefixes are not directories). ⚠️ **File deleted upstream in 3.9.0** (#2194), replaced by nf-core `utils_annotation_cache`, which also applies the `<db>/<db>/` key to every cloud URL — our flat `az://` cache dirs fail under it. Port as a subworkflow patch, or make it moot with a tarball cache: `ale_sarek_upgrade_runbook.md` → *Known Rebase Hazards: SnpEff cache*. |
 
-## `modules/local/` — ADDED (16, additive)
+## `modules/local/` — ADDED (19, additive)
 
-Report/analysis modules (all consumed by `mutation_report`): `build_cn_matrix`, `build_cn_cohort`,
-`build_sv_matrix`, `cnr_to_bedgraph`, `filter_pass_vcf`, `generate_index`, `igvreports_cohort`,
-`igvreports_sample`, `igvreports_sv_cnv`, `prepare_gff3`, `prepare_vcf`, `publish_vcfs`,
-`survivor_cohort_merge`, `survivor_sv_merge`. Legacy/other: `breseq`, `gdtools`.
+One row per directory. `bin/check_doc_drift.sh` (run by the commit gate) keeps this table, the two
+other ADDED tables and the counts in their headings and in the Summary equal to the tree — the rebase
+runbook points here instead of carrying a copy (corrected 2026-09-28: the list still named the two
+`survivor_*` modules retired at `cf24115` and lacked the four SV modules added in August). Upstream's
+own `modules/local/` (`add_info_to_vcf`, `create_intervals_bed`, `samtools`) is untouched.
+
+| Module | Role |
+|--------|------|
+| `build_cn_matrix` | Per-sample CN matrices from CNVKit output (`bin/build_cn_matrix.py`). Mutation report. |
+| `build_cn_cohort` | Collapsed cohort CN matrix from the bin-level CN (`bin/cn_cohort_matrix.py`). Mutation report. |
+| `build_contig_cn` | Contig-level copy number from TIDDIT's per-contig coverage (`bin/contig_copy_number.py`) — the one place Mito is quantified. |
+| `build_sv_matrix` | SV cohort matrix from the SVDB cross-caller cohort VCF (`bin/sv_cohort_matrix.py`). |
+| `check_sv_sample_order` | Guard for `SVDB_MERGE --same_order`: svdb never checks sample-column names and would assign genotypes by position, silently. |
+| `cnr_to_bedgraph` | CNVKit `.cnr` → BedGraph coverage tracks for igv-reports. |
+| `collapse_sv_pairs` | SV breakend pairs → one record per junction, on every caller's VCF before any SVDB merge (`bin/collapse_sv_pairs.py`). |
+| `filter_pass_vcf` | PASS-only VCF plus a stats TSV for the report. |
+| `generate_index` | The dashboard `index.html` (Jinja2; pandas + jinja2 image — `docs/igvreports/`). |
+| `igvreports_cohort` | Cohort igv-reports HTML (custom Tabulator template; the gene track is its only track). |
+| `igvreports_sample` | Per-sample igv-reports HTML with CRAM pileup and gene track. |
+| `igvreports_sv_cnv` | Per-sample SV/CNV igv-reports HTML (CNVKit BedGraph tracks, Manta, TIDDIT). |
+| `prepare_gff3` | Sort, bgzip and tabix the `report_gff3` gene track. |
+| `prepare_vcf` | VCF pre-processing for igv-reports (multi-allelic split, …). |
+| `publish_vcfs` | The report's download VCFs, renamed for users (annotated when an annotator ran, else raw). |
+| `tiddit_sv_filter` | Manta-inspired soft filters for TIDDIT's PASS view (2026-08-31). |
+| `preflight_reference` | Task-level reference preflight (2026-09-28): `bin/preflight_reference.sh` in the gawk container; one check today, FASTA vs `report_gff3` contig names (`docs/usage/preflight_checks.md`). |
+| `breseq` | breseq (`breseq/`, `breseq/summary_mqc/`) — Tier-2, AMP-v1 legacy, not released. |
+| `gdtools` | breseq's gdtools (`gdtools/convert/`) — legacy, with `breseq`. |
 
 ---
 
@@ -170,21 +199,36 @@ Upstream-managed modules (clean installs, low rebase cost).
 
 ---
 
-## `conf/` — ADDED (8)
+## `conf/` — ADDED (18)
 
-- **Manta overrides:** `modules/manta_ale.config` — `--exome` when `manta_high_sensitivity` (or `wes`); keeps
-  upstream `manta.config` 0-diff. Pairs with `assets/manta_high_sensitivity.ini`.
-- **Split rules:** `modules/split_joint_vcf.config` — per-caller (HC, Manta) rules for `SPLIT_JOINT_VCF`,
-  keyed on `meta.variantcaller`; moved out of `joint_germline.config` so that upstream file only
-  carries the VARIANTFILTRATION_FALLBACK change.
-- **Report/filter:** `modules/mutation_report.config`, `modules/custom_haplotypecaller_joint_filter.config`,
-  `modules/breseq.config`. (`custom_freebayes_filter.config` / `custom_mutect2_filter.config` removed
-  2026-09-09 with their subworkflows — `docs/archive/tier2/README.md`.)
-- **Profiles/params:** `test/ottilie_test.config` (the ALE test dataset + tool set),
-  `seqera_azure.config`. (The two legacy Seqera presets are gone — `params_seqera_test.yml`, the CEN.PK
-  preset, removed 2026-09-09; `params_seqera_381.yml`, the upstream-sarek-3.8.1 comparison preset,
-  removed 2026-09-11, last at `63eacf9` — the generated Launchpad box in `deploy/azure/seqera-sp/` is
-  the live preset and `docs/usage/params_template.yml` the user-facing one.)
+One row per file (`*.config` and `*.yml`, path relative to `conf/`), kept equal to the tree by
+`bin/check_doc_drift.sh` like the other two ADDED tables.
+
+| File | Role |
+|------|------|
+| `modules/manta_ale.config` | Manta overrides: `--exome` when `manta_high_sensitivity` (or `wes`); keeps upstream `manta.config` 0-diff. Pairs with `assets/manta_high_sensitivity.ini`. |
+| `modules/split_joint_vcf.config` | Per-caller (HC, Manta) rules for `SPLIT_JOINT_VCF`, keyed on `meta.variantcaller`; moved out of `joint_germline.config` so that upstream file only carries the VARIANTFILTRATION_FALLBACK change. |
+| `modules/preflight.config` | `PREFLIGHT_REFERENCE` (2026-09-28, included from `nextflow.config`): `errorStrategy 'terminate'` (the base strategy is `finish`; the script exits 65, outside the retry range), `debug` so its verdict lines reach the console, publish to `reports/preflight/`. |
+| `modules/mutation_report.config` | Process settings of the `mutation_report` subworkflow. |
+| `modules/custom_haplotypecaller_joint_filter.config` | The opt-in hard filter of the per-sample VCFs from joint calling (`vcf_filter_haplotypecaller_joint`; off in every ALE recipe since 2026-09-08). |
+| `modules/breseq.config` | breseq (Tier-2). `custom_freebayes_filter.config` / `custom_mutect2_filter.config` were removed 2026-09-09 with their subworkflows — `docs/archive/tier2/README.md`. |
+| `test/ottilie_common.config` | The shared ottilie calling recipe, included by every ottilie profile. |
+| `test/ottilie_test.config` | The release contract test: 2 samples, 4 chromosomes, local `data/ottilie/`. |
+| `test/ottilie_test_az.config` | The same test with every input on the private blob (`az://`), for Azure Batch / Seqera. |
+| `test/ottilie_test_ci.config` | The same test streamed from the public blob over https (no credentials). |
+| `test/ottilie_pilot_az.config` | The full-depth 4-sample pilot — a benchmark profile, not a contract test. |
+| `azured4as.config` | The dev-VM resource profile (`-profile azureD4as`, 4 vCPU / 16 GB). |
+| `mymachine.config` | Template resource config for any other machine (copy, edit the two numbers, pass with `-c`). |
+| `azure_batch.config` | Azure Batch executor with a local head job (`-c`, deliberately not a profile). |
+| `disk_probe.config` | Opt-in diagnostic: logs each Batch node's disk usage at the start of every task. |
+| `seqera_azure.config` | Seqera Platform supplement to `base.config` for Azure Batch. |
+| `schema_overlay.yml` | The ALE overlay that `bin/apply_schema_overlay.py` applies to the upstream schema (groups, launch-form order). |
+| `params_ottilie_test_blob.yml` | Params file for the blob-hosted test run with `azure_batch.config`. |
+
+The two legacy Seqera presets are gone — `params_seqera_test.yml`, the CEN.PK preset, removed
+2026-09-09; `params_seqera_381.yml`, the upstream-sarek-3.8.1 comparison preset, removed 2026-09-11,
+last at `63eacf9` — the generated Launchpad box in `deploy/azure/seqera-sp/` is the live preset and
+`docs/usage/params_template.yml` the user-facing one.
 
 ## `conf/` — MODIFIED (7, in place)
 

@@ -296,12 +296,18 @@ experiment id (a `patient` header parses as empty, see `docs/usage/input_samples
 duplicate input files; warnings for drift from the Tier-1 recipe and for mixed ploidy / clonal flag
 within an experiment. Zero lines on the ottilie profile is a tested invariant
 (`tests/preflight.nf.test`). User page: [`docs/usage/preflight_checks.md`](docs/usage/preflight_checks.md);
-code in `subworkflows/local/utils_nfcore_sarek_pipeline/main.nf`.
+code in `subworkflows/local/utils_nfcore_sarek_pipeline/main.nf`. Since 2026-09-28 a **task-level**
+check, `PREFLIGHT_REFERENCE` (`bin/preflight_reference.sh` in the gawk container; `conf/modules/preflight.config`
+terminates the run on error), reads the reference files themselves before alignment: FASTA vs
+`report_gff3` contig names — error when none is shared; GFF3 contigs the FASTA lacks are noted in the
+OK row, not warned about (the test set is a chromosome subset of a fully annotated genome).
+Verdicts in a MultiQC table + `reports/preflight/`; a console line only on ERROR, so the
+zero-lines rule holds (`tests/preflight_reference.nf.test`, 4 cases). One check by decision; the others are roadmap rows.
 
 ### QC-first run (`--qc_only`)
 
 Since 2026-09-24: run 1 = the normal command + `--qc_only` stops after read QC (preflight, FastQC raw,
-fastp, FastQC on the fastp output, MultiQC, plus reference prep — 17 tasks / ~5 min on the test set),
+fastp, FastQC on the fastp output, MultiQC, plus reference prep and the reference preflight task — 18 tasks / ~5 min on the test set),
 exits 0 and prints the follow-up; run 2 = the same command without the flag + `-resume <session id>`
 (every QC task cached; Platform: *Resume* with `qc_only` cleared). The QC-only MultiQC report is
 titled so it lands as `multiqc/yAMP-QC-only-run_multiqc_report.html` beside the final one. Errors:

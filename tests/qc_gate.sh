@@ -35,8 +35,9 @@ launch=( nextflow run "$here/main.nf" -profile "$profile" -c "$here/tests/ottili
          --outdir "$outdir" -w "$workdir" -ansi-log false )
 
 # The allow-list: every process a QC-only run of the ottilie profile may execute. Read QC (raw FastQC,
-# fastp, FastQC on its output, MultiQC) plus reference preparation and the GFF3 index, which take plain
-# file inputs and are deliberately ungated (seconds, cached, and run 2 needs them anyway).
+# fastp, FastQC on its output, MultiQC) plus reference preparation, the GFF3 index and the reference
+# preflight task, which take plain file inputs and are deliberately ungated (seconds, cached, and run 2
+# needs them anyway — the preflight is the point of run 1).
 # With split_fastq > 0 (not the ottilie profile) FASTQC_TRIMMED_QC:CAT_FASTQ_TRIMMED joins the list.
 ALLOW=(
   NFCORE_SAREK:PREPARE_GENOME:BWAMEM1_INDEX
@@ -53,6 +54,7 @@ ALLOW=(
   NFCORE_SAREK:SAREK:FASTQC_TRIMMED_QC:FASTQC_TRIMMED
   NFCORE_SAREK:SAREK:MULTIQC
   NFCORE_SAREK:SAREK:MUTATION_REPORT:PREPARE_GFF3
+  NFCORE_SAREK:SAREK:PREFLIGHT_REFERENCE
 )
 
 fail() { echo "qc_gate FAIL: $*" >&2; exit 1; }

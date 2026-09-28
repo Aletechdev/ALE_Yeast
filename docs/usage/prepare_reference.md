@@ -9,7 +9,7 @@ prerequisite for both. Everything here is what the Ottilie/S288C test data itsel
 |---|---|---|
 | `--fasta` | yes | Reference FASTA. `.fai`, `.dict` and the bwa-mem2 index are built in-run (seconds on yeast). |
 | `--snpeff_cache` + `--snpeff_db` | yes when `snpeff` is in `--tools` (the Tier-1 recipe) | A SnpEff database **directory**: `<snpeff_cache>/<snpeff_db>/snpEffectPredictor.bin` plus `sequence*.bin` and `snpEff.config`; `--snpeff_db` is that directory's name. There is **no default** — omitting it fails at launch with `Please specify --snpeff_cache …`. |
-| `--report_gff3` | optional | GFF3 for the gene track in the igv-reports dashboard. Without it the reports have no gene track. |
+| `--report_gff3` | optional | GFF3 for the gene track in the igv-reports dashboard. Without it the reports have no gene track. Its contig names must be the FASTA's — checked by the first task of every run ([`preflight_checks.md`](preflight_checks.md) → *Reference files*). |
 | `--genbank` | Tier-2 only | breseq input (not part of the Tier-1 recipe). |
 | `--chr_dir` | Tier-2 only | Per-chromosome FASTAs for Control-FREEC. |
 
@@ -25,6 +25,9 @@ Rules that apply to the SnpEff cache whichever way you build it:
 - **Chromosome names** in the annotation must equal the FASTA headers. On a mismatch snpEff builds
   happily and then annotates *nothing*, with no error (nf-core/sarek #415). `build_snpeff_cache.sh`
   checks this; `process_genbank_auto.sh` derives both from the same GenBank so they agree by construction.
+  The pipeline checks the `--report_gff3` file against the FASTA at the start of every run
+  (`PREFLIGHT_REFERENCE`: error when no contig name is shared; GFF3 contigs the FASTA lacks are only
+  noted — [`preflight_checks.md`](preflight_checks.md)); the cache itself is **not** checked at start-up.
 - **Runtime files only are needed**: `snpEffectPredictor.bin`, `sequence*.bin`, `snpEff.config` (~6 MB
   for yeast). `genes.gff` and `sequences.fa` are build inputs and may be left out of what you ship.
 - **Running from cloud storage** (Seqera, AWS Batch, HPC): upload the directory to your own bucket and

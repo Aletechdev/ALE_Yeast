@@ -1,0 +1,115 @@
+nextflow_process {
+
+    name "PREFLIGHT_REFERENCE unit"
+    script "../modules/local/preflight_reference/main.nf"
+    process "PREFLIGHT_REFERENCE"
+    tag "ottilie"
+    tag "module"
+
+    // Run with: nf-test test -c tests/nf-test-ottilie.config tests/preflight_reference.nf.test
+    //
+    // Unit test for the task-level reference preflight (bin/preflight_reference.sh, run in the gawk
+    // container by the module). Its contract: one MultiQC table row per check, a verdict line on the
+    // console only for WARN/ERROR (nothing on a clean reference — the "no [yAMP preflight] line"
+    // rule of docs/usage/preflight_checks.md), exit 65 on ERROR so the pipeline's config block
+    // (errorStrategy 'terminate') stops the run. The one check today is the FASTA-vs-GFF3 contig-name
+    // agreement — ERROR only when no name is shared; a GFF3 with contigs the FASTA lacks is OK with a
+    // note (the release test set is such a chromosome subset). Each later check adds cases here and a
+    // fixture pair.
+    //
+    // Fixtures (tests/fixtures/preflight_reference/, hand-made, see the fixtures README): ref.fa —
+    // three contigs (chrA, chrB, plasmid) with Ensembl-style header descriptions, so the first-token
+    // rule is exercised; genes.gff3 — features on chrA and chrB plus an embedded ##FASTA section
+    // (contig chrZ) that must be ignored; genes_renamed.gff3 — the same features on A and B (no
+    // shared name); genes_partial.gff3 — chrA plus chrC, which has no FASTA sequence (OK with a note).
+
+    def FX       = "\$projectDir/tests/fixtures/preflight_reference"
+    def rows     = { mqc -> path(mqc).readLines().findAll { !it.startsWith('#') } }
+    def verdicts = { lines -> lines.findAll { it.contains('[yAMP preflight]') } }
+
+    test("matching contig names, GFF3 with an embedded ##FASTA section: OK row, nothing on the console") {
+        when {
+            params { outdir = "$outputDir" }
+            process {
+                """
+                input[0] = file("$FX/ref.fa")
+                input[1] = file("$FX/genes.gff3")
+                """
+            }
+        }
+        then {
+            def table = rows(process.out.mqc[0])
+            assertAll(
+                { assert process.success },
+                { assert table[0] == 'Check\tstatus\tdetail' },
+                { assert table.size() == 2 },
+                { assert table[1] == 'FASTA vs GFF3 contig names\tOK\tall 2 contig name(s) of genes.gff3 are contigs of ref.fa (3 contigs)' },
+                { assert verdicts(process.stdout) == [] },
+                { assert path(process.out.mqc[0]).readLines().any { it.startsWith("# id: 'yamp_preflight_reference'") } },
+                { assert path(process.out.versions[0]).readLines().any { it =~ /gawk: \d+\.\d+/ } }
+            )
+        }
+    }
+
+    test("no GFF3 (--report_gff3 unset): SKIPPED row, run proceeds") {
+        when {
+            params { outdir = "$outputDir" }
+            process {
+                """
+                input[0] = file("$FX/ref.fa")
+                input[1] = []
+                """
+            }
+        }
+        then {
+            def table = rows(process.out.mqc[0])
+            assertAll(
+                { assert process.success },
+                { assert table.size() == 2 },
+                { assert table[1].startsWith('FASTA vs GFF3 contig names\tSKIPPED\t--report_gff3 not set') },
+                { assert verdicts(process.stdout) == [] }
+            )
+        }
+    }
+
+    test("renamed contigs, no shared name: ERROR on the console, exit 65, task fails") {
+        when {
+            params { outdir = "$outputDir" }
+            process {
+                """
+                input[0] = file("$FX/ref.fa")
+                input[1] = file("$FX/genes_renamed.gff3")
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert process.failed },
+                // process.exitStatus is Nextflow's own exit code (1); the task's 65 is in the error report
+                { assert process.errorReport.contains('terminated with an error exit status (65)') },
+                { assert (process.stdout + process.errorReport.readLines()).any {
+                    it.contains('[yAMP preflight] ERROR FASTA vs GFF3 contig names: none of the 2 contig name(s) in genes_renamed.gff3 (A, B) is a contig of ref.fa (chrA, chrB, plasmid)') } }
+            )
+        }
+    }
+
+    test("a GFF3 contig without FASTA sequence: OK row noting it, nothing on the console, run proceeds") {
+        when {
+            params { outdir = "$outputDir" }
+            process {
+                """
+                input[0] = file("$FX/ref.fa")
+                input[1] = file("$FX/genes_partial.gff3")
+                """
+            }
+        }
+        then {
+            def table = rows(process.out.mqc[0])
+            assertAll(
+                { assert process.success },
+                { assert table[1].startsWith('FASTA vs GFF3 contig names\tOK\t1 of 3 FASTA contig(s) annotated; 1 of 2 contig name(s) in genes_partial.gff3 have no sequence in ref.fa (chrC)') },
+                { assert verdicts(process.stdout) == [] }
+            )
+        }
+    }
+}

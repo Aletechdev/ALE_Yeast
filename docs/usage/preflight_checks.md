@@ -11,7 +11,9 @@ grep '\[yAMP preflight\]' .nextflow.log
 ```
 
 A run with **no** `[yAMP preflight]` line is on the validated Tier-1 recipe with a consistent
-samplesheet. The check runs in seconds, also under `-preview`.
+samplesheet. The check runs in seconds, also under `-preview`. A second, task-level check reads the
+reference files themselves once the run starts — see *Reference files* below; it follows the same
+rule (prints only when something is wrong) but, being a task, does not run under `-preview`.
 
 ## Errors — the run stops
 
@@ -36,5 +38,30 @@ defaults of `nextflow.config` ([`read_preprocessing.md`](read_preprocessing.md))
 copy of it, and the test suite requires the ottilie profile to produce zero warnings, which is what
 keeps the copy honest.
 
+## Reference files — checked by the first task
+
+The reference files themselves are read by one small task, `PREFLIGHT_REFERENCE`, which runs before
+alignment at every `--step` and in a QC-only run — as a task rather than at DAG build so that cloud
+paths (`az://`, `s3://`) are staged like any other input. It writes one row per check to the MultiQC
+report (section *yAMP preflight: reference*) and to
+`<outdir>/reports/preflight/preflight_reference_mqc.tsv`. On the console it prints only a failed
+verdict, with the same `[yAMP preflight]` prefix, so a clean reference still prints nothing.
+An ERROR stops the run at once (exit 65, no retry).
+
+| Check | ERROR — the run stops | OK, with a note | Skipped when |
+|---|---|---|---|
+| **FASTA vs GFF3 contig names** — the GFF3 given as `--report_gff3` is the gene track of the mutation report, so its contig names must be the FASTA's (the first token of each header). | No name is shared: the gene track would be empty and nothing else would complain. The typical cause is Ensembl-style `I` in one file and SGD/NCBI-style `chrI` in the other; rename the contigs of one file ([`prepare_reference.md`](prepare_reference.md)). | Some GFF3 contigs have no FASTA sequence: the row says which, and their features are simply not shown — the normal picture for a chromosome-subset reference such as the ottilie test set (4 chromosomes against the full-genome GFF3). FASTA contigs without annotation (cassettes, plasmids) are not reported. | `--report_gff3` is not set — the row reads SKIPPED. |
+
+An embedded `##FASTA` section in the GFF3 (SGD and GenBank-converted files carry one) is ignored.
+**Not checked here**, by decision (one check shipped, more added as real input errors turn up): a
+naming mismatch on part of the genome (`Mito` vs `chrM` with the chromosomes matching) — visible only
+as the note, not an error; the
+SnpEff cache's contig names and version — a mismatch there fails, or annotates nothing, only at the
+annotation step ([`prepare_reference.md`](prepare_reference.md) → chromosome names); a
+user-supplied `--fasta_fai` or `--dict` from another FASTA version — fails inside GATK after alignment;
+and FASTA syntax (duplicate headers, CRLF line endings) — fails in reference preparation within minutes.
+
 Where they live: `validateAleRecipe()`, `validateAleSamplesheet()` and `validateQcOnly()` in
-`subworkflows/local/utils_nfcore_sarek_pipeline/main.nf`; test `tests/preflight.nf.test`.
+`subworkflows/local/utils_nfcore_sarek_pipeline/main.nf`, test `tests/preflight.nf.test`; the reference
+task in `modules/local/preflight_reference/` runs `bin/preflight_reference.sh` (gawk), configured by
+`conf/modules/preflight.config`, test `tests/preflight_reference.nf.test`.

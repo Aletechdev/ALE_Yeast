@@ -293,7 +293,7 @@ post-filters for Mutect2/FreeBayes were removed 2026-09-09
 ├── variant_calling/          # per-caller VCFs (haplotypecaller, cnvkit, manta, tiddit)
 ├── variant_calling_filtered/ # per-sample hard-filtered HC VCFs — only with --hard_filter_haplotypecaller_joint
 ├── annotation/               # SnpEff-annotated VCFs
-├── reports/ multiqc/         # QC (fastqc, mosdepth, samtools, bcftools, snpeff) + MultiQC
+├── reports/ multiqc/         # QC (preflight, fastqc, mosdepth, samtools, bcftools, snpeff) + MultiQC
 ├── mutation_reports/         # the ALE dashboard — start at index.html
 └── pipeline_info/            # execution report, timeline, trace, software versions
 ```

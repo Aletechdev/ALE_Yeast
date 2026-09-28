@@ -1,7 +1,7 @@
 {
     "ottilie 2-sample: full ALE workflow + mutation report": {
         "content": [
-            152,
+            153,
             {
                 "BCFTOOLS_FILTER": {
                     "bcftools": 1.21
@@ -56,6 +56,9 @@
                 },
                 "MOSDEPTH": {
                     "mosdepth": "0.3.8"
+                },
+                "PREFLIGHT_REFERENCE": {
+                    "gawk": "5.3.0"
                 },
                 "SAMTOOLS_STATS": {
                     "samtools": 1.21
@@ -185,6 +188,7 @@
                 "multiqc/multiqc_data/multiqc_snpeff.txt",
                 "multiqc/multiqc_data/multiqc_software_versions.txt",
                 "multiqc/multiqc_data/multiqc_sources.txt",
+                "multiqc/multiqc_data/multiqc_yamp_preflight_reference_table.txt",
                 "multiqc/multiqc_data/picard_MarkIlluminaAdapters_histogram.txt",
                 "multiqc/multiqc_data/picard_MeanQualityByCycle_histogram.txt",
                 "multiqc/multiqc_data/picard_MeanQualityByCycle_histogram_1.txt",
@@ -273,6 +277,7 @@
                 "multiqc/multiqc_plots/pdf/snpeff_variant_effects_region-pct.pdf",
                 "multiqc/multiqc_plots/pdf/vcftools_tstv_by_count.pdf",
                 "multiqc/multiqc_plots/pdf/vcftools_tstv_by_qual.pdf",
+                "multiqc/multiqc_plots/pdf/yamp_preflight_reference_table.pdf",
                 "multiqc/multiqc_plots/png",
                 "multiqc/multiqc_plots/png/bcftools-stats-subtypes-cnt.png",
                 "multiqc/multiqc_plots/png/bcftools-stats-subtypes-pct.png",
@@ -345,6 +350,7 @@
                 "multiqc/multiqc_plots/png/snpeff_variant_effects_region-pct.png",
                 "multiqc/multiqc_plots/png/vcftools_tstv_by_count.png",
                 "multiqc/multiqc_plots/png/vcftools_tstv_by_qual.png",
+                "multiqc/multiqc_plots/png/yamp_preflight_reference_table.png",
                 "multiqc/multiqc_plots/svg",
                 "multiqc/multiqc_plots/svg/bcftools-stats-subtypes-cnt.svg",
                 "multiqc/multiqc_plots/svg/bcftools-stats-subtypes-pct.svg",
@@ -417,6 +423,7 @@
                 "multiqc/multiqc_plots/svg/snpeff_variant_effects_region-pct.svg",
                 "multiqc/multiqc_plots/svg/vcftools_tstv_by_count.svg",
                 "multiqc/multiqc_plots/svg/vcftools_tstv_by_qual.svg",
+                "multiqc/multiqc_plots/svg/yamp_preflight_reference_table.svg",
                 "multiqc/multiqc_report.html",
                 "mutation_reports",
                 "mutation_reports/cohort_report.html",
@@ -572,6 +579,8 @@
                 "reports/mosdepth/NODRUG-GM2/NODRUG-GM2.md.mosdepth.summary.txt",
                 "reports/mosdepth/NODRUG-GM2/NODRUG-GM2.md.regions.bed.gz",
                 "reports/mosdepth/NODRUG-GM2/NODRUG-GM2.md.regions.bed.gz.csi",
+                "reports/preflight",
+                "reports/preflight/preflight_reference_mqc.tsv",
                 "reports/samtools",
                 "reports/samtools/CBR110-15-R3a",
                 "reports/samtools/CBR110-15-R3a/CBR110-15-R3a.md.cram.stats",
@@ -784,6 +793,7 @@
                 "multiqc_fastqc_fastqc_raw.txt:md5,791e74343f22535c6893cfe344a6fd8b",
                 "multiqc_fastqc_fastqc_trimmed.txt:md5,cdff9595a55f749c1869f45cfd2cae18",
                 "multiqc_samtools_stats.txt:md5,2ac7fac2d03a8f9f2d7a923302307e47",
+                "multiqc_yamp_preflight_reference_table.txt:md5,25e98304411ad6df71b66fc39d22aba2",
                 "picard_MarkIlluminaAdapters_histogram.txt:md5,d41d8cd98f00b204e9800998ecf8427e",
                 "picard_MeanQualityByCycle_histogram.txt:md5,d41d8cd98f00b204e9800998ecf8427e",
                 "picard_MeanQualityByCycle_histogram_1.txt:md5,d41d8cd98f00b204e9800998ecf8427e",
@@ -824,6 +834,7 @@
                 "NODRUG-GM2.md.mosdepth.global.dist.txt:md5,eb307df40f199fcb669645491cabc45c",
                 "NODRUG-GM2.md.mosdepth.region.dist.txt:md5,b112f543a5bcd8e94ba58b9e2bfc14b6",
                 "NODRUG-GM2.md.mosdepth.summary.txt:md5,4f36a099cc200d9c373ec300d90426c6",
+                "preflight_reference_mqc.tsv:md5,ce0608a515f58cd7aa1ddf38aeceb59a",
                 "CBR110-15-R3a.cnvcall_snpEff.genes.txt:md5,798cbc952fd5421b30185394159c55e7",
                 "NODRUG-GM2.cnvcall_snpEff.genes.txt:md5,130536bf0237d7f3f746d32aaa32840a",
                 "CBR110-15-R3a.haplotypecaller.from_joint_calling_snpEff.genes.txt:md5,efa31917e702d1c9c7ed13f53d9fdab0",
@@ -893,6 +904,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-09-24T16:24:34.053791571"
+        "timestamp": "2026-09-28T16:08:31.439506987"
     }
 }

@@ -184,3 +184,22 @@ awk -F, 'NR>1{print $1"_"$2}' samplesheet.csv | head  # what the pipeline will l
 Fix: make the samplesheet's `experiment` column match the experiment encoded in the CRAMs' SM tags
 (or re-align from FASTQ). `--force-samples` was **removed** from that step so this now fails
 immediately, naming the missing sample, instead of surfacing later as the `FT` error.
+
+## `[yAMP preflight] ERROR FASTA vs GFF3 contig names` — the run stops before alignment
+
+Symptom: the first task, `PREFLIGHT_REFERENCE`, exits 65 within seconds of the launch, and the console
+(and its `.command.err`) carries one line naming the contigs of each file — GFF3 `chrI, chrII, …`
+against FASTA `I, II, …`, say. In a QC-only run it is the only thing that fails.
+
+Cause: the `--report_gff3` annotation and the `--fasta` come from sources with different chromosome
+naming — Ensembl `I`, SGD and NCBI `chrI`, GenBank accessions such as `BK006935.2`, `Mito` versus
+`chrM`. Without the check the run would complete and the mutation report's gene track would simply be
+empty, with no error anywhere ([`preflight_checks.md`](../usage/preflight_checks.md) → *Reference files*).
+
+Fix: rename the contigs of one file to the other's convention and relaunch. For a GFF3 that is the
+first column — `sed -E 's/^chr([IVX]+)\t/\1\t/'` strips a `chr` prefix; treat `Mito`/`chrM` by hand — for
+a FASTA the first token of each header. Keep the SnpEff cache on the same names: it is built from a
+GFF3 too, and a mismatch there annotates nothing, silently
+([`prepare_reference.md`](../usage/prepare_reference.md)). GFF3 contigs the FASTA lacks do not stop
+the run: the OK row in the MultiQC table lists them, the expected picture for a chromosome-subset
+reference such as the ottilie test set.

@@ -12,12 +12,18 @@
 # Wired as a Claude Code PreToolUse hook on `git commit` (.claude/settings.json) and installable as a
 # git hook:  ln -s ../../bin/check_snapshot_staged.sh .git/hooks/commit-msg
 set -u
+here=$(git rev-parse --show-toplevel)
 msg_file="${1:-}"
 staged=$(git diff --cached --name-only)
 [ -z "$staged" ] && exit 0
 
-# 1. paths whose change CAN alter pipeline outputs (task scripts in bin/ are the .py files modules call)
-behaviour=$(grep -E '^(conf/modules/|subworkflows/|modules/|workflows/|nextflow\.config$|bin/[^/]+\.py$)' <<<"$staged")
+# 1. paths whose change CAN alter pipeline outputs. A task script is a bin/ file that some module's
+#    main.nf calls by name - derived here, so launchers, hooks and generators in bin/ stay out of the
+#    rule and a .sh task script is covered (2026-09-28: bin/preflight_reference.sh was the first, and
+#    the old bin/*.py pattern let it through with no trailer at all).
+task_scripts=$(for f in "$here"/bin/*; do n=$(basename "$f"); grep -rq --include=main.nf -F -- "$n" "$here/modules" && echo "bin/$n"; done)
+behaviour=$({ grep -E '^(conf/modules/|subworkflows/|modules/|workflows/|nextflow\.config$)' <<<"$staged"
+              grep -Fx -f <(printf '%s\n' "$task_scripts") <<<"$staged"; } | sort -u)
 [ -z "$behaviour" ] && exit 0
 
 msg=""; [ -n "$msg_file" ] && [ -r "$msg_file" ] && msg=$(cat "$msg_file")
@@ -44,6 +50,9 @@ declare -A TESTMAP=(
   ['conf/modules/split_joint_vcf.config']=split_joint_vcf
   ['subworkflows/local/fastqc_trimmed/']=fastqc_trimmed
   ['subworkflows/local/utils_nfcore_sarek_pipeline/']=preflight
+  ['modules/local/preflight_reference/']=preflight_reference
+  ['bin/preflight_reference.sh']=preflight_reference
+  ['conf/modules/preflight.config']=preflight_reference
 )
 for path in "${!TESTMAP[@]}"; do
   if grep -q "^${path}" <<<"$staged"; then

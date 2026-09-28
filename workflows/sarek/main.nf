@@ -34,6 +34,9 @@ include { FASTP                                             } from '../../module
 // Post-trim FastQC on the fastp output (the reads that are aligned)
 include { FASTQC_TRIMMED_QC                                 } from '../../subworkflows/local/fastqc_trimmed/main'
 
+// yAMP preflight, task level: reference agreement (docs/usage/preflight_checks.md)
+include { PREFLIGHT_REFERENCE                               } from '../../modules/local/preflight_reference/main'
+
 // Create umi consensus bams from fastq
 include { FASTQ_CREATE_UMI_CONSENSUS_FGBIO                  } from '../../subworkflows/local/fastq_create_umi_consensus_fgbio/main'
 
@@ -161,6 +164,19 @@ workflow SAREK {
     multiqc_report   = Channel.empty()
     reports          = Channel.empty()
     versions         = Channel.empty()
+
+    // yAMP preflight, task level: do the reference files agree with each other? Today: the FASTA vs the
+    // mutation-report GFF3 contig names (bin/preflight_reference.sh; docs/usage/preflight_checks.md).
+    // A task rather than a DAG-build check so cloud paths are staged; unconditional, so it runs at
+    // every --step and in the QC-only run (allow-listed in tests/qc_gate.sh). Its MultiQC table is its
+    // only consumer: no other task's inputs — hence hashes — changed when it was added. On a failed
+    // check its own config block (conf/modules/preflight.config) terminates the run.
+    PREFLIGHT_REFERENCE(
+        fasta.map { meta, f -> f },
+        params.report_gff3 ? file(params.report_gff3, checkIfExists: true) : []
+    )
+    reports  = reports.mix(PREFLIGHT_REFERENCE.out.mqc)
+    versions = versions.mix(PREFLIGHT_REFERENCE.out.versions)
 
     // breseq GenBank/GFF3 reference channel
     genbank = params.genbank ? Channel.fromPath(params.genbank, checkIfExists: true).collect() : Channel.empty()

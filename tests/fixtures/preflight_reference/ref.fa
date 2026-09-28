@@ -1,0 +1,7 @@
+>chrA dna:chromosome chromosome:test:chrA:1:60:1 REF
+ACGTACGTACGTACGTACGTACGTACGTAC
+GTACGTACGTACGTACGTACGTACGTACGT
+>chrB dna:chromosome chromosome:test:chrB:1:40:1 REF
+TTGACCGATTGACCGATTGACCGATTGACCGATTGACCGA
+>plasmid engineered cassette, no annotation
+GGCCAATTGGCCAATTGGCCAATTGGCCAA

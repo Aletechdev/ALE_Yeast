@@ -59,6 +59,7 @@ rows ([`read_preprocessing.md` → Post-trim QC](read_preprocessing.md#post-trim
 | Reads surviving fastp | fastp → *Filtered reads*; General Stats `% Pass filter` | more than a few % lost: a low-quality library or an over-tight `filter_quality_*` / `length_required` |
 | Duplication estimate | fastp → *Duplication*; FastQC → *Sequence duplication levels* | far above the other samples: low-complexity library or PCR over-amplification |
 | GC distribution | FastQC → *Per sequence GC content* | a second peak or a shifted mode: contamination, or reads from the wrong organism |
+| Reference files agree | *yAMP preflight: reference* table (first section) | an ERROR row is never seen here (it has already stopped the run); read the OK row's note — GFF3 contigs without a FASTA sequence are listed there, the expected picture for a chromosome-subset reference such as the test set ([`preflight_checks.md`](preflight_checks.md)) |
 | Expected depth | General Stats: bases after filtering ÷ genome size | below what the experiment needs — the coverage check itself is behind the gate (it needs alignment) |
 
 Run 1 shows **no** mapping rate, coverage or mitochondrial depth and cannot tell reads from the wrong
@@ -67,14 +68,17 @@ later "stop after alignment" level would be a separate parameter.
 
 ## What run 1 does and does not do
 
-Runs (and is cached for run 2): preflight checks · FastQC on the raw reads · fastp · FastQC on the
-fastp output · MultiQC · reference preparation (bwa index, `.fai`, sequence dictionary, intervals,
-the CNVKit flat reference) · the GFF3 index for the mutation report. On the ottilie test set that is
-17 tasks and about five minutes (measured 2026-09-24).
+Runs (and is cached for run 2): preflight checks · the reference preflight task (FASTA vs GFF3 contig
+names, [`preflight_checks.md`](preflight_checks.md) → *Reference files*) · FastQC on the raw reads ·
+fastp · FastQC on the fastp output · MultiQC · reference preparation (bwa index, `.fai`, sequence
+dictionary, intervals, the CNVKit flat reference) · the GFF3 index for the mutation report. On the
+ottilie test set that is 18 tasks and about five minutes (measured 2026-09-28).
 
 Does **not** run: alignment and everything downstream — duplicate marking, every caller, annotation,
 the mutation report. **breseq** (Tier-2, `--tools breseq --genbank …`) reads the fastp output
-directly rather than the alignment, so it is gated separately and is likewise not run.
+directly rather than the alignment, so it is gated separately and is likewise not run. Not checked by
+run 1 either: the SnpEff cache (contig names, snpEff version) — it is read only at the annotation
+step, in run 2 ([`prepare_reference.md`](prepare_reference.md) → chromosome names).
 
 The QC-only MultiQC report is titled *yAMP QC-only run*, which MultiQC turns into the file name
 `yAMP-QC-only-run_multiqc_report.html` (plus `…_report_data/` and `…_report_plots/`), so it stays in

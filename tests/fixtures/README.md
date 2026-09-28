@@ -104,3 +104,31 @@ for m in 1 2; do zcat ../fastp_sra_R$m.fastq.gz | split -l 1600 -d -a 4 --numeri
 for f in 0*.fx_*.fastq; do gzip -n -9 "$f"; mv "$f.gz" "${f%.fastq}.fastp.fastq.gz"; done
 : > 0004.fx_1.fastp.fastq.gz; : > 0004.fx_2.fastp.fastq.gz
 ```
+
+## PREFLIGHT_REFERENCE (`tests/preflight_reference.nf.test`)
+
+### `preflight_reference/ref.fa`, `genes.gff3`, `genes_renamed.gff3`, `genes_partial.gff3` — **hand-made**
+
+A three-contig FASTA (`chrA` 60 bp, `chrB` 40 bp, `plasmid` 30 bp; the chromosome headers carry an
+Ensembl-style description so the first-token rule is exercised, and the plasmid stands for an
+engineered contig the annotation never mentions) plus three GFF3 files, for the FASTA-vs-GFF3
+contig-name check of `bin/preflight_reference.sh`:
+
+- `genes.gff3` — gene/mRNA/CDS on `chrA`, a gene on `chrB`, then an embedded `##FASTA` section with a
+  contig `chrZ` that must be ignored (SGD and GenBank-converted GFF3 files carry one) → OK;
+- `genes_renamed.gff3` — the same features on `A` and `B`, no shared name → ERROR, exit 65;
+- `genes_partial.gff3` — the `chrA` features plus a gene on `chrC`, which has no FASTA sequence → OK,
+  with `chrC` noted in the row (a GFF3 with more contigs than the FASTA is the test set's own situation).
+
+Written by hand (a few lines each); the two variants were derived from `genes.gff3`:
+
+```bash
+cd tests/fixtures/preflight_reference
+sed 's/^chr\([AB]\)\t/\1\t/; s/^##sequence-region chr/##sequence-region /' genes.gff3 > genes_renamed.gff3
+{ grep -v '^chrB' genes.gff3 | grep -v '^##FASTA' | grep -v '^>' | grep -v '^ACGT' | grep -v '^$';
+  printf 'chrC\ttest\tgene\t1\t50\t.\t+\t.\tID=gene:G3;Name=G3\n'; } > genes_partial.gff3
+```
+
+The same script run on the real ottilie reference (not committed, `data/ottilie/S288C_reference/`)
+gives OK on 17/17 contigs, ERROR on a copy of `S288C_R64.gff3` with a `chr` prefix added to column 1,
+and an OK row noting `Mito, XVI` when those two contigs are removed from the FASTA (checked 2026-09-28).

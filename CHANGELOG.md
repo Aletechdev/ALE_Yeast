@@ -24,13 +24,31 @@
   `workflows/sarek/main.nf` (the alignment input is emptied; everything downstream never gets a task,
   so the DAG is unchanged and the resume is exact). Guarded by `tests/qc_gate.sh` — part (a), minutes:
   the QC-only run of the test set executes exactly the allow-listed processes (17 tasks, 14
-  processes); part (b), one e2e: the resumed run caches every run-1 task, matches a one-shot run's
+  processes; 18 / 15 since the reference preflight task below); part (b), one e2e: the resumed run caches every run-1 task, matches a one-shot run's
   task list and produces identical deliverables (`tests/qc_gate_compare.py`; measured 2026-09-24
   against the e2e output: 16/152 tasks cached, 526 file names equal, 143 files md5-identical, 42/42
   VCFs record-identical). The commit gate now
   requires `Gate test: qc_gate (a) green` for changes under `workflows/` or `subworkflows/`. Default
   path unchanged (e2e snapshot unchanged). Launch-form group *QC-first run*; `tests/preflight.nf.test`
   gains three cases (8 in total).
+
+- **Reference preflight task** (`PREFLIGHT_REFERENCE`; `docs/usage/preflight_checks.md` → *Reference
+  files*). The first task of every run — at every `--step`, and in a QC-only run — reads the reference
+  files themselves (so cloud paths are staged) and checks that the `--report_gff3` contig names are the
+  FASTA's: error when no name is shared (the mutation report's gene track would be empty and nothing
+  else would complain; Ensembl `I` against SGD/NCBI `chrI` is the typical case). GFF3 contigs the
+  FASTA lacks are noted in the OK row, not warned about — the release test set is a chromosome
+  subset of a fully annotated genome (decision 2026-09-28; a partial naming mismatch such as `Mito`
+  vs `chrM` is therefore only visible as that note, to be revisited on a real case). An embedded
+  `##FASTA` section is ignored; SKIPPED without a GFF3. Verdicts go to a *yAMP preflight: reference*
+  table in MultiQC and to `reports/preflight/preflight_reference_mqc.tsv`; only an ERROR reaches the
+  console, with the
+  `[yAMP preflight]` prefix. An error terminates the run (exit 65, no retry; own config block
+  `conf/modules/preflight.config`). Nothing downstream consumes the task, so no other task hash
+  changed. One check by decision; the others (FASTA syntax, user-supplied `.fai`/`.dict`, the SnpEff
+  cache) are roadmap rows, to be added as real input errors turn up. Checks in
+  `bin/preflight_reference.sh` (gawk container); test `tests/preflight_reference.nf.test` (4 cases on
+  hand-made fixtures); on the QC-only allow-list.
 
 - **Preflight checks at start-up** (`[yAMP preflight]`, user page `docs/usage/preflight_checks.md`).
   Before any task runs: hard errors for a samplesheet with no experiment id (a `patient` header —

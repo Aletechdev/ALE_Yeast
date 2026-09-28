@@ -228,16 +228,11 @@ output changes: `SAREK_MODIFICATIONS.md` → `modules/nf-core/` PATCHED; `output
 Purely additive, so a rebase carries them over untouched. Full list and per-file rationale in
 [`SAREK_MODIFICATIONS.md`](SAREK_MODIFICATIONS.md).
 
-- **`modules/local/`** (16 added) — `breseq/`, `gdtools/`, `build_cn_matrix/`, `build_cn_cohort/`,
-  `build_sv_matrix/`, `survivor_sv_merge/`, `survivor_cohort_merge/`, `igvreports_cohort/`,
-  `igvreports_sample/`, `igvreports_sv_cnv/`, `prepare_gff3/`, `prepare_vcf/`, `generate_index/`,
-  `cnr_to_bedgraph/`, `filter_pass_vcf/`, `publish_vcfs/`.
-- **`subworkflows/local/`** (4 added) — `mutation_report/`, `fastq_variant_calling_breseq/`,
-  `split_joint_vcf/`, `vcf_filter_haplotypecaller_joint/`. (`vcf_filter_mutect2/`, `vcf_filter_freebayes/`
-  removed 2026-09-09 — tag `tier2-tools-archive`, `docs/archive/tier2/README.md`.)
-- **`conf/`** (added) — `conf/modules/mutation_report.config`, `conf/modules/breseq.config`,
-  `conf/modules/custom_haplotypecaller_joint_filter.config`, `conf/test/ottilie_test.config`,
-  `conf/azured4as.config`, `conf/seqera_azure.config`.
+- **`modules/local/`, `subworkflows/local/`, `conf/`** — the inventory is the three ADDED tables in
+  [`SAREK_MODIFICATIONS.md`](SAREK_MODIFICATIONS.md), one row per path, kept equal to the tree by
+  `bin/check_doc_drift.sh` on every commit (2026-09-28; this bullet used to copy the list and had been
+  stale since the SURVIVOR retirement). Removals are recorded there too (`vcf_filter_mutect2/`,
+  `vcf_filter_freebayes/` — 2026-09-09, tag `tier2-tools-archive`, `docs/archive/tier2/README.md`).
 
 The hard-filter fallback is **not** a local module: it reuses the nf-core module
 `modules/nf-core/gatk4/variantfiltration/`, aliased as `VARIANTFILTRATION_FALLBACK` inside

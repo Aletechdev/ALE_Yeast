@@ -399,10 +399,10 @@ nf-test's four test types, and what each maps to in this fork:
 | Layer | nf-test type | Our surface | Status |
 |-------|--------------|-------------|--------|
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
-| Process | `nextflow_process` | the 19 `modules/local/` + upstream modules whose behaviour we own via config | **1** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 7 cases, 1 000-pair fixture) |
+| Process | `nextflow_process` | the 19 `modules/local/` + upstream modules whose behaviour we own via config | **2** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 7 cases, 1 000-pair fixture; `preflight_reference` — the task-level reference preflight, 4 cases on hand-made fixtures: OK with an embedded `##FASTA`, SKIPPED without a GFF3, ERROR/exit 65 on renamed contigs, OK-with-note when the GFF3 has a contig the FASTA lacks) |
 | Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **2** (`split_joint_vcf`; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
 | Pipeline | `nextflow_pipeline` | supported end-to-end routes | **4** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `tools_without_annotation`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`; 8 cases incl. the three `--qc_only` ones) |
-| Gate | bash, outside nf-test | the `--qc_only` starvation gate (`workflows/sarek/main.nf`) | **`tests/qc_gate.sh`** — (a) minutes: a QC-only run of the test set executes *exactly* the allow-listed processes (read QC + reference prep, 14 processes / 17 tasks); a stray process means something downstream of alignment fires on empty input (`toList`/`ifEmpty`/value channel) and the failure message names it. (b) one e2e: `-resume` of run (a) without the flag caches every run-1 task but MULTIQC, matches a one-shot run's task list, and `tests/qc_gate_compare.py` finds the deliverables identical (md5 for the `.nftignore`-kept files, records for every VCF). Not nf-test because it needs two launches sharing a session. Run (a) after any `workflows/`/`subworkflows/` change (commit-gate trailer), (b) when the gate or the resume contract itself changes |
+| Gate | bash, outside nf-test | the `--qc_only` starvation gate (`workflows/sarek/main.nf`) | **`tests/qc_gate.sh`** — (a) minutes: a QC-only run of the test set executes *exactly* the allow-listed processes (read QC + reference prep, 15 processes / 18 tasks (2026-09-28, with the reference preflight task; 17 before)); a stray process means something downstream of alignment fires on empty input (`toList`/`ifEmpty`/value channel) and the failure message names it. (b) one e2e: `-resume` of run (a) without the flag caches every run-1 task but MULTIQC, matches a one-shot run's task list, and `tests/qc_gate_compare.py` finds the deliverables identical (md5 for the `.nftignore`-kept files, records for every VCF). Not nf-test because it needs two launches sharing a session. Run (a) after any `workflows/`/`subworkflows/` change (commit-gate trailer), (b) when the gate or the resume contract itself changes |
 
 The 99 upstream component tests do **not** count as coverage here — they test unmodified nf-core
 code (see the category table in §10). Only tests over fork-specific code do.
@@ -440,7 +440,7 @@ prefer a case in our own `tests/` file (see §10 rationale).
 
 ### Layer 2 — `nextflow_process` (biggest gap)
 
-All 19 `modules/local/` are untested in isolation, as is the one upstream module whose *behaviour we
+18 of the 19 `modules/local/` are untested in isolation (`preflight_reference` has had a process test since 2026-09-28), as is the one upstream module whose *behaviour we
 own via config* (`VARIANTFILTRATION_FALLBACK`). Today they're only exercised transitively through the
 e2e snapshot, which tells you *that* something changed, not *what* broke. Priority order by logic
 density:
@@ -568,13 +568,15 @@ test, it checks that the commit says which validation happened, so it takes mill
 claim is on record:
 
 1. If no *staged* file is under `conf/modules/`, `subworkflows/`, `modules/`, `workflows/`,
-   `nextflow.config` or a task script `bin/*.py`, the commit passes (docs / tests / tooling only).
+   `nextflow.config`, or is a task script — a `bin/` file that some `modules/**/main.nf` calls by name,
+   derived at run time (2026-09-28; was `bin/*.py`) — the commit passes (docs / tests / tooling only).
 2. Otherwise `tests/ottilie_e2e.nf.test.snap` must be staged too (outputs moved and were re-recorded),
    **or** the message must carry a trailer `Snapshot: unchanged (e2e green on <commit>, <date>)`.
 3. Paths with a unit test (`conf/modules/trimming.config` and `modules/nf-core/fastp/` →
    `fastp_preprocessing`; `subworkflows/local/split_joint_vcf/` and its config → `split_joint_vcf`;
    `subworkflows/local/fastqc_trimmed/` → `fastqc_trimmed`; `subworkflows/local/utils_nfcore_sarek_pipeline/` →
-   `preflight`) additionally need `Module test: <name> green` in the message. Extend the `TESTMAP` in the script
+   `preflight`; `modules/local/preflight_reference/`, `bin/preflight_reference.sh` and `conf/modules/preflight.config` →
+   `preflight_reference`) additionally need `Module test: <name> green` in the message. Extend the `TESTMAP` in the script
    when a test is added.
 4. Staged files under `workflows/` or `subworkflows/` additionally need `Gate test: qc_gate (a) green`
    (`tests/qc_gate.sh a`, minutes): the `--qc_only` gate works by starvation, and a `toList()` /
@@ -586,7 +588,7 @@ Wiring: `.claude/settings.json` runs it as a `PreToolUse` hook on every `git com
 commits made by hand install it as a git hook — `ln -s ../../bin/check_snapshot_staged.sh
 .git/hooks/commit-msg` (git passes the message file as `$1`). An exit code of 2 blocks with the reason.
 
-**Known gaps in the path list (2026-09-10, both observed, neither fixed):**
+**Known gaps in the path list (2026-09-10, both observed; the second fixed 2026-09-28):**
 
 - **Too narrow — `conf/test/` is not a behaviour path.** A recipe edit in
   `conf/test/ottilie_common.config` (tools, `skip_tools`, the joint-calling flags) moves the e2e
@@ -596,11 +598,12 @@ commits made by hand install it as a git hook — `ln -s ../../bin/check_snapsho
   deserve. The precise fix is to match `conf/test/ottilie_common.config` by name (the profiles include
   it; it is the only file under `conf/test/` that holds recipe). Undecided; decide before the recipe
   next changes.
-- **Too wide — every `bin/*.py` is a "task script".** The pattern also catches the docs and schema
-  generators (`bin/apply_schema_overlay.py`, `bin/make_params_template.py`), which no module calls. A
-  commit touching one needs a trailer that states truthfully that nothing behavioural changed and no
-  e2e ran (as `8f84662` does). Accepted as noise: an occasional honest trailer is cheaper than a
-  second list of exempt scripts that will go stale.
+- **Too wide — every `bin/*.py` is a "task script".** **Fixed 2026-09-28:** the set is now derived —
+  a `bin/` file is a task script when some `modules/**/main.nf` names it — so the docs and schema
+  generators (`bin/apply_schema_overlay.py`, `bin/make_params_template.py`, which no module calls) are
+  out of the rule without a second list, and `bin/preflight_reference.sh`, the first `.sh` task script,
+  is in it. The `*.py` pattern had let a commit staging only that file through with no trailer at all
+  (verified on a scratch index before the fix).
 
 ## 13. Benchmark claims — provenance, evidence labels, script-before-numbers
 

@@ -300,8 +300,9 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   declared wins — swapping them in a scratch copy of the schema flips which header works. The fix is
   one meta key on `experiment`, not a search-and-replace of `patient` through the code.
 - **[med] `PREFLIGHT_SNPEFF` — functional check of the snpEff cache before annotation.** Parked
-  2026-09-21 when the reference preflight for the QC-first run was cut down to contig names
-  (`PREFLIGHT_REFERENCE`: FASTA ⇄ GFF3/fai/dict, gawk only). The cache is a binary file, so its contig
+  2026-09-21 when the reference preflight for the QC-first run was cut down to contig names;
+  `PREFLIGHT_REFERENCE` shipped 2026-09-28 with that one check (FASTA vs `report_gff3` contig names,
+  gawk only — `docs/usage/preflight_checks.md`). The cache is a binary file, so its contig
   namespace cannot be compared cheaply, and a cache built with a different snpEff version fails only
   at annotation time — or annotates nothing, silently, on a contig mismatch. Design: a task in the
   pinned snpEff 5.1 container asserts `<cache>/<snpeff_db>/snpEffectPredictor.bin` exists (this also
@@ -313,6 +314,16 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `PREFLIGHT_REFERENCE`: not an input to anything downstream (no task-hash change),
   `errorStrategy = 'terminate'` in its own config block, its own MultiQC custom-content row, and added
   to the `--qc_only` allow-list test. Skipped when `snpeff` is not in `tools`.
+- **[low] More reference preflight checks — one row each in `PREFLIGHT_REFERENCE`'s table.** Decided
+  2026-09-28: ship the one check that is silent today, add the rest as real input errors show up. Each
+  candidate is a function in `bin/preflight_reference.sh`, a verdict row and a fixture pair under
+  `tests/fixtures/preflight_reference/`: FASTA syntax (duplicate or empty header names, CRLF line
+  endings, empty sequences — today these fail in reference preparation within minutes, less clearly);
+  a user-supplied `--fasta_fai` / `--dict` against the FASTA (names and lengths — today a stale one fails
+  inside GATK after alignment, or silently restricts calling when it lists a subset of the contigs);
+  a partial naming mismatch (`Mito` vs `chrM` with the chromosomes matching) or FASTA contigs without
+  annotation — today visible only as the note in the OK row, since a GFF3 with more contigs than the
+  FASTA is the test set's own situation and must stay quiet.
 - **[low] `generate_mutation_report.nf` has no automated test coverage.** `tests/ottilie_e2e.nf.test`
   runs `main.nf` (the inline, channel-based path); nothing under `tests/` exercises the standalone
   launcher. Its *whole* risk surface is filesystem-layout assumptions — the CRAM suffixes above plus
