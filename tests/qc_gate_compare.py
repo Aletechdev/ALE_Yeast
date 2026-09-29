@@ -3,8 +3,8 @@
 
 Two tiers of docs/dev-practices/output_comparison.md §3:
   * names   — the same set of files on both sides. pipeline_info/ is ignored (per-execution names);
-              the resumed side may additionally hold the QC-only run's own MultiQC report and this
-              test's marker files.
+              the resumed side may additionally hold this test's marker files. (Since 2026-09-29 the
+              QC-only run's report is the read-QC report every run writes, so it is no longer an extra.)
   * content — md5-identical for every file the e2e contract test snapshots by content (everything
               NOT matched by tests/.nftignore, the same glob rules), and record-identical (header
               lines `##…` stripped: they carry timestamps and command lines) for every .vcf / .vcf.gz.
@@ -24,8 +24,7 @@ REPO = Path(__file__).resolve().parent.parent
 NFTIGNORE = REPO / "tests" / ".nftignore"
 
 IGNORE_NAMES = ["pipeline_info/**"]
-RESUMED_EXTRA_OK = [".qc_gate", ".qc_gate_session", ".qc_gate_trace_run1.txt", "qc_gate_run1.log", "qc_gate_run2.log",
-                    "multiqc/*_multiqc_report.html", "multiqc/*_multiqc_report_data/**", "multiqc/*_multiqc_report_plots/**"]
+RESUMED_EXTRA_OK = [".qc_gate", ".qc_gate_session", ".qc_gate_trace_run1.txt", "qc_gate_run1.log", "qc_gate_run2.log"]
 
 
 def glob_to_regex(pattern: str) -> re.Pattern:

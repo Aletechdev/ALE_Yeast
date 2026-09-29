@@ -13,14 +13,18 @@
 # 10–25 MB download-only, > 25 MB listed by path only. Per-sample HaplotypeCaller igv-reports on a
 # full-depth run are 14–40 MB, so the tab is a quick look; the downloaded folder is the delivery
 # route. The index's relative links DO resolve inside the tab's preview (verified 2026-09-11).
+#
+# The tab fills WHILE the run is going: the Tower plugin records each matching publish and syncs the
+# list to the work dir about once a minute (measured 2026-09-29 on run 5CiOiON5oJuETn —
+# deploy/azure/seqera-sp/RUNBOOK.md). So the two early MultiQC reports (6a, 6b) are readable mid-run;
+# the complete one (6) comes last. A QC-only run (docs/usage/qc_first_run.md) publishes only 6a. The
+# leading * keeps 6a/6b matching when multiqc_title replaces the 'yAMP' prefix; 6 keeps its default
+# name whatever the title.
 reports:
-  # The QC-first run (--qc_only, docs/usage/qc_first_run.md) publishes read QC only, and its MultiQC
-  # report carries a distinct title and file name so the resumed full run does not overwrite it —
-  # so none of the entries below match anything a QC-only run publishes. Without this pattern its
-  # Outputs tab is empty (observed 2026-09-28, run 5m9NorL3JmkHFq). "6b." keeps it beside the
-  # full run's MultiQC entry should the tab ever list both reports, so "1. Start here" stays first.
-  "**/multiqc/yAMP-QC-only-run_multiqc_report.html":
-    display: "6b. QC-only run — MultiQC report (read QC + reference preflight); Resume the run to continue"
+  "**/multiqc/*read-QC_multiqc_report.html":
+    display: "6a. MultiQC read-QC — input checks, FastQC, fastp (while the run continues)"
+  "**/multiqc/*alignment-QC_multiqc_report.html":
+    display: "6b. MultiQC alignment-QC — + duplicates, mapping stats, coverage (while the run continues)"
   "**/mutation_reports/index.html":
     display: "1. Start here — mutation report index"
   "**/mutation_reports/cohort_report.html":
@@ -32,6 +36,6 @@ reports:
   "**/mutation_reports/data/contig_copy_number.csv":
     display: "5. Contig copy-number table — all samples (TIDDIT, incl. Mito)"
   "**/multiqc/multiqc_report.html":
-    display: "6. MultiQC report — sequencing & alignment QC"
+    display: "6. MultiQC complete-QC — all QC incl. variant stats and software versions"
   "**/mutation_reports/samples/*_report.html":
     display: "7. Per-sample IGV report"

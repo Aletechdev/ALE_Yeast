@@ -11,6 +11,23 @@
 
 ### Added
 
+- **Three MultiQC reports, the early two while the run continues** (`docs/usage/qc_first_run.md` →
+  *The three MultiQC reports*). `multiqc/yAMP-read-QC_multiqc_report.html` (input checks, FastQC raw
+  and after preprocessing, fastp) is published as soon as read QC ends, and
+  `multiqc/yAMP-alignment-QC_multiqc_report.html` (+ duplicate metrics, samtools stats, mosdepth) as
+  soon as every sample is aligned. The complete report is titled *yAMP complete-QC* but keeps its
+  file names (`multiqc_report.html`, `multiqc_data/`). On Seqera Platform the Outputs tab lists each
+  early report within about a minute of publication, while the run is still calling (entries *6a*,
+  *6b*; measured on run `5CiOiON5oJuETn`: the tab fills during the run). The read-QC report replaces
+  the QC-only run's *yAMP QC-only run* report — a QC-only run now writes the same read-QC report as
+  any other run (`yAMP-QC-only-run_multiqc_report.html` is no longer written), and the follow-up run
+  rewrites it. `multiqc_title` is now the prefix of all three titles.
+- **Input checks in every MultiQC report** — the *yAMP input checks* table (first section) lists
+  every start-up check with its verdict: samplesheet (experiment ids, files listed once, ploidy and
+  clonal flag per experiment), parameters (Tier-1 recipe, `--qc_only`) and the reference check's row
+  (formerly the *yAMP preflight: reference* table). OK rows included, so the log is no longer needed
+  to see what was checked; also written to `reports/preflight/preflight_samplesheet_params_mqc.tsv`.
+
 - **QC-first run — `--qc_only`** (user page `docs/usage/qc_first_run.md`). A launch with the flag
   stops after read QC — preflight checks, FastQC on the raw reads, fastp, FastQC on the fastp output,
   MultiQC, plus reference preparation — exits 0 and prints where the report is and the exact
@@ -160,6 +177,11 @@
   `conf/modules/split_joint_vcf.config`, keyed on `meta.variantcaller`.
 
 ### Changed
+
+- **The Workflow Summary is collapsed and back at the bottom** of the MultiQC report: its body opens
+  on a click, and its ordering rule — keyed on the old `nf-core-sarek-summary` id, which stopped
+  matching when `manifest.name` changed on 2026-07-27 and left the summary near the top — is re-keyed
+  to the current `Aletechdev-ALE_Yeast-summary`.
 
 - **MultiQC 1.25.1 → 1.35** (2026-09-24; the version sarek ≥ 3.10 ships). Container pin only —
   `modules/nf-core/multiqc/{main.nf,environment.yml}`; the module keeps its sarek-3.5.1 signature

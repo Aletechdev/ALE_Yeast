@@ -953,7 +953,8 @@ established on the first pair (runs `5m9NorL3JmkHFq` → `464Scp5QNoznbD`, RUNBO
   launch that must start fast (a demo); a third head job would queue.
 - **The Outputs tab lists only files matching `tower.yml`**, and a QC-only run publishes none of the
   dashboard entry points; its report has its own pattern since `702a4c0` (verified through
-  `GET /workflow/<id>/reports`: one entry on run `1DtqOzNj59CITv`, none on run 1).
+  `GET /workflow/<id>/reports`: one entry on run `1DtqOzNj59CITv`, none on run 1). Since 2026-09-29
+  that pattern is the read-QC report's (*6a*), which every run writes.
 - **The Outputs tab fills while the run is going** (measured 2026-09-29, run `5CiOiON5oJuETn`;
   timeline and numbers in `deploy/azure/seqera-sp/RUNBOOK.md`, same date). The Tower plugin appends
   each publish that matches `tower.yml` to `nf-<id>-reports.tsv` and, when the launch dir is not the

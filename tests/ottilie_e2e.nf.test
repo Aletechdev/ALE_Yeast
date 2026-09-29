@@ -83,9 +83,19 @@ nextflow_pipeline {
             // Section headings are matched on their `<h2 … id="…">`, never on the CSS class — 1.25.1
             // wrote class="mqc-module-title", 1.35 writes class="mb-0"; the ids are the stable contract.
             def mqc_data     = "$outputDir/multiqc/multiqc_data"
-            def mqc_sections = path("$outputDir/multiqc/multiqc_report.html").readLines()
+            def sections_of  = { html -> path(html).readLines()
                                    .findAll { it =~ /<h2[^>]*\sid="/ }
-                                   .collect { (it =~ /id="([^"]+)"/)[0][1] }
+                                   .collect { (it =~ /id="([^"]+)"/)[0][1] } }
+            def mqc_sections = sections_of("$outputDir/multiqc/multiqc_report.html")
+
+            // Three MultiQC reports (2026-09-29): read-QC and alignment-QC, published while the run is
+            // still calling, and complete-QC (the plain-named report above) at the end. Each opens with
+            // the "yAMP input checks" table — the DAG-build checks' rows merged with the reference
+            // check's — and ends with the Workflow Summary, collapsed.
+            def read_qc      = sections_of("$outputDir/multiqc/yAMP-read-QC_multiqc_report.html")
+            def alignment_qc = sections_of("$outputDir/multiqc/yAMP-alignment-QC_multiqc_report.html")
+            def input_checks = path("$mqc_data/multiqc_yamp_input_checks_table.txt").readLines().drop(1).collect { it.split('\t') }
+            def summary_id   = 'Aletechdev-ALE_Yeast-summary'
             def fastqc_samples = { pass -> path("$mqc_data/multiqc_fastqc_fastqc_${pass}.txt").readLines().drop(1).collect { it.split('\t')[0] }.sort() }
             def gs_rows   = path("$mqc_data/multiqc_general_stats.txt").readLines().collect { it.split('\t', -1) }
             def gs_col    = { name -> gs_rows[0].findIndexOf { it == name } }
@@ -111,6 +121,18 @@ nextflow_pipeline {
                                                   'NODRUG-GM2',    'NODRUG-GM2 .Lane 1 Read1',    'NODRUG-GM2 .Lane 1 Read2'] },
                 // and fastp's read filter is visible: trimmed read counts never exceed raw
                 { assert gs_rows.drop(1).findAll { it[raw_total] != '' }.every { (it[trim_total] as double) <= (it[raw_total] as double) } },
+
+                // The three MultiQC reports: input checks first, summary last, each stage a superset of the one before
+                { assert [read_qc, alignment_qc, mqc_sections].every { it.first() == 'yamp_input_checks' && it.last() == summary_id } },
+                { assert read_qc.containsAll(['fastqc_raw', 'fastp', 'fastqc_trimmed']) && !read_qc.contains('samtools') },
+                { assert alignment_qc.containsAll(read_qc) && alignment_qc.containsAll(['picard', 'samtools', 'mosdepth']) && !alignment_qc.contains('bcftools') },
+                { assert mqc_sections.containsAll(alignment_qc) && mqc_sections.containsAll(['bcftools', 'snpeff']) },
+                { assert path("$outputDir/multiqc/multiqc_report.html").text.contains('<details><summary>Show the') },
+                // one input-checks table: the reference check's row + the DAG-build checks' rows, all OK on the Tier-1 recipe
+                { assert input_checks.collect { it[0] } == ['FASTA vs GFF3 contig names', 'Parameters: Tier-1 recipe',
+                                                           'Samplesheet: experiment ids', 'Samplesheet: input files listed once',
+                                                           'Samplesheet: ploidy and clonal flag per experiment'] },
+                { assert input_checks.every { it[1] == 'OK' } },
 
                 // Regression on task count + the software-versions manifest (Nextflow version stripped so
                 // the snapshot is portable across Nextflow releases), plus the content layers above.

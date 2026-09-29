@@ -441,8 +441,8 @@
                     "type": "boolean",
                     "default": false,
                     "fa_icon": "fas fa-clipboard-check",
-                    "description": "Stop after read QC (FastQC on the raw reads, fastp, FastQC on the fastp output, MultiQC); alignment and everything downstream is skipped. Requires step = mapping; breseq is not run.",
-                    "help_text": "Two-run idiom for a first look at the data before the expensive part runs. Run 1: the full parameter set plus `--qc_only` — every parameter is validated, the reference is prepared and the read-QC reports land under `reports/` and `multiqc/` (report titled *yAMP QC-only run*, so it stays next to the final one — unless `multiqc_title` is set, which names both runs' reports the same and the final one replaces it). The run exits 0 and prints the follow-up command. Run 2: the identical command without `--qc_only`, plus `-resume <session id>` (same work directory and outdir) — the read-QC tasks are cache hits and the run continues from alignment. On Seqera Platform: open the finished run → Resume → set `qc_only` to false. Not compatible with `cleanup = true` (the work directory would be gone) or with `multiqc` in `skip_tools`."
+                    "description": "Stop after read QC (FastQC on the raw reads, fastp, FastQC on the fastp output, the read-QC MultiQC report); alignment and everything downstream is skipped. Requires step = mapping; breseq is not run.",
+                    "help_text": "Two-run idiom for a first look at the data before the expensive part runs. Run 1: the full parameter set plus `--qc_only` — every parameter is validated, the reference is prepared and the read-QC reports land under `reports/` and `multiqc/` (`yAMP-read-QC_multiqc_report.html` with the *yAMP input checks* table — the same read-QC report every full run writes early, so run 2 refreshes it). The run exits 0 and prints the follow-up command. Run 2: the identical command without `--qc_only`, plus `-resume <session id>` (same work directory and outdir) — the read-QC tasks are cache hits and the run continues from alignment. On Seqera Platform: open the finished run → Resume → set `qc_only` to false. Not compatible with `cleanup = true` (the work directory would be gone) or with `multiqc` in `skip_tools`."
                 }
             }
         },
@@ -1220,9 +1220,10 @@
                 },
                 "multiqc_title": {
                     "type": "string",
-                    "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
+                    "description": "Prefix of the three MultiQC report titles (default 'yAMP': 'yAMP read-QC', 'yAMP alignment-QC', 'yAMP complete-QC').",
                     "fa_icon": "fas fa-file-signature",
-                    "hidden": true
+                    "hidden": true,
+                    "help_text": "The pipeline writes three MultiQC reports to `multiqc/`: read-QC and alignment-QC while the run continues, complete-QC at the end. The early two take their file names from the title (`<prefix>-read-QC_multiqc_report.html`, `<prefix>-alignment-QC_multiqc_report.html`); the complete report always keeps the plain `multiqc_report.html` / `multiqc_data/`, which the mutation-report index links to."
                 },
                 "multiqc_config": {
                     "type": "string",

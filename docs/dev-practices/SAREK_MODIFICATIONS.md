@@ -73,6 +73,20 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   `reports`, its versions into `versions`. Nothing else consumes it, so no other task hash moved when it
   was added. Module `modules/local/preflight_reference` runs `bin/preflight_reference.sh`; its config
   block `conf/modules/preflight.config` sets `errorStrategy 'terminate'` and `debug`.
+  **Three MultiQC reports + input-checks table** (2026-09-29, `docs/usage/qc_first_run.md` → *The three
+  MultiQC reports*): a new `take:` input `preflight_mqc` (the DAG-build checks' table, from
+  `PIPELINE_INITIALISATION`) is mixed into `reports` first, so it joins `PREFLIGHT_REFERENCE`'s rows in
+  one table. `reports` is tapped twice — `reports_read_qc` right before the `--qc_only` gate,
+  `reports_alignment_qc` at the end of the `mapping`/`markduplicates` block — and the MultiQC block calls
+  `MULTIQC as MULTIQC_READ_QC`, `MULTIQC as MULTIQC_ALIGNMENT_QC` and upstream's `MULTIQC`, all three
+  with the workflow summary + methods text (`ch_multiqc_common`); only the complete one gets the
+  versions YAML (a `collectFile` over every process — it would hold the early reports back to the
+  end). A report whose stage does not run is **starved** (ternary on its first input), never wrapped:
+  the early two at the wrong `--step`, and alignment-QC + complete under `--qc_only` — their inputs hold
+  the read-QC files, so the gate's own starvation misses them; `qc_gate.sh a` pins it
+  (`MULTIQC_READ_QC` is on the allow-list, the other two must not run). `MUTATION_REPORT` now gets
+  `MULTIQC.out.report.toList()` directly; `multiqc_report` (the completion e-mail's) is the read-QC
+  report under `--qc_only`. The Workflow Summary goes through `collapsedSummaryMultiqc()`.
 - **`assets/multiqc_config.yml`** — `module_order` has two `fastqc` entries with distinct `anchor`s
   (`fastqc_raw` with `path_filters_exclude`, `fastqc_trimmed` with `path_filters` on
   `*_trimmed*_fastqc.zip`) around fastp, and `extra_fn_clean_exts` strips `_trimmed` (2026-09-23;
@@ -81,8 +95,13 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   section ids and the `fastqc_after_preprocessing-` General Stats prefix are asserted by the e2e test.
   Re-measure at every MultiQC bump. `report_comment` is a yAMP sentence (2026-09-24): 1.35 validates
   the file against a config schema and upstream's `false` fails it (warning only).
+  `report_section_order` keys the Workflow Summary as `Aletechdev-ALE_Yeast-summary` (2026-09-29): the
+  section id is `<manifest.name with / → ->-summary`, so upstream's `nf-core-sarek-summary` stopped
+  matching when `manifest.name` changed (2026-07-27) and the summary rendered second instead of last.
+  Re-key it whenever `manifest.name` changes.
 - **`main.nf`** — removed the old outer MUTATION_REPORT path-discovery call (superseded by the inline
-  call); otherwise close to upstream.
+  call); `NFCORE_SAREK` takes a second input, `preflight_mqc`, passed on to `SAREK` as its last
+  argument (2026-09-29, the input-checks table); otherwise close to upstream.
 - **`nextflow.config`** — ALE params (report_* / generate_reports / split & hard-filter HC / read
   preprocessing `trim_adapter`, `trim_quality_*`, `filter_quality*`, `adapter_sequence*`), extra
   `includeConfig`s, ALE profiles. **`snpeff_cache` default `null`** (2026-09-07; upstream
@@ -131,7 +150,7 @@ read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as d
 | `bam_variant_calling_cnvkit` | Ploidy passthrough; emit `cnr`/`cns_batch` for the report. |
 | `bam_joint_calling_germline_gatk` | `VARIANTFILTRATION_FALLBACK` when VQSR can't run (custom genomes, no known-sites). |
 | `samplesheet_to_channel` | ALE metadata columns (ploidy; all-samples-as-normal). Launch-time guard (2026-09-07): `snpeff` in `tools` with neither `snpeff_cache` nor `download_cache` → error; new `download_cache` take (caller `utils_nfcore_sarek_pipeline` passes it). |
-| `utils_nfcore_sarek_pipeline` | YAML `processVersionsFromYAML()` reads content explicitly (cloud paths, SnakeYAML ambiguity) and drops empty documents. **ALE preflight (2026-09-23):** `validateAleRecipe()` (called from `validateInputParameters()`; warns per parameter that drifts from the Tier-1 recipe map — a deliberate second copy of `conf/test/ottilie_common.config` + the read-preprocessing defaults, kept honest by the zero-warnings case of `tests/preflight.nf.test`) and `validateAleSamplesheet(rows)` (errors: empty experiment id after the schema's `patient`/`experiment` overwrite, duplicate input paths; warns: mixed ploidy / clonal flag within an experiment). To run the row checks at DAG build, `samplesheetToList()` is materialised into a list before `Channel.fromList` — same rows, same channel. Prefix `[yAMP preflight]`; user page `docs/usage/preflight_checks.md`. **QC-first run (2026-09-24):** `validateQcOnly()` (errors for `--qc_only` with `step != mapping`, `multiqc` skipped, `cleanup = true` — read via `workflow.session.config.cleanup`), and `PIPELINE_COMPLETION` takes two more inputs (`qc_only`, `multiqc_title`; `main.nf` passes `params.*`) for `qcOnlyCompletion()`, which prints the report path (MultiQC's `--title` → filename rule reproduced; measured on 1.25.1 and 1.35) and the `-resume <sessionId>` command. Neither `params` nor `workflow` resolves inside the `onComplete` closure of a workflow body (NPE at completion) — hence the inputs and the script-level function. |
+| `utils_nfcore_sarek_pipeline` | YAML `processVersionsFromYAML()` reads content explicitly (cloud paths, SnakeYAML ambiguity) and drops empty documents. **ALE preflight (2026-09-23):** `validateAleRecipe()` (called from `validateInputParameters()`; warns per parameter that drifts from the Tier-1 recipe map — a deliberate second copy of `conf/test/ottilie_common.config` + the read-preprocessing defaults, kept honest by the zero-warnings case of `tests/preflight.nf.test`) and `validateAleSamplesheet(rows)` (errors: empty experiment id after the schema's `patient`/`experiment` overwrite, duplicate input paths; warns: mixed ploidy / clonal flag within an experiment). To run the row checks at DAG build, `samplesheetToList()` is materialised into a list before `Channel.fromList` — same rows, same channel. Prefix `[yAMP preflight]`; user page `docs/usage/preflight_checks.md`. **QC-first run (2026-09-24):** `validateQcOnly()` (errors for `--qc_only` with `step != mapping`, `multiqc` skipped, `cleanup = true` — read via `workflow.session.config.cleanup`), and `PIPELINE_COMPLETION` takes two more inputs (`qc_only`, `multiqc_title`; `main.nf` passes `params.*`) for `qcOnlyCompletion()`, which prints the report path (MultiQC's `--title` → filename rule reproduced; measured on 1.25.1 and 1.35) and the `-resume <sessionId>` command. Neither `params` nor `workflow` resolves inside the `onComplete` closure of a workflow body (NPE at completion) — hence the inputs and the script-level function. **Input-checks table (2026-09-29):** the three `validate*` functions also return `[check, status, detail]` rows (OK rows included; console output unchanged), `preflightTable()` renders them with the header `bin/preflight_reference.sh` writes (same MultiQC id → one table; keep the two identical), and `PIPELINE_INITIALISATION` emits them as `preflight_mqc` (`collectFile`, `storeDir` `reports/preflight/`). `collapsedSummaryMultiqc()` wraps the Workflow Summary YAML of nf-core's `paramsSummaryMultiqc()` in `<details>` (the vendored function stays untouched). `qcOnlyCompletion()` names the read-QC report. |
 | `bam_variant_calling_somatic_all` | FreeBayes somatic channel disabled (noise for ALE). |
 | `bam_variant_calling_somatic_mutect2` | FilterMutectCalls placeholder-channel fix (runs without germline resource/PoN). |
 | `annotation_cache_initialisation` | Skip `exists()/isDirectory()` for `az|s3|gs://` cache paths (blob prefixes are not directories). ⚠️ **File deleted upstream in 3.9.0** (#2194), replaced by nf-core `utils_annotation_cache`, which also applies the `<db>/<db>/` key to every cloud URL — our flat `az://` cache dirs fail under it. Port as a subworkflow patch, or make it moot with a tarball cache: `ale_sarek_upgrade_runbook.md` → *Known Rebase Hazards: SnpEff cache*. |
@@ -240,10 +259,14 @@ last at `63eacf9` — the generated Launchpad box in `deploy/azure/seqera-sp/` i
 end, explicit adapters — `fastq_preprocessing_audit.md` §2.1). Post-trim FastQC (2026-09-23):
 `modules/modules.config` gains `FASTQC_TRIMMED` (`ext.prefix = "${meta.id}_trimmed"`, publish to
 `reports/fastqc/<id>/trimmed/`) and `CAT_FASTQ_TRIMMED` (unpublished); `base.config`'s `FASTQC`
-resource block became `FASTQC|FASTQC_TRIMMED`. QC-first run (2026-09-24): `MULTIQC`'s `ext.args`
-title closure falls back to `yAMP QC-only run` when `params.qc_only` (a user `multiqc_title` wins) —
-`--title` renames the report and its `_data`/`_plots` dirs, so the QC-only report coexists with the
-final one; hash-safe because MULTIQC re-runs in the follow-up anyway.
+resource block became `FASTQC|FASTQC_TRIMMED`. Three MultiQC reports (2026-09-29; replaces the
+2026-09-24 `yAMP QC-only run` title closure): `MULTIQC_READ_QC` / `MULTIQC_ALIGNMENT_QC` / `MULTIQC`
+get `--title "<multiqc_title ?: yAMP> read-QC | alignment-QC | complete-QC"`; `--title` also names the
+early two's files, while the complete one pins `output_fn_name` / `data_dir_name` / `plots_dir_name`
+to MultiQC's defaults via `--cl-config` (explicit names beat the title slug — measured on 1.35), so
+everything keyed on `multiqc_report.html` / `multiqc_data/` is unchanged. One `publishDir` block for
+all three. `base.config`'s `MULTIQC` resource block is NOT extended: the two aliases run with
+`process_single` (1 CPU, 6 GB) — smaller reports, running beside the callers.
 
 ---
 

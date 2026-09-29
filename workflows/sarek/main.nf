@@ -8,6 +8,7 @@ include { paramsSummaryMap                                  } from 'plugin/nf-sc
 include { paramsSummaryMultiqc                              } from '../../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML                            } from '../../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText                            } from '../../subworkflows/local/utils_nfcore_sarek_pipeline'
+include { collapsedSummaryMultiqc                           } from '../../subworkflows/local/utils_nfcore_sarek_pipeline'
 
 // Create samplesheets to restart from different steps
 include { CHANNEL_ALIGN_CREATE_CSV                          } from '../../subworkflows/local/channel_align_create_csv/main'
@@ -95,8 +96,10 @@ include { VCF_ANNOTATE_ALL                                  } from '../../subwor
 // breseq variant calling directly from FASTQs
 include { FASTQ_VARIANT_CALLING_BRESEQ                       } from '../../subworkflows/local/fastq_variant_calling_breseq/main'
 
-// MULTIQC
+// MULTIQC — three reports: read-QC and alignment-QC while the run continues, complete-QC at the end
 include { MULTIQC                                           } from '../../modules/nf-core/multiqc/main'
+include { MULTIQC as MULTIQC_READ_QC                        } from '../../modules/nf-core/multiqc/main'
+include { MULTIQC as MULTIQC_ALIGNMENT_QC                   } from '../../modules/nf-core/multiqc/main'
 
 // TABIX — index the raw caller VCFs for the mutation report when no annotator runs
 include { TABIX_TABIX as TABIX_REPORT_VCFS                 } from '../../modules/nf-core/tabix/tabix/main'
@@ -156,14 +159,20 @@ workflow SAREK {
         vep_fasta
         vep_genome
         vep_species
+        preflight_mqc   // the DAG-build input checks as a MultiQC table (PIPELINE_INITIALISATION)
 
     main:
 
     // To gather all QC reports for MultiQC
-    ch_multiqc_files = Channel.empty()
-    multiqc_report   = Channel.empty()
-    reports          = Channel.empty()
-    versions         = Channel.empty()
+    ch_multiqc_files     = Channel.empty()
+    multiqc_report       = Channel.empty()
+    reports              = Channel.empty()
+    reports_read_qc      = Channel.empty()   // `reports` as it stands when read QC ends (read-QC report)
+    reports_alignment_qc = Channel.empty()   // ... and when duplicate marking + CRAM QC end (alignment-QC report)
+    versions             = Channel.empty()
+
+    // The DAG-build input checks join the reference check's rows in one "yAMP input checks" table
+    reports  = reports.mix(preflight_mqc)
 
     // yAMP preflight, task level: do the reference files agree with each other? Today: the FASTA vs the
     // mutation-report GFF3 contig names (bin/preflight_reference.sh; docs/usage/preflight_checks.md).
@@ -316,6 +325,9 @@ workflow SAREK {
         } else {
             reads_for_alignment = reads_for_fastp
         }
+
+        // Read QC ends here: input checks, raw and trimmed FastQC, fastp → the read-QC MultiQC report
+        reports_read_qc = reports
 
         // QC-first run: the gate. Works by STARVATION — the alignment input is emptied and every
         // process downstream of it never receives a task; nothing further down is wrapped, so the DAG
@@ -533,6 +545,9 @@ workflow SAREK {
 
         if (params.save_output_as_bam) CHANNEL_MARKDUPLICATES_CREATE_CSV(CRAM_TO_BAM.out.bam.join(CRAM_TO_BAM.out.bai, failOnDuplicate: true, failOnMismatch: true), csv_subfolder, params.outdir, params.save_output_as_bam)
         else CHANNEL_MARKDUPLICATES_CREATE_CSV(ch_md_cram_for_restart, csv_subfolder, params.outdir, params.save_output_as_bam)
+
+        // Alignment QC ends here: + duplicate metrics, samtools stats, mosdepth → the alignment-QC report
+        reports_alignment_qc = reports
     }
 
     if (params.step in ['mapping', 'markduplicates', 'prepare_recalibration']) {
@@ -952,23 +967,50 @@ workflow SAREK {
         ch_multiqc_custom_config              = params.multiqc_config ? Channel.fromPath(params.multiqc_config, checkIfExists: true) : Channel.empty()
         ch_multiqc_logo                       = params.multiqc_logo ? Channel.fromPath(params.multiqc_logo, checkIfExists: true) : Channel.empty()
         summary_params                        = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
-        ch_workflow_summary                   = Channel.value(paramsSummaryMultiqc(summary_params))
+        ch_workflow_summary                   = Channel.value(collapsedSummaryMultiqc(paramsSummaryMultiqc(summary_params)))
         ch_multiqc_custom_methods_description = params.multiqc_methods_description ? file(params.multiqc_methods_description, checkIfExists: true) : file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
         ch_methods_description                = Channel.value(methodsDescriptionText(ch_multiqc_custom_methods_description))
-        ch_multiqc_files                      = ch_multiqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
-        ch_multiqc_files                      = ch_multiqc_files.mix(version_yaml)
-        ch_multiqc_files                      = ch_multiqc_files.mix(reports)
-        ch_multiqc_files                      = ch_multiqc_files.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml', sort: true))
+        // In every report: the workflow summary and the methods text
+        ch_multiqc_common                     = Channel.empty()
+            .mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
+            .mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml', sort: true))
+        ch_multiqc_files                      = ch_multiqc_files.mix(ch_multiqc_common, version_yaml, reports)
 
-        MULTIQC (
-            ch_multiqc_files.collect(),
+        // Three reports side by side in multiqc/ (titles and file names: conf/modules/modules.config):
+        //   read-QC       input checks + FastQC raw/trimmed + fastp, as soon as read QC is done;
+        //   alignment-QC  + duplicate metrics, samtools stats, mosdepth, as soon as the CRAMs are;
+        //   complete-QC   everything, incl. the software versions (whose YAML exists only at the end).
+        // The early two let a run's QC be read while it is still calling — Seqera's Outputs tab lists a
+        // published report within about a minute (tower.yml). A report whose stage does not run is
+        // STARVED (empty input, no task) rather than its call wrapped, so the DAG is the same at every
+        // --step. --qc_only: the read-QC report IS the QC-only run's report; the other two are starved
+        // here explicitly — their inputs hold the read-QC files, so the gate's starvation misses them.
+        MULTIQC_READ_QC (
+            params.step == 'mapping' ? ch_multiqc_common.mix(reports_read_qc).collect() : Channel.empty(),
             ch_multiqc_config.toList(),
             ch_multiqc_custom_config.toList(),
             ch_multiqc_logo.toList(),
             [],
             []
         )
-        multiqc_report = MULTIQC.out.report.toList()
+        MULTIQC_ALIGNMENT_QC (
+            params.step in ['mapping', 'markduplicates'] && !params.qc_only ? ch_multiqc_common.mix(reports_alignment_qc).collect() : Channel.empty(),
+            ch_multiqc_config.toList(),
+            ch_multiqc_custom_config.toList(),
+            ch_multiqc_logo.toList(),
+            [],
+            []
+        )
+        MULTIQC (
+            params.qc_only ? Channel.empty() : ch_multiqc_files.collect(),
+            ch_multiqc_config.toList(),
+            ch_multiqc_custom_config.toList(),
+            ch_multiqc_logo.toList(),
+            [],
+            []
+        )
+        // the run's report for the completion e-mail: the QC-only run has only the read-QC one
+        multiqc_report = params.qc_only ? MULTIQC_READ_QC.out.report.toList() : MULTIQC.out.report.toList()
 
         //
         // SUBWORKFLOW: Mutation report dashboard (opt-in) — INLINE, channel-based.
@@ -998,8 +1040,8 @@ workflow SAREK {
                 BAM_VARIANT_CALLING_GERMLINE_ALL.out.cnvkit_cnr,             // .md.cnr
                 BAM_VARIANT_CALLING_GERMLINE_ALL.out.cnvkit_cns_batch,       // [*.cns] incl .md.call.cns
                 BAM_VARIANT_CALLING_GERMLINE_ALL.out.cnvkit_cns_germline,    // .md.germline.call.cns
-                MULTIQC.out.data,                                           // MultiQC *_data dir
-                multiqc_report,                                            // ordering edge + linked
+                MULTIQC.out.data,                                           // MultiQC *_data dir (complete-QC)
+                MULTIQC.out.report.toList(),                                // ordering edge + linked (complete-QC)
                 ch_report_fasta,                                            // value: [ fasta, fai ] (fai auto-generated if absent)
                 // report_gff3 is OPTIONAL — without it the igv-reports still build, just with
                 // no gene-annotation track. `[]` (not null, not a sentinel file) is the

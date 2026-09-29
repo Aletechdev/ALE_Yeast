@@ -6,9 +6,9 @@ continues from alignment with every read-QC task a cache hit. Nothing is compute
 is guessed — the second run is the run you would have launched anyway.
 
 ```
-raw FASTQ ─┬─► FastQC (raw)                                        ┐
-           └─► fastp ─► FastQC (after preprocessing) ─► MultiQC    │  run 1: --qc_only  (minutes)
-   + preflight checks, reference preparation, GFF3 index           ┘
+raw FASTQ ─┬─► FastQC (raw)                                             ┐
+           └─► fastp ─► FastQC (after preprocessing) ─► MultiQC read-QC │  run 1: --qc_only  (minutes)
+   + preflight checks, reference preparation, GFF3 index                ┘
                        │
                        ▼   the gate: alignment input emptied under --qc_only
              bwa-mem ─► duplicate marking ─► callers ─► annotation ─► mutation report      run 2: -resume
@@ -25,12 +25,12 @@ nextflow -c conf/mymachine.config run main.nf -profile docker -params-file my_pr
 
 It validates the **complete** parameter set (schema, sarek's own checks, the
 [`[yAMP preflight]`](preflight_checks.md) checks), prepares the reference, runs FastQC on the raw
-reads, fastp, FastQC on the fastp output and MultiQC, and ends with:
+reads, fastp, FastQC on the fastp output and the **read-QC MultiQC report**, and ends with:
 
 ```
 [yAMP qc_only] QC-only run finished — nothing past read QC was run.
-[yAMP qc_only]   MultiQC report : <outdir>/multiqc/yAMP-QC-only-run_multiqc_report.html
-[yAMP qc_only]   FastQC / fastp : <outdir>/reports/  (preflight verdicts: grep 'yAMP preflight' .nextflow.log)
+[yAMP qc_only]   MultiQC report : <outdir>/multiqc/yAMP-read-QC_multiqc_report.html
+[yAMP qc_only]   FastQC / fastp : <outdir>/reports/  (input checks: the report's 'yAMP input checks' table)
 [yAMP qc_only]   To continue, run the same command without --qc_only and with -resume <session id>
 [yAMP qc_only]   (same work directory and --outdir; every read-QC task is a cache hit):
 [yAMP qc_only]     nextflow … -resume <session id>
@@ -77,10 +77,12 @@ run 1's. Measured 2026-09-28 on the test set (runs `5m9NorL3JmkHFq` → `464Scp5
   with every alignment and calling stat), the task list of a one-shot run, deliverables identical to
   the local e2e output of the same commit (530 names equal, 145 snapshot files md5-identical, 42/42
   VCFs record-identical — `tests/qc_gate.sh` part (b) applied to the downloaded outdir).
-- **The QC-only MultiQC report survives run 2** under its own file name, so it can be read while run 2
-  runs — from run 1's page, whose *Outputs* tab lists it (since `702a4c0`; before that the tab of a
-  QC-only run was empty, none of the dashboard patterns matching read-QC files). A full run's tab
-  shows the seven dashboard entries.
+- **Outputs tab.** Run 1's lists the read-QC report (entry *6a*). A full run's — run 2 or a one-shot
+  run — lists *6a* and *6b* (alignment-QC) **while it is still running**, then the dashboard entries
+  and *6* (complete-QC) at the end: Platform picks up each published report within about a minute
+  (measured 2026-09-29, run `5CiOiON5oJuETn`; `azure_batch_execution.md` → Outputs tab).
+  Before 2026-09-29 the QC-only report had its own file name and survived run 2 (`702a4c0`); now
+  run 2 rewrites the same read-QC report early in its run (see *The three MultiQC reports*).
 - **The run page lists all 115 processes for both runs** — the workflow map is registered whole; 15
   carry tasks in run 1 (61 in a full run; the rest are sarek branches this recipe never uses). The
   *Tasks* tab is the record of what ran.
@@ -90,9 +92,11 @@ run 1's. Measured 2026-09-28 on the test set (runs `5m9NorL3JmkHFq` → `464Scp5
 
 ## What to look at before signing off
 
-The MultiQC report of run 1 has two FastQC sections — *FastQC (raw)* and *FastQC (after
-preprocessing)* — with fastp between them, and both sets of General Stats columns on the same sample
-rows ([`read_preprocessing.md` → Post-trim QC](read_preprocessing.md#post-trim-qc)).
+The read-QC report of run 1 opens with the *yAMP input checks* table — every start-up check with its
+verdict ([`preflight_checks.md`](preflight_checks.md)) — then two FastQC sections, *FastQC (raw)* and
+*FastQC (after preprocessing)*, with fastp between them and both sets of General Stats columns on the
+same sample rows ([`read_preprocessing.md` → Post-trim QC](read_preprocessing.md#post-trim-qc)). The
+Workflow Summary (every parameter the run set) is at the bottom, collapsed.
 
 | Look at | Where | What a problem looks like |
 |---|---|---|
@@ -101,7 +105,7 @@ rows ([`read_preprocessing.md` → Post-trim QC](read_preprocessing.md#post-trim
 | Reads surviving fastp | fastp → *Filtered reads*; General Stats `% Pass filter` | more than a few % lost: a low-quality library or an over-tight `filter_quality_*` / `length_required` |
 | Duplication estimate | fastp → *Duplication*; FastQC → *Sequence duplication levels* | far above the other samples: low-complexity library or PCR over-amplification |
 | GC distribution | FastQC → *Per sequence GC content* | a second peak or a shifted mode: contamination, or reads from the wrong organism |
-| Reference files agree | *yAMP preflight: reference* table (first section) | an ERROR row is never seen here (it has already stopped the run); read the OK row's note — GFF3 contigs without a FASTA sequence are listed there, the expected picture for a chromosome-subset reference such as the test set ([`preflight_checks.md`](preflight_checks.md)) |
+| Input checks | *yAMP input checks* table (first section) | a WARN row — a parameter off the Tier-1 recipe, or an experiment mixing ploidy or clonal flag; an ERROR is never seen here (it has already stopped the run). The reference row's note lists GFF3 contigs without a FASTA sequence, the expected picture for a chromosome-subset reference such as the test set ([`preflight_checks.md`](preflight_checks.md)) |
 | Expected depth | General Stats: bases after filtering ÷ genome size | below what the experiment needs — the coverage check itself is behind the gate (it needs alignment) |
 
 Run 1 shows **no** mapping rate, coverage or mitochondrial depth and cannot tell reads from the wrong
@@ -112,7 +116,7 @@ later "stop after alignment" level would be a separate parameter.
 
 Runs (and is cached for run 2): preflight checks · the reference preflight task (FASTA vs GFF3 contig
 names, [`preflight_checks.md`](preflight_checks.md) → *Reference files*) · FastQC on the raw reads ·
-fastp · FastQC on the fastp output · MultiQC · reference preparation (bwa index, `.fai`, sequence
+fastp · FastQC on the fastp output · the read-QC MultiQC report · reference preparation (bwa index, `.fai`, sequence
 dictionary, intervals, the CNVKit flat reference) · the GFF3 index for the mutation report. On the
 ottilie test set that is 18 tasks and about five minutes (measured 2026-09-28).
 
@@ -122,12 +126,21 @@ directly rather than the alignment, so it is gated separately and is likewise no
 run 1 either: the SnpEff cache (contig names, snpEff version) — it is read only at the annotation
 step, in run 2 ([`prepare_reference.md`](prepare_reference.md) → chromosome names).
 
-The QC-only MultiQC report is titled *yAMP QC-only run*, which MultiQC turns into the file name
-`yAMP-QC-only-run_multiqc_report.html` (plus `…_report_data/` and `…_report_plots/`), so it stays in
-`<outdir>/multiqc/` next to the final run's plain `multiqc_report.html` instead of being overwritten
-by it. A `--multiqc_title` of your own wins — but it then names **both** runs' reports the same, so
-run 2 replaces run 1's report. Leave `multiqc_title` unset if you want to keep the QC-only copy (it
-is unset by default and hidden on the Seqera launch form).
+### The three MultiQC reports
+
+Every run writes up to three reports to `<outdir>/multiqc/`, each as soon as its stage ends:
+
+| Report | File | Holds | Written |
+|---|---|---|---|
+| *yAMP read-QC* | `yAMP-read-QC_multiqc_report.html` | input checks, FastQC (raw and after preprocessing), fastp | when read QC ends — the QC-only run's report |
+| *yAMP alignment-QC* | `yAMP-alignment-QC_multiqc_report.html` | + duplicate metrics, samtools stats, mosdepth coverage | when every sample is aligned; not in a QC-only run |
+| *yAMP complete-QC* | `multiqc_report.html` | + variant statistics and the software versions | at the end; not in a QC-only run |
+
+The first two carry their `…_data/` and `…_plots/` folders beside them; the complete one keeps
+MultiQC's plain names (`multiqc_report.html`, `multiqc_data/`), which the mutation-report index links
+to. Run 2 rewrites the read-QC report within minutes of starting — same read-QC data, but its input
+checks and Workflow Summary no longer say `qc_only`. `multiqc_title` (hidden on the Seqera launch
+form) replaces the `yAMP` prefix of all three titles, and so the two early file names.
 
 ## Rules and errors
 
@@ -145,7 +158,8 @@ QC run pointless are refused at start-up (`[yAMP preflight]` errors, run in seco
 
 Hash stability: run 2 reuses run 1's tasks only if their inputs and scripts are unchanged. Change
 nothing between the two runs except the flag — not the samplesheet, the reference, the trimming
-parameters or the pipeline revision. (MultiQC is the one task that runs again: its inputs grow.)
+parameters or the pipeline revision. (The read-QC MultiQC report is the one task that runs again:
+its input checks and Workflow Summary record `qc_only`.)
 
 ## How it works, and the test that guards it
 

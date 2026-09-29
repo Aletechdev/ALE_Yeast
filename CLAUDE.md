@@ -319,14 +319,21 @@ terminates the run on error), reads the reference files themselves before alignm
 OK row, not warned about (the test set is a chromosome subset of a fully annotated genome).
 Verdicts in a MultiQC table + `reports/preflight/`; a console line only on ERROR, so the
 zero-lines rule holds (`tests/preflight_reference.nf.test`, 4 cases). One check by decision; the others are roadmap rows.
+Since 2026-09-29 **every** check's verdict (OK/WARN; an ERROR stops the run before any report) is a
+row of one *yAMP input checks* table at the top of all three MultiQC reports — the DAG-build rows
+(`preflightTable()`) share the reference script's MultiQC id and header; keep the two identical.
 
 ### QC-first run (`--qc_only`)
 
 Since 2026-09-24: run 1 = the normal command + `--qc_only` stops after read QC (preflight, FastQC raw,
 fastp, FastQC on the fastp output, MultiQC, plus reference prep and the reference preflight task — 18 tasks / ~5 min on the test set),
 exits 0 and prints the follow-up; run 2 = the same command without the flag + `-resume <session id>`
-(every QC task cached; Platform: *Resume* with `qc_only` cleared). The QC-only MultiQC report is
-titled so it lands as `multiqc/yAMP-QC-only-run_multiqc_report.html` beside the final one. Errors:
+(every QC task cached; Platform: *Resume* with `qc_only` cleared). **Three MultiQC reports** (since
+2026-09-29), each published as its stage ends: `yAMP-read-QC_multiqc_report.html` (the QC-only run's
+report), `yAMP-alignment-QC_multiqc_report.html`, and the complete one — titled *complete-QC* but
+keeping `multiqc_report.html` / `multiqc_data/` (the index and baselines key on them). The early two
+are starved, not wrapped, where their stage does not run; under `--qc_only` so are the other two.
+Errors:
 `--step` ≠ `mapping`, `multiqc` skipped, `cleanup = true`. breseq is not run. **The gate is one
 starvation point before alignment in `workflows/sarek/main.nf`** — anything downstream that can fire
 on empty input (`toList`/`ifEmpty`/value channel/plain file) breaks it silently, so `tests/qc_gate.sh a`

@@ -128,6 +128,7 @@ if (params.spliceai_snv && params.spliceai_snv_tbi && params.spliceai_indel && p
 workflow NFCORE_SAREK {
     take:
     samplesheet
+    preflight_mqc   // the DAG-build input checks as a MultiQC table (PIPELINE_INITIALISATION)
 
     main:
     versions = Channel.empty()
@@ -305,7 +306,8 @@ workflow NFCORE_SAREK {
         vep_extra_files,
         vep_fasta,
         vep_genome,
-        vep_species
+        vep_species,
+        preflight_mqc
     )
     emit:
     multiqc_report = SAREK.out.multiqc_report // channel: /path/to/multiqc_report.html
@@ -334,7 +336,7 @@ workflow {
     //
     // WORKFLOW: Run main workflow
     //
-    NFCORE_SAREK(PIPELINE_INITIALISATION.out.samplesheet)
+    NFCORE_SAREK(PIPELINE_INITIALISATION.out.samplesheet, PIPELINE_INITIALISATION.out.preflight_mqc)
 
     // NOTE: MUTATION_REPORT (--generate_reports) is now called INLINE at the end of
     // workflows/sarek/main.nf so it consumes live pipeline channels

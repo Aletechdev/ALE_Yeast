@@ -120,7 +120,7 @@ nextflow_pipeline {
                 { assert log.any { it.contains('[yAMP qc_only] stopping after read QC') } },
                 { assert log.any { it.contains('[yAMP qc_only] QC-only run finished') } },
                 { assert log.any { it =~ /\[yAMP qc_only\].*with -resume [0-9a-f-]{36}/ } },
-                { assert log.any { it.contains('yAMP-QC-only-run_multiqc_report.html') } }
+                { assert log.any { it.contains('yAMP-read-QC_multiqc_report.html') } }
             )
         }
     }

@@ -14,7 +14,7 @@
 #                                           session id to resume.
 #   tests/qc_gate.sh b <reference_outdir>   part (b), about one e2e. Run 2 = the same command without
 #                                           --qc_only, with -resume <run-1 session>. Every run-1 task
-#                                           except MULTIQC must be CACHED, the task list must equal the
+#                                           except MULTIQC_READ_QC must be CACHED, the task list must equal the
 #                                           reference run's, and the deliverables must equal the
 #                                           reference's (tests/qc_gate_compare.py: names + content).
 #
@@ -35,7 +35,8 @@ launch=( nextflow run "$here/main.nf" -profile "$profile" -c "$here/tests/ottili
          --outdir "$outdir" -w "$workdir" -ansi-log false )
 
 # The allow-list: every process a QC-only run of the ottilie profile may execute. Read QC (raw FastQC,
-# fastp, FastQC on its output, MultiQC) plus reference preparation, the GFF3 index and the reference
+# fastp, FastQC on its output, the read-QC MultiQC report — the alignment-QC and complete-QC ones are
+# starved under --qc_only in workflows/sarek/main.nf) plus reference preparation, the GFF3 index and the reference
 # preflight task, which take plain file inputs and are deliberately ungated (seconds, cached, and run 2
 # needs them anyway — the preflight is the point of run 1).
 # With split_fastq > 0 (not the ottilie profile) FASTQC_TRIMMED_QC:CAT_FASTQ_TRIMMED joins the list.
@@ -52,7 +53,7 @@ ALLOW=(
   NFCORE_SAREK:SAREK:FASTP
   NFCORE_SAREK:SAREK:FASTQC
   NFCORE_SAREK:SAREK:FASTQC_TRIMMED_QC:FASTQC_TRIMMED
-  NFCORE_SAREK:SAREK:MULTIQC
+  NFCORE_SAREK:SAREK:MULTIQC_READ_QC
   NFCORE_SAREK:SAREK:MUTATION_REPORT:PREPARE_GFF3
   NFCORE_SAREK:SAREK:PREFLIGHT_REFERENCE
 )
@@ -124,8 +125,9 @@ case "$part" in
 
     trace2=$(newest_trace "$outdir")
     [ "$trace2" != "$outdir/.qc_gate_trace_run1.txt" ] && [ -n "$trace2" ] || fail "no run-2 trace"
-    # 1. every run-1 task except MULTIQC is a cache hit in run 2
-    not_cached=$(join -t $'\t' <(trace_rows "$outdir/.qc_gate_trace_run1.txt" | cut -f1 | grep -v ':MULTIQC$' | sort) \
+    # 1. every run-1 task except the read-QC MultiQC report (its input-checks table and workflow summary
+    #    carry qc_only) is a cache hit in run 2
+    not_cached=$(join -t $'\t' <(trace_rows "$outdir/.qc_gate_trace_run1.txt" | cut -f1 | grep -v ':MULTIQC_READ_QC$' | sort) \
                                <(trace_rows "$trace2" | sort) | awk -F'\t' '$2 != "CACHED"' || true)
     [ -z "$not_cached" ] || { echo "qc_gate FAIL: run-1 task(s) re-ran in run 2 instead of resuming (a task hash moved):" >&2; sed 's/^/    /' <<<"$not_cached" >&2; exit 1; }
     # 2. run 2 executed exactly the reference run's task list

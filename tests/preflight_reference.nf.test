@@ -45,7 +45,7 @@ nextflow_process {
                 { assert table.size() == 2 },
                 { assert table[1] == 'FASTA vs GFF3 contig names\tOK\tall 2 contig name(s) of genes.gff3 are contigs of ref.fa (3 contigs)' },
                 { assert verdicts(process.stdout) == [] },
-                { assert path(process.out.mqc[0]).readLines().any { it.startsWith("# id: 'yamp_preflight_reference'") } },
+                { assert path(process.out.mqc[0]).readLines().any { it.startsWith("# id: 'yamp_input_checks'") } },
                 { assert path(process.out.versions[0]).readLines().any { it =~ /gawk: \d+\.\d+/ } }
             )
         }

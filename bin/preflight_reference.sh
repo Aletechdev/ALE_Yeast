@@ -98,23 +98,26 @@ check_fasta_vs_gff3() {
 
 check_fasta_vs_gff3
 
+# The header is the one preflightTable() writes for the DAG-build checks
+# (subworkflows/local/utils_nfcore_sarek_pipeline/main.nf): same custom-content id, so MultiQC renders
+# the two files as ONE "yAMP input checks" table. Keep the two identical.
 {
     cat <<'HEADER'
-# id: 'yamp_preflight_reference'
-# section_name: 'yAMP preflight: reference'
-# description: "Do the reference files handed to the pipeline agree with each other? Checked at the start of the run, before alignment (docs/usage/preflight_checks.md). ERROR stops the run; WARN and ERROR lines are also printed on the console with the [yAMP preflight] prefix."
+# id: 'yamp_input_checks'
+# section_name: 'yAMP input checks'
+# description: "What the pipeline checked before aligning any read (docs/usage/preflight_checks.md): the samplesheet and the parameters when the run starts, the reference files in its first task. A failed check stops the run before any report is written, so this table lists what passed (OK) and what was flagged (WARN); WARN lines are also printed on the console with the [yAMP preflight] prefix."
 # plot_type: 'table'
 # pconfig:
-#     id: 'yamp_preflight_reference_table'
-#     namespace: 'yAMP preflight'
+#     id: 'yamp_input_checks_table'
+#     namespace: 'yAMP input checks'
 #     sort_rows: false
 # headers:
 #     status:
 #         title: 'Status'
-#         description: 'OK, WARN, ERROR or SKIPPED'
+#         description: 'OK, WARN or SKIPPED (an ERROR stops the run)'
 #     detail:
 #         title: 'Detail'
-#         description: 'What was compared and what was found'
+#         description: 'What was checked and what was found'
 HEADER
     printf 'Check\tstatus\tdetail\n'
     printf '%s\n' "${rows[@]}"

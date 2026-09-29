@@ -77,3 +77,10 @@ multiqc/multiqc_data/*snpeff*.txt
 # (caught by the e2e pair on 2026-09-24: the only differing line between two runs was runName).
 multiqc/multiqc_data/multiqc.parquet
 multiqc/multiqc_data/llms-full.txt
+# The two early MultiQC reports (2026-09-29: read-QC and alignment-QC, published while the run
+# continues). Their data and plots are subsets of the complete report's, whose deterministic files
+# stay snapshotted, and they carry the same run-dependent files (llms-full.txt, multiqc.parquet,
+# multiqc_data.json, multiqc.log…) — so NAMES only; the e2e asserts their sections explicitly.
+multiqc/*-QC_multiqc_report.html
+multiqc/*-QC_multiqc_report_data/**
+multiqc/*-QC_multiqc_report_plots/**

@@ -15,6 +15,27 @@ samplesheet. The check runs in seconds, also under `-preview`. A second, task-le
 reference files themselves once the run starts — see *Reference files* below; it follows the same
 rule (prints only when something is wrong) but, being a task, does not run under `-preview`.
 
+## In the MultiQC reports — the *yAMP input checks* table
+
+Every check that passed or warned is also a row of the **yAMP input checks** table, the first section
+of all three MultiQC reports (read-QC, alignment-QC, complete-QC — [`qc_first_run.md`](qc_first_run.md)
+→ *The three MultiQC reports*). A run's verdicts can therefore be read without opening its log — on
+Seqera Platform from the run's *Outputs* tab, while the run is still going.
+
+| Row | OK says | WARN says |
+|---|---|---|
+| `Samplesheet: experiment ids` | how many samples, in which experiments | — (a missing id is an error) |
+| `Samplesheet: input files listed once` | how many files in how many rows | — (a repeated file is an error) |
+| `Samplesheet: ploidy and clonal flag per experiment` | the values seen | which experiment mixes which values |
+| `Parameters: Tier-1 recipe` | every recipe setting matches | each deviation |
+| `Parameters: --qc_only` (QC-only runs only) | the run stops after read QC | only fastp's report is produced |
+| `FASTA vs GFF3 contig names` | see *Reference files* below | — |
+
+Rows are sorted by name. An ERROR row never appears: a failed check stops the run before any report
+exists, so errors are read on the console (on Seqera, in the run's error message). The same rows are
+kept in `<outdir>/reports/preflight/` — `preflight_samplesheet_params_mqc.tsv` for the start-up
+checks, `preflight_reference_mqc.tsv` for the reference task.
+
 ## Errors — the run stops
 
 | Check | Why it is an error |
@@ -43,7 +64,7 @@ keeps the copy honest.
 The reference files themselves are read by one small task, `PREFLIGHT_REFERENCE`, which runs before
 alignment at every `--step` and in a QC-only run — as a task rather than at DAG build so that cloud
 paths (`az://`, `s3://`) are staged like any other input. It writes one row per check to the MultiQC
-report (section *yAMP preflight: reference*) and to
+reports (a row of the *yAMP input checks* table) and to
 `<outdir>/reports/preflight/preflight_reference_mqc.tsv`. On the console it prints only a failed
 verdict, with the same `[yAMP preflight]` prefix, so a clean reference still prints nothing.
 An ERROR stops the run at once (exit 65, no retry).
@@ -62,6 +83,7 @@ user-supplied `--fasta_fai` or `--dict` from another FASTA version — fails ins
 and FASTA syntax (duplicate headers, CRLF line endings) — fails in reference preparation within minutes.
 
 Where they live: `validateAleRecipe()`, `validateAleSamplesheet()` and `validateQcOnly()` in
-`subworkflows/local/utils_nfcore_sarek_pipeline/main.nf`, test `tests/preflight.nf.test`; the reference
+`subworkflows/local/utils_nfcore_sarek_pipeline/main.nf` (their table rows: `preflightTable()`, whose
+header must stay identical to the reference script's), test `tests/preflight.nf.test`; the reference
 task in `modules/local/preflight_reference/` runs `bin/preflight_reference.sh` (gawk), configured by
 `conf/modules/preflight.config`, test `tests/preflight_reference.nf.test`.

@@ -67,9 +67,9 @@ workflow PIPELINE_INITIALISATION {
     UTILS_NFCORE_PIPELINE(nextflow_cli_args)
 
     //
-    // Custom validation for pipeline parameters
+    // Custom validation for pipeline parameters (the ALE checks' verdict rows are kept for the report)
     //
-    validateInputParameters()
+    def preflight_rows = validateInputParameters()
 
     // Check input path parameters to see if they exist
     def checkPathParamList = [
@@ -126,8 +126,13 @@ if (params.tools && (params.tools.split(',').contains('vep')    || params.tools.
     // same list.
     def samplesheet_rows = params.build_only_index ? [] :
         samplesheetToList(params.input ?: params.input_restart, "$projectDir/assets/schema_input.json")
-    validateAleSamplesheet(samplesheet_rows)
+    preflight_rows += validateAleSamplesheet(samplesheet_rows)
     ch_from_samplesheet = Channel.fromList(samplesheet_rows)
+
+    // The DAG-build checks' verdicts as the "yAMP input checks" MultiQC table (preflightTable), also
+    // kept in reports/preflight/. MultiQC is its only consumer: no task hash depends on it.
+    preflight_mqc = Channel.of(preflightTable(preflight_rows))
+        .collectFile(name: 'preflight_samplesheet_params_mqc.tsv', storeDir: "${outdir}/reports/preflight")
 
     // Convert experiment to patient if experiment column is used
     ch_from_samplesheet_processed = ch_from_samplesheet.map { meta, fastq_1, fastq_2, spring_1, spring_2, table, cram, crai, bam, bai, vcf, variantcaller ->
@@ -174,6 +179,7 @@ if (params.tools && (params.tools.split(',').contains('vep')    || params.tools.
 
     emit:
     samplesheet = SAMPLESHEET_TO_CHANNEL.out.input_sample
+    preflight_mqc // channel: [ preflight_samplesheet_params_mqc.tsv ]
     versions
 }
 
@@ -194,7 +200,7 @@ workflow PIPELINE_COMPLETION {
     hook_url        //  string: hook URL for notifications
     multiqc_report  //  string: Path to MultiQC report
     qc_only         // boolean: QC-first run — print where the report is and the follow-up -resume command
-    multiqc_title   //  string: user MultiQC title, if any (it names the report file)
+    multiqc_title   //  string: user MultiQC title prefix, if any (it names the read-QC report file)
 
     main:
     summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
@@ -237,12 +243,12 @@ workflow PIPELINE_COMPLETION {
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 //
-// Check and validate pipeline parameters
+// Check and validate pipeline parameters. Returns the ALE checks' verdict rows for the
+// "yAMP input checks" MultiQC table (preflightTable below).
 //
 def validateInputParameters() {
     genomeExistsError()
-    validateAleRecipe()
-    validateQcOnly()
+    return validateAleRecipe() + validateQcOnly()
 }
 
 //
@@ -250,7 +256,7 @@ def validateInputParameters() {
 // QC run pointless are errors at DAG build; the gate itself is in workflows/sarek/main.nf.
 //
 def validateQcOnly() {
-    if (!params.qc_only) return
+    if (!params.qc_only) return []
     if (params.step != 'mapping') {
         error("[yAMP preflight] --qc_only requires --step mapping (read QC is the first stage of the mapping step; a run starting from '${params.step}' has no reads to QC)")
     }
@@ -260,15 +266,23 @@ def validateQcOnly() {
     if (workflow.session.config.cleanup) {
         error("[yAMP preflight] --qc_only with cleanup = true: Nextflow would delete the work directory when the QC run completes, so the follow-up run could not -resume it — set cleanup = false")
     }
-    if (params.skip_tools && params.skip_tools.split(',').contains('fastqc')) {
+    def no_fastqc = params.skip_tools && params.skip_tools.split(',').contains('fastqc')
+    if (no_fastqc) {
         log.warn "[yAMP preflight] --qc_only with fastqc in --skip_tools: only fastp's report will be produced"
     }
+    return [[
+        'Parameters: --qc_only',
+        no_fastqc ? 'WARN' : 'OK',
+        no_fastqc ? "fastqc in --skip_tools: only fastp's report is produced"
+                  : 'QC-only run: step mapping, MultiQC on, cleanup off — stops after read QC',
+    ]]
 }
 
 //
 // What a finished QC-only run prints: where the report is and the exact follow-up command.
-// The report name follows MultiQC's --title rule, measured on 1.25.1 and 1.35 (write_results.py: whitespace/hyphen runs
-// → '-', every other non-word character dropped). The command is the launch command with
+// The report is the read-QC one (MULTIQC_READ_QC; its title is set in conf/modules/modules.config —
+// keep the two in sync). Its name follows MultiQC's --title rule, measured on 1.25.1 and 1.35
+// (write_results.py: whitespace/hyphen runs → '-', every other non-word character dropped). The command is the launch command with
 // --qc_only (any spelling: bare, `--qc_only true`, `--qc_only=true`) and any -resume (bare or with
 // a session id/name — never the option that follows a bare one) removed, plus -resume <this
 // session>; when --qc_only did not come from the command line (params file / config — which is
@@ -276,7 +290,7 @@ def validateQcOnly() {
 //
 def qcOnlyCompletion(qc_only, outdir, multiqc_title) {
     if (!qc_only || !workflow.success) return
-    def title  = multiqc_title ?: 'yAMP QC-only run'
+    def title  = "${multiqc_title ?: 'yAMP'} read-QC"
     def slug   = title.replaceAll(/[-\s]+/, '-').replaceAll(/[^\w.\-]/, '').trim()
     def report = "${outdir}/multiqc/${slug}_multiqc_report.html"
     def cmd    = workflow.commandLine
@@ -287,7 +301,7 @@ def qcOnlyCompletion(qc_only, outdir, multiqc_title) {
         "",
         "[yAMP qc_only] QC-only run finished — nothing past read QC was run.",
         "[yAMP qc_only]   MultiQC report : ${report}",
-        "[yAMP qc_only]   FastQC / fastp : ${outdir}/reports/  (preflight verdicts: grep 'yAMP preflight' .nextflow.log)",
+        "[yAMP qc_only]   FastQC / fastp : ${outdir}/reports/  (input checks: the report's 'yAMP input checks' table)",
         "[yAMP qc_only]   To continue, run the same command without --qc_only and with -resume ${workflow.sessionId}",
         "[yAMP qc_only]   (same work directory and --outdir; every read-QC task is a cache hit):",
         "[yAMP qc_only]     ${cmd} -resume ${workflow.sessionId}",
@@ -346,6 +360,12 @@ def validateAleRecipe() {
     }
     drift.each { log.warn "[yAMP preflight] recipe drift: ${it}" }
     if (drift) log.warn "[yAMP preflight] ${drift.size()} deviation(s) from the validated Tier-1 recipe — the run proceeds, but its outputs are not covered by the ottilie contract test or the Azure baseline (docs/usage/preflight_checks.md)"
+    return [[
+        'Parameters: Tier-1 recipe',
+        drift ? 'WARN' : 'OK',
+        drift ? "${drift.size()} deviation(s): ${drift.join('; ')} — outputs not covered by the ottilie contract test or the Azure baseline"
+              : "all ${recipe.size()} recipe settings match (callers, joint calling, read preprocessing)",
+    ]]
 }
 
 //
@@ -355,7 +375,7 @@ def validateAleRecipe() {
 // produce wrong output silently; warnings for inconsistencies that are legal but unusual.
 //
 def validateAleSamplesheet(rows) {
-    if (!rows) return
+    if (!rows) return []
     def metas = rows.collect { it[0] }
 
     // ERROR: no experiment id. assets/schema_input.json maps both `experiment` and `patient` to
@@ -379,14 +399,77 @@ def validateAleSamplesheet(rows) {
     // WARN: ploidy or clonal_or_population differing within an experiment. Legal, but joint calling
     // genotypes every sample of an experiment together, and the clonal/population AF thresholds are
     // per sample — a mixed experiment is usually a typo.
+    def mixed = []
     metas.groupBy { it.patient }.each { experiment, ms ->
         ['ploidy', 'clonal_or_population'].each { key ->
             def values = ms.collect { it[key] }.unique()
             if (values.size() > 1) {
                 log.warn "[yAMP preflight] experiment ${experiment} mixes ${key} values ${values.join(' / ')} — check the samplesheet (a mixed experiment is usually a typo)"
+                mixed << "experiment ${experiment} mixes ${key} ${values.join(' / ')}"
             }
         }
     }
+
+    // The verdict rows for the "yAMP input checks" table; a failed ERROR check never gets here
+    def experiments = metas.collect { it.patient }.unique()
+    def samples     = metas.collect { it.sample }.unique()
+    def seen        = { key -> metas.collect { it[key] }.unique().join(' / ') }
+    return [
+        ['Samplesheet: experiment ids', 'OK',
+            "${samples.size()} sample(s) in ${experiments.size()} experiment(s): ${firstTen(experiments)}"],
+        ['Samplesheet: input files listed once', 'OK',
+            "${paths.size()} file(s) in ${rows.size()} row(s), none listed twice"],
+        ['Samplesheet: ploidy and clonal flag per experiment', mixed ? 'WARN' : 'OK',
+            mixed ? "${mixed.join('; ')} — a mixed experiment is usually a typo"
+                  : "consistent within every experiment (ploidy ${seen('ploidy')}; ${seen('clonal_or_population')})"],
+    ]
+}
+
+// The first ten items, comma separated, "…" when there are more (same rule as bin/preflight_reference.sh)
+def firstTen(items) {
+    items.take(10).join(', ') + (items.size() > 10 ? ', …' : '')
+}
+
+//
+// The "yAMP input checks" MultiQC table: one row per DAG-build check above, OK rows included, so
+// the report shows what was checked and not only what was flagged. The header is the one
+// bin/preflight_reference.sh writes for the task-level reference check — same custom-content id,
+// so MultiQC renders both files as ONE table (rows sorted by check name; measured on 1.35). Keep
+// the two headers identical. An ERROR never appears: it stops the run before any report exists.
+//
+def preflightTable(rows) {
+    def header = [
+        "# id: 'yamp_input_checks'",
+        "# section_name: 'yAMP input checks'",
+        '# description: "What the pipeline checked before aligning any read (docs/usage/preflight_checks.md): the samplesheet and the parameters when the run starts, the reference files in its first task. A failed check stops the run before any report is written, so this table lists what passed (OK) and what was flagged (WARN); WARN lines are also printed on the console with the [yAMP preflight] prefix."',
+        "# plot_type: 'table'",
+        "# pconfig:",
+        "#     id: 'yamp_input_checks_table'",
+        "#     namespace: 'yAMP input checks'",
+        "#     sort_rows: false",
+        "# headers:",
+        "#     status:",
+        "#         title: 'Status'",
+        "#         description: 'OK, WARN or SKIPPED (an ERROR stops the run)'",
+        "#     detail:",
+        "#         title: 'Detail'",
+        "#         description: 'What was checked and what was found'",
+        "Check\tstatus\tdetail",
+    ]
+    return (header + rows.collect { it.join('\t') }).join('\n') + '\n'
+}
+
+//
+// The Workflow Summary section lists every parameter the run set — provenance, and long to scroll
+// past. Its body goes inside <details>, collapsed until clicked: MultiQC has no per-section collapse
+// option, and passes the tag through an html section unescaped (measured on 1.35). Takes the YAML
+// that nf-core's paramsSummaryMultiqc() builds, so the vendored function stays untouched.
+//
+def collapsedSummaryMultiqc(summary_yaml) {
+    def n = summary_yaml.count('<dt>')
+    return summary_yaml.replaceFirst(/(?m)^data: \|\n/,
+        "data: |\n    <details><summary>Show the ${n} parameter(s) this run was started with</summary>\n") +
+        "    </details>\n"
 }
 
 //
