@@ -137,6 +137,10 @@ the restarted head job cannot recover. Both halves are required: the disk stops 
 stops it being fatal. Full detail, plus the better `/mnt` relocation fix:
 [`azure_batch_execution.md` §9–§10](docs/dev-practices/azure_batch_execution.md).
 
+📋 **The Outputs tab fills during the run** (measured 2026-09-29, run `5CiOiON5oJuETn`): the Tower
+plugin syncs matching publishes about once a minute, so a report published before the end of a run is
+readable mid-run. Detail: `azure_batch_execution.md` → Outputs tab.
+
 💰 **Nothing is always on.** The CE's two pools (`tower-pool-<ce-id>-{head,worker}`) autoscale to 0
 between runs and cost nothing there; the portal's dashed "Dedicated Core Count (Avg)" line is a sparse
 metric artefact, not a node. Three-command idle audit + residual risks (hung head job has no wall-clock

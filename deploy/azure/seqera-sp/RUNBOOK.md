@@ -1398,3 +1398,26 @@ QC-only and a full run alike (the registered DAG); 15 vs 61 carry tasks.
 and 3, incl. the UNKNOWN branch on run 2), `17_download_outdir.sh` (every download today — the az
 CLI user login had expired under the 14-day policy mid-session; the script reads with the pipeline's
 SP via azcopy and touches no CLI login state).
+
+### 2026-09-29 — ✅ The Outputs tab fills while the run is going (run `5CiOiON5oJuETn`)
+
+Question before building the early MultiQC reports: does Platform list a `tower.yml` match while the
+run is RUNNING, or only at completion? Seqera's docs are silent and nf-core's say "after the pipeline
+has completed". The plugin says during: `TowerReports.groovy` (Nextflow v25.10.4 = nf-tower 1.17.5)
+appends each matching publish to `nf-<id>-reports.tsv` and, when the launch dir is not the work dir,
+copies it to the work dir at most once a minute from a timer.
+
+Run: an ordinary one-shot test-set run of the Launchpad entry at `702a4c0` (GitHub `main`; the one
+local-only commit, `8b83da4`, was docs + scripts), launched with `tw launch … --params-file <box +
+outdir>` rather than `15_launch_run.sh`, which refuses while local `main` is ahead. Outdir
+`az://aletest/seqera-runs/yAMP-live-outputs-20260929` (disposable). Polled `GET /workflow/<id>` and
+`GET /workflow/<id>/reports` every 30 s.
+
+Submitted 09:22:33Z, RUNNING 09:28:43 (cold head pool, 6 min), SUCCEEDED 09:54:18 — 153/153 tasks,
+25.6 min. The list grew **while RUNNING**: 1 entry at 09:43:12 (*5.*, contig copy number), then 4 → 7
+→ 8 → 9 → 10 → 12 by 09:53:28; 14 at SUCCEEDED (*1.* index and *6.* MultiQC, published last). Lag
+from task completion to first listed: *5.* 44 s, *4.* 18 s, *3.* 71 s, *2.* 29 s — the one-minute
+sync plus the 30-s poll. MultiQC completed 09:53:28 and was listed only with SUCCEEDED (inside one
+sync period of the end). From the tasks API: read QC (FastQC, fastp) complete 8.9 min into RUNNING,
+alignment QC (duplicate metrics, samtools stats, mosdepth) at 12.2 min — so MultiQC reports built at
+those two points could be listed ~17 and ~13 min before the end of this run. Written up in `azure_batch_execution.md` → Outputs tab.
