@@ -1421,3 +1421,33 @@ sync plus the 30-s poll. MultiQC completed 09:53:28 and was listed only with SUC
 sync period of the end). From the tasks API: read QC (FastQC, fastp) complete 8.9 min into RUNNING,
 alignment QC (duplicate metrics, samtools stats, mosdepth) at 12.2 min — so MultiQC reports built at
 those two points could be listed ~17 and ~13 min before the end of this run. Written up in `azure_batch_execution.md` → Outputs tab.
+
+### 2026-09-29 — ✅ Three MultiQC reports on Platform: read-QC and alignment-QC listed while RUNNING (run `Wxgvs037pXLV8`)
+
+First Platform run of `82fa664` (three MultiQC reports + the *yAMP input checks* table): one-shot
+test-set run from the Launchpad entry (`15_launch_run.sh`, box + outdir
+`az://aletest/seqera-runs/yAMP-staged-mqc-20260929`, disposable), polled every 30 s as on run
+`5CiOiON5oJuETn`. Submitted 11:54Z, RUNNING 12:05:09 (cold head pool), SUCCEEDED 12:29:15 — 155/155
+tasks, 24.1 min.
+
+| Entry | Task completed | First listed (30-s poll) | Into RUNNING | Before the end |
+|---|---|---|---|---|
+| *6a* MultiQC read-QC | 12:13:35 | 12:14:18 | 9.2 min | 15.0 min |
+| *6b* MultiQC alignment-QC | 12:21:25 | 12:21:55 | 16.8 min | 7.3 min |
+| *6* MultiQC complete-QC | 12:28:25 | 12:29:01 (still RUNNING) | 23.9 min | 0.2 min |
+
+*6a* was the first entry of the run, 4.6 min before any dashboard file (*5.* at 12:18:52); 16 entries
+at SUCCEEDED (14 + the two early reports). Report sizes 2.68 / 2.83 / 3.03 MB — all previewable
+(< 10 MB). The estimate from run `5CiOiON5oJuETn` (~17 / ~13 min before the end, from input
+completion times) held for read-QC and was optimistic for alignment-QC: its inputs completed 11 min
+before the end here and the task then queued 49 s for a slot (submit 12:18:16, start 12:19:05; MultiQC
+itself 21 s). Unlike the morning run, the complete report — published in the run's last minute — was
+listed before SUCCEEDED: whether a last-minute file makes it depends on where the plugin's one-minute
+timer is. `reports/preflight/` downloaded (`17_download_outdir.sh`): both tables md5-identical to the
+local e2e snapshot of the same commit (`preflight_samplesheet_params_mqc.tsv` 615c0f7c…,
+`preflight_reference_mqc.tsv` 65b33526…) — the DAG-build table's `collectFile(storeDir: az://…)` works
+on Batch. Finding: all three MultiQC tasks ran with 4 CPUs / 12 GB — `base.config`'s
+`withName: 'MULTIQC'` reaches the aliases (Nextflow applies base-name selectors, then alias, then
+fully-qualified — `ProcessConfigBuilder.applyConfig`, v25.10.4), not `process_single` as first written.
+The alignment-QC task's 49-s wait was that 4-CPU request queueing for a whole free slot; since this
+entry the two early reports request 1 CPU / 6 GB (`conf/base.config`).

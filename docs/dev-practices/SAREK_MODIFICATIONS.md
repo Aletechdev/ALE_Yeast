@@ -265,8 +265,13 @@ get `--title "<multiqc_title ?: yAMP> read-QC | alignment-QC | complete-QC"`; `-
 early two's files, while the complete one pins `output_fn_name` / `data_dir_name` / `plots_dir_name`
 to MultiQC's defaults via `--cl-config` (explicit names beat the title slug — measured on 1.35), so
 everything keyed on `multiqc_report.html` / `multiqc_data/` is unchanged. One `publishDir` block for
-all three. `base.config`'s `MULTIQC` resource block is NOT extended: the two aliases run with
-`process_single` (1 CPU, 6 GB) — smaller reports, running beside the callers.
+all three. **Selector inheritance (measured 2026-09-29):** every `withName: 'MULTIQC'` setting also
+reaches the two aliases unless a block for the alias sets the same directive
+(`compute_resources.md` → *Aliases*). Hence `base.config` gives them their own block,
+`MULTIQC_READ_QC|MULTIQC_ALIGNMENT_QC` → 1 CPU / 6 GB (until then they inherited `MULTIQC`'s 4 CPUs /
+12 GB — `82fa664`'s message says `process_single`, which was never true), and each alias block in
+`modules/modules.config` sets its own `ext.args`: without it an alias would inherit the complete
+report's title and pinned output names and overwrite `multiqc_report.html`.
 
 ---
 

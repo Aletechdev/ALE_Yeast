@@ -960,9 +960,11 @@ established on the first pair (runs `5m9NorL3JmkHFq` → `464Scp5QNoznbD`, RUNBO
   each publish that matches `tower.yml` to `nf-<id>-reports.tsv` and, when the launch dir is not the
   work dir (Platform), copies that file to the work dir at most once a minute during the run
   (`TowerReports.groovy`, nf-tower 1.17.5 = Nextflow 25.10.4); Platform lists what it finds there.
-  So an entry appears within about a minute of its publish while the run is RUNNING, and a file
-  published in the run's last minute shows up only with SUCCEEDED. Check it on any run by polling
-  `GET /workflow/<id>/reports`.
+  So an entry appears within about a minute of its publish while the run is RUNNING; a file published
+  in the run's last minute may appear only with SUCCEEDED — it depends on where the one-minute timer
+  is (it did on `5CiOiON5oJuETn`, not on `Wxgvs037pXLV8`). Check it on any run by polling
+  `GET /workflow/<id>/reports`. How early the read-QC and alignment-QC MultiQC reports are listed:
+  RUNBOOK 2026-09-29, run `Wxgvs037pXLV8`.
 - **The process list is the whole DAG** — 115 processes for a QC-only and a full run alike, 15 vs 61
   with tasks; the Tasks tab is what ran.
 - **The az CLI user login expires under the tenant's 14-day sign-in policy** (it did mid-comparison);

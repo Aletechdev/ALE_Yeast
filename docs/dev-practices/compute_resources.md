@@ -117,6 +117,18 @@ Not everything that sets `memory` behaves the same way — verified with a probe
 | `process { withName: 'X' { memory = '1.GB' } }` | **overrides** it | ✅ resolved to 1 GB |
 | `process { resourceLimits = [...] }` | **clamps** it (applied last, to whatever was requested) | ✅ 16 GB → 4 GB |
 | `process { memory = '1.GB' }` (unqualified) | only a **default** — the script directive wins | ✅ stayed 16 GB → unschedulable |
+| `withName: 'X'` when the task is an alias `Y` of `X` (`include { X as Y }`) | **reaches `Y` too**, unless a selector naming `Y` (or its full path) sets the same directive | ✅ `MULTIQC_READ_QC` ran with `MULTIQC`'s 4 CPUs / 12 GB until it got its own block (2026-09-29) |
+
+**Aliases.** Nextflow resolves `withName` in three passes — the process's original name, then its
+alias, then its fully-qualified name — each overriding the one before, directive by directive
+(`ProcessConfigBuilder.applyConfig`, Nextflow 25.10.4). Upstream relies on it: `withName: 'GATK4_MUTECT2'`
+configures both `MUTECT2` and `MUTECT2_PAIRED`, and each resource block in `conf/base.config` sizes
+every alias of its tool alike (31 of the pipeline's 129 aliases take their CPU/memory that way; three
+take output settings, all upstream Tier-2 — audit 2026-09-29). So an alias whose needs differ must get
+its own block for each directive that differs: the early MultiQC reports have one in
+`conf/base.config` (1 CPU / 6 GB — MultiQC is single-threaded, and a 4-CPU request waited for a whole
+free slot while the callers ran) and one in `conf/modules/modules.config` (their titles). The same
+rule for output settings: `testing_best_practices.md` §5.
 
 **This is why the clamp is the portable knob.** `resourceLimits` is applied *after* every other
 mechanism, including the retry escalation `{ 16.GB * task.attempt }`, so it caps requests no matter

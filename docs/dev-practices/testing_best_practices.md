@@ -74,6 +74,12 @@ nextflow run main.nf \
 - **Linting**: `nf-core pipelines lint` — won't pass 100% on a fork but catches structural issues
 - **`nextflow_schema.json`**: Validate custom params (`--split_haplotypecaller_joint_vcf`, ploidy column) are documented
 - **`CHANGELOG.md`**: Track what diverges from upstream Sarek 3.5.1
+- **Adding an alias** (`include { X as Y }`): every `withName: 'X'` block applies to `Y` as well —
+  resources in `conf/base.config`, `ext.args` / `ext.prefix` / `publishDir` in `conf/modules/` —
+  unless a block for `Y` sets the same directive. Give `Y` its own block for each directive it must
+  not share, or it silently takes `X`'s arguments and can publish under `X`'s file names (a collision
+  a name-only snapshot entry cannot show — §10 → publish collisions). Measured on the MultiQC aliases
+  (2026-09-29); mechanism: [`compute_resources.md`](compute_resources.md) → *Aliases*.
 
 ---
 

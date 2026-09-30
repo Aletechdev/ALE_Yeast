@@ -21,7 +21,9 @@
   *6b*; measured on run `5CiOiON5oJuETn`: the tab fills during the run). The read-QC report replaces
   the QC-only run's *yAMP QC-only run* report — a QC-only run now writes the same read-QC report as
   any other run (`yAMP-QC-only-run_multiqc_report.html` is no longer written), and the follow-up run
-  rewrites it. `multiqc_title` is now the prefix of all three titles.
+  rewrites it. `multiqc_title` is now the prefix of all three titles. The two early reports request
+  1 CPU / 6 GB (MultiQC is single-threaded; a 4-CPU request would wait for a whole free slot while the
+  callers run); the complete one keeps upstream's 4 CPUs / 12 GB.
 - **Input checks in every MultiQC report** — the *yAMP input checks* table (first section) lists
   every start-up check with its verdict: samplesheet (experiment ids, files listed once, ploidy and
   clonal flag per experiment), parameters (Tier-1 recipe, `--qc_only`) and the reference check's row
