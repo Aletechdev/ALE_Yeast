@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="color-scheme" content="light">
     <title>{{ title }}</title>
+    {# Tabulator 6.3.0 is inlined from templates/vendor/ so the page works without a network; CDN only as fallback #}
+    {% if tabulator_css %}
+    <style>/* Tabulator v6.3.0 (c) Oliver Folkerd 2024, MIT licence */
+{{ tabulator_css }}</style>
+    {% else %}
     <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+    {% endif %}
     <style>
         /* --- Light theme (default) --- */
         :root {
@@ -939,7 +945,11 @@
     {# ================================================================== #}
     {# JavaScript                                                          #}
     {# ================================================================== #}
+    {% if tabulator_js %}
+    <script>{{ tabulator_js }}</script>
+    {% else %}
     <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+    {% endif %}
     <script>
         // --- Theme toggle ---
         var __darkMql = window.matchMedia('(prefers-color-scheme: dark)');

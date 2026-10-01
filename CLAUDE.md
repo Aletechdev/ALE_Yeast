@@ -481,7 +481,9 @@ tool-comparison views — is now delivered by the **`MUTATION_REPORT` subworkflo
 plus the prepared cohort VCF read in pure Python for the *SNV / InDel events* table: PASS sites that differ
 between samples, protein-changing first, capped at 300 rows; the report container has no bcftools —
 whole-contig only, and the **only** place the mitochondrial contig is quantified: CNVKit's hard-coded
-0.30–0.70 GC mask drops every Mito bin). See [`docs/igvreports/`](docs/igvreports/) and
+0.30–0.70 GC mask drops every Mito bin). `index.html` needs no network: Tabulator 6.3.0 is inlined from
+`docs/igvreports/templates/vendor/` (the cohort and per-sample IGV pages still use CDNs).
+See [`docs/igvreports/`](docs/igvreports/) and
 [`subworkflows/local/mutation_report/`](subworkflows/local/mutation_report/main.nf). The original design
 writeup (kept for future mutation-report work) is archived at
 [`docs/archive/variant_dashboard_system.md`](docs/archive/variant_dashboard_system.md).

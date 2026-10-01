@@ -750,6 +750,22 @@ def build_context(
 # Rendering
 # ---------------------------------------------------------------------------
 
+TABULATOR_VENDOR_DIR = "vendor/tabulator-6.3.0"  # under the templates dir; pristine upstream files + LICENSE
+
+
+def load_vendored(template_dir: Path, name: str) -> str | None:
+    """A vendored Tabulator file to inline into the page, so the index needs no network.
+
+    None when the file is absent (a templates dir without the vendor folder): the template then
+    links the CDN copy as before. The trailing sourceMappingURL comment is dropped, as no map ships.
+    """
+    path = template_dir / TABULATOR_VENDOR_DIR / name
+    if not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8")
+    return re.sub(r"\s*/[/*]# sourceMappingURL=\S+(?: \*/)?\s*$", "", text)
+
+
 def render(context: dict, template_dir: Path, output_path: Path) -> None:
     """Render the Jinja2 template and write to output."""
     env = Environment(
@@ -757,7 +773,11 @@ def render(context: dict, template_dir: Path, output_path: Path) -> None:
         autoescape=False,  # We handle escaping in the template
     )
     template = env.get_template("index.html.j2")
-    html = template.render(**context)
+    html = template.render(
+        tabulator_css=load_vendored(template_dir, "tabulator.min.css"),
+        tabulator_js=load_vendored(template_dir, "tabulator.min.js"),
+        **context,
+    )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)

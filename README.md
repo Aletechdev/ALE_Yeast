@@ -332,7 +332,9 @@ full-depth run are 14–40 MB). The index's relative links to **pages** resolve 
 (verified 2026-09-30), which is why every downloadable file is also its own numbered entry with the
 tab's Download button. The index says so when it detects the frame. Links out of the
 `mutation_reports/` folder (e.g. `../multiqc/`) are refused by the content host's cookie scope. To keep or share the whole bundle, download the `mutation_reports/` folder (Data Explorer
-on the run's `outdir`, or `az storage blob download-batch`) and open `index.html` locally.
+on the run's `outdir`, or `az storage blob download-batch`) and open `index.html` locally. The index
+itself needs no internet (its table library is inlined); `cohort_report.html` and the per-sample IGV
+pages load Tabulator and igv.js from a CDN, so open those once while online if you will present offline.
 
 ## Testing
 

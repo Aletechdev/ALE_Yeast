@@ -43,6 +43,13 @@
   The index detects the frame, says so beside each download row (right-click → *Open link in new
   tab* works: a browser-opened tab is not sandboxed) and hides the browser-generated export. Runbook
   entry 2026-09-30.
+- **Mutation report index needs no network** (2026-10-01). Tabulator 6.3.0 (MIT) is vendored under
+  `docs/igvreports/templates/vendor/tabulator-6.3.0/` (the pristine `dist/` files of
+  `tabulator-tables@6.3.0` from unpkg, plus its `LICENSE`) and `generate_index.py` inlines the script
+  and stylesheet into `index.html`, which grows from ~110 KB to ~580 KB on the test set. Before, a
+  page opened without internet showed its text and no table at all. A templates folder without the
+  vendor directory still renders, linking the CDN copy as before. **Only the index**: the
+  all-samples report and the per-sample IGV pages still load Tabulator and igv.js from their CDNs.
 
 - **Three MultiQC reports, the early two while the run continues** (`docs/usage/qc_first_run.md` →
   *The three MultiQC reports*). `multiqc/yAMP-read-QC_multiqc_report.html` (input checks, FastQC raw
