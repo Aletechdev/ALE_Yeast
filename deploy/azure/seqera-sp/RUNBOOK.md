@@ -1589,3 +1589,48 @@ published as a file of its own (a top-level copy from the module — a new outpu
 Not checked from here: clicking the run link *inside* the sandboxed preview (pop-ups inherit the
 sandbox; the link is plain `target="_blank"`). In a downloaded copy or the index opened in its own
 tab it is an ordinary link.
+
+### 2026-10-01 (evening) — ✅ 4-SAMPLE PILOT on the current recipe: run `1DqSRNsEYo4VCD`, 269/269 tasks, 52 min — the demo output; first cloud run of the biocontainers soft-filter image
+
+Commit `cc3ae24`, Launchpad entry `yAMP-ottilie-test-az` with `-p docker,ottilie_pilot_az`, outdir
+`az://aletest/seqera-runs/yAMP-demo-pilot-20261001`. Submitted 12:25:34Z, RUNNING 12:33:54Z (8 min
+of cold start), SUCCEEDED 13:23:55Z; wall time 52.0 min, 0 failed, 0 cached, estimated cost $0.80.
+
+**How it was launched — every parameter explicit.** A params file beats the profile, and the
+committed box carries the *test* set's input / fasta / snpeff_cache, so the pilot's own box was
+generated from its profile and sent through the launch script (nothing registered, file not
+committed):
+
+```bash
+SEQERA_PROFILES=docker,ottilie_pilot_az PARAMS_FILE=/tmp/pilot_box.yml ./14_register_pipeline.sh --generate
+DRY_RUN=1 SEQERA_PROFILES=docker,ottilie_pilot_az PARAMS_FILE=/tmp/pilot_box.yml \
+    ./15_launch_run.sh --name yAMP-demo-pilot-20261001 --set outdir=az://aletest/seqera-runs/yAMP-demo-pilot-20261001
+# 14 keys: samplesheet_pilot_az.csv, S288C_reference/{S288C_R64.fa,snpeff_cache,S288C_R64.gff3}, …; then without DRY_RUN
+```
+
+**The soft-filter step on its new image.** `VARIANTFILTRATION_FALLBACK`: container
+`quay.io/biocontainers/gatk4:4.5.0.0--py36hdfd78af_0`, `duration` 29.4 s, `realtime` 5.0 s — against
+4 199.8 s on `4REMpK9OCBKY4z` the same day with the Wave image (`6d0714b` is the change).
+
+**Cloud equals the local pilot of 2026-09-09** (`output_ottilie_pilot_2026-09-09/`, produced with the
+Wave image, GATK 4.6.2.0, before today's commits), compared on a download of `mutation_reports/`
+(`17_download_outdir.sh` → `output_demo_pilot_20261001/`, 94 files):
+
+| Compared | Result |
+|---|---|
+| `vcf/haplotypecaller/cohort_haplotypecaller_annotated.vcf.gz`, everything below the `##` header | 451 records, 0 differing lines |
+| `cn_cohort_{collapsed,full}.csv`, `contig_copy_number.csv`, `sv_cohort_matrix_union{,_pass}.csv` | md5-identical, all five |
+| `cn_matrices/{cn_bins_continuous,cn_chr_summary_{call,germline},cn_segments_{call,germline}}.csv` (old output: `cn_matrices/cn_matrices/`) | md5-identical, all five |
+
+**The index** (read through the Platform API, and the downloaded copy opened in headless Chromium
+with the network blocked — no request, clean console, every local link resolves): 4 samples;
+459 SNV / InDel sites, 399 PASS, 201 differ between samples, 46 of them protein-changing; 5 SV events
+called by both callers of 53; 2 aneuploid contigs of 17; 167 of 221 copy-number windows with a
+change. Run line: run name, start 12:31 UTC, commit `cc3ae24`, Nextflow 25.10.4, Seqera run
+`1DqSRNsEYo4VCD` linking its watch URL, session id. Outputs tab: 28 entries (the 12 entry points and
+16 per-sample reports); five per-sample reports exceed 10 MB (15–42 MB: download-only, the 42 MB one
+listed by path only — the tab's documented limits).
+
+Task count 269 against 307–310 on the pilot runs of 2026-08/09: those ran the recipe of their day
+(hard filter family, the `tabix/` step, no post-trim FastQC or early MultiQC reports); the count was
+not reconciled process by process.
