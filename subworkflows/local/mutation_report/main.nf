@@ -116,6 +116,25 @@ workflow MUTATION_REPORT {
     def outdir_label     = to_label(params.outdir)
     def report_dir_label = params.report_outdir ? to_label(params.report_outdir) : ''
 
+    // Which run produced this bundle: one line under the index's summary cards. Read here, at DAG
+    // build, from the run's own metadata. The Seqera run id exists only when Platform launched the
+    // head job (it exports TOWER_WORKFLOW_ID). A run cannot learn the address of its own page:
+    // Platform hands the watch URL to the Tower plugin after the DAG is built and the plugin keeps
+    // it private, so the link is built from the optional params.seqera_workspace_url. The map is
+    // part of GENERATE_INDEX's task hash on purpose: a resumed run has a new name and start time
+    // and re-renders the index under them.
+    def run_info = [
+        run_name            : workflow.runName,
+        session_id          : workflow.sessionId.toString(),
+        start               : workflow.start.toString(),
+        commit_id           : workflow.commitId,
+        revision            : workflow.revision,
+        repository          : workflow.repository,
+        nextflow_version    : workflow.nextflow.version.toString(),
+        seqera_run_id       : System.getenv('TOWER_WORKFLOW_ID'),
+        seqera_workspace_url: params.seqera_workspace_url,
+    ]
+
     // =========================================================================
     // 3. Reconstruct per-caller VCF channels from the combined input channel
     // =========================================================================
@@ -511,7 +530,8 @@ workflow MUTATION_REPORT {
             ch_multiqc_report,
             ch_prepared_cohort_vcf.collect(),
             outdir_label,
-            report_dir_label
+            report_dir_label,
+            run_info
         )
         versions = versions.mix(GENERATE_INDEX.out.versions)
 

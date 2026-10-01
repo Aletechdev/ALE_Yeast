@@ -30,6 +30,7 @@ igenomes_ignore: true
 input: "az://aletest/ottilie/v1/samplesheet_test_az.csv"
 joint_germline: true
 report_gff3: "az://aletest/ottilie/v1/S288C_reference/S288C_R64.gff3"
+seqera_workspace_url: "https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE"
 skip_tools: "baserecalibrator"
 snpeff_cache: "az://aletest/ottilie/v1/S288C_reference_test/snpeff_cache"
 snpeff_db: "R64-1-1.105"

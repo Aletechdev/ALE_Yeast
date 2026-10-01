@@ -1218,6 +1218,14 @@
                     "help_text": "Incoming hook URL for messaging service. Currently, MS Teams and Slack are supported.",
                     "hidden": true
                 },
+                "seqera_workspace_url": {
+                    "type": "string",
+                    "pattern": "^https?://\\S+$",
+                    "fa_icon": "fas fa-link",
+                    "description": "Browser URL of your Seqera Platform workspace; turns the Seqera run id in the mutation report index into a link to the run.",
+                    "help_text": "On a run launched by Seqera Platform the mutation report index prints the run id (read from the environment Platform sets) in its *Run* line. A run cannot learn the address of its own page, so the id is plain text unless this is set to the workspace's URL as shown in the browser, e.g. `https://cloud.seqera.io/orgs/<organisation>/workspaces/<workspace>`; the index then links `<this URL>/watch/<run id>`. Set it once, in the Launchpad entry's parameters or in a config file, not per run. It has no effect on a run started outside Seqera Platform.",
+                    "hidden": true
+                },
                 "multiqc_title": {
                     "type": "string",
                     "description": "Prefix of the three MultiQC report titles (default 'yAMP': 'yAMP read-QC', 'yAMP alignment-QC', 'yAMP complete-QC').",

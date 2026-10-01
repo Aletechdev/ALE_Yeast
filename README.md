@@ -302,7 +302,13 @@ post-filters for Mutect2/FreeBayes were removed 2026-09-09
 
 The **mutation report bundle** is the ALE-specific deliverable — start at its `index.html`. Its Summary
 section prints the **complete-output folder** (the run's resolved `outdir`, an `az://` URL on a cloud run), so a
-viewer in Seqera or of a downloaded copy knows where everything else lives:
+viewer in Seqera or of a downloaded copy knows where everything else lives, and below it the **run that
+produced the bundle**: run name, start time, pipeline commit, Nextflow version, the session id (what
+`-resume` takes) and, on a Seqera Platform run, the Seqera run id. That id is a link to the run when
+`--seqera_workspace_url` holds your workspace's browser URL
+(`https://cloud.seqera.io/orgs/<organisation>/workspaces/<workspace>`) — a run cannot find that address
+itself; set it once in the Launchpad entry's parameters
+([`launch_params_file.md`](docs/usage/launch_params_file.md#4-traps)):
 
 ```
 mutation_reports/

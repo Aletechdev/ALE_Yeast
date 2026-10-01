@@ -32,7 +32,7 @@ import csv
 import gzip
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -751,6 +751,52 @@ def build_context(
 # Rendering
 # ---------------------------------------------------------------------------
 
+def load_run_info(path: Path | None) -> dict | None:
+    """Which run produced the bundle: the JSON GENERATE_INDEX writes from the workflow's metadata.
+
+    Returns the fields of the index's *Run* line, or None without a usable file (a standalone render).
+    The Seqera run id is present only when Seqera Platform launched the run; it becomes a link only
+    when the run was also given its workspace's browser URL (--seqera_workspace_url), because a run
+    cannot learn that address by itself. Every field is optional.
+    """
+    if path is None or not Path(path).is_file():
+        return None
+    try:
+        info = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(info, dict) or not info.get("run_name"):
+        return None
+
+    start = None
+    if info.get("start"):
+        try:  # Nextflow prints nanoseconds; drop the fraction, show UTC
+            parsed = datetime.fromisoformat(re.sub(r"\.\d+", "", str(info["start"])).replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                parsed = parsed.astimezone(timezone.utc)
+            start = parsed.strftime("%Y-%m-%d %H:%M") + (" UTC" if parsed.tzinfo is not None else "")
+        except ValueError:
+            start = str(info["start"])
+
+    commit = str(info["commit_id"]) if info.get("commit_id") else None
+    repository = str(info.get("repository") or "")
+    seqera_id = str(info["seqera_run_id"]) if info.get("seqera_run_id") else None
+    workspace_url = str(info.get("seqera_workspace_url") or "").strip()
+    return {
+        "name": str(info["run_name"]),
+        "session": info.get("session_id"),
+        "start": start,
+        "commit": commit[:7] if commit else None,
+        "commit_url": f"{repository.removesuffix('.git').rstrip('/')}/commit/{commit}"
+                      if commit and re.match(r"https://github\.com/[\w.-]+/[\w.-]+?(\.git)?/?$", repository) else None,
+        "revision": info.get("revision"),
+        "nextflow": info.get("nextflow_version"),
+        "seqera_id": seqera_id,
+        "seqera_url": f"{workspace_url.rstrip('/')}/watch/{seqera_id}"
+                      if seqera_id and re.match(r"https?://[^\s\"'<>]+$", workspace_url) else None,
+    }
+
+
 TABULATOR_VENDOR_DIR = "vendor/tabulator-6.3.0"  # under the templates dir; pristine upstream files + LICENSE
 
 
@@ -842,6 +888,11 @@ def main():
         help="Where this report bundle lands when it is not <outdir>/mutation_reports; printed next to --outdir",
     )
     parser.add_argument(
+        "--run-info", type=Path, default=None,
+        help="JSON written by GENERATE_INDEX from the workflow's metadata (run_name, session_id, start, commit_id, "
+             "revision, repository, nextflow_version, seqera_run_id, seqera_workspace_url); printed as the Run line",
+    )
+    parser.add_argument(
         "--pipeline-version", type=str, default=None,
         help="Pipeline version shown as a chip next to the title (the workflow's manifest version); omitted when not given",
     )
@@ -873,6 +924,7 @@ def main():
     )
     context["outdir"] = args.outdir
     context["report_dir"] = args.report_dir
+    context["run"] = load_run_info(args.run_info)
 
     # Template directory: explicit arg or relative to this script
     template_dir = args.templates_dir or (Path(__file__).parent / "templates")

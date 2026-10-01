@@ -383,6 +383,16 @@
             Complete output: <code>{{ outdir }}</code>{% if report_dir %} &middot; this report bundle: <code>{{ report_dir }}</code>{% endif %}
         </p>
         {% endif %}
+        {# Which run produced this bundle. The Seqera run id is a link only when the run was given its workspace URL. #}
+        {% if run %}
+        <p class="meta">
+            Run <code>{{ run.name | e }}</code>{% if run.start %} &middot; started {{ run.start | e }}{% endif %}
+            {% if run.commit %}&middot; pipeline commit {% if run.commit_url %}<a href="{{ run.commit_url | e }}" target="_blank"><code>{{ run.commit | e }}</code></a>{% else %}<code>{{ run.commit | e }}</code>{% endif %}{% if run.revision %} ({{ run.revision | e }}){% endif %}{% endif %}
+            {% if run.nextflow %}&middot; Nextflow {{ run.nextflow | e }}{% endif %}
+            {% if run.seqera_id %}&middot; Seqera run {% if run.seqera_url %}<a href="{{ run.seqera_url | e }}" target="_blank"><code>{{ run.seqera_id | e }}</code> &#8599;</a>{% else %}<code>{{ run.seqera_id | e }}</code>{% endif %}{% endif %}
+            {% if run.session %}&middot; session <code>{{ run.session | e }}</code>{% endif %}
+        </p>
+        {% endif %}
     </div>
 
     {# ================================================================== #}

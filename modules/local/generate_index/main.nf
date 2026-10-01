@@ -25,8 +25,9 @@ process GENERATE_INDEX {
     path cnv_sv_data, stageAs: "data/*"   // CN/SV CSVs + pass_stats staged into data/ subdir
     path multiqc_report                   // real multiqc_report.html file (or NO_FILE sentinel)
     path prepared_cohort_vcf
-    val  outdir_label                     // where the complete output lands, shown in the header
+    val  outdir_label                     // where the complete output lands, shown under the summary cards
     val  report_dir_label                 // only when report_outdir differs from <outdir>/mutation_reports, else ''
+    val  run_info                         // map: which run produced the bundle (name, session, start, commit, Seqera run id)
 
     output:
     path "index.html",               emit: index
@@ -51,8 +52,14 @@ process GENERATE_INDEX {
     def pass_stats_arg = stats_files ? "--pass-stats ${stats_files.collect { it.name }.join(' ')}" : ""
     def python_bin = task.ext.python_bin ?: 'python'
     def report_dir_arg = report_dir_label ? "--report-dir '${report_dir_label}'" : ""
+    // Handed over as a file through a quoted heredoc, so no value needs shell quoting.
+    def run_info_json = groovy.json.JsonOutput.toJson(run_info ?: [:])
 
     """
+    cat <<'RUN_INFO_JSON' > run_info.json
+    ${run_info_json}
+    RUN_INFO_JSON
+
     # Create samples/ symlinks so discover_igv_reports() can find reports.
     # Exclude cohort and multiqc reports (they are not per-sample reports).
     mkdir -p samples
@@ -70,6 +77,7 @@ process GENERATE_INDEX {
         --outdir '${outdir_label}' ${report_dir_arg} \\
         --pipeline-version '${workflow.manifest.version}' \\
         --snv-csv data/snv_indel_sites.csv \\
+        --run-info run_info.json \\
         ${cnv_sv_arg} ${mqc_path_arg} ${prepared_vcf_arg} ${pass_stats_arg}
 
     cat <<-END_VERSIONS > versions.yml

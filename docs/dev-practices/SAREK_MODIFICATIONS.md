@@ -124,7 +124,8 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 
 `qc_only` (2026-09-24; own schema group `qc_first_run`, fork-owned), `joint_manta` (upstream-shaped, PR candidate), `manta_high_sensitivity`, `generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
 `report_gff3`, `report_filter_config`, `report_cohort_template`, `report_sample_template`,
-`report_index_script`, `report_templates_dir`, `report_outdir`, `report_multiqc_path`;
+`report_index_script`, `report_templates_dir`, `report_outdir`, `report_multiqc_path`,
+`seqera_workspace_url` (2026-10-01; hidden, schema group `generic_options` — the report index's link to its Seqera run);
 read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as deprecated alias),
 `adapter_sequence`, `adapter_sequence_r2`, `trim_quality_3prime`, `trim_quality_5prime`, `trim_quality_mean`,
 `trim_quality_window`, `filter_quality`, `filter_quality_phred`, `filter_quality_percent`.

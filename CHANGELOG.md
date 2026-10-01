@@ -43,6 +43,18 @@
   The index detects the frame, says so beside each download row (right-click → *Open link in new
   tab* works: a browser-opened tab is not sandboxed) and hides the browser-generated export. Runbook
   entry 2026-09-30.
+- **Mutation report index names the run that produced it** (2026-10-01). A *Run* line under the
+  complete-output folder: run name, start time (UTC), pipeline commit (linked to GitHub; absent on a
+  run from a local directory), Nextflow version, session id and — on a run launched by Seqera
+  Platform — the Seqera run id, read from the `TOWER_WORKFLOW_ID` variable Platform sets on the head
+  job. New optional, hidden parameter **`seqera_workspace_url`**: the workspace's browser URL
+  (`https://cloud.seqera.io/orgs/<organisation>/workspaces/<workspace>`); with it the run id links
+  `<url>/watch/<run id>`, without it the id is plain text. A run cannot learn that address itself
+  (the names are not in its environment; Platform hands the watch URL to the Tower plugin, which
+  keeps it private — RUNBOOK 2026-10-01), so it is set once per deployment: in the Launchpad entry's
+  parameters or a config file. The `ottilie_test_az` / `ottilie_pilot_az` profiles set it for the
+  project workspace. The run metadata is part of `GENERATE_INDEX`'s task hash, so a resumed run
+  re-renders the index under its own name.
 - **Mutation report index needs no network** (2026-10-01). Tabulator 6.3.0 (MIT) is vendored under
   `docs/igvreports/templates/vendor/tabulator-6.3.0/` (the pristine `dist/` files of
   `tabulator-tables@6.3.0` from unpkg, plus its `LICENSE`) and `generate_index.py` inlines the script

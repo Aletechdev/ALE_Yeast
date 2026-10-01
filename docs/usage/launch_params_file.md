@@ -81,6 +81,12 @@ profile cannot override anything the file sets.
   ([`haplotypecaller_workflow_analysis.md`](../variant-calling/haplotypecaller/haplotypecaller_workflow_analysis.md#4-the-known-sites-starvation-pattern-custom-genomes)).
 - **JSON is accepted, but without comments.** Nextflow rejects `//` and `/* */` in a JSON params
   file. Use YAML when you want the annotations.
+- **The mutation report cannot link its own Seqera run unless you tell it where the workspace is.**
+  On a Seqera Platform run the report index prints the Seqera run id; it becomes a link when the
+  hidden parameter `seqera_workspace_url` holds the workspace's address as your browser shows it,
+  for example `seqera_workspace_url: "https://cloud.seqera.io/orgs/<organisation>/workspaces/<workspace>"`.
+  Put it in the Launchpad entry's parameters once, not in every run. Leave it out and the id is
+  plain text; outside Seqera it does nothing.
 - **Hidden parameters are still parameters.** Anything under "Show hidden params" on the form, or
   in `nextflow run main.nf --help_full`, can be set in the file. The template lists the ones a
   Tier-1 run needs; the rest are documented per topic, for example the UMI and split-FASTQ options in
