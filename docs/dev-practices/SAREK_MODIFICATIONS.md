@@ -6,7 +6,7 @@ nf-core/sarek 3.5.1. This is the primary reference for a future sarek rebase (se
 
 **Guiding principle** (from the runbook): keep modifications *additive* and *isolated*. New files
 (local subworkflows/modules, configs) don't conflict on rebase. In-place edits to upstream files —
-especially the 3 patched `modules/nf-core/` modules and `workflows/sarek/main.nf` — are the real
+especially the 4 patched `modules/nf-core/` modules and `workflows/sarek/main.nf` — are the real
 rebase cost; each is called out below.
 
 ## How to regenerate this diff
@@ -31,7 +31,7 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 | Core workflow | — | `workflows/sarek/main.nf` ⚠️ heaviest |
 | `subworkflows/local/` | 5 | 9 |
 | `modules/local/` | 19 | 0 |
-| `modules/nf-core/` | 5 (installed) | **3 patched** ⚠️ |
+| `modules/nf-core/` | 5 (installed) | **4 patched** ⚠️ |
 | `conf/` | 18 | 7 |
 
 ---
@@ -188,7 +188,7 @@ own `modules/local/` (`add_info_to_vcf`, `create_intervals_bed`, `samtools`) is 
 
 ---
 
-## `modules/nf-core/` — PATCHED (3 — ⚠️ highest rebase risk)
+## `modules/nf-core/` — PATCHED (4 — ⚠️ highest rebase risk)
 
 > 2026-09-09: `controlfreec/freec/main.nf`, `conf/modules/controlfreec.config` and the somatic/tumor-only
 > Control-FREEC subworkflows were reverted to pristine sarek 3.5.1 and the fork's germline Control-FREEC
@@ -201,6 +201,7 @@ These are in-place edits to upstream nf-core modules. On rebase, re-apply or re-
 | `gatk4/haplotypecaller/main.nf` | `--sample-ploidy ${meta.ploidy}` for variable-ploidy yeast (Tier 1). |
 | `vcftools/main.nf` | Conditional-skip guards (ploidy>2, Mutect2 phased GT, joint-calling segfault). |
 | `multiqc/main.nf` + `environment.yml` | **Container pinned to MultiQC 1.35** (2026-09-24): `biocontainers/multiqc:1.35--pyhdfd78af_0` and its galaxy singularity twin, `environment.yml` → `1.35`. The module's inputs/outputs are still the sarek-3.5.1-era nf-core signature and `modules.json` still records that module's git_sha (`nf-core modules lint` flags the local edit — same class as the two rows above). |
+| `gatk4/variantfiltration/main.nf` + `environment.yml` | **Container set to the tree's GATK image** (2026-10-01): `biocontainers/gatk4:4.5.0.0--py36hdfd78af_0` and its galaxy singularity twin, `environment.yml` → `gatk4=4.5.0.0`, in place of upstream's Wave community image `gatk4_gcnvkernel:edb12e4f0bf02cd3` (GATK 4.6.2.0 + gcnvkernel, one 1 977 MB layer, used by this module alone). The module itself is the later nf-core version installed for `VARIANTFILTRATION_FALLBACK` and is otherwise untouched; `modules.json` still records its git_sha. Why: every cold node paid a 2 GB pull for a 5-second step, and on 2026-10-01 that layer was served at 0.36 MB/s — two Platform runs sat about 90 minutes on it (`azure_batch_execution.md` §18). VariantFiltration applies JEXL expressions to existing annotations; measured record-identical between 4.6.2.0 and 4.5.0.0 on the test set (100 records) and the 4-sample pilot (451). **At a rebase:** keep the step on whatever GATK image the rest of the new tree uses; take upstream's container only if the other GATK modules moved to it too. |
 
 **Why pin the container rather than take upstream's 3.10 `multiqc` module** (which pins the same 1.35):
 the 3.10 module has a new input contract (one tuple `[meta, files, config, logo, replace_names,
@@ -215,7 +216,8 @@ is tabled in `output_comparison.md` §2.4 / §2.10 / §2.12.
 ## `modules/nf-core/` — ADDED (5, via `nf-core modules install`)
 
 `bcftools/filter`, `bcftools/query`, `bcftools/view`, `gatk4/variantfiltration`, `igvreports`.
-Upstream-managed modules (clean installs, low rebase cost).
+Upstream-managed modules (clean installs, low rebase cost) — except `gatk4/variantfiltration`, whose
+container is patched since 2026-10-01 (PATCHED table above).
 
 ---
 
@@ -279,7 +281,7 @@ report's title and pinned output names and overwrite `multiqc_report.html`.
 ## Rebase guidance
 
 1. **Additive files** (added subworkflows/modules/configs) carry forward with no conflict — copy them in.
-2. **The 2 patched nf-core modules + `workflows/sarek/main.nf`** are the real work: re-apply each edit
+2. **The 4 patched nf-core modules + `workflows/sarek/main.nf`** are the real work: re-apply each edit
    against the new upstream, then re-run the ALE contract test (`tests/ottilie_e2e.nf.test`) to confirm
    the deliverables still match. If a deliverable shifts, the CSV/tree assertions pinpoint it.
 3. **Do NOT** surgically delete unused upstream tools (sentieon, ascat, dragmap, tumor-only) — leaving

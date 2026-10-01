@@ -1507,7 +1507,7 @@ at the new mutation report index on Platform; it never got that far.
 
 The same task on `Wxgvs037pXLV8` and `5CiOiON5oJuETn`: 140 s and 149 s of wall time, 5 s and 8 s of
 work. Its image (`gatk4_gcnvkernel`, this process only) was a first pull on that node; the node
-reported no error and the registry answered from the dev VM. Inferred, not measured: the pull hung.
+reported no error and the registry answered from the dev VM. Inferred, not measured: the pull hung — **disproved the same day, see the next entry: it was slow, not hung**.
 Not caused by the commit under test — the task runs before the report and its module is unchanged
 since the last good run. Recognition recipe, bound (the task's 4 h `time`, not the job's 7 d) and what
 to read before cancelling next time: `docs/dev-practices/azure_batch_execution.md` §18.
@@ -1524,3 +1524,68 @@ keeps it in a private field (`TowerClient.groovy`, Nextflow 25.10.4) and prints 
 execution with Seqera Platform using this URL"). Platform's injected config carries only
 `tower { enabled; endpoint }` (read with `tw runs view --config`). Hence the optional
 `seqera_workspace_url` parameter behind the index's run link.
+
+### 2026-10-01 (later) — ✅ correction: the "hung" pull was a slow one — a 2 GB image layer at 0.36 MB/s; ⚠️ a startup timeout reading the params file
+
+Two more launches of the 2-sample test set from `973027b`, same outdir
+`az://aletest/seqera-runs/yAMP-index-runline-20261001`.
+
+**`GJbeDu3B5XZqX` — FAILED at startup, not a pipeline error.** Platform's error report ends
+`Cannot parse params file: https://api.cloud.seqera.io/ephemeral/<id>.yaml`; no start time, no commit,
+no Nextflow version on the run. Head log: repository cloned by 10:11:58Z, then
+`java.net.ConnectException: Connection timed out` at 10:14:11Z under `CmdRun.readYamlFile` — the head
+node could not open a connection to the host that had served it the SCM config 2 min 27 s earlier.
+Relaunched unchanged as `4REMpK9OCBKY4z` at 10:16:40Z, which parsed the same params.
+(`azure_batch_execution.md` §10, the transient-startup paragraph.)
+
+**`4REMpK9OCBKY4z` — the same process "stuck" again, and this time the registry was measured.**
+`VARIANTFILTRATION_FALLBACK`, Batch task `nf-1f9b138eb9f668f995a94067ea5de29a`, `running` since
+10:35:16Z on a different node (private IP only, no inbound endpoint — no way in), again only
+`.command.sh` and `.command.run` in its directory. From the dev VM, 11:30–11:37Z, with a registry
+token from `cerbero.seqera.io`:
+
+| Read | Result |
+|---|---|
+| manifest of `gatk4_gcnvkernel:edb12e4f0bf02cd3` | 14 layers, 2 013 MB; one layer of 1 977 MB |
+| that layer, whole, 300 s limit | 108 920 832 bytes — 0.36 MB/s |
+| that layer, 30 s from the start / from the 1 GB offset | 0.31 MB/s / 0.41 MB/s |
+| the 30 MB layer, same host (`community-cr-prod.seqera.io`, Cloudflare) | 71 MB/s |
+| control: a 39 MB GitHub release asset | 54 MB/s |
+
+0.36 MB/s × 1 977 MB ≈ 91 min, against ≈ 2 min for the same pull on 2026-09-29. So the entry above
+("inferred, not measured: the pull hung") was **wrong**, and `4xHktQIoVD1t3Z` was cancelled about an
+hour before it would have continued by itself. Platform also flipped this run to `UNKNOWN` at 11:19Z
+and back to `RUNNING` a minute later (§15: not an outcome). Seqera's status page: "All Systems
+Operational". The slow blob is on Seqera's community registry; nothing on our side changed.
+`azure_batch_execution.md` §18 is rewritten around the measurement, with a row in §16.
+
+### 2026-10-01 (afternoon) — ✅ 2-sample run `4REMpK9OCBKY4z` SUCCEEDED: Run line with a live Seqera link, inlined index, download entries; ❌ a file inside a published directory cannot be an Outputs entry
+
+Commit `973027b`, 155 tasks, **93.8 min wall** — 70 of them one task waiting for its image:
+`VARIANTFILTRATION_FALLBACK` submitted 10:35:15Z, completed 11:45:15Z, `duration` 4 199.8 s,
+`realtime` 4.65 s. That is the measured end of the slow pull of the previous entry (the dev-VM
+estimate was 91 min; the node did a little better). The image is replaced in the next commit.
+
+Read from the run through the Platform API (`GET /workflow/<id>/reports`, then the content route
+`/content/redirect/reports/wsp/<ws>/<run>/<n>/<file>` with the token):
+
+| Check | Result |
+|---|---|
+| Entries listed | 20: the 15 of earlier runs + `2b` SNV CSV, `2c` cohort VCF, `3b` SV VCF, `4b` uncollapsed CN, and no `4c` |
+| `.vcf.gz` entries | listed with mime `application/gzip` and served: `2c` 20 215 bytes / 100 records, `3b` 5 796 bytes / 13 records — the open question of 2026-09-30 is answered |
+| Index built on Platform | 579 275 bytes, Tabulator inlined, 0 `unpkg` references; version chip `v1.0.0`; output folder `az://…/yAMP-index-runline-20261001` |
+| Run line | run name, start 10:17 UTC, commit `973027b` (GitHub link), Nextflow 25.10.4, **Seqera run `4REMpK9OCBKY4z` linking `https://cloud.seqera.io/orgs/DTU-Biosustain/workspaces/RECON-ALE/watch/4REMpK9OCBKY4z`**, session id — the run id came from `TOWER_WORKFLOW_ID`, the link from `seqera_workspace_url` in the profile |
+| Chromosome CSV | published at `mutation_reports/data/cn_matrices/cn_chr_summary_germline.csv` (253 bytes); the index's link to it returns 200 through the preview's content route |
+
+**Entry `4c` was never listed.** `tower.yml` carried
+`**/mutation_reports/data/cn_matrices/cn_chr_summary_germline.csv` and the file exists at exactly that
+path. Mechanism, read in the source (Nextflow 25.10.4): `PublishDir.apply0` publishes
+`dedupPaths(files)`, which drops every path nested in a directory that is itself an output, and
+`TowerReports.filePublish` matches the *destination of each publish event* against the patterns. The
+chromosome summary leaves `BUILD_CN_MATRIX` inside its `cn_matrices/` directory output, so the only
+event is the directory's. The entry is removed again; making the file listable would need it
+published as a file of its own (a top-level copy from the module — a new output name).
+
+Not checked from here: clicking the run link *inside* the sandboxed preview (pop-ups inherit the
+sandbox; the link is plain `target="_blank"`). In a downloaded copy or the index opened in its own
+tab it is an ordinary link.

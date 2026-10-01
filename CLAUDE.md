@@ -146,11 +146,14 @@ between runs and cost nothing there; the portal's dashed "Dedicated Core Count (
 metric artefact, not a node. Three-command idle audit + residual risks (hung head job has no wall-clock
 limit): [`azure_batch_execution.md` §8.1](docs/dev-practices/azure_batch_execution.md#81-idle-state-cost-audit--is-anything-always-on).
 
-⏳ **A run that stays `RUNNING` with the task counter stopped and nothing failing** may hold a task
-whose container never started (seen 2026-10-01, run `4xHktQIoVD1t3Z`: 29.5 min, inferred a hung image
-pull). The tell is a Batch task `running` for minutes with **no `.command.log`** in its directory.
-Bounded only by the task's 4 h `time`; cancel and resume. Recognition recipe:
-[`azure_batch_execution.md` §18](docs/dev-practices/azure_batch_execution.md#18-a-task-that-is-running-but-never-started--a-wedged-container-pull-2026-10-01).
+⏳ **A run that stays `RUNNING` with the task counter stopped and nothing failing** is most likely a
+task still pulling its container image: a Batch task `running` for minutes with **no `.command.log`**
+in its directory. Seen twice on 2026-10-01 on `VARIANTFILTRATION_FALLBACK` — the only process on the
+2 GB `gatk4_gcnvkernel` Wave image, whose big layer was served at 0.36 MB/s (≈ 90 min; 2 min two days
+earlier). **Measure the registry before cancelling** — the first run was cancelled on a wrong "hung
+pull" inference. That step now runs on the `biocontainers/gatk4:4.5.0.0` image of the other GATK steps
+(4th patched nf-core module); the pattern can recur with any large image. Recipe:
+[`azure_batch_execution.md` §18](docs/dev-practices/azure_batch_execution.md#18-a-task-that-is-running-but-has-not-started--its-container-image-is-still-being-pulled-2026-10-01).
 
 ⚠️ **Seqera clones from GitHub over HTTPS only** — an SSH deploy key cannot be used for a pipeline
 repository, so a GitHub App or PAT credential is required. See

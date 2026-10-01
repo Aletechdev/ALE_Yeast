@@ -232,6 +232,16 @@
 
 ### Changed
 
+- **`VARIANTFILTRATION_FALLBACK` runs on the same GATK image as the other GATK steps** (2026-10-01;
+  `modules/nf-core/gatk4/variantfiltration`). The module — a later nf-core version than the rest of
+  the 3.5.1 tree — pinned the Wave community image `gatk4_gcnvkernel` (GATK 4.6.2.0, a 2 GB layer no
+  other step uses); it now uses `biocontainers/gatk4:4.5.0.0--py36hdfd78af_0`. A fresh node no longer
+  pulls 2 GB for a 5-second step, and the run no longer depends on that registry: on 2026-10-01 the
+  layer was served at 0.36 MB/s and two Seqera Platform runs waited about 90 minutes on it
+  (`azure_batch_execution.md` §18). The soft-filtered VCF is record-identical (measured on the test
+  set, 100 records, and the 4-sample pilot, 451 records; same `FILTER` tally); its
+  `##GATKCommandLine` header line and the `VARIANTFILTRATION_FALLBACK` line of the software-versions
+  manifest read 4.5.0.0 instead of 4.6.2.0.
 - **The Workflow Summary is collapsed and back at the bottom** of the MultiQC report: its body opens
   on a click, and its ordering rule — keyed on the old `nf-core-sarek-summary` id, which stopped
   matching when `manifest.name` changed on 2026-07-27 and left the summary near the top — is re-keyed
@@ -356,8 +366,10 @@
   published into `data/cn_matrices/`, so its five tables landed under
   `mutation_reports/data/cn_matrices/cn_matrices/` while the index linked
   `data/cn_chr_summary_germline.csv`. The directory is now published into `data/` — the tables are at
-  `mutation_reports/data/cn_matrices/<file>` — and the index links the chromosome summary there;
-  `tower.yml` lists it as entry *4c*. **Five output paths move** (content unchanged): scripts reading
+  `mutation_reports/data/cn_matrices/<file>` — and the index links the chromosome summary there.
+  (It cannot be a Seqera Outputs-tab entry of its own: a file that leaves its task inside a published
+  directory raises no publish event, measured on run `4REMpK9OCBKY4z`; the `tower.yml` entry added
+  with this fix was removed the same day.) **Five output paths move** (content unchanged): scripts reading
   `data/cn_matrices/cn_matrices/…` from older outputs need the shorter path for new ones
   (`output_comparison.md` §2.10).
 

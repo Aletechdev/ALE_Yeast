@@ -383,7 +383,7 @@ az monitor metrics list --resource "$RID" --metric CoreCount --aggregation Maxim
 | Risk | Bound | What to do |
 |---|---|---|
 | **Hung head job** (§15) — no wall-clock limit applies to the head task | one `D2s_v3` (~0.6 DKK/h) until someone cancels | after any run that shows `UNKNOWN`, or `RUNNING` long after outputs landed: check 2 above, then `tw runs cancel` |
-| **Stuck worker job** | `jobMaxWallClockTime = 7d` (CE template) × up to 4 `E4ds_v4`; a single wedged task ends sooner, at its own `time` directive (Batch `maxWallClockTime`, `PT4H` measured 2026-10-01) | bounded by Batch; the autoscale formula drains nodes as soon as tasks stop, so it needs a genuinely wedged task — seen once: a container pull that never finished, the run `RUNNING` with nothing failing (§18: how to recognise it, then `tw runs cancel` and resume) |
+| **Stuck worker job** | `jobMaxWallClockTime = 7d` (CE template) × up to 4 `E4ds_v4`; a single wedged task ends sooner, at its own `time` directive (Batch `maxWallClockTime`, `PT4H` measured 2026-10-01) | bounded by Batch; the autoscale formula drains nodes as soon as tasks stop, so it needs a genuinely wedged task. What looks like one is usually a task still pulling its image: the run `RUNNING` with nothing failing, seen twice on 2026-10-01 with a 2 GB layer served at 0.36 MB/s (§18: recognise it, measure the registry, wait rather than cancel) |
 | **Work-dir growth** — nothing cleans `az://aletest/nf-work` | storage only (≥ 5 000 blobs / ~1.2 GB on 2026-09-11) | purge manually after a large pilot or every few months; **not** while a run may `-resume` into it |
 
 ---
@@ -649,6 +649,14 @@ at the cost of a `D2s_v3` running continuously.
 **Also transient, and unrelated:** `Unable to access config file … Connection timed out` with
 `start: None` and no Nextflow version reported. That is the head job failing to reach Seqera's API at
 startup — network-level, before any path is resolved. Retry.
+
+The same failure has a second face that reads like a mistake in your parameters (2026-10-01, run
+`GJbeDu3B5XZqX`): `Cannot parse params file: https://api.cloud.seqera.io/ephemeral/<id>.yaml`, again
+with no start time, no commit and no Nextflow version on the run. Nothing was parsed: the head log
+(`GET /workflow/<id>/download?fileName=nf-<id>.log`) shows `java.net.ConnectException: Connection
+timed out` under `CmdRun.readYamlFile`, 2 min 13 s after the repository was cloned — and 2 min 27 s
+after the *same host* had served the SCM config to the same process. The identical params were
+accepted on the relaunch minutes later. Read the head log before touching the params; then retry.
 
 ---
 
@@ -918,6 +926,7 @@ is in [`RUNBOOK.md`](../../deploy/azure/seqera-sp/RUNBOOK.md).
 | Two runs sharing a pool caused `DiskFull` | a **solo** run exceeds the default disk on its own | the first two failures happened to overlap; concurrency was the visible difference |
 | Azure's default Batch OS disk is ~30 GB, so 65 GB overruns it 2× | **unknown** — only bounded near 65 GB by when runs actually failed | plausible round number, never measured; `az vm image show` does not report it for this image |
 | Seqera's Outputs tab serves each report in isolation, so an HTML index's relative links are dead there | relative links to **pages** resolve in the preview, and CDN scripts (igv.js, Tabulator) load — the `mutation_reports/index.html` dashboard navigates like a local copy; **downloads** started inside the preview are blocked, because the viewer is an iframe sandboxed without `allow-downloads` (RUNBOOK 2026-09-30) | reasoned from "one file per row"; never clicked (2026-09-11); the download half found by the user (2026-09-30) |
+| A task `running` for 29 minutes with no `.command.log` has a hung image pull — cancel the run | the pull was **slow**, not hung: the image's 1 977 MB layer came at 0.36 MB/s (measured from the dev VM on the second occurrence), about 91 minutes in all; the cancelled run would have finished by itself | inferred from "nothing stands between task taken and command started" without measuring the registry; the node could not be read and that was taken as the end of the evidence (2026-10-01, §18) |
 | Peak OS-disk use of 65.2 G is a per-run baseline | measured on **warm** nodes (~340 prior tasks), so it is a multi-run high-water mark | the probe was read as if the pool were cold |
 | `az://` staged an empty directory — use a tarball instead | all 7 files were present; `find` does not descend a symlink, and Nextflow stages directories as symlinks | the probe reported absence without proving it could detect presence (`find -L` shows them) |
 | `beforeScript` runs on the node | it runs **inside the container** | the config's own comment said so; `hostname` returns the container id |
@@ -982,7 +991,7 @@ established on the first pair (runs `5m9NorL3JmkHFq` → `464Scp5QNoznbD`, RUNBO
   commit (530 names, 145 md5, 42/42 VCFs). Against the 2026-09-08 baseline every name difference is a
   dated `output_comparison.md` §2.10 row plus run 1's own QC-only report folder.
 
-## 18. A task that is RUNNING but never started — a wedged container pull (2026-10-01)
+## 18. A task that is RUNNING but has not started — its container image is still being pulled (2026-10-01)
 
 **Symptom.** The run stays `RUNNING`, the task counter stops, nothing fails and nothing is logged.
 One process reads `0/1` in `tw runs view --processes`; every other number is final. Platform, the
@@ -1006,11 +1015,29 @@ head log and the Batch node all look healthy.
 - Batch's own limits on the task: `maxWallClockTime PT4H` (the process's `time` directive) and
   `maxTaskRetryCount 0`.
 
-**Inferred, not measured:** the node's pull of that image hung. Nothing else stands between
-"node took the task" and "command started", but the node's Docker daemon and agent logs were not
-read — no remote-login user exists on the pool nodes and `startup/` holds only the start task's
-files. Not known: whether it would have recovered by itself, and whether the same node would
-wedge again.
+**The cause, measured on the second occurrence the same day** (run `4REMpK9OCBKY4z`, same process,
+a different node, `running` since 10:35:16Z): the pull was not hung, it was slow. The image is one
+2 013 MB manifest of 14 layers, 1 977 MB of it in a single layer. Fetched from the dev VM with curl
+(registry token, then the blob URL, which redirects to `community-cr-prod.seqera.io`, a Cloudflare
+front):
+
+| What | Speed |
+|---|---|
+| that 1 977 MB layer, 300 s from the start | 109 MB received — **0.36 MB/s** |
+| the same layer, 30 s from the start / 30 s from the 1 GB offset | 0.31 MB/s / 0.41 MB/s |
+| the 30 MB layer of the same image, same host | 71 MB/s |
+| control, an unrelated 39 MB download | 54 MB/s |
+
+At 0.36 MB/s the layer takes about 91 minutes, against about 2 minutes for the whole pull on
+2026-09-29. So one large blob on the registry's backend was being served some 40 times slower than
+two days earlier, while small blobs on the same host were fast. Why is not known (Seqera's status
+page read "All Systems Operational"). **The first run was cancelled at 29.5 minutes on the inference
+that the pull had hung — wrong: it would have finished after roughly 90.** Listed in §16.
+
+Why this process and no other: it was the only one on this image. The 20 other GATK modules of the
+3.5.1 tree run `biocontainers/gatk4:4.5.0.0` from quay.io; `gatk4/variantfiltration` was taken from a
+later nf-core release and pins the Wave community image `gatk4_gcnvkernel` (GATK 4.6.2.0). Every cold
+node that receives this task therefore pulls 2 GB that nothing else on it uses.
 
 **How to recognise it — three reads, no change to anything:**
 
@@ -1021,19 +1048,36 @@ az batch task list --job-id <job> --query "[?state!='completed'].{id:id,start:ex
 az batch task file list --job-id <job> --task-id <task> --recursive --query "[].name" -o tsv
 #   only wd/.command.sh + wd/.command.run, and a start time many minutes old  ->  this pattern
 #   wd/.command.log present                                                    ->  the tool itself is running: read the log
+az batch task show --job-id <job> --task-id <task> --query containerSettings.imageName -o tsv   # which image
 ```
+
+Then measure the registry before deciding anything — the pool nodes have no inbound endpoint (private
+IP only), so the node's Docker cannot be read, but the registry can be, from any machine:
+
+```bash
+R=community.wave.seqera.io; I=library/<image>; TAG=<tag>
+TOK=$(curl -s "https://cerbero.seqera.io/auth/token?service=$R&scope=repository:$I:pull" | python -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+curl -s -H "Authorization: Bearer $TOK" -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
+     https://$R/v2/$I/manifests/$TAG | python -c 'import json,sys; [print(l["digest"], l["size"]) for l in json.load(sys.stdin)["layers"]]'
+curl -s -L -m 120 -o /dev/null -H "Authorization: Bearer $TOK" -w '%{size_download} bytes, %{speed_download} B/s\n' \
+     https://$R/v2/$I/blobs/<digest of the largest layer>
+```
+
+Image size divided by that speed is when the task will start.
 
 A baseline for "many minutes": the same process on an earlier run, from
 `GET /workflow/<run>/tasks?workspaceId=<id>&search=<process>` (`duration` vs `realtime`; the
 difference is staging plus pull). On the test set no task waits more than about three minutes.
 
-**What to do.** `tw runs cancel -i <run> -w <workspace>`: the wedged task ended one second later
-(`TaskEnded`), the head task nine seconds later (exit 137), Platform showed `CANCELLED`. Then launch
-again; `15_launch_run.sh --resume <run>` reuses every completed task. Left alone, the task is bounded
-by its `time` directive (4 h here), not by the job's 7-day limit — one worker node and the head node
-for that long, a few DKK, and a run that looks alive the whole time. Nothing in the pipeline shortens
-that today.
+**What to do.** If the arithmetic says the pull ends inside the task's `time` (4 h here), **wait** — a
+relaunch starts the same pull again on a new node, as the second run showed. Cancel only when it
+cannot finish in time or the registry returns errors: `tw runs cancel -i <run> -w <workspace>` (the
+task ended one second later, `TaskEnded`; the head task nine seconds later, exit 137; Platform showed
+`CANCELLED`), and `15_launch_run.sh --resume <run>` reuses every completed task. A cancelled run's
+node is gone with it, so nothing of the partial pull is kept.
 
-**Next occurrence, before cancelling:** add a node user (`az batch node user create`), log in and read
-`docker ps -a`, `journalctl -u docker` and the pull's progress — the one reading that would turn the
-inference above into a measurement.
+**Fixed for this process the same day:** `VARIANTFILTRATION_FALLBACK` now runs on
+`biocontainers/gatk4:4.5.0.0`, the image the other GATK steps already pull, so a cold node pulls
+nothing extra for it (`SAREK_MODIFICATIONS.md` → `modules/nf-core/` PATCHED; soft-filtered records
+identical on the test set and the 4-sample pilot). The pattern itself stays possible for any large
+image on a slow registry — the recipe above is how to tell.

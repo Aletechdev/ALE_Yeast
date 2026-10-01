@@ -8,7 +8,7 @@
 >
 > The parts of this document that describe **current reality** are
 > [Known Blocker: Nextflow 26.x](#known-blocker-nextflow-26x-couples-with-a-future-rebase), the two
-> *Known Rebase Hazard* sections (SnpEff cache; MultiQC container pin), "Current Additive Files", and
+> *Known Rebase Hazard* sections (SnpEff cache; MultiQC container pin; VariantFiltration container), "Current Additive Files", and
 > "Key Principles".
 
 ## Architecture (proposed)
@@ -194,6 +194,19 @@ same on either side of the rebase. **Do not** put it inside `annotation_cache_in
 
 Sources (read 2026-09-07): sarek #1654, #1980, #2184, #2194; nf-core/modules
 `subworkflows/nf-core/utils_annotation_cache/main.nf`; sarek master `main.nf` cache block.
+
+## Known Rebase Hazard: VariantFiltration container (re-decide at every rebase; added 2026-10-01)
+
+`modules/nf-core/gatk4/variantfiltration/main.nf` + `environment.yml` run `VARIANTFILTRATION_FALLBACK` on
+`biocontainers/gatk4:4.5.0.0`, the image of the other 20 GATK modules of the 3.5.1 tree, instead of the
+module's own `gatk4_gcnvkernel` Wave image (GATK 4.6.2.0, a 2 GB layer used by nothing else — the cause
+of two ~90-minute waits on Seqera Platform on 2026-10-01, `azure_batch_execution.md` §18). The rule to
+carry across a rebase is the *alignment*, not the version: after the rebase this step must run on the
+same GATK image as HaplotypeCaller / GenotypeGVCFs in the new tree. If upstream's GATK modules have all
+moved to one shared image, take upstream's container and drop the patch; if they are still split, re-apply
+it with the new tree's image. Either way the versions manifest line for `VARIANTFILTRATION_FALLBACK`
+moves with it, and the soft-filtered VCF must stay record-identical (compare `FILTER` tallies on the
+contract test's joint VCF).
 
 ## Known Rebase Hazard: MultiQC container pin (drop at any 3.10.0+ rebase; added 2026-09-24)
 

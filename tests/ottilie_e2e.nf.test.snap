@@ -79,7 +79,7 @@
                     "tiddit": "3.6.1"
                 },
                 "VARIANTFILTRATION_FALLBACK": {
-                    "gatk4": "4.6.2.0"
+                    "gatk4": "4.5.0.0"
                 },
                 "VCFTOOLS_TSTV_COUNT": {
                     "vcftools": "0.1.16"
@@ -1271,6 +1271,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-10-01T11:43:09.309462913"
+        "timestamp": "2026-10-01T13:57:56.068111361"
     }
 }

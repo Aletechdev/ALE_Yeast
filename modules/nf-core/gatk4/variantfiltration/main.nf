@@ -3,9 +3,12 @@ process GATK4_VARIANTFILTRATION {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "${workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container
-        ? 'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/ce/ced519873646379e287bc28738bdf88e975edd39a92e7bc6a34bccd37153d9d0/data'
-        : 'community.wave.seqera.io/library/gatk4_gcnvkernel:edb12e4f0bf02cd3'}"
+    // ALE: the image of the other GATK modules in this tree, not upstream's gatk4_gcnvkernel (GATK
+    // 4.6.2.0, 2 GB, this module only). A cold node then pulls nothing extra for this step; the
+    // filtered records are identical (docs/dev-practices/SAREK_MODIFICATIONS.md, PATCHED).
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/gatk4:4.5.0.0--py36hdfd78af_0':
+        'biocontainers/gatk4:4.5.0.0--py36hdfd78af_0' }"
 
     input:
     tuple val(meta), path(vcf), path(tbi)

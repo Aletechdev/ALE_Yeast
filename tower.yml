@@ -26,9 +26,15 @@
 # so a link to another page opens (pop-ups allowed) but a link to a CSV/VCF is silently blocked —
 # the content host itself serves any file under the report's folder once the preview's cookie is
 # set (probed with curl). Hence every file the index offers as a download is ALSO an entry here,
-# with the tab's own Download button: 2b/2c (SNV & InDel), 3b (SV VCF), 4b (uncollapsed CN),
-# 4c (chromosome CN).
+# with the tab's own Download button: 2b/2c (SNV & InDel), 3b (SV VCF), 4b (uncollapsed CN).
 # The index detects being framed and points at these entries.
+#
+# NOT listable: the chromosome copy-number CSV (data/cn_matrices/cn_chr_summary_germline.csv). An
+# entry matches the destination of a publish EVENT, and Nextflow raises one per published path after
+# dropping paths nested in a published directory (PublishDir.dedupPaths) - that file leaves its task
+# inside the cn_matrices/ directory output, so only the directory is announced. Measured 2026-10-01
+# on run 4REMpK9OCBKY4z: the pattern was here and the entry was not listed. In the preview that file
+# is reached by right-click -> "Open link in new tab" on the index's button.
 reports:
   "**/multiqc/*read-QC_multiqc_report.html":
     display: "6a. MultiQC read-QC — input checks, FastQC, fastp (while the run continues)"
@@ -50,8 +56,6 @@ reports:
     display: "4. CN windows table — all samples (CNVKit, collapsed)"
   "**/mutation_reports/data/cn_cohort_full.csv":
     display: "4b. CN windows table — all samples (CNVKit, uncollapsed)"
-  "**/mutation_reports/data/cn_matrices/cn_chr_summary_germline.csv":
-    display: "4c. Chromosome copy-number table — all samples (CNVKit segments)"
   "**/mutation_reports/data/contig_copy_number.csv":
     display: "5. Contig copy-number table — all samples (TIDDIT, incl. Mito)"
   "**/multiqc/multiqc_report.html":
