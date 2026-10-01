@@ -425,8 +425,9 @@
             run, so no gene columns.
             {% endif %}
             {% if snv.truncated %}Showing the first {{ snv.shown }} by impact, then position.{% endif %}
-            <strong>A first look, not the record:</strong> for depth, allele counts, quality and filter tags work from the
-            VCF or the all-sites CSV (buttons below){% if cohort_link %}; for read pileups open the
+            Each sample cell is the share of reads carrying the variant (VAF);
+            <strong>hover or tap a cell for its genotype, read counts and depth.</strong>
+            Every site, with quality and filter tags, is in the CSV and VCF below{% if cohort_link %}; read pileups are in the
             <a href="{{ cohort_link }}" target="_blank">all-samples IGV report &#8599;</a>{% endif %}.
             How rows are chosen: Methodology &rarr; <em>SNV / InDel events table</em>.
         </p>
@@ -435,8 +436,7 @@
             <span class="vaf vaf-mid">45&thinsp;%</span> sub-population or noise &middot;
             <span class="vaf vaf-ref">0&thinsp;%</span> reference &middot;
             <span class="vaf-none">no reads</span> no coverage &middot;
-            <span class="multi-mark">&Dagger;</span> multi-allelic site, one row per allele &middot;
-            hover a cell for genotype, allele counts and depth
+            <span class="multi-mark">&Dagger;</span> multi-allelic site, one row per allele
         </p>
         <div class="section-tools" style="border-bottom:none;margin-top:4px">
             {% if snv.has_ann %}
