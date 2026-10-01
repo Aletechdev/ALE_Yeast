@@ -550,17 +550,18 @@ def load_cnv_sv_data(data_dir: Path) -> dict:
         if vcf_path.exists():
             sv_downloads[f"{key}_vcf"] = f"data/{vcf_name}"
 
-    # Check for downloadable CN files (CSV)
+    # Check for downloadable CN files (CSV). The link is where the file is PUBLISHED in the bundle; the
+    # chromosome summary is staged flat here but published with its siblings under data/cn_matrices/.
     cn_downloads = {}
-    for key, csv_name in [
-        ("regions", "cn_cohort_collapsed.csv"),
-        ("chr", "cn_chr_summary_germline.csv"),
-        ("matrix", "cn_cohort_full.csv"),
-        ("contig", "contig_copy_number.csv"),
+    for key, csv_name, link in [
+        ("regions", "cn_cohort_collapsed.csv", "data/cn_cohort_collapsed.csv"),
+        ("chr", "cn_chr_summary_germline.csv", "data/cn_matrices/cn_chr_summary_germline.csv"),
+        ("matrix", "cn_cohort_full.csv", "data/cn_cohort_full.csv"),
+        ("contig", "contig_copy_number.csv", "data/contig_copy_number.csv"),
     ]:
         csv_path = data_dir / csv_name
         if csv_path.exists():
-            cn_downloads[key] = f"data/{csv_name}"
+            cn_downloads[key] = link
 
     return {
         "cn_chr": cn_chr,

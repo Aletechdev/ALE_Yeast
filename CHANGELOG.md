@@ -339,6 +339,16 @@
 
 ### Fixed
 
+- **The chromosome copy-number CSV button in the mutation report index was dead in every bundle**
+  (found 2026-09-30, fixed 2026-10-01). `BUILD_CN_MATRIX` writes a `cn_matrices/` directory and was
+  published into `data/cn_matrices/`, so its five tables landed under
+  `mutation_reports/data/cn_matrices/cn_matrices/` while the index linked
+  `data/cn_chr_summary_germline.csv`. The directory is now published into `data/` — the tables are at
+  `mutation_reports/data/cn_matrices/<file>` — and the index links the chromosome summary there;
+  `tower.yml` lists it as entry *4c*. **Five output paths move** (content unchanged): scripts reading
+  `data/cn_matrices/cn_matrices/…` from older outputs need the shorter path for new ones
+  (`output_comparison.md` §2.10).
+
 - **`--tools` without an annotator aborted at DAG build** (2026-09-09 → 2026-09-23). The
   mutation-report input's no-annotation branch still named `vcf_with_tbi`, the indexed-VCF channel
   removed with the Tier-2 AF filters, so any tools set without `snpeff`/`vep`/`merge`/`bcfann` —

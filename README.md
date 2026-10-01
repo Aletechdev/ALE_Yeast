@@ -322,7 +322,7 @@ How the reports are built and how to read them:
 
 **On Seqera Platform**, the run's *Outputs* tab lists the entry points of this bundle in reading
 order — *1. Start here* (index), *2. SNV & InDel report — all samples* (+ *2b/2c* its CSV and VCF), *3. SV
-table* (+ *3b* the SV VCF), *4./5.* the two copy-number tables (+ *4b* uncollapsed), *6. MultiQC*, *7.* the
+table* (+ *3b* the SV VCF), *4./5.* the two copy-number tables (+ *4b* uncollapsed, *4c* per chromosome), *6. MultiQC*, *7.* the
 per-sample IGV reports — the list and its numbered labels
 come from [`tower.yml`](tower.yml) (the tab sorts by label). Two limits to know: files under 10 MB preview in the browser, 10–25 MB are
 download-only, larger ones are listed by path only (per-sample HaplotypeCaller reports on a
