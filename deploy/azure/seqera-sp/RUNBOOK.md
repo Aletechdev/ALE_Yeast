@@ -1487,3 +1487,40 @@ the `.vcf.gz` entries are listed and downloadable (mime type is deduced from the
 list only html/csv/tsv/pdf/txt as *renderable*). Consequence for the index's planned links to the two
 early MultiQC reports: relative `../multiqc/` links are dead in the preview, so those reports must be
 co-published into `mutation_reports/` if the index is to link them.
+
+### 2026-10-01 — ⚠️ A worker task sat `running` for 29.5 min without starting (run `4xHktQIoVD1t3Z`, cancelled); head-job environment names read
+
+2-sample test set from commit `f6f2f94` (`15_launch_run.sh --name yAMP-index-offline-20261001`, outdir
+`az://aletest/seqera-runs/yAMP-index-offline-20261001`, disposable and incomplete). Launched to look
+at the new mutation report index on Platform; it never got that far.
+
+| UTC | Event |
+|---|---|
+| 08:57:30 | SUBMITTED |
+| 09:08:34 | RUNNING (11 min of head-pool cold start, as usual) |
+| 09:13:00 | the worker node is allocated; it goes on to complete 21 tasks |
+| 09:26:31 | `VARIANTFILTRATION_FALLBACK` submitted — Batch task `nf-48a087863a468e9077de75dc1ab82102`, `running` from 09:26:32 |
+| 09:43 – 09:55 | 126 succeeded / 0 failed / 1 running at every poll; the task's directory holds `.command.sh` and `.command.run` only, no `.command.log` |
+| 09:56:03 | `tw runs cancel` |
+| 09:56:04 | the task ends (`TaskEnded`); 09:56:10 the head task ends, exit 137; Platform: `CANCELLED` |
+| 09:57 | worker pool target 0 (1 node still draining), head pool 1 node |
+
+The same task on `Wxgvs037pXLV8` and `5CiOiON5oJuETn`: 140 s and 149 s of wall time, 5 s and 8 s of
+work. Its image (`gatk4_gcnvkernel`, this process only) was a first pull on that node; the node
+reported no error and the registry answered from the dev VM. Inferred, not measured: the pull hung.
+Not caused by the commit under test — the task runs before the report and its module is unchanged
+since the last good run. Recognition recipe, bound (the task's 4 h `time`, not the job's 7 d) and what
+to read before cancelling next time: `docs/dev-practices/azure_batch_execution.md` §18.
+
+**Head-job environment, names only** (`az batch task show … --query "environmentSettings[].name"` on
+this run's head task): `TOWER_WORKFLOW_ID`, `TOWER_WORKSPACE_ID`, `TOWER_REPORTS_FILE`, `NXF_UUID`,
+`NXF_WORK`, `NXF_OUT_FILE`, `NXF_LOG_FILE`, `NXF_TML_FILE`, `NXF_CLOUDCACHE_PATH`,
+`NXF_CONFIG_BASE64`, `NXF_PRERUN_BASE64`, `NXF_IGNORE_RESUME_HISTORY`, `NXF_SYNTAX_PARSER`,
+`NXF_ANSI_LOG`, `NXF_PLUGINS_DEFAULT`, `AZ_WORK_URL`, `AZ_SAS`. So a pipeline can read its Seqera run
+id (and the numeric workspace id) from the environment. It cannot read the address of its own run
+page: that URL is built from the organisation and workspace *names*, which Platform sends to the
+Tower plugin only in the response to the trace *begin* call, after the DAG is built, where the plugin
+keeps it in a private field (`TowerClient.groovy`, Nextflow 25.10.4) and prints it once ("Monitor the
+execution with Seqera Platform using this URL"). Platform's injected config carries only
+`tower { enabled; endpoint }` (read with `tw runs view --config`). Hence the optional
+`seqera_workspace_url` parameter behind the index's run link.

@@ -383,7 +383,7 @@ az monitor metrics list --resource "$RID" --metric CoreCount --aggregation Maxim
 | Risk | Bound | What to do |
 |---|---|---|
 | **Hung head job** (§15) — no wall-clock limit applies to the head task | one `D2s_v3` (~0.6 DKK/h) until someone cancels | after any run that shows `UNKNOWN`, or `RUNNING` long after outputs landed: check 2 above, then `tw runs cancel` |
-| **Stuck worker job** | `jobMaxWallClockTime = 7d` (CE template) × up to 4 `E4ds_v4` | bounded by Batch; the autoscale formula drains nodes as soon as tasks stop, so it needs a genuinely wedged task |
+| **Stuck worker job** | `jobMaxWallClockTime = 7d` (CE template) × up to 4 `E4ds_v4`; a single wedged task ends sooner, at its own `time` directive (Batch `maxWallClockTime`, `PT4H` measured 2026-10-01) | bounded by Batch; the autoscale formula drains nodes as soon as tasks stop, so it needs a genuinely wedged task — seen once: a container pull that never finished, the run `RUNNING` with nothing failing (§18: how to recognise it, then `tw runs cancel` and resume) |
 | **Work-dir growth** — nothing cleans `az://aletest/nf-work` | storage only (≥ 5 000 blobs / ~1.2 GB on 2026-09-11) | purge manually after a large pilot or every few months; **not** while a run may `-resume` into it |
 
 ---
@@ -981,3 +981,59 @@ established on the first pair (runs `5m9NorL3JmkHFq` → `464Scp5QNoznbD`, RUNBO
   MultiQC), the local e2e's task list, and deliverables identical to the local e2e output of the same
   commit (530 names, 145 md5, 42/42 VCFs). Against the 2026-09-08 baseline every name difference is a
   dated `output_comparison.md` §2.10 row plus run 1's own QC-only report folder.
+
+## 18. A task that is RUNNING but never started — a wedged container pull (2026-10-01)
+
+**Symptom.** The run stays `RUNNING`, the task counter stops, nothing fails and nothing is logged.
+One process reads `0/1` in `tw runs view --processes`; every other number is final. Platform, the
+head log and the Batch node all look healthy.
+
+**What was measured** (run `4xHktQIoVD1t3Z`, 2-sample test set, commit `f6f2f94`; timeline in
+`deploy/azure/seqera-sp/RUNBOOK.md`, same date):
+
+- 126 of 155 tasks succeeded, 0 failed, 1 running: `VARIANTFILTRATION_FALLBACK`. Its Batch task was
+  in state `running` from 09:26:32Z until it was cancelled at 09:56:03Z — 29.5 minutes. The same task
+  took 140 s and 149 s of wall time on runs `Wxgvs037pXLV8` and `5CiOiON5oJuETn` (5 s and 8 s of
+  actual work; the rest is the image pull).
+- The task's directory on the node held `wd/.command.sh` and `wd/.command.run` and **no
+  `wd/.command.log`**. The task's command line is `bash .command.run 2>&1 | tee .command.log`, and
+  `tee` creates its file before anything else happens — so the command never started. Batch reports
+  a container task as `running` from the moment the node takes it, image pull included.
+- The task's image (`community.wave.seqera.io/library/gatk4_gcnvkernel:…`) is used by this one
+  process only, so it was the first pull of that image on the node. The node itself was healthy:
+  21 of its 22 tasks had succeeded, the previous one seconds earlier, `errors: null`. The registry
+  answered from the dev VM (token challenge in 0.1 s).
+- Batch's own limits on the task: `maxWallClockTime PT4H` (the process's `time` directive) and
+  `maxTaskRetryCount 0`.
+
+**Inferred, not measured:** the node's pull of that image hung. Nothing else stands between
+"node took the task" and "command started", but the node's Docker daemon and agent logs were not
+read — no remote-login user exists on the pool nodes and `startup/` holds only the start task's
+files. Not known: whether it would have recovered by itself, and whether the same node would
+wedge again.
+
+**How to recognise it — three reads, no change to anything:**
+
+```bash
+tw runs view -i <run> -w <workspace> --processes         # one process at 0/1, the counter no longer moving
+az batch job list --query "[?state=='active'].id" -o tsv  # then, for the job named after that process:
+az batch task list --job-id <job> --query "[?state!='completed'].{id:id,start:executionInfo.startTime}"
+az batch task file list --job-id <job> --task-id <task> --recursive --query "[].name" -o tsv
+#   only wd/.command.sh + wd/.command.run, and a start time many minutes old  ->  this pattern
+#   wd/.command.log present                                                    ->  the tool itself is running: read the log
+```
+
+A baseline for "many minutes": the same process on an earlier run, from
+`GET /workflow/<run>/tasks?workspaceId=<id>&search=<process>` (`duration` vs `realtime`; the
+difference is staging plus pull). On the test set no task waits more than about three minutes.
+
+**What to do.** `tw runs cancel -i <run> -w <workspace>`: the wedged task ended one second later
+(`TaskEnded`), the head task nine seconds later (exit 137), Platform showed `CANCELLED`. Then launch
+again; `15_launch_run.sh --resume <run>` reuses every completed task. Left alone, the task is bounded
+by its `time` directive (4 h here), not by the job's 7-day limit — one worker node and the head node
+for that long, a few DKK, and a run that looks alive the whole time. Nothing in the pipeline shortens
+that today.
+
+**Next occurrence, before cancelling:** add a node user (`az batch node user create`), log in and read
+`docker ps -a`, `journalctl -u docker` and the pull's progress — the one reading that would turn the
+inference above into a measurement.
