@@ -1451,3 +1451,39 @@ on Batch. Finding: all three MultiQC tasks ran with 4 CPUs / 12 GB — `base.con
 fully-qualified — `ProcessConfigBuilder.applyConfig`, v25.10.4), not `process_single` as first written.
 The alignment-QC task's 49-s wait was that 4-CPU request queueing for a whole free slot; since this
 entry the two early reports request 1 CPU / 6 GB (`conf/base.config`).
+
+### 2026-09-30 — ⚠️ Outputs-tab preview: links to pages work, file downloads are blocked (sandboxed viewer); the content cookie is scoped to the report's folder
+
+Seen by the user on run `Wxgvs037pXLV8`: from the previewed index, the SNV card opened
+`cohort_report.html`, but the CSV / VCF download buttons did nothing. Probed from the dev VM with
+the API token (read-only):
+
+- `GET /workflow/<id>/reports?workspaceId=…` → 16 entries, `basePath
+  /content/redirect/reports/wsp/<ws>/<run>/`, each `path` = `<n>/<file>` (`15/index.html`). The
+  redirect endpoint 307s **any** path under it to a signed `user-data.cloud.seqera.io/content/download/
+  reports/…/<n>/<path>?token=` URL — a nonexistent file comes back 200 with 0 bytes, so the tab's
+  "View" is a plain proxy onto the report's folder in blob.
+- Serving `15/index.html` with the token sets `CONTENT_TOKEN` (`Max-Age=3600`,
+  `Path=/content/download/reports/wsp/<ws>/<run>/15`, HttpOnly, SameSite=Strict). With that cookie
+  alone — what a browser sends when it follows a relative link — `cohort_report.html`,
+  `samples/*.html`, `data/*.csv`, `data/*.vcf.gz` and `vcf/haplotypecaller/*.vcf.gz` all return 200,
+  **registered in `tower.yml` or not**. `15/../multiqc/multiqc_report.html` returns 401: outside the
+  cookie path. So the server serves everything under the bundle and nothing beside it.
+- The front-end (`chunk-IH47IZNG.js`, `data-cy="html-viewer"`) renders a report in
+  `<iframe sandbox="allow-scripts allow-popups allow-forms">` — no `allow-downloads`. Browsers block
+  every download started inside such a frame (by `download` attribute or by navigating to a
+  non-renderable type), silently, and pop-ups inherit the sandbox, so `target="_blank"` does not
+  escape it either. Reproduced with headless Chromium: the same sandbox flags around the pilot index,
+  a click on the VCF button → no download event, no error.
+
+Done the same day (committed with the dashboard batch): every file the index offers for download is
+now its own `tower.yml` entry (2b/2c SNV & InDel CSV + VCF, 3b SV VCF, 4b uncollapsed CN) so the
+tab's own Download button serves it; the index detects being framed, says so beside each download
+row (right-click → *Open link in new tab* works: a browser-opened tab is not sandboxed and the cookie
+is sent — verified with Playwright against the live run for the SV VCF, the SV CSV and the cohort VCF,
+and a button click in the preview opened as its own top-level tab downloads too) and hides the
+browser-generated "rows shown" export. **To verify on the next Platform run:**
+the `.vcf.gz` entries are listed and downloadable (mime type is deduced from the extension; the docs
+list only html/csv/tsv/pdf/txt as *renderable*). Consequence for the index's planned links to the two
+early MultiQC reports: relative `../multiqc/` links are dead in the preview, so those reports must be
+co-published into `mutation_reports/` if the index is to link them.

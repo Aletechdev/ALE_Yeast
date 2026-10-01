@@ -11,6 +11,39 @@
 
 ### Added
 
+- **Mutation report index: readable at a glance, plus an SNV / InDel events table** (2026-09-30;
+  `docs/igvreports/templates/index.html.j2`, `docs/igvreports/generate_index.py`). Header with a
+  version chip (`--pipeline-version`, the manifest version), four tool chips and jump links; summary
+  cards with a note line instead of threshold-laden labels (the QC card is gone, MultiQC is a header
+  link; the "CN windows" card now counts windows that cross the threshold; the complete-output folder
+  line moved from the header to below the cards); two-line notes above the tables; the three
+  copy-number tables as tabs under one fold-change / log2 toggle; short headings.
+  New **SNV / InDel events** section: PASS sites where at least one sample carries the variant and at
+  least one is called reference (no parent label needed; a sample with no reads at the site is
+  neither), protein-changing (SnpEff HIGH / MODERATE) view by default, all differing sites one click
+  away, per-sample VAF cells as whole percent with genotype, allele counts and depth on hover or on
+  click / tap (*no reads* where the site had no coverage), a ‡ on multi-allelic rows, header filters,
+  capped at 300 rows; without SnpEff the gene columns are absent and every differing site is listed;
+  with one sample every carried PASS site.
+  The *SNV / InDel sites* card jumps to it; the section links the all-samples IGV report. Downloads:
+  *CSV · all sites* (new bundle file `mutation_reports/data/snv_indel_sites.csv` — every joint-call
+  row with FILTER, the multi-allelic site's alleles, SnpEff gene / effect / impact / HGVS, a
+  `differs_between_samples` flag and per-sample GT / AD / DP / VAF), *VCF · all sites* (the cohort
+  VCF under `vcf/haplotypecaller/`) and
+  *CSV · rows shown* (the table as filtered). Stale Methodology text fixed: the SNP strand-bias
+  filter reads `SOR_FS_filter` with its FS gate, the hard filter is described as opt-in, the VCF
+  preparation source points at the pipeline's `PREPARE_VCF`. The report container has no bcftools,
+  so the prepared cohort VCF is now read in pure Python (the old count helper silently returned
+  nothing in every pipeline run). Tabulator 6.3 stalls the page on `maxHeight`, so tables use fixed
+  or natural heights only.
+- **Seqera Outputs tab: downloads as their own entries** (`tower.yml` 2b / 2c / 3b / 4b). The
+  Platform previews a report in an iframe sandboxed without `allow-downloads`, so a page link in the
+  index opens but a CSV / VCF link does nothing (the content host serves every file under the bundle
+  once the preview's cookie is set — verified with curl; the same cookie refuses `../multiqc/`).
+  The index detects the frame, says so beside each download row (right-click → *Open link in new
+  tab* works: a browser-opened tab is not sandboxed) and hides the browser-generated export. Runbook
+  entry 2026-09-30.
+
 - **Three MultiQC reports, the early two while the run continues** (`docs/usage/qc_first_run.md` →
   *The three MultiQC reports*). `multiqc/yAMP-read-QC_multiqc_report.html` (input checks, FastQC raw
   and after preprocessing, fastp) is published as soon as read QC ends, and

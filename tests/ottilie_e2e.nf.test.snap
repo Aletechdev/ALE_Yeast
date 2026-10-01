@@ -806,6 +806,7 @@
                 "mutation_reports/data/cn_matrices/cn_matrices/cn_segments_call.csv",
                 "mutation_reports/data/cn_matrices/cn_matrices/cn_segments_germline.csv",
                 "mutation_reports/data/contig_copy_number.csv",
+                "mutation_reports/data/snv_indel_sites.csv",
                 "mutation_reports/data/sv_cohort_matrix_union.csv",
                 "mutation_reports/data/sv_cohort_matrix_union_pass.csv",
                 "mutation_reports/data/sv_cohort_merged_union.vcf.gz",
@@ -1179,6 +1180,7 @@
                 "cn_segments_call.csv:md5,bfeedaec6019d5ad2901db54f59a21d4",
                 "cn_segments_germline.csv:md5,efc1f5ec7a296684721b34fa29157493",
                 "contig_copy_number.csv:md5,baf51388ed158b6444b61210dc48c0ea",
+                "snv_indel_sites.csv:md5,c6b65b1cf28ec49414ee11b84c736f91",
                 "sv_cohort_matrix_union.csv:md5,94778fb263ff9afe65b5b224beaf7772",
                 "sv_cohort_matrix_union_pass.csv:md5,64aaaf066032bea452be86cb54932128",
                 "README.md:md5,f46c725f204c3d147146b151ceea31f7",
@@ -1270,6 +1272,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-09-29T13:10:32.320700943"
+        "timestamp": "2026-09-30T17:24:50.516191397"
     }
 }

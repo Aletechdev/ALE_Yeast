@@ -917,7 +917,7 @@ is in [`RUNBOOK.md`](../../deploy/azure/seqera-sp/RUNBOOK.md).
 | `tw` cannot enable autoscale on a dual-pool CE — use the web UI | `compute-envs import` carries `autoScale`, and `add ... forge` takes explicit `--head-no-auto-scale=false` | only `add ... forge`'s flag list was inspected, then generalised to the whole CLI (2026-08-11) |
 | Two runs sharing a pool caused `DiskFull` | a **solo** run exceeds the default disk on its own | the first two failures happened to overlap; concurrency was the visible difference |
 | Azure's default Batch OS disk is ~30 GB, so 65 GB overruns it 2× | **unknown** — only bounded near 65 GB by when runs actually failed | plausible round number, never measured; `az vm image show` does not report it for this image |
-| Seqera's Outputs tab serves each report in isolation, so an HTML index's relative links are dead there | relative links resolve in the preview, and CDN scripts (igv.js, Tabulator) load — the `mutation_reports/index.html` dashboard navigates like a local copy | reasoned from "one file per row"; never clicked (2026-09-11) |
+| Seqera's Outputs tab serves each report in isolation, so an HTML index's relative links are dead there | relative links to **pages** resolve in the preview, and CDN scripts (igv.js, Tabulator) load — the `mutation_reports/index.html` dashboard navigates like a local copy; **downloads** started inside the preview are blocked, because the viewer is an iframe sandboxed without `allow-downloads` (RUNBOOK 2026-09-30) | reasoned from "one file per row"; never clicked (2026-09-11); the download half found by the user (2026-09-30) |
 | Peak OS-disk use of 65.2 G is a per-run baseline | measured on **warm** nodes (~340 prior tasks), so it is a multi-run high-water mark | the probe was read as if the pool were cold |
 | `az://` staged an empty directory — use a tarball instead | all 7 files were present; `find` does not descend a symlink, and Nextflow stages directories as symlinks | the probe reported absence without proving it could detect presence (`find -L` shows them) |
 | `beforeScript` runs on the node | it runs **inside the container** | the config's own comment said so; `hostname` returns the container id |
@@ -955,6 +955,11 @@ established on the first pair (runs `5m9NorL3JmkHFq` → `464Scp5QNoznbD`, RUNBO
   dashboard entry points; its report has its own pattern since `702a4c0` (verified through
   `GET /workflow/<id>/reports`: one entry on run `1DtqOzNj59CITv`, none on run 1). Since 2026-09-29
   that pattern is the read-QC report's (*6a*), which every run writes.
+- **Downloads inside a previewed report are blocked** — the viewer is `<iframe sandbox="allow-scripts
+  allow-popups allow-forms">`, no `allow-downloads`, so a page link opens but a CSV/VCF link does nothing
+  (verified 2026-09-30, RUNBOOK). Every downloadable file is therefore its own `tower.yml` entry, served by
+  the tab's Download button. The content host's cookie is scoped to the report's folder: relative links
+  within `mutation_reports/` work, `../multiqc/` returns 401.
 - **The Outputs tab fills while the run is going** (measured 2026-09-29, run `5CiOiON5oJuETn`;
   timeline and numbers in `deploy/azure/seqera-sp/RUNBOOK.md`, same date). The Tower plugin appends
   each publish that matches `tower.yml` to `nf-<id>-reports.tsv` and, when the launch dir is not the

@@ -29,9 +29,10 @@ process GENERATE_INDEX {
     val  report_dir_label                 // only when report_outdir differs from <outdir>/mutation_reports, else ''
 
     output:
-    path "index.html",          emit: index
-    path "multiqc_report.html", emit: multiqc, optional: true
-    path "versions.yml",        emit: versions
+    path "index.html",               emit: index
+    path "multiqc_report.html",      emit: multiqc, optional: true
+    path "data/snv_indel_sites.csv", emit: snv_csv, optional: true   // every joint-call site; absent without a cohort VCF
+    path "versions.yml",             emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -67,6 +68,8 @@ process GENERATE_INDEX {
         --sample-reports-dir samples \\
         --templates-dir ${templates_dir} \\
         --outdir '${outdir_label}' ${report_dir_arg} \\
+        --pipeline-version '${workflow.manifest.version}' \\
+        --snv-csv data/snv_indel_sites.csv \\
         ${cnv_sv_arg} ${mqc_path_arg} ${prepared_vcf_arg} ${pass_stats_arg}
 
     cat <<-END_VERSIONS > versions.yml

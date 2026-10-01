@@ -300,8 +300,8 @@ post-filters for Mutect2/FreeBayes were removed 2026-09-09
 └── pipeline_info/            # execution report, timeline, trace, software versions
 ```
 
-The **mutation report bundle** is the ALE-specific deliverable — start at its `index.html`. Its header
-prints the **complete-output folder** (the run's resolved `outdir`, an `az://` URL on a cloud run), so a
+The **mutation report bundle** is the ALE-specific deliverable — start at its `index.html`. Its Summary
+section prints the **complete-output folder** (the run's resolved `outdir`, an `az://` URL on a cloud run), so a
 viewer in Seqera or of a downloaded copy knows where everything else lives:
 
 ```
@@ -309,7 +309,8 @@ mutation_reports/
 ├── index.html               # entry point — links everything below
 ├── cohort_report.html       # cross-sample igv-report
 ├── samples/                 # <sample>_{hc,cnvkit,manta,tiddit}_report.html
-├── data/                    # cn_cohort_{full,collapsed}.csv, sv_cohort_matrix_union{,_pass}.csv,
+├── data/                    # snv_indel_sites.csv (every joint-call site: FILTER, SnpEff, per-sample GT/AD/DP/VAF),
+│                            # cn_cohort_{full,collapsed}.csv, sv_cohort_matrix_union{,_pass}.csv,
 │                            # sv_cohort_merged_union{,_pass}.vcf.gz (joint SV VCF, one GT column per sample),
 │                            # contig_copy_number.csv (TIDDIT per-contig coverage ratio — the only Mito quantification),
 │                            # cn_matrices/, sv_merged/ (per-sample SURVIVOR VCFs), *.{manta,tiddit}.pass_stats.tsv
@@ -320,13 +321,17 @@ How the reports are built and how to read them:
 [`docs/README.md#output--reporting`](docs/README.md#output--reporting).
 
 **On Seqera Platform**, the run's *Outputs* tab lists the entry points of this bundle in reading
-order — *1. Start here* (index), *2. SNV & InDel report — all samples*, *3. SV table*, *4./5.* the two
-copy-number tables, *6. MultiQC*, *7.* the per-sample IGV reports — the list and its numbered labels
+order — *1. Start here* (index), *2. SNV & InDel report — all samples* (+ *2b/2c* its CSV and VCF), *3. SV
+table* (+ *3b* the SV VCF), *4./5.* the two copy-number tables (+ *4b* uncollapsed), *6. MultiQC*, *7.* the
+per-sample IGV reports — the list and its numbered labels
 come from [`tower.yml`](tower.yml) (the tab sorts by label). Two limits to know: files under 10 MB preview in the browser, 10–25 MB are
 download-only, larger ones are listed by path only (per-sample HaplotypeCaller reports on a
-full-depth run are 14–40 MB). The index's relative links **do** resolve inside the tab (verified
-2026-09-11), so opening *index* there gives the same navigation as a local copy, subject to the size
-limits. To keep or share the whole bundle, download the `mutation_reports/` folder (Data Explorer
+full-depth run are 14–40 MB). The index's relative links to **pages** resolve inside the tab (verified
+2026-09-11), so opening *index* there navigates like a local copy, subject to the size limits — but its
+**download buttons do nothing there**: the preview is an iframe sandboxed without `allow-downloads`
+(verified 2026-09-30), which is why every downloadable file is also its own numbered entry with the
+tab's Download button. The index says so when it detects the frame. Links out of the
+`mutation_reports/` folder (e.g. `../multiqc/`) are refused by the content host's cookie scope. To keep or share the whole bundle, download the `mutation_reports/` folder (Data Explorer
 on the run's `outdir`, or `az storage blob download-batch`) and open `index.html` locally.
 
 ## Testing

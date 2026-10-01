@@ -119,6 +119,21 @@
         .badge-tiddit { background: var(--caller-tiddit-bg); color: var(--caller-tiddit); }
         .badge-both { background: var(--caller-both-bg); color: var(--caller-both); }
         .badge-none { color: var(--fg-muted); }
+        .badge-na { background: var(--badge-na-bg); color: var(--badge-na-fg); }
+        /* SNV/InDel events: per-sample VAF cells */
+        .vaf { display: inline-block; padding: 1px 6px; border-radius: 3px; }
+        .vaf-high { background: var(--caller-both); color: #ffffff; font-weight: 700; }
+        .vaf-mid { background: var(--caller-both-bg); color: var(--caller-both); font-weight: 600; }
+        .vaf-low { color: var(--caller-both); }
+        .vaf-ref { color: var(--fg-muted); }
+        .vaf-gt { font-family: monospace; }
+        .vaf-none { font-size: 0.85em; font-style: italic; color: var(--fg-muted); }
+        .legend { margin-top: -4px; }
+        .legend .vaf, .legend .vaf-none, .legend .multi-mark { margin-right: 2px; }
+        .multi-mark { color: var(--fg-muted); font-weight: 700; cursor: help; }
+        /* Tabulator click/tap popups (same text as the hover) */
+        .tabulator-popup-container { background: var(--surface); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        .cell-popup { padding: 6px 10px; font-size: 0.85em; white-space: nowrap; }
         .badge-svtype {
             display: inline-block; padding: 1px 5px; border-radius: 3px;
             font-size: 0.75em; font-weight: 700;
@@ -131,7 +146,8 @@
         [data-theme="dark"] .svtype-DUP { background: #0d2240; color: #58a6ff; }
 
         /* Tab bar */
-        .tab-bar { display: flex; gap: 0; margin-top: 24px; border-bottom: 2px solid var(--border); }
+        .tab-bar { display: flex; gap: 0; }
+        .tab-btn .tab-src { font-weight: 400; color: var(--fg-muted); font-size: 0.85em; margin-left: 4px; }
         .tab-btn {
             padding: 8px 16px; cursor: pointer; border: none;
             background: transparent; color: var(--fg-muted); font-size: 0.9em; font-weight: 600;
@@ -158,7 +174,7 @@
         .card .value { font-size: 1.8em; font-weight: 700; color: var(--fg-heading); }
         .card .label { font-size: 0.85em; color: var(--fg-muted); margin-top: 2px; }
         .card .card-sub { font-size: 0.6em; color: var(--fg-muted); font-weight: 400; }
-        .card .card-note { font-size: 0.7em; color: var(--fg-muted); margin-top: 2px; font-weight: 400; }
+        .card .card-note { font-size: 0.78em; color: var(--fg-muted); margin-top: 4px; font-weight: 400; line-height: 1.35; }
         a.card-link {
             text-decoration: none; color: inherit; cursor: pointer;
             border-left: 3px solid var(--link);
@@ -183,6 +199,38 @@
         .audit-content th, .audit-content td { padding: 5px 12px; border: 1px solid var(--border); text-align: left; }
         .audit-content th { background: var(--surface); font-weight: 600; }
         .audit-content .tier-arrow { color: var(--fg-muted); font-size: 1.2em; text-align: center; padding: 2px 0; }
+
+        /* Header: title chip, tool strip, jump links */
+        .page-header h1 { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .version-chip {
+            font-size: 0.5em; font-weight: 600; padding: 3px 10px; border-radius: 12px;
+            background: var(--surface); border: 1px solid var(--border); color: var(--fg-muted);
+        }
+        .tool-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 6px; }
+        .tool-chip {
+            display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 16px;
+            background: var(--surface); border: 1px solid var(--border); font-size: 0.9em;
+        }
+        .tool-chip .tool-class { font-size: 0.8em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); }
+        .jump-nav { display: flex; gap: 18px; flex-wrap: wrap; margin: 10px 0 0; font-size: 0.9em; }
+        .jump-nav a { font-weight: 600; }
+        .h2-sub { font-size: 0.6em; font-weight: 400; color: var(--fg-muted); margin-left: 10px; }
+
+        /* Section tool row: tab bar left, value toggle right */
+        .section-tools {
+            display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+            border-bottom: 2px solid var(--border); margin-top: 12px;
+        }
+        .metric-toggle { display: inline-flex; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .toggle-btn { padding: 5px 12px; border: none; background: var(--surface); color: var(--fg-muted); font-size: 0.85em; font-weight: 600; cursor: pointer; }
+        .toggle-btn.active { background: var(--link); color: #ffffff; }
+        .cn-key { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.9em; }
+        .dl-row { margin: 8px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .dl-hint { font-size: 0.8em; color: var(--fg-muted); }
+        .dl-btn {
+            font-size: 0.85em; padding: 4px 10px; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 4px; color: var(--link); text-decoration: none;
+        }
 
         /* Tabulator overrides */
         .tabulator { font-size: 0.9em; border: 1px solid var(--table-border); }
@@ -250,132 +298,163 @@
     <button class="theme-toggle" id="themeToggle" title="Toggle dark / light mode" aria-label="Toggle dark mode">&#9790;</button>
 
     {# ================================================================== #}
-    {# Section 1: Header                                                   #}
+    {# Header: title, run line, tool strip, jump links                     #}
     {# ================================================================== #}
-    <h1>{{ title }}</h1>
-    <p class="note" style="margin:4px 0 8px;font-style:italic">
-        Mutation report prototype &mdash; yAMPv1.0.0 pre-release
-    </p>
-    <p class="meta">
-        Generated {{ generated_at }} &middot;
-        {{ n_samples }} samples &middot;
-        {{ callers | length }} mutation callers
-        ({{ callers | join(', ') }})
-    </p>
-    {% if outdir %}
-    <p class="meta">
-        Complete output: <code>{{ outdir }}</code>{% if report_dir %} &middot; this report bundle: <code>{{ report_dir }}</code>{% endif %}
-    </p>
-    {% endif %}
-    <p class="note">
-        Single Nucleotide Variants (SNVs) and small Insertions/Deletions (InDels) by
-        <a href="https://gatk.broadinstitute.org/hc/en-us/articles/5358864757787-HaplotypeCaller">GATK HaplotypeCaller</a>;
-        Copy Number Variants (CNVs) by
-        <a href="https://github.com/etal/cnvkit">CNVKit</a>;
-        Structural Variants (SVs) by
-        <a href="https://github.com/SciLifeLab/TIDDIT">TIDDIT</a> and
-        <a href="https://github.com/Illumina/manta">Manta</a>.
-        Annotated with <a href="https://pcingola.github.io/SnpEff/">SnpEff</a>.
-    </p>
+    <header class="page-header">
+        <h1>{{ title }}{% if pipeline_version %} <span class="version-chip">v{{ pipeline_version }}</span>{% endif %}</h1>
+        <p class="meta">
+            Generated {{ generated_at }} &middot; {{ n_samples }} samples
+            {% if multiqc_report_path %}&middot; <a href="{{ multiqc_report_path }}" target="_blank">MultiQC report &#8599;</a>{% endif %}
+        </p>
+        <div class="tool-strip">
+            {% if 'HaplotypeCaller' in callers %}
+            <span class="tool-chip"><span class="tool-class">SNV / InDel</span><a href="https://gatk.broadinstitute.org/hc/en-us/articles/5358864757787-HaplotypeCaller">GATK HaplotypeCaller</a></span>
+            {% endif %}
+            {% if 'CNVKit' in callers %}
+            <span class="tool-chip"><span class="tool-class">CNV</span><a href="https://github.com/etal/cnvkit">CNVKit</a></span>
+            {% endif %}
+            {% if 'Manta' in callers or 'TIDDIT' in callers %}
+            <span class="tool-chip"><span class="tool-class">SV</span>{% if 'Manta' in callers %}<a href="https://github.com/Illumina/manta">Manta</a>{% endif %}{% if 'Manta' in callers and 'TIDDIT' in callers %}&nbsp;+&nbsp;{% endif %}{% if 'TIDDIT' in callers %}<a href="https://github.com/SciLifeLab/TIDDIT">TIDDIT</a>{% endif %}</span>
+            {% endif %}
+            <span class="tool-chip"><span class="tool-class">Annotation</span><a href="https://pcingola.github.io/SnpEff/">SnpEff</a></span>
+        </div>
+        <nav class="jump-nav" aria-label="Sections">
+            <a href="#samples-section">Samples</a>
+            {% if snv %}<a href="#snv-section">SNV / InDel events</a>{% endif %}
+            {% if sv_pass %}<a href="#sv-section">SV events</a>{% endif %}
+            {% if cn_chr or contig_cn or cn_reg %}<a href="#cn-section">Copy number</a>{% endif %}
+            <a href="#methods-section">Methodology</a>
+        </nav>
+    </header>
 
     {# ================================================================== #}
-    {# Section 2: Report boxes with counts                                 #}
+    {# Summary cards                                                       #}
     {# ================================================================== #}
-    <div class="section">
-        <h2>All Samples Aggregate Summary</h2>
+    <div class="section" id="summary-section">
+        <h2>Summary</h2>
         <div class="cards">
             <div class="card">
                 <div class="value">{{ n_samples }}</div>
                 <div class="label">Samples</div>
             </div>
-            {% if cohort_link %}
-            <a class="card card-link" href="{{ cohort_link }}" target="_blank">
-                <div class="value">{% if cohort_pass_count %}{{ cohort_pass_count }}{% elif cohort_variant_count %}{{ cohort_variant_count }}{% else %}&mdash;{% endif %}</div>
-                <div class="label">SNV/InDel Events{% if cohort_pass_count %} (quality-filtered){% endif %}</div>
+            {% if snv or cohort_link %}
+            <a class="card card-link" href="{% if snv %}#snv-section{% else %}{{ cohort_link }}" target="_blank{% endif %}">
+                <div class="value">{% if cohort_variant_count %}{{ cohort_variant_count }}{% else %}&mdash;{% endif %}</div>
+                <div class="label">SNV / InDel sites</div>
+                <div class="card-note">{% if snv %}{{ snv.pass }} PASS{% if snv.differing is not none %} &middot; {{ snv.differing }} differ between samples{% endif %}{% else %}all sites in the joint call &middot; opens the all-samples IGV report{% endif %}</div>
             </a>
             {% endif %}
             {% if sv_pass %}
             <a class="card card-link" href="#sv-section">
                 <div class="value">{{ sv_pass.both_caller_count }}</div>
-                <div class="label">SV Events (detected by Manta + TIDDIT)</div>
-            </a>
-            {% endif %}
-            {% if cn_reg %}
-            <a class="card card-link" href="#cn-regions-section">
-                <div class="value">{{ cn_reg.row_count }}</div>
-                <div class="label">Collapsed CN Windows</div>
+                <div class="label">SV events</div>
+                <div class="card-note">PASS events called by both Manta and TIDDIT &middot; {{ sv_pass.row_count }} by at least one</div>
             </a>
             {% endif %}
             {% if contig_cn %}
             <a class="card card-link" href="#contig-cn-section">
                 <div class="value">{{ contig_cn.change_count }}</div>
-                <div class="label">Aneuploid Contigs &mdash; TIDDIT (fold change &lt; 0.76 or &gt; 1.23)</div>
+                <div class="label">Aneuploid contigs</div>
+                <div class="card-note">of {{ contig_cn.row_count }} &middot; TIDDIT whole-contig depth, fold change &lt; 0.76 or &gt; 1.23</div>
             </a>
             {% elif cn_chr %}
-            <a class="card card-link" href="#cn-section">
+            <a class="card card-link" href="#cn-chr-section">
                 <div class="value">{{ cn_chr.change_count }}</div>
-                <div class="label">Aneuploid Chromosomes &mdash; CNVKit (fold change &lt; 0.76 or &gt; 1.23)</div>
+                <div class="label">Aneuploid chromosomes</div>
+                <div class="card-note">of {{ cn_chr.row_count }} &middot; CNVKit segments, fold change &lt; 0.76 or &gt; 1.23</div>
             </a>
             {% endif %}
-            {% if multiqc_report_path %}
-            <a class="card card-link" href="{{ multiqc_report_path }}" target="_blank">
-                <div class="value">QC</div>
-                <div class="label">MultiQC Report</div>
+            {% if cn_reg %}
+            <a class="card card-link" href="#cn-regions-section">
+                <div class="value">{{ cn_reg.change_count }}</div>
+                <div class="label">CN windows with a change</div>
+                <div class="card-note">of {{ cn_reg.row_count }} collapsed windows &middot; CNVKit, same thresholds, any sample</div>
             </a>
             {% endif %}
         </div>
-        <p class="note">
-            Click boxes to open reports or scroll to embedded tables.
-            {% if cohort_link %}
-            Cohort report includes interactive Tabulator.js table, SnpEff annotations, and IGV browser.
-            {% endif %}
+        {% if outdir %}
+        <p class="meta">
+            Complete output: <code>{{ outdir }}</code>{% if report_dir %} &middot; this report bundle: <code>{{ report_dir }}</code>{% endif %}
         </p>
+        {% endif %}
     </div>
 
     {# ================================================================== #}
-    {# Section 4: Sample Overview (QC + Variants)                          #}
+    {# Samples: QC + per-caller counts, one row per sample                 #}
     {# ================================================================== #}
-    <div class="section">
-        <h2>Per-Sample Overview</h2>
+    <div class="section" id="samples-section">
+        <h2>Samples</h2>
         <p class="note">
-            QC metrics from MultiQC (Picard, Samtools, Mosdepth). Variant counts from bcftools stats.
-            Click linked counts to open per-sample IGV reports.
-            CNVKit reports show read depth and log2 ratio tracks (~5 kb bins, ±50 kb context).
-            Manta and TIDDIT reports include read alignment views at breakpoints (±500 bp).
-            SV counts are shown as "PASS / all" using each caller's own FILTER column. The TIDDIT report
-            is pre-filtered to PASS calls; the Manta report keeps all calls with the FILTER tag visible.
-            Manta is run <em>jointly</em> over all samples of an experiment (<code>--joint_manta</code>): every
-            sample is genotyped at every candidate, and a sample's Manta VCF is its column of that joint call
-            with reference-only rows removed and Manta's per-sample filter (<code>FORMAT/FT</code>, e.g.
-            <code>MinGQ</code>) promoted to <code>FILTER</code> &mdash; so an event with strong support in one clone
-            and weak support in another appears in both VCFs, once as PASS and once as MinGQ, instead of being
-            absent from the second. Breakpoints are estimated once from the pooled reads and are identical across samples.
-            Note that Manta reports translocations and inversions as breakend <em>pairs</em> (two records
-            per junction), so those counts are records, not events.
+            Sequencing QC from MultiQC (mosdepth, Picard, samtools); variant counts from bcftools stats.
+            A linked count opens that sample's IGV report. SV counts read PASS / all by each caller's own FILTER column
+            &mdash; what each column contains: Methodology &rarr; <em>Samples table: data sources</em>.
         </p>
         <div id="summary-table"></div>
     </div>
 
     {# ================================================================== #}
-    {# Section 6: SV Event Matrix (conditional)                            #}
+    {# SNV / InDel events: PASS sites that differ between samples          #}
+    {# ================================================================== #}
+    {% if snv %}
+    <div class="section" id="snv-section">
+        <h2>SNV / InDel events <span class="h2-sub">HaplotypeCaller joint call, all samples</span></h2>
+        <p class="note">
+            {% if snv.single_sample %}
+            One sample in this run: every PASS site it carries{% if snv.has_ann %}, protein-changing first{% endif %}.
+            {% elif snv.has_ann %}
+            <strong>{{ snv.candidate }}</strong> of {{ snv.pass }} PASS sites differ between samples <em>and</em> change a protein
+            (SnpEff impact HIGH or MODERATE); {{ snv.differing }} differ at all.
+            {% else %}
+            <strong>{{ snv.differing }}</strong> of {{ snv.pass }} PASS sites differ between samples. No SnpEff annotation in this
+            run, so no gene columns.
+            {% endif %}
+            {% if snv.truncated %}Showing the first {{ snv.shown }} by impact, then position.{% endif %}
+            <strong>A first look, not the record:</strong> for depth, allele counts, quality and filter tags work from the
+            VCF or the all-sites CSV (buttons below){% if cohort_link %}; for read pileups open the
+            <a href="{{ cohort_link }}" target="_blank">all-samples IGV report &#8599;</a>{% endif %}.
+            How rows are chosen: Methodology &rarr; <em>SNV / InDel events table</em>.
+        </p>
+        <p class="note legend">
+            <span class="vaf vaf-high">100&thinsp;%</span> fixed &middot;
+            <span class="vaf vaf-mid">45&thinsp;%</span> sub-population or noise &middot;
+            <span class="vaf vaf-ref">0&thinsp;%</span> reference &middot;
+            <span class="vaf-none">no reads</span> no coverage &middot;
+            <span class="multi-mark">&Dagger;</span> multi-allelic site, one row per allele &middot;
+            hover a cell for genotype, allele counts and depth
+        </p>
+        <div class="section-tools" style="border-bottom:none;margin-top:4px">
+            {% if snv.has_ann %}
+            <div class="metric-toggle" role="group" aria-label="Rows shown">
+                <button class="toggle-btn active snv-view-btn" data-view="coding">Protein-changing</button>
+                <button class="toggle-btn snv-view-btn" data-view="all">{% if snv.single_sample %}All PASS sites{% else %}All differing sites{% endif %}</button>
+            </div>
+            {% else %}<span></span>{% endif %}
+            <div class="dl-row" style="margin:0 0 6px">
+                {% if snv.csv_link %}<a class="dl-btn" href="{{ snv.csv_link }}" download title="Every site of the joint call: FILTER, annotation, per-sample GT / AD / VAF">&#11015; CSV &middot; all sites</a>{% endif %}
+                {% if snv.vcf_link %}<a class="dl-btn" href="{{ snv.vcf_link }}" download title="The annotated cohort VCF (before the multi-allelic split)">&#11015; VCF &middot; all sites</a>{% endif %}
+                <a class="dl-btn" href="#" id="snv-csv" title="Exports the rows listed right now: after the view toggle and any column filter, in the current sort">&#11015; CSV &middot; rows shown</a>
+            </div>
+        </div>
+        <div id="snv-table"></div>
+    </div>
+    {% endif %}
+
+    {# ================================================================== #}
+    {# SV events (conditional)                                             #}
     {# ================================================================== #}
     {% if sv_pass %}
     <div class="section" id="sv-section">
-        <h2>All Samples: Ensemble SV Events (Manta + TIDDIT)</h2>
-        <p class="note">{{ sv_pass.both_caller_count }} / {{ sv_pass.row_count }} PASS-filtered events detected by both Manta and TIDDIT. Remaining events called by a single caller.</p>
+        <h2>SV events <span class="h2-sub">Manta + TIDDIT, all samples</span></h2>
         <p class="note">
-            <strong>Treat this table as an overview, not a final call set.</strong> Rows are SVDB cross-caller merges:
-            same-type calls from Manta and TIDDIT are combined into one row that keeps Manta's split-read coordinates
-            wherever Manta contributed (TIDDIT's own coordinates stay in the cohort VCF's <code>INFO/tiddit_POS</code>).
-            Merging is type-strict and confined to same-type events, so a low-confidence breakend can no longer absorb
-            and retype a real deletion (see Methodology &rarr; <em>SV event matrix</em>). For any locus that matters,
-            verify against the per-caller VCFs in <code>vcf/manta/</code> and <code>vcf/tiddit/</code> (raw and PASS);
-            the exact merge inputs are kept under <code>data/sv_merge_inputs/</code> for re-merging at your own settings.
+            {{ sv_pass.both_caller_count }} of {{ sv_pass.row_count }} PASS events are supported by both callers; the rest by one.
+            <strong>An overview, not a final call set:</strong> rows are SVDB cross-caller merges that keep Manta's coordinates
+            wherever Manta contributed. Verify any locus that matters against the per-caller VCFs in <code>vcf/manta/</code> and
+            <code>vcf/tiddit/</code>; how rows are merged and what the cells mean: Methodology &rarr; <em>SV event matrix</em>.
         </p>
         {% if sv_downloads %}
-        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
-            {% if sv_downloads.pass_csv %}<a href="{{ sv_downloads.pass_csv }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>{% endif %}
-            {% if sv_downloads.pass_vcf %}<a href="{{ sv_downloads.pass_vcf }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; VCF</a>{% endif %}
+        <div class="dl-row">
+            {% if sv_downloads.pass_csv %}<a class="dl-btn" href="{{ sv_downloads.pass_csv }}" download>&#11015; CSV</a>{% endif %}
+            {% if sv_downloads.pass_vcf %}<a class="dl-btn" href="{{ sv_downloads.pass_vcf }}" download>&#11015; VCF</a>{% endif %}
         </div>
         {% endif %}
         <div id="sv-pass-table"></div>
@@ -383,70 +462,72 @@
     {% endif %}
 
     {# ================================================================== #}
-    {# Section 7: Collapsed CN Windows (conditional)                       #}
+    {# Copy number: three tabs sharing one value toggle (conditional)      #}
     {# ================================================================== #}
-    {% if cn_reg %}
-    <div class="section" id="cn-regions-section">
-        <h2>All Samples: Collapsed CN Windows</h2>
-        <p class="note">{{ cn_reg.row_count }} collapsed windows (adjacent bins with similar log2 merged)</p>
-        {% if cn_downloads.regions or cn_downloads.matrix %}
-        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
-            {% if cn_downloads.regions %}<a href="{{ cn_downloads.regions }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>{% endif %}
-            {% if cn_downloads.matrix %}<a href="{{ cn_downloads.matrix }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; Uncollapsed Matrix</a>{% endif %}
-        </div>
-        {% endif %}
-        <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
-            <p class="note" style="margin:0">Collapsed CN windows with genomic coordinates.</p>
-            <button class="tab-btn active cn-metric-btn" data-metric="abs">Fold Change</button>
-            <button class="tab-btn cn-metric-btn" data-metric="log2">log2 ratio</button>
-        </div>
-        <div id="cn-reg-table"></div>
-    </div>
-    {% endif %}
-
-    {# ================================================================== #}
-    {# Section 8: Contig copy number from TIDDIT coverage (conditional)    #}
-    {# ================================================================== #}
-    {% if contig_cn %}
-    <div class="section" id="contig-cn-section">
-        <h2>All Samples: Contig Copy Number &mdash; TIDDIT whole-contig coverage (incl. Mito)</h2>
-        <p class="note">{{ contig_cn.change_count }} / {{ contig_cn.row_count }} contigs with log2 ratio outside &minus;0.4 to 0.3 (fold change &lt; 0.76 or &gt; 1.23) in any sample.
-            Whole-contig median depth ratio per sample (TIDDIT) &mdash; <strong>the only table that includes Mito</strong>
-            (multi-copy: compare across samples, not against 1). Details &amp; formula: Methodology.</p>
-        {% if cn_downloads.contig %}
-        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
-            <a href="{{ cn_downloads.contig }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
-        </div>
-        {% endif %}
-        <div id="contig-cn-table"></div>
-    </div>
-    {% endif %}
-
-    {# ================================================================== #}
-    {# Section 8b: Chromosome-level CN from CNVKit segments (conditional)  #}
-    {# ================================================================== #}
-    {% if cn_chr %}
+    {% if cn_chr or contig_cn or cn_reg %}
     <div class="section" id="cn-section">
-        <h2>All Samples: Chromosome Copy Number &mdash; CNVKit segments (Aneuploidy)</h2>
-        <p class="note">{{ cn_chr.change_count }} / {{ cn_chr.row_count }} chromosomes with log2 ratio outside &minus;0.4 to 0.3 (coverage ratio &lt; 0.76 or &gt; 1.23).
-            Segment-weighted average per chromosome from CNVKit; excludes the mitochondrial contig and any contig CNVKit cannot bin
-            {% if contig_cn %}&mdash; those are covered by the TIDDIT table above{% endif %}.</p>
-        {% if cn_downloads.chr %}
-        <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
-            <a href="{{ cn_downloads.chr }}" download style="font-size:0.85em;padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--link);text-decoration:none">&#11015; CSV</a>
+        <h2>Copy number <span class="h2-sub">read depth relative to each sample's genome-wide median</span></h2>
+        <div class="section-tools">
+            <div class="tab-bar">
+                {% if cn_chr %}<button class="tab-btn" data-tab="cn-chr-section">Chromosomes <span class="tab-src">CNVKit</span></button>{% endif %}
+                {% if contig_cn %}<button class="tab-btn" data-tab="contig-cn-section">Contigs incl. Mito <span class="tab-src">TIDDIT</span></button>{% endif %}
+                {% if cn_reg %}<button class="tab-btn" data-tab="cn-regions-section">Windows <span class="tab-src">CNVKit</span></button>{% endif %}
+            </div>
+            <div class="metric-toggle" role="group" aria-label="Value shown">
+                <button class="toggle-btn active cn-metric-btn" data-metric="abs">Fold change</button>
+                <button class="toggle-btn cn-metric-btn" data-metric="log2">log2 ratio</button>
+            </div>
+        </div>
+        <p class="note">
+            Colours follow log2 in every tab: <span class="cn-loss cn-key">loss &lt; &minus;0.4</span>
+            <span class="cn-gain cn-key">gain &gt; 0.3</span> <span class="cn-amp cn-key">amplification &ge; 2.3</span>;
+            fold change 1.0 = baseline. The toggle applies to all tabs.
+        </p>
+
+        {% if cn_chr %}
+        <div class="tab-panel" id="cn-chr-section">
+            <p class="note">{{ cn_chr.change_count }} / {{ cn_chr.row_count }} chromosomes with a change in any sample.
+                Segment-weighted average per chromosome from CNVKit; the mitochondrial contig and any contig CNVKit cannot bin
+                are absent{% if contig_cn %} &mdash; see the Contigs tab{% endif %}.</p>
+            {% if cn_downloads.chr %}
+            <div class="dl-row"><a class="dl-btn" href="{{ cn_downloads.chr }}" download>&#11015; CSV</a></div>
+            {% endif %}
+            <div id="cn-chr-table"></div>
         </div>
         {% endif %}
-        <p class="note">
-            CN per chromosome. Toggle above switches both tables.
-        </p>
-        <div id="cn-chr-table"></div>
+
+        {% if contig_cn %}
+        <div class="tab-panel" id="contig-cn-section">
+            <p class="note">{{ contig_cn.change_count }} / {{ contig_cn.row_count }} contigs with a change in any sample.
+                Whole-contig median depth ratio from TIDDIT &mdash; <strong>the only table that includes Mito</strong>
+                (multi-copy: compare across samples, not against 1). Hover a cell for TIDDIT's raw values.</p>
+            {% if cn_downloads.contig %}
+            <div class="dl-row"><a class="dl-btn" href="{{ cn_downloads.contig }}" download>&#11015; CSV</a></div>
+            {% endif %}
+            <div id="contig-cn-table"></div>
+        </div>
+        {% endif %}
+
+        {% if cn_reg %}
+        <div class="tab-panel" id="cn-regions-section">
+            <p class="note">{{ cn_reg.change_count }} / {{ cn_reg.row_count }} collapsed windows with a change in any sample
+                (adjacent CNVKit bins with the same rounded log2 merged; a new row starts where any sample differs).</p>
+            {% if cn_downloads.regions or cn_downloads.matrix %}
+            <div class="dl-row">
+                {% if cn_downloads.regions %}<a class="dl-btn" href="{{ cn_downloads.regions }}" download>&#11015; CSV</a>{% endif %}
+                {% if cn_downloads.matrix %}<a class="dl-btn" href="{{ cn_downloads.matrix }}" download>&#11015; Uncollapsed matrix</a>{% endif %}
+            </div>
+            {% endif %}
+            <div id="cn-reg-table"></div>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 
     {# ================================================================== #}
     {# Methodology / Audit                                                 #}
     {# ================================================================== #}
-    <div class="section">
+    <div class="section" id="methods-section">
         <h2>Methodology</h2>
 
         <details>
@@ -476,11 +557,16 @@
                 <table>
                     <tr><th>Filter name</th><th>Expression</th></tr>
                     <tr><td><code>FS_filter</code></td><td>vc.isSNP() &amp;&amp; FS &gt; 60.0</td></tr>
-                    <tr><td><code>SOR_filter</code></td><td>vc.isSNP() &amp;&amp; SOR &gt; 3.0</td></tr>
+                    <tr><td><code>SOR_FS_filter</code></td><td>vc.isSNP() &amp;&amp; SOR &gt; 3.0 &amp;&amp; FS &gt; 0.0</td></tr>
                     <tr><td><code>MQ_filter</code></td><td>vc.isSNP() &amp;&amp; MQ &lt; 40.0</td></tr>
                     <tr><td><code>MQRankSum_filter</code></td><td>vc.isSNP() &amp;&amp; MQRankSum &lt; &minus;12.5</td></tr>
                     <tr><td><code>ReadPosRankSum_filter</code></td><td>vc.isSNP() &amp;&amp; ReadPosRankSum &lt; &minus;8.0</td></tr>
                 </table>
+
+                <p><em>One deviation from GATK's stock set:</em> the SOR strand-bias filter is gated on FS. At deep clonal
+                    coverage SOR alone tagged real mutations that showed zero Fisher-strand bias (Tier-2 validation, 86 samples /
+                    343 truth mutations: all 4 truth SNPs lost to SOR had FS = 0); requiring FS &gt; 0 rescues them while
+                    flipping the fewest non-truth records of any candidate gate.</p>
 
                 <h4>INDEL-only filters (more lenient per GATK recommendation)</h4>
                 <table>
@@ -510,7 +596,7 @@
                     <li><strong>VAF calculation</strong>: <code>bcftools +fill-tags FORMAT/VAF</code> adds per-sample
                         variant allele frequency computed from the AD field.</li>
                 </ol>
-                <p>Source: <code>docs/igvreports/generate_demo_reports.nf</code> &rarr; <code>PREPARE_VCF</code></p>
+                <p>Source: <code>subworkflows/local/mutation_report/main.nf</code> &rarr; <code>PREPARE_VCF</code> (<code>modules/local/prepare_vcf</code>)</p>
             </div>
         </details>
 
@@ -540,7 +626,7 @@
 
                 <h4>What the HaplotypeCaller column shows</h4>
                 <p>
-                    The <strong>HaplotypeCaller</strong> count in the Sample Overview table is the total number of
+                    The <strong>HaplotypeCaller</strong> count in the Samples table is the total number of
                     non-reference variants per sample after soft filtering and SnpEff annotation (step 3 above).
                     This includes <em>all</em> variants regardless of FILTER status (PASS and flagged).
                     Use the per-sample IGV reports or the cohort report's VCF_FILTER column to distinguish
@@ -560,10 +646,34 @@
   # or FORMAT/VAF>=0.05 for population samples</code></pre>
                 <p>
                     Adjust thresholds based on your experiment design (ploidy, clonal vs. population,
-                    expected allele frequency). The pipeline produces hard-filtered VCFs as an intermediate
-                    output (<code>*.hard_filtered_snpEff.ann.vcf.gz</code>) with default thresholds
-                    PASS + GQ&ge;20 + DP&ge;8 + AF&ge;0.80 (clonal) / &ge;0.05 (population),
-                    available in the annotation output directory for reference.
+                    expected allele frequency). With <code>--hard_filter_haplotypecaller_joint</code> (off by default)
+                    the pipeline also writes per-sample hard-filtered VCFs (<code>*.hard_filtered*.vcf.gz</code>) with
+                    exactly these thresholds: PASS + GQ&ge;20 + DP&ge;8 + ALT allele fraction &ge;0.80 (clonal) /
+                    &ge;0.05 (population).
+                </p>
+
+                <h4>SNV / InDel events table</h4>
+                <p>
+                    Built from the same prepared cohort VCF as the all-samples IGV report (post multi-allelic split, so one
+                    row per ALT allele). A row is kept when the site is PASS and at least one called sample carries the
+                    variant while at least one is called reference &mdash; strain background shared by every sample is
+                    left to the IGV report. With SnpEff annotation the default view keeps HIGH and MODERATE impact
+                    (the first ANN entry for the row's allele); without it the table has no gene columns and shows every
+                    differing site. Rows are ordered by impact, contig, position and cut at {{ snv.shown if snv and snv.truncated else 300 }}
+                    when longer. VAF = ALT reads / (REF + ALT reads) from <code>FORMAT/AD</code> (bcftools
+                    <code>fill-tags</code> on the prepared VCF), shown as a percent and independent of the genotype
+                    call; a sample with no reads at the site reads <em>no reads</em> (the CSV keeps its genotype and
+                    leaves the VAF empty) and counts as neither carrier nor reference.
+                    On a multi-allelic site (&Dagger;) the split leaves one row per allele, so a sample carrying the
+                    other allele is 0 on this row while its VAF here counts REF and this allele only; the CSV lists the
+                    original alleles in <code>multiallelic_site_alleles</code>.
+                    Downloads: <em>CSV &middot; all sites</em> (<code>data/snv_indel_sites.csv</code>) lists every row of
+                    the prepared cohort VCF &mdash; FILTER kept, SnpEff gene / effect / impact / HGVS, a
+                    <code>differs_between_samples</code> flag and per-sample GT, AD, DP and VAF (fraction) &mdash; DP is the
+                    caller's read depth at the site, AD the reads it assigned to REF and ALT, so DP &ge; REF + ALT and the gap
+                    is reads it could not assign (other alleles, ambiguous); <em>VCF &middot;
+                    all sites</em> is the cohort VCF under <code>vcf/haplotypecaller/</code> (before the multi-allelic
+                    split); <em>CSV &middot; rows shown</em> exports the table as currently filtered and sorted.
                 </p>
 
                 <h4>Notes</h4>
@@ -626,7 +736,7 @@
                         with different types they stay as two rows &mdash; rare after the breakend normalisation step.</li>
                     <li>One junction is <strong>one row</strong>: inversion breakend pairs are typed <code>INV</code>,
                         and remaining breakend (<code>BND</code>) rows show the partner position in
-                        <code>chrom2</code>/<code>end</code>. The per-sample reports and the Sample Overview counts still
+                        <code>chrom2</code>/<code>end</code>. The per-sample reports and the Samples table counts still
                         show Manta's raw records, where a junction is two breakend records.</li>
                     <li>"Union" means an event is listed if <em>either</em> caller reported it in at least one sample;
                         <code>Manta+TIDDIT</code> marks the subset supported by both callers in that sample.</li>
@@ -648,12 +758,14 @@
                         reads) and Manta's record-level filters such as <code>MaxDepth</code>, which are evaluated on the
                         pooled depth &mdash; a depth excess confined to one clone no longer flags the record. Depth itself is
                         still visible in the CNVKit/TIDDIT tracks and in <code>INFO/BND_DEPTH</code>.</li>
+                    <li><strong>Re-merging at your own settings:</strong> the exact merge inputs are kept under
+                        <code>data/sv_merge_inputs/</code>.</li>
                 </ul>
                 <h4>Why counts differ</h4>
                 <ul>
-                    <li><strong>SV Events card + matrix</strong>: PASS-filtered, deduplicated across callers and samples
+                    <li><strong>SV events card + matrix</strong>: PASS-filtered, deduplicated across callers and samples
                         (<code>sv_cohort_matrix_union_pass.csv</code>)</li>
-                    <li><strong>Sample Overview TIDDIT/Manta columns</strong>: per-sample record counts shown as
+                    <li><strong>Samples table TIDDIT/Manta columns</strong>: per-sample record counts shown as
                         "PASS / all" from each caller's own VCF &mdash; not deduplicated across callers, and breakend pairs
                         count twice. <strong>CNVKit column</strong>: raw unfiltered count. CNVKit IGV reports show read depth
                         and log2 ratio tracks (~5 kb bins, ±50 kb context); Manta and TIDDIT IGV reports include read
@@ -677,10 +789,11 @@
                 </p>
                 <h4>Card counts</h4>
                 <p>
-                    <strong>Aneuploid Contigs/Chromosomes</strong> card: contigs (from the TIDDIT table, when TIDDIT runs;
-                    otherwise chromosomes from this CNVKit table) where any sample's log2 ratio is &lt; &minus;0.4 (loss) or
-                    &gt; 0.3 (gain) &mdash; same thresholds as the heatmap coloring.
-                    <strong>CN Windows</strong> card: total number of collapsed regions.
+                    <strong>Aneuploid contigs / chromosomes</strong> card: contigs (from the TIDDIT tab, when TIDDIT runs;
+                    otherwise chromosomes from the CNVKit tab) where any sample's log2 ratio is &lt; &minus;0.4 (loss) or
+                    &gt; 0.3 (gain) &mdash; same thresholds as the cell colouring.
+                    <strong>CN windows with a change</strong> card: collapsed windows where any sample crosses the same
+                    thresholds; the card note gives the total number of windows.
                 </p>
                 <h4>Display values</h4>
                 <p>
@@ -694,13 +807,14 @@
                     Segments from <code>*.germline.call.cns</code> (stringent tier &mdash;
                     germline-mode, CI-filtered, stricter segmentation).
                 </p>
-                <h4>Table views</h4>
+                <h4>Tabs</h4>
                 <p>
-                    <strong>Collapsed CN Windows</strong>: adjacent bins merged where all samples
+                    <strong>Windows</strong>: adjacent bins merged where all samples
                     share the same rounded log2 value; a new row starts where any sample differs.<br>
-                    <strong>Chromosome Copy Number (CNVKit segments)</strong>: one row per chromosome,
-                    weighted-average log2 across segments. Fold change is derived from the
-                    averaged log2 (<code>2<sup>log2</sup></code>).
+                    <strong>Chromosomes</strong>: one row per chromosome,
+                    weighted-average log2 across CNVKit segments. Fold change is derived from the
+                    averaged log2 (<code>2<sup>log2</sup></code>).<br>
+                    <strong>Contigs incl. Mito</strong>: TIDDIT's whole-contig depth ratio &mdash; see the next entry.
                 </p>
                 <h4>Missing chromosomes</h4>
                 <p>
@@ -712,7 +826,7 @@
                         GC content is outside a hard-coded 0.30&ndash;0.70 window (<code>cnvlib/params.py</code>; no CLI override &mdash;
                         <code>--no-gc</code> does not lift it), and yeast mtDNA is ~17&nbsp;% GC. The mask acts upstream of segmentation,
                         so it removes Mito from <em>every</em> CNVKit view &mdash; CN windows, this chromosome table, the CNV VCF and the
-                        IGV log2 track. Read Mito from the TIDDIT contig table above. The mask is not Mito-specific: any region outside
+                        IGV log2 track. Read Mito from the Contigs tab (TIDDIT). The mask is not Mito-specific: any region outside
                         30&ndash;70&nbsp;% GC vanishes the same silent way (none exist on S288C nuclear chromosomes).</li>
                     <li><strong>Very short contigs (&lt; ~150&nbsp;kb)</strong> may additionally be dropped by CNVKit's WGS binning
                         heuristics (telomeric skip during antitarget generation).</li>
@@ -751,8 +865,8 @@
                     <li><strong>Versus the CNVKit chromosome table</strong>: the two answer the same question with different
                         instruments &mdash; CNVKit is segment-based and can see sub-chromosomal changes but drops Mito (GC mask)
                         and any contig it cannot bin; this table is one median per contig but covers every contig. On nuclear
-                        chromosomes they should broadly agree; the fold change / log2 toggle in the CN Windows section applies
-                        to both.</li>
+                        chromosomes they should broadly agree; the fold change / log2 toggle above the tabs applies
+                        to all three tables.</li>
                 </ul>
             </div>
         </details>
@@ -788,7 +902,7 @@
         </details>
 
         <details>
-            <summary>Sample Overview data sources</summary>
+            <summary>Samples table: data sources</summary>
             <div class="audit-content">
                 <table>
                     <tr><th>Column</th><th>Source</th><th>Filter status</th></tr>
@@ -800,6 +914,14 @@
                     <tr><td>TIDDIT</td><td><code>bcftools view -f PASS</code> record counts (<code>data/*.tiddit.pass_stats.tsv</code>)</td><td>Table shows "PASS / all"; IGV report uses PASS-only</td></tr>
                     <tr><td>Manta</td><td><code>bcftools view -f PASS</code> record counts (<code>data/*.manta.pass_stats.tsv</code>)</td><td>Table shows "PASS / all"; IGV report shows all calls (FILTER column visible)</td></tr>
                 </table>
+                <p><strong>Manta column.</strong> Manta runs jointly over all samples of an experiment
+                    (<code>--joint_manta</code>): every sample is genotyped at every candidate, and a sample's Manta VCF is
+                    its column of that joint call with reference-only rows removed and Manta's per-sample filter
+                    (<code>FORMAT/FT</code>, e.g. <code>MinGQ</code>) promoted to <code>FILTER</code> &mdash; so an event with
+                    strong support in one clone and weak support in another appears in both VCFs, once as PASS and once as
+                    MinGQ, instead of being absent from the second. Breakpoints are estimated once from the pooled reads and
+                    are identical across samples. Translocations and inversions are breakend <em>pairs</em> (two records per
+                    junction), so those counts are records, not events.</p>
                 <p>QC and HaplotypeCaller/CNVKit counts are parsed from <code>multiqc_data/</code> (<code>multiqc_general_stats.txt</code> + <code>multiqc_bcftools_stats.txt</code>); the SV "PASS / all" counts come from the <code>pass_stats.tsv</code> files in <code>data/</code> (falling back to the bcftools-stats total when absent).</p>
             </div>
         </details>
@@ -852,27 +974,10 @@
             }
         })();
 
-        // --- Tab switching ---
-        document.querySelectorAll('.tab-bar').forEach(function(bar) {
-            bar.querySelectorAll('.tab-btn').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    bar.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-                    btn.classList.add('active');
-                    var tabId = btn.getAttribute('data-tab');
-                    var next = bar.nextElementSibling;
-                    while (next && next.classList.contains('tab-panel')) {
-                        next.classList.remove('active');
-                        next = next.nextElementSibling;
-                    }
-                    document.getElementById(tabId).classList.add('active');
-                });
-            });
-        });
-
         // --- Data injected from Python/Jinja2 ---
         const summaryData = {{ summary_data_json }};
 
-        // --- Sample Overview Table (QC + Variants) ---
+        // --- Samples table (QC + per-caller counts) ---
         new Tabulator("#summary-table", {
             data: summaryData,
             layout: "fitDataFill",
@@ -885,16 +990,16 @@
                     title: "Sequencing QC",
                     columns: [
                         { title: "Cov", field: "median_coverage", hozAlign: "right",
-                          titleFormatter: function() { return 'Cov<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 Mosdepth</span>'; },
+                          titleFormatter: function() { return 'Cov<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">Mosdepth</span>'; },
                         },
                         { title: "Dup %", field: "dup_pct", hozAlign: "right",
-                          titleFormatter: function() { return 'Dup %<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 Picard</span>'; },
+                          titleFormatter: function() { return 'Dup %<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">Picard</span>'; },
                           formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) + "%" : ""; } },
                         { title: "Map %", field: "mapped_pct", hozAlign: "right",
-                          titleFormatter: function() { return 'Map %<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 flagstat</span>'; },
+                          titleFormatter: function() { return 'Map %<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">flagstat</span>'; },
                           formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) + "%" : ""; } },
                         { title: "Mapped (M)", field: "mapped_reads_m", hozAlign: "right",
-                          titleFormatter: function() { return 'Mapped (M)<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 flagstat</span>'; },
+                          titleFormatter: function() { return 'Mapped (M)<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">flagstat</span>'; },
                           formatter: function(cell) { var v = cell.getValue(); return v != null ? v.toFixed(1) : ""; } },
                     ]
                 },
@@ -902,7 +1007,7 @@
                     title: "SNV / Indel",
                     columns: [
                         { title: "HaplotypeCaller", field: "hc_variants", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'HaplotypeCaller<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 soft-filtered</span>'; },
+                          titleFormatter: function() { return 'HaplotypeCaller<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">soft-filtered</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var v = cell.getValue();
@@ -919,7 +1024,7 @@
                     title: "CNV",
                     columns: [
                         { title: "CNVKit", field: "cnvkit_events", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'CNVKit<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 raw unfiltered, depth + log2 ratio</span>'; },
+                          titleFormatter: function() { return 'CNVKit<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">raw unfiltered, depth + log2 ratio</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var v = cell.getValue();
@@ -936,7 +1041,7 @@
                     title: "SV",
                     columns: [
                         { title: "TIDDIT", field: "tiddit_svs", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 PASS / all</span>'; },
+                          titleFormatter: function() { return 'TIDDIT<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">PASS / all</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var total = cell.getValue();
@@ -951,7 +1056,7 @@
                         },
                         { title: "TIDDIT PASS", field: "tiddit_pass", visible: false },
                         { title: "Manta", field: "manta_svs", hozAlign: "right", sorter: "number",
-                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">\u24D8 PASS / all</span>'; },
+                          titleFormatter: function() { return 'Manta<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">PASS / all</span>'; },
                           formatter: function(cell) {
                               var row = cell.getRow().getData();
                               var total = cell.getValue();
@@ -978,6 +1083,8 @@
         {# Shared by every copy-number table (CNVKit windows, CNVKit chromosomes, TIDDIT contigs) #}
         {% if cn_reg or cn_chr or contig_cn %}
         var cnMetric = "abs"; // "abs" or "log2"
+        var cnTableBuilders = {};  // panel id -> function creating that panel's Tabulator table
+        var cnTables = {};         // panel id -> the table, once its tab has been shown
 
         // Color always by log2 — ploidy-independent
         function log2Class(v) {
@@ -1008,7 +1115,7 @@
         var cnRegSamples = {{ cn_reg.samples | tojson }};
         function buildCnRegColumns(samples) {
             var cols = [
-                { title: "Chr", field: "chromosome", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, width: 60 },
+                { title: "Chr", field: "chromosome", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, minWidth: 80 },
                 { title: "Start", field: "start", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
                 { title: "End", field: "end", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
                 { title: "Chr Length", field: "chr_length", sorter: "number", hozAlign: "right", formatter: function(c) { var v = c.getValue(); return v ? v.toLocaleString() : ""; } },
@@ -1023,11 +1130,11 @@
             return cols;
         }
 
-        var cnRegTable = new Tabulator("#cn-reg-table", {
+        cnTableBuilders['cn-regions-section'] = function() { return new Tabulator("#cn-reg-table", {
             data: {{ cn_reg.rows | tojson }},
             layout: "fitDataFill", height: 500,
             headerSortTristate: true, columns: buildCnRegColumns(cnRegSamples),
-        });
+        }); };
         {% endif %}
 
         {% if cn_chr %}
@@ -1035,7 +1142,7 @@
         var cnChrSamples = {{ cn_chr.samples | tojson }};
         function buildCnChrColumns(samples) {
             var cols = [
-                { title: "Chr", field: "chromosome", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, width: 60 },
+                { title: "Chr", field: "chromosome", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, minWidth: 80 },
                 { title: "Length", field: "length", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
             ];
             samples.forEach(function(s) {
@@ -1047,11 +1154,11 @@
             return cols;
         }
 
-        var cnChrTable = new Tabulator("#cn-chr-table", {
+        cnTableBuilders['cn-chr-section'] = function() { return new Tabulator("#cn-chr-table", {
             data: {{ cn_chr.rows | tojson }},
-            layout: "fitDataFill", height: 500,
+            layout: "fitDataFill",  // no height: the table grows to its rows (one per chromosome)
             headerSortTristate: true, columns: buildCnChrColumns(cnChrSamples),
-        });
+        }); };
         {% endif %}
 
         {% if contig_cn %}
@@ -1061,7 +1168,7 @@
         // the shared fold-change/log2 toggle); the TIDDIT-specific values go in the cell tooltip.
         function buildContigCnColumns(samples) {
             var cols = [
-                { title: "Contig", field: "chromosome", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, width: 70 },
+                { title: "Contig", field: "chromosome", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, minWidth: 90 },
             ];
             samples.forEach(function(s) {
                 cols.push({
@@ -1076,23 +1183,21 @@
             });
             return cols;
         }
-        var contigCnTable = new Tabulator("#contig-cn-table", {
+        cnTableBuilders['contig-cn-section'] = function() { return new Tabulator("#contig-cn-table", {
             data: {{ contig_cn.rows | tojson }},
-            layout: "fitDataFill", height: 420,
+            layout: "fitDataFill",  // no height: the table grows to its rows (one per contig)
             headerSortTristate: true, columns: buildContigCnColumns(contigCnSamples),
-        });
+        }); };
         {% endif %}
 
-        {% if cn_reg or cn_chr %}
+        {% if cn_reg or cn_chr or contig_cn %}
         // Toggle: update all CN Tabulator tables (color stays log2-based)
         document.querySelectorAll('.cn-metric-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('.cn-metric-btn').forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 cnMetric = btn.getAttribute('data-metric');
-                {% if cn_reg %}cnRegTable.redraw(true);{% endif %}
-                {% if cn_chr %}cnChrTable.redraw(true);{% endif %}
-                {% if contig_cn %}contigCnTable.redraw(true);{% endif %}
+                Object.keys(cnTables).forEach(function(k) { if (cnTables[k].initialized) cnTables[k].redraw(true); });
             });
         });
         {% endif %}
@@ -1113,11 +1218,11 @@
         }
         function buildSvColumns(samples) {
             var cols = [
-                { title: "Chr", field: "chrom", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, width: 60 },
+                { title: "Chr", field: "chrom", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, minWidth: 80 },
                 { title: "Pos", field: "pos", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
-                { title: "Chr2", field: "chrom2", width: 60 },
+                { title: "Chr2", field: "chrom2", minWidth: 70 },
                 { title: "End", field: "end", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
-                { title: "Type", field: "svtype", headerFilter: "list", headerFilterParams: { valuesLookup: true }, formatter: svtypeBadge, width: 70 },
+                { title: "Type", field: "svtype", headerFilter: "list", headerFilterParams: { valuesLookup: true }, formatter: svtypeBadge, minWidth: 80 },
                 { title: "Length", field: "svlen", sorter: "number", hozAlign: "right", formatter: function(c) { var v = c.getValue(); return v ? v.toLocaleString() : '0'; } },
             ];
             samples.forEach(function(s) {
@@ -1132,11 +1237,144 @@
 
         new Tabulator("#sv-pass-table", {
             data: {{ sv_pass.rows | tojson }},
-            layout: "fitDataFill", height: 600,
+            layout: "fitDataFill", height: 600,  // fixed height, not a maximum: Tabulator 6.3 stalls on the max-height option here
             headerSortTristate: true, columns: buildSvColumns(svSamples),
             initialSort: [{ column: "chrom", dir: "asc" }, { column: "pos", dir: "asc" }],
         });
         {% endif %}
+
+        {% if snv %}
+        // --- SNV / InDel events table ---
+        var snvSamples = {{ snv.samples | tojson }};
+        // VAF shown as a whole percent (the field and the CSV keep the fraction); GT + AD on hover.
+        function vafCell(cell) {
+            var v = cell.getValue();
+            if (v == null) {
+                var d = cell.getRow().getData(), s = cell.getField().replace(/_vaf$/, '');
+                if (/^[0,]+$/.test(d[s + '_ad'] || '')) return '<span class="vaf-none">no reads</span>';  // AD 0,0
+                var gt = d[s + '_gt'];   // a genotype without read counts at all: show it as text
+                return (!gt || !/[0-9]/.test(gt)) ? '' : '<span class="vaf-gt">' + gt + '</span>';
+            }
+            var cls = v >= 0.8 ? 'vaf-high' : (v >= 0.2 ? 'vaf-mid' : (v > 0 ? 'vaf-low' : 'vaf-ref'));
+            return '<span class="vaf ' + cls + '">' + Math.round(v * 100) + '&thinsp;%</span>';
+        }
+        function vafTooltip(e, cell) {
+            var s = cell.getField().replace(/_vaf$/, ''), d = cell.getRow().getData();
+            if (d[s + '_gt'] == null) return '';
+            // one format for every cell; a no-reads cell only gets a bracket at the end
+            var text = s + ': GT ' + d[s + '_gt'] + ', AD ' + d[s + '_ad'] + (d[s + '_dp'] == null ? '' : ', DP ' + d[s + '_dp'])
+                     + (d[s + '_vaf'] == null ? '' : ', VAF ' + d[s + '_vaf']);
+            if (d[s + '_vaf'] == null && /^[0,]+$/.test(d[s + '_ad'] || '')) {
+                text += (d[s + '_dp'] > 0) ? ' (no reads of REF or this allele; see \u2021)' : ' (no reads)';
+            }
+            return text;
+        }
+        function cellPopup(builder) {   // click / tap shows what hover shows: touch screens have no hover
+            return function(e, cell) { var t = builder(e, cell); return t ? '<div class="cell-popup">' + t + '</div>' : ''; };
+        }
+        function changeText(e, cell) { var d = cell.getRow().getData(); return d.ref + ' > ' + d.alt + (d.orig_alt ? '  (multi-allelic: ' + d.orig_alt + ')' : ''); }
+        function impactBadge(cell) {
+            var v = cell.getValue();
+            if (!v) return '';
+            var cls = { HIGH: 'badge-high', MODERATE: 'badge-mod', LOW: 'badge-low' }[v] || 'badge-na';
+            return '<span class="badge ' + cls + '">' + v + '</span>';
+        }
+        var snvCols = [
+            { title: "Chr", field: "chrom", headerFilter: "list", headerFilterParams: { valuesLookup: true }, frozen: true, minWidth: 80 },
+            { title: "Pos", field: "pos", sorter: "number", hozAlign: "right", formatter: function(c) { return c.getValue().toLocaleString(); } },
+            { title: "Ref > Alt", field: "change", width: 130,
+              formatter: function(cell) {
+                  var d = cell.getRow().getData();
+                  return (d.orig_alt ? '<span class="multi-mark" title="Multi-allelic site, one row per allele: ' + d.orig_alt + '. A sample carrying the other allele is 0 here; its share counts REF and this allele only.">\u2021</span> ' : '') + d.change;
+              },
+              tooltip: changeText, clickPopup: cellPopup(changeText),
+              accessorDownload: function(value, data) { return data.ref + '>' + data.alt; } },  // full alleles in the CSV
+            {% if snv.has_ann %}
+            { title: "Gene", field: "gene", headerFilter: "input", width: 110, tooltip: true },
+            { title: "Effect", field: "effect", headerFilter: "list", headerFilterParams: { valuesLookup: true }, width: 170, tooltip: true },
+            { title: "Impact", field: "impact", headerFilter: "list", headerFilterParams: { valuesLookup: true }, formatter: impactBadge, width: 110 },
+            { title: "Protein", field: "hgvs_p", width: 140, tooltip: true },
+            {% endif %}
+        ];
+        snvSamples.forEach(function(s) {
+            // titleDownload: the CSV header keeps the real sample id (the display title uses a non-breaking hyphen)
+            snvCols.push({
+                title: s.replace(/-/g, '\u2011') + '<br><span style="font-weight:normal;font-size:0.75em;color:var(--fg-muted)">VAF %</span>',
+                titleFormatter: "html", titleDownload: s + " VAF", field: s + "_vaf",
+                hozAlign: "center", sorter: "number", formatter: vafCell, tooltip: vafTooltip, clickPopup: cellPopup(vafTooltip),
+            });
+            // genotype and allele depths: never shown (they are on hover), always in the "rows shown" CSV
+            snvCols.push({ title: s + " GT", field: s + "_gt", visible: false, download: true });
+            snvCols.push({ title: s + " AD", field: s + "_ad", visible: false, download: true });
+            snvCols.push({ title: s + " DP", field: s + "_dp", visible: false, download: true });
+        });
+        var snvRows = {{ snv.rows | tojson }};
+        var snvTable = new Tabulator("#snv-table", {
+            data: snvRows,
+            layout: "fitDataFill", height: Math.min(520, 70 + 26 * snvRows.length),  // fixed height: see the SV table
+            headerSortTristate: true, columns: snvCols,
+        });
+        function isCoding(data) { return data.impact === 'HIGH' || data.impact === 'MODERATE'; }
+        {% if snv.has_ann %}
+        snvTable.on("tableBuilt", function() { snvTable.setFilter(isCoding); });
+        document.querySelectorAll('.snv-view-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.snv-view-btn').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                if (btn.getAttribute('data-view') === 'coding') snvTable.setFilter(isCoding); else snvTable.clearFilter();
+            });
+        });
+        {% endif %}
+        document.getElementById('snv-csv').addEventListener('click', function(e) {
+            e.preventDefault();
+            snvTable.download("csv", "snv_indel_events.csv", {}, "active");
+        });
+        {% endif %}
+
+        // --- Framed preview (Seqera Platform Outputs tab) ---
+        // The Platform shows a report in an iframe sandboxed without allow-downloads: links to pages open,
+        // downloads are silently blocked, and pop-ups inherit the sandbox. Say so next to every download row
+        // and point at the Outputs-tab entries (tower.yml) that carry the same files.
+        if (window.self !== window.top) {
+            document.querySelectorAll('.dl-row').forEach(function(row) {
+                var hint = document.createElement('span');
+                hint.className = 'dl-hint';
+                hint.textContent = 'Inside this preview frame a click cannot download \u2014 right-click a button and choose \u201cOpen link in new tab\u201d, or use the same file in the run\u2019s Outputs tab.';
+                row.appendChild(hint);
+            });
+            var viewCsv = document.getElementById('snv-csv');
+            if (viewCsv) viewCsv.style.display = 'none';   // a browser-generated file cannot leave the sandbox at all
+        }
+
+        // --- Tabs (copy-number section) ---
+        // The panel's table is built the first time the tab is shown and redrawn on later visits.
+        {% if not (cn_reg or cn_chr or contig_cn) %}var cnTableBuilders = {}, cnTables = {};{% endif %}
+        function activateTab(panelId) {
+            var panel = document.getElementById(panelId);
+            if (!panel || !panel.classList.contains('tab-panel')) return false;
+            var section = panel.closest('.section');
+            section.querySelectorAll('.tab-btn[data-tab]').forEach(function(b) {
+                b.classList.toggle('active', b.getAttribute('data-tab') === panelId);
+            });
+            section.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.toggle('active', p.id === panelId); });
+            if (!cnTables[panelId] && cnTableBuilders[panelId]) cnTables[panelId] = cnTableBuilders[panelId]();
+            else if (cnTables[panelId] && cnTables[panelId].initialized) cnTables[panelId].redraw(true);
+            return true;
+        }
+        document.querySelectorAll('.tab-btn[data-tab]').forEach(function(btn) {
+            btn.addEventListener('click', function() { activateTab(btn.getAttribute('data-tab')); });
+        });
+        document.querySelectorAll('.tab-bar').forEach(function(bar) {
+            var first = bar.querySelector('.tab-btn[data-tab]');
+            if (first) activateTab(first.getAttribute('data-tab'));
+        });
+        // A card or link that targets a panel (e.g. #contig-cn-section) opens its tab and scrolls to the section.
+        function openHashTab() {
+            var id = location.hash.slice(1);
+            if (id && activateTab(id)) document.getElementById(id).closest('.section').scrollIntoView();
+        }
+        window.addEventListener('hashchange', openHashTab);
+        openHashTab();
     </script>
 </body>
 </html>

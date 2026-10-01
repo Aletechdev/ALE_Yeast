@@ -478,6 +478,8 @@ were removed during the v1.0.0 code cleanup. Their role — cross-sample / multi
 tool-comparison views — is now delivered by the **`MUTATION_REPORT` subworkflow + `GENERATE_INDEX`**
 (igv-reports HTML dashboard backed by `cn_cohort_matrix.csv` / `sv_cohort_matrix_*.csv` /
 `cn_segments_*.csv` / `contig_copy_number.csv` — the last from TIDDIT's per-contig coverage table,
+plus the prepared cohort VCF read in pure Python for the *SNV / InDel events* table: PASS sites that differ
+between samples, protein-changing first, capped at 300 rows; the report container has no bcftools —
 whole-contig only, and the **only** place the mitochondrial contig is quantified: CNVKit's hard-coded
 0.30–0.70 GC mask drops every Mito bin). See [`docs/igvreports/`](docs/igvreports/) and
 [`subworkflows/local/mutation_report/`](subworkflows/local/mutation_report/main.nf). The original design

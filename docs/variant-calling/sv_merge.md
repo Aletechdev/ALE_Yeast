@@ -51,7 +51,7 @@ Published outputs (under `<outdir>/mutation_reports/data/`):
 | `sv_cohort_matrix_{union,union_pass}.csv` | `BUILD_SV_MATRIX` | the matrix (below) |
 | `sv_merge_inputs/<sample>.tiddit.vcf`, `sv_merge_inputs/<patient>.manta.vcf` | `COLLAPSE_SV_PAIRS` | the exact (union) merge inputs — re-merge by hand from these |
 | `sv_merge_inputs/sv_tiddit_cohort_{union,union_pass}.vcf.gz` | `SVDB_MERGE_TIDDIT` | TIDDIT across samples (the L1 layer) |
-| `<sample>.{manta,tiddit}.pass_stats.tsv` | `FILTER_PASS_VCF` (not part of the merge) | "PASS / all" counts for the Sample Overview |
+| `<sample>.{manta,tiddit}.pass_stats.tsv` | `FILTER_PASS_VCF` (not part of the merge) | "PASS / all" counts for the Samples table |
 
 The raw per-caller VCFs (`variant_calling/manta/`, `variant_calling/tiddit/`) remain the complete
 troubleshooting record — every FORMAT field, pre-collapse.

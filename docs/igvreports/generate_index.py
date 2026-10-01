@@ -29,7 +29,9 @@ Usage (from Nextflow GENERATE_INDEX process):
 
 import argparse
 import csv
+import gzip
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -133,28 +135,174 @@ def get_joint_vcf_pass_count(joint_vcf: Path | None) -> int | None:
         return None
 
 
-def get_prepared_vcf_counts(prepared_vcf: Path | None) -> tuple[int | None, int | None]:
-    """Count total and PASS variants in the prepared (post-norm) VCF.
+# ---------------------------------------------------------------------------
+# SNV / InDel events table (from the prepared cohort VCF: post-norm, FILTER promoted, FORMAT/VAF)
+# ---------------------------------------------------------------------------
+IMPACT_RANK = {"HIGH": 0, "MODERATE": 1, "LOW": 2, "MODIFIER": 3}
+SNV_TABLE_MAX_ROWS = 300  # rows shipped in the page; sorted by impact then position before the cut
 
-    Returns (total, pass_count) or (None, None) if unavailable.
+
+def _display_sample(vcf_name: str, known: list[str]) -> str:
+    """Map a VCF sample column (Sarek names it <experiment>_<sample>) to the Samples-table id."""
+    best = None
+    for s in known:
+        if (vcf_name == s or vcf_name.endswith("_" + s)) and (best is None or len(s) > len(best)):
+            best = s
+    return best or vcf_name
+
+
+def _alleles(gt: str) -> list[str]:
+    return re.split(r"[/|]", gt) if gt else ["."]
+
+
+def _is_called(gt: str) -> bool:
+    return any(a != "." for a in _alleles(gt))
+
+
+def _has_alt(gt: str) -> bool:
+    return any(a not in (".", "0") for a in _alleles(gt))
+
+
+def _is_ref(gt: str) -> bool:
+    return _is_called(gt) and all(a in ("0", ".") for a in _alleles(gt))
+
+
+def _short_allele(a: str, n: int = 8) -> str:
+    return a if len(a) <= n else f"{a[:n]}\u2026({len(a)})"
+
+
+def _first_ann(info: str, alt: str) -> dict | None:
+    """SnpEff's ANN entry for this row's ALT (SnpEff orders entries most-severe first)."""
+    m = re.search(r"(?:^|;)ANN=([^;]*)", info)
+    if not m:
+        return None
+    entries = [e.split("|") for e in m.group(1).split(",")]
+    chosen = next((e for e in entries if e and e[0] == alt), entries[0])
+
+    def field(i: int) -> str | None:
+        return chosen[i] if len(chosen) > i and chosen[i] else None
+
+    return {"effect": field(1), "impact": field(2), "gene": field(3), "hgvs_c": field(9), "hgvs_p": field(10)}
+
+
+def load_snv_table(prepared_vcf: Path | None, known_samples: list[str],
+                   max_rows: int = SNV_TABLE_MAX_ROWS, csv_path: Path | None = None) -> dict | None:
+    """Read the prepared cohort VCF once: site counts for the card, the rows of the events table and,
+    when csv_path is given, a CSV of EVERY site (FILTER kept, annotation, per-sample GT / AD / VAF).
+
+    Rows kept: PASS sites where at least one sample carries the ALT and at least one is called REF.
+    A sample with no reads at the site (AD sums to 0) is neither: its VAF is None (the table says
+    "no reads", the CSV leaves VAF empty and keeps the caller's GT verbatim) and the rule ignores it,
+    as it ignores a missing genotype. With a single sample every PASS site it
+    carries is kept. Multi-allelic sites arrive split one row per allele (INFO/ORIG_ALT): a sample
+    called for the other allele is 0 on this row, and fill-tags' VAF counts REF + this allele only,
+    so the row carries the original alleles for a marker in the table and a column in the CSV. Rows are
+    sorted by SnpEff impact (when annotated), then contig order, then position, and cut at max_rows.
+    Pure Python (gzip + str.split): the report container has no bcftools.
     """
-    if prepared_vcf is None or not prepared_vcf.exists():
-        return None, None
-    import subprocess
-    try:
-        total_result = subprocess.run(
-            ["bcftools", "view", "-H", str(prepared_vcf)],
-            capture_output=True, text=True, timeout=60,
-        )
-        total = total_result.stdout.count("\n")
-        pass_result = subprocess.run(
-            ["bcftools", "view", "-f", "PASS", "-H", str(prepared_vcf)],
-            capture_output=True, text=True, timeout=60,
-        )
-        pass_count = pass_result.stdout.count("\n")
-        return total, pass_count
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return None, None
+    if prepared_vcf is None or not Path(prepared_vcf).exists():
+        return None
+    opener = gzip.open if str(prepared_vcf).endswith(".gz") else open
+    samples: list[str] = []
+    chrom_order: dict[str, int] = {}
+    total = n_pass = 0
+    has_ann = False
+    base: list[dict] = []
+    csv_fh = writer = None
+    with opener(prepared_vcf, "rt") as fh:
+        for line in fh:
+            if line.startswith("##"):
+                if line.startswith("##INFO=<ID=ANN,"):
+                    has_ann = True
+                continue
+            if line.startswith("#"):
+                samples = [_display_sample(n, known_samples) for n in line.rstrip("\n").split("\t")[9:]]
+                if csv_path is not None:
+                    Path(csv_path).parent.mkdir(parents=True, exist_ok=True)
+                    csv_fh = open(csv_path, "w", newline="")
+                    writer = csv.writer(csv_fh)
+                    writer.writerow(["chrom", "pos", "ref", "alt", "filter", "multiallelic_site_alleles", "gene",
+                                     "effect", "impact", "hgvs_c", "hgvs_p", "differs_between_samples"]
+                                    + [f"{s}_{k}" for s in samples for k in ("GT", "AD", "DP", "VAF")])
+                continue
+            f = line.rstrip("\n").split("\t")
+            if len(f) < 10:
+                continue
+            total += 1
+            chrom_order.setdefault(f[0], len(chrom_order))
+            fmt = f[8].split(":")
+            gt_i = fmt.index("GT") if "GT" in fmt else None
+            ad_i = fmt.index("AD") if "AD" in fmt else None
+            dp_i = fmt.index("DP") if "DP" in fmt else None
+            vaf_i = fmt.index("VAF") if "VAF" in fmt else None
+            gts, ads, dps, vafs, depths = [], [], [], [], []
+            for cell in f[9:]:
+                parts = cell.split(":")
+                gt = parts[gt_i] if gt_i is not None and gt_i < len(parts) else "."
+                ad = parts[ad_i] if ad_i is not None and ad_i < len(parts) else "."
+                dp = parts[dp_i] if dp_i is not None and dp_i < len(parts) else "."
+                dps.append(int(dp) if dp.isdigit() else None)
+                raw = parts[vaf_i] if vaf_i is not None and vaf_i < len(parts) else "."
+                depth = sum(int(x) for x in ad.split(",") if x.isdigit()) if ad not in (".", "") else None
+                if depth == 0:
+                    raw = "."               # no reads: no fraction (fill-tags writes 0); the genotype stays as called
+                gts.append(gt)
+                ads.append(ad)
+                depths.append(depth)
+                try:
+                    vafs.append(round(float(raw), 3))
+                except ValueError:
+                    vafs.append(None)
+            called = [g for g, d in zip(gts, depths) if _is_called(g) and d != 0]
+            carried = any(_has_alt(g) for g in called)
+            differs = carried and any(_is_ref(g) for g in called)
+            ann = _first_ann(f[7], f[4]) if has_ann else None
+            m_orig = re.search(r"(?:^|;)ORIG_ALT=([^;]+)", f[7])
+            orig_alt = None
+            if m_orig:
+                parts_o = m_orig.group(1).split("|")           # CHR|POS|REF|ALT1,ALT2|USED_ALT_IDX
+                if len(parts_o) >= 4 and "," in parts_o[3]:
+                    orig_alt = f"{parts_o[2]} > {parts_o[3].replace(',', ' / ')}"
+            if writer is not None:
+                writer.writerow(
+                    [f[0], f[1], f[3], f[4], f[6], orig_alt]
+                    + [ann[k] if ann else None for k in ("gene", "effect", "impact", "hgvs_c", "hgvs_p")]
+                    + [("yes" if differs else "no") if len(samples) > 1 else ""]
+                    + [v for gt, ad, dp, vaf in zip(gts, ads, dps, vafs)
+                       for v in (gt, ad, "" if dp is None else dp, "" if vaf is None else vaf)]
+                )
+            if f[6] != "PASS":
+                continue
+            n_pass += 1
+            if not (differs if len(samples) > 1 else carried):
+                continue
+            row = {
+                "chrom": f[0], "pos": int(f[1]), "ref": f[3], "alt": f[4],
+                "change": f"{_short_allele(f[3])} > {_short_allele(f[4])}",
+                "orig_alt": orig_alt,
+                "gene": ann["gene"] if ann else None,
+                "effect": ann["effect"].replace("_", " ") if ann and ann["effect"] else None,
+                "impact": ann["impact"] if ann else None,
+                "hgvs_p": ann["hgvs_p"] if ann else None,
+            }
+            for s, gt, ad, dp, vaf in zip(samples, gts, ads, dps, vafs):
+                row[f"{s}_gt"] = gt
+                row[f"{s}_ad"] = ad
+                row[f"{s}_dp"] = dp
+                row[f"{s}_vaf"] = vaf
+            base.append(row)
+    if csv_fh is not None:
+        csv_fh.close()
+    base.sort(key=lambda r: (IMPACT_RANK.get(r["impact"], 4), chrom_order.get(r["chrom"], 10**6), r["pos"]))
+    candidate = sum(1 for r in base if r["impact"] in ("HIGH", "MODERATE")) if has_ann else None
+    return {
+        "samples": samples, "rows": base[:max_rows],
+        "total": total, "pass": n_pass,
+        "differing": len(base) if len(samples) > 1 else None,
+        "candidate": candidate, "has_ann": has_ann,
+        "single_sample": len(samples) <= 1,
+        "truncated": len(base) > max_rows, "shown": min(len(base), max_rows),
+    }
 
 
 def load_pass_stats(pass_stats_files: list[Path] | None) -> dict[tuple[str, str], dict]:
@@ -329,7 +477,12 @@ def load_cn_regions(path: Path) -> dict | None:
             fc = r.get(f"{s}_fold_change", "")
             entry[f"{s}_fold_change"] = round(float(fc), 2) if fc else None
         out.append(entry)
-    return {"rows": out, "samples": samples, "row_count": len(out)}
+    # Windows where any sample crosses the shared thresholds (log2 < -0.4 loss, > 0.3 gain): the card number.
+    change_count = sum(
+        1 for r in out
+        if any(_has_cn_change(r.get(f"{s}_log2", 0) or 0) for s in samples)
+    )
+    return {"rows": out, "samples": samples, "row_count": len(out), "change_count": change_count}
 
 
 def load_sv_matrix(path: Path) -> dict | None:
@@ -458,6 +611,10 @@ def build_context(
     sample_reports_dir: Path | None,
     cnv_sv_data_dir: Path | None = None,
     multiqc_report_path: str | None = None,
+    pipeline_version: str | None = None,
+    snv_csv: str | None = None,
+    cohort_vcf_link: str | None = None,
+    output_dir: Path | None = None,
     joint_vcf: Path | None = None,
     prepared_vcf: Path | None = None,
     pass_stats_files: list[Path] | None = None,
@@ -539,11 +696,14 @@ def build_context(
     if cohort_report and cohort_report.exists():
         cohort_link = cohort_report.name
 
-    # Post-norm counts from prepared VCF (match cohort report table rows)
-    prepared_total, prepared_pass = get_prepared_vcf_counts(prepared_vcf)
-    if prepared_total is not None:
-        cohort_variant_count = prepared_total
-        cohort_pass_count = prepared_pass
+    # Post-norm counts + the SNV/InDel events rows from the prepared VCF (match cohort report table rows)
+    snv = load_snv_table(prepared_vcf, [s["sample"] for s in summary_data],
+                         csv_path=(output_dir / snv_csv) if snv_csv and output_dir is not None else None)
+    if snv is not None:
+        cohort_variant_count = snv["total"]
+        cohort_pass_count = snv["pass"]
+        snv["csv_link"] = snv_csv if snv_csv else None   # relative to index.html, like multiqc_report_path
+        snv["vcf_link"] = cohort_vcf_link or None
     else:
         # Fallback to pre-norm counts from MultiQC
         joint_count = get_joint_vcf_variant_count(multiqc_dir)
@@ -562,7 +722,8 @@ def build_context(
         cnv_sv = load_cnv_sv_data(cnv_sv_data_dir)
 
     return {
-        "title": "ALE Multi-Caller Mutation Dashboard",
+        "title": "yAMP mutation report",
+        "pipeline_version": pipeline_version,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "n_samples": len(samples),
         "callers": callers,
@@ -570,6 +731,7 @@ def build_context(
         "cohort_variant_count": cohort_variant_count,
         "cohort_pass_count": cohort_pass_count,
         "cohort_prenorm_count": cohort_prenorm_count,
+        "snv": snv,
         "multiqc_report_path": multiqc_report_path or "../../output_all/multiqc/multiqc_report.html",
         "summary_data_json": json.dumps(summary_data),
         # CN/SV data (None if not provided)
@@ -658,6 +820,20 @@ def main():
         "--report-dir", type=str, default=None,
         help="Where this report bundle lands when it is not <outdir>/mutation_reports; printed next to --outdir",
     )
+    parser.add_argument(
+        "--pipeline-version", type=str, default=None,
+        help="Pipeline version shown as a chip next to the title (the workflow's manifest version); omitted when not given",
+    )
+    parser.add_argument(
+        "--snv-csv", type=str, default=None,
+        help="Write every site of the prepared cohort VCF as CSV at this path RELATIVE to the index (e.g. data/snv_indel_sites.csv); "
+             "the SNV/InDel section links it",
+    )
+    parser.add_argument(
+        "--cohort-vcf-link", type=str, default="vcf/haplotypecaller/cohort_haplotypecaller_annotated.vcf.gz",
+        help="Relative link from the index to the published cohort VCF (the bundle keeps this name whether or not an "
+             "annotator ran; see vcf/README.md); empty string disables the VCF button",
+    )
     args = parser.parse_args()
 
     context = build_context(
@@ -666,6 +842,10 @@ def main():
         sample_reports_dir=args.sample_reports_dir,
         cnv_sv_data_dir=args.cnv_sv_data_dir,
         multiqc_report_path=args.multiqc_report_path,
+        pipeline_version=args.pipeline_version,
+        snv_csv=args.snv_csv,
+        cohort_vcf_link=args.cohort_vcf_link,
+        output_dir=args.output.parent,
         joint_vcf=args.joint_vcf,
         prepared_vcf=args.prepared_vcf,
         pass_stats_files=args.pass_stats,
