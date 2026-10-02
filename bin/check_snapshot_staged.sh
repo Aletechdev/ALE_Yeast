@@ -71,6 +71,7 @@ fi
 declare -A TESTMAP=(
   ['conf/modules/trimming.config']=fastp_preprocessing
   ['modules/nf-core/fastp/']=fastp_preprocessing
+  ['nextflow.config']=fastp_preprocessing      # its defaults are the test's baseline (2026-09-04: a changed trimming default left it red for a month)
   ['subworkflows/local/split_joint_vcf/']=split_joint_vcf
   ['conf/modules/split_joint_vcf.config']=split_joint_vcf
   ['subworkflows/local/fastqc_trimmed/']=fastqc_trimmed

@@ -33,9 +33,27 @@ nextflow_process {
     """ }
     def report = { out -> path(out.json[0][1]).json }
 
+    test("default recipe - no preprocessing parameter given: adapter trimming, 3' tail quality trimming, read filter") {
+        when {
+            params { outdir = "$outputDir" }                                              // nextflow.config defaults only: a changed default fails here
+            process { fx('fastp_sra') }
+        }
+        then {
+            def j = report(process.out)
+            assertAll(
+                { assert process.success },
+                { assert j.summary.before_filtering.total_reads == 2000 },
+                { assert j.adapter_cutting.adapter_trimmed_reads == 210 },                // 254 with adapter trimming alone; 210 once the synthetic tails are gone (as in the poly-G case)
+                { assert j.filtering_result.low_quality_reads == 8 },                     // 18 untrimmed: the filter is evaluated on the trimmed read
+                { assert j.summary.after_filtering.total_reads == 1992 },
+                { assert j.summary.after_filtering.read1_mean_length == 96 }              // Q2 poly-G tails removed by the tail cut (110 with adapter trimming alone)
+            )
+        }
+    }
+
     test("step 1 - trim_adapter on SRA-named reads: adapters removed, read filter on (upstream semantics), poly-G left alone") {
         when {
-            params { outdir = "$outputDir"; trim_adapter = true }
+            params { outdir = "$outputDir"; trim_adapter = true; trim_quality_3prime = null }
             process { fx('fastp_sra') }
         }
         then {
@@ -53,7 +71,7 @@ nextflow_process {
 
     test("step 1 - trim_adapter on NovaSeq-named reads: fastp auto-enables poly-G trimming at trim_nextseq 0 (upstream)") {
         when {
-            params { outdir = "$outputDir"; trim_adapter = true }
+            params { outdir = "$outputDir"; trim_adapter = true; trim_quality_3prime = null }
             process { fx() }
         }
         then {
@@ -69,7 +87,7 @@ nextflow_process {
 
     test("step 1 - trim_fastq is an alias of trim_adapter") {
         when {
-            params { outdir = "$outputDir"; trim_fastq = true }
+            params { outdir = "$outputDir"; trim_adapter = false; trim_fastq = true; trim_quality_3prime = null }
             process { fx('fastp_sra') }
         }
         then {
@@ -85,7 +103,7 @@ nextflow_process {
 
     test("step 1 - trim_nextseq forces poly-G trimming on SRA-named reads") {
         when {
-            params { outdir = "$outputDir"; trim_adapter = true; trim_nextseq = 20 }
+            params { outdir = "$outputDir"; trim_adapter = true; trim_quality_3prime = null; trim_nextseq = 20 }
             process { fx('fastp_sra') }
         }
         then {
@@ -100,7 +118,7 @@ nextflow_process {
 
     test("step 2 - fixed-count clipping removes exactly the requested bases") {
         when {
-            params { outdir = "$outputDir"; three_prime_clip_r1 = 15; three_prime_clip_r2 = 15; filter_quality = false }
+            params { outdir = "$outputDir"; trim_adapter = false; trim_quality_3prime = null; three_prime_clip_r1 = 15; three_prime_clip_r2 = 15; filter_quality = false }
             process { fx('fastp_sra') }
         }
         then {
@@ -115,7 +133,7 @@ nextflow_process {
 
     test("step 2 runs before step 3: fixed clip, then the quality cut on what remains") {
         when {
-            params { outdir = "$outputDir"; three_prime_clip_r1 = 15; three_prime_clip_r2 = 15; trim_quality_3prime = 'tail'; filter_quality = false }
+            params { outdir = "$outputDir"; trim_adapter = false; three_prime_clip_r1 = 15; three_prime_clip_r2 = 15; trim_quality_3prime = 'tail'; filter_quality = false }
             process { fx('fastp_sra') }
         }
         then {
@@ -129,7 +147,7 @@ nextflow_process {
 
     test("step 3 - quality trimming both ends, no adapter trimming") {
         when {
-            params { outdir = "$outputDir"; trim_quality_3prime = 'tail'; trim_quality_5prime = true; filter_quality = false }
+            params { outdir = "$outputDir"; trim_adapter = false; trim_quality_3prime = 'tail'; trim_quality_5prime = true; filter_quality = false }
             process { fx('fastp_sra') }
         }
         then {
@@ -146,7 +164,7 @@ nextflow_process {
 
     test("step 4 - filter_quality false keeps every read pair") {
         when {
-            params { outdir = "$outputDir"; trim_adapter = true; filter_quality = false }
+            params { outdir = "$outputDir"; trim_adapter = true; trim_quality_3prime = null; filter_quality = false }
             process { fx('fastp_sra') }
         }
         then {
@@ -162,7 +180,7 @@ nextflow_process {
 
     test("step 4 - stricter thresholds drop more pairs") {
         when {
-            params { outdir = "$outputDir"; trim_adapter = true; filter_quality_phred = 20; filter_quality_percent = 30 }
+            params { outdir = "$outputDir"; trim_adapter = true; trim_quality_3prime = null; filter_quality_phred = 20; filter_quality_percent = 30 }
             process { fx('fastp_sra') }
         }
         then {
@@ -177,7 +195,7 @@ nextflow_process {
 
     test("split only - fastp as a splitter: no trimming, read filter still applies (upstream)") {
         when {
-            params { outdir = "$outputDir"; split_fastq = 500 }
+            params { outdir = "$outputDir"; trim_adapter = false; trim_quality_3prime = null; split_fastq = 500 }
             process { fx('fastp_sra') }
         }
         then {
