@@ -1081,3 +1081,40 @@ node is gone with it, so nothing of the partial pull is kept.
 nothing extra for it (`SAREK_MODIFICATIONS.md` → `modules/nf-core/` PATCHED; soft-filtered records
 identical on the test set and the 4-sample pilot). The pattern itself stays possible for any large
 image on a slow registry — the recipe above is how to tell.
+
+## 19. A path picked in Platform's file browser stops the run at start-up (2026-10-01)
+
+**Symptom.** The run fails minutes after launch with `Status code 400, InvalidResourceName` and
+nothing else: 0 tasks, and no start date, commit or Nextflow version on the run page.
+
+**What was measured** (run `5syUy3CSjd3kyO`, 2-sample test set, commit `51356a5`):
+
+- The run's `input` was `az://aledata.aletest/ottilie/v1/samplesheet_test_az.csv`. The Launchpad
+  entry's value, and that of every earlier run, is `az://aletest/ottilie/v1/samplesheet_test_az.csv`.
+- The Nextflow log ends in `BlobStorageException: Status code 400, InvalidResourceName`, thrown from
+  `nextflow.validation.SchemaEvaluator` through `Files.exists`: nf-schema's file-exists check on a
+  path parameter, before the workflow starts. The message does not name the path.
+- The workspace's three Data Explorer entries are registered as `az://aledata.aletest`,
+  `az://aledata.data` and `az://aledata.output` (`GET /data-links`), each attached to both the Entra
+  and the shared-key credential.
+
+**The cause.** Platform's Data Explorer writes an Azure container as `az://<account>.<container>`,
+because one workspace can hold credentials for several storage accounts. Nextflow has no account in
+its paths: a run has one storage account (from the credential) and reads `az://<container>/…`. The
+launch form's Browse button inserts Data Explorer's form unchanged (seen in the form by the user, not
+reproduced from the API), so Nextflow asks Azure for a container named `aledata.aletest`, and a dot
+is not legal in a container name.
+
+**Not a setting of ours.** The credential type does not change it (*inferred*: the same entries
+carry both credentials; not run under the shared key). Known upstream since January 2024:
+[nextflow#4683](https://github.com/nextflow-io/nextflow/issues/4683) is open, the fix that stripped
+the account name ([#4692](https://github.com/nextflow-io/nextflow/pull/4692)) was closed unmerged on
+2026-07-10, and the alternative, reading the account from the path, belongs to
+[#4445](https://github.com/nextflow-io/nextflow/issues/4445) (multiple storage accounts, open).
+Seqera's docs show both forms on separate pages and do not mention the mismatch.
+
+**What to do.** After picking a file or folder with the browser, delete `<account>.` so the path
+reads `az://<container>/…`. This applies to every path field (`input`, `outdir`, `fasta`,
+`snpeff_cache`, `report_gff3`). The launch form says so since 2026-10-02: a warning in the
+descriptions of the *Input/output options* and *Reference genome options* sections and under the
+`input` field (`conf/schema_overlay.yml`).

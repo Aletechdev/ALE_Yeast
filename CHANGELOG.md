@@ -408,6 +408,14 @@
   and how to re-run it: `docs/benchmarking/ottilie_xenobiotic_ale/04_validate/pilot_results_v2/NOTES.md`,
   `04_validate/run_manta_joint_audit_pilot.sh <MODE>`.
 
+- **Seqera Platform's file browser inserts Azure paths that Nextflow cannot read** (2026-10-01, run
+  `5syUy3CSjd3kyO`). The launch form's Browse button writes `az://<account>.<container>/…`; Nextflow
+  reads `az://<container>/…` only, and the run stops at start-up with `Status code 400,
+  InvalidResourceName`. Delete `<account>.` after picking a path. Upstream:
+  [nextflow#4683](https://github.com/nextflow-io/nextflow/issues/4683), open. The launch form now warns
+  about it in the *Input/output options* and *Reference genome options* section descriptions and under
+  `input` (`conf/schema_overlay.yml`). Detail: `docs/dev-practices/azure_batch_execution.md` §19.
+
 ## v1.0.0 — first production release (on nf-core/sarek 3.5.1)
 
 Yeast ALE (Adaptive Laboratory Evolution) variant-calling pipeline: HaplotypeCaller joint germline
