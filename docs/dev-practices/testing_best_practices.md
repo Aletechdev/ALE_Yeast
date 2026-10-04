@@ -530,6 +530,13 @@ opportunistic. Prerequisite for all of it: a fixtures convention beyond the
 current hand-committed `tests/fixtures/` — decide committed-small vs. Azure Blob before the file
 count grows.
 
+### Measuring it
+
+The layer table above counts tests. Which fork lines, closures and conditions those tests actually
+execute is measured by `tests/nf_coverage.sh` (a JaCoCo agent on the Nextflow head JVM; a
+measurement, not part of the commit gate). Method, first results and the list of fork code that
+nothing executes: [`nextflow_code_coverage.md`](nextflow_code_coverage.md).
+
 ---
 
 ## 12. What counts as validated — the contract-test rule

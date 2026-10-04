@@ -121,6 +121,7 @@ Output-directory layout is in the [root README](../README.md#output).
 | [`dev-practices/SAREK_MODIFICATIONS.md`](dev-practices/SAREK_MODIFICATIONS.md) | Full inventory of fork changes vs pristine sarek 3.5.1 |
 | [`dev-practices/ale_sarek_upgrade_runbook.md`](dev-practices/ale_sarek_upgrade_runbook.md) | How to rebase onto a newer sarek; the Nextflow 26.x blocker inventory |
 | [`dev-practices/testing_best_practices.md`](dev-practices/testing_best_practices.md) | nf-test strategy, what is (and isn't) tested here, coverage targets |
+| [`dev-practices/nextflow_code_coverage.md`](dev-practices/nextflow_code_coverage.md) | **Which lines of our `.nf` / `.config` files the test suite executes.** JaCoCo on the Nextflow head JVM (`tests/nf_coverage.sh`): lines, data-driven closures, conditions seen every way; the first measurement and the list of fork code no test runs |
 | [`dev-practices/output_comparison.md`](dev-practices/output_comparison.md) | **Which outputs are deterministic and which are not** — the classes of run-to-run noise (timestamps, gzip framing, embedded paths, MultiQC renders, igv-reports blobs) with normalisation recipes, plus the 3-tier method for diffing two runs. The *why* behind `tests/.nftignore` |
 | [`dev-practices/compute_resources.md`](dev-practices/compute_resources.md) | Resource model and config layout |
 | [`dev-practices/roadmap.md`](dev-practices/roadmap.md) | Prioritized post-1.0.0 work |

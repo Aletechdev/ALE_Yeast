@@ -109,6 +109,12 @@
   grace period, not an outcome) and `17_download_outdir.sh` (outdir download with the pipeline's SP).
   `tower.yml` lists the QC-only MultiQC report on the Outputs tab (`702a4c0`).
 
+- **Coverage of the Nextflow code by the test suite** (dev tooling, 2026-10-02; a measurement, not a
+  gate). `tests/nf_coverage.sh` attaches a JaCoCo agent to the Nextflow head JVM and reports, for our
+  `.nf` and `.config` files, the lines executed, the data-driven closures entered and the conditions
+  seen every way, for all code and for fork lines only. Method, the first measurement, the fork code
+  that no test executes and the limits: `docs/dev-practices/nextflow_code_coverage.md`.
+
 - **Commit gate: doc-drift check, snapshot name-delta rule, derived task scripts; `commit-review`
   skill** (dev tooling, 2026-09-28). `bin/check_doc_drift.sh` runs on every commit and blocks when a
   doc that copies the tree disagrees with it: the three ADDED inventories in `SAREK_MODIFICATIONS.md`
