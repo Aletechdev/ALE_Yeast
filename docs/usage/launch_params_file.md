@@ -4,7 +4,7 @@ A params file is one YAML (or JSON) document holding every `--parameter` of a la
 long command line, it is the record of exactly what was launched, and it is the way to set the
 parameters the Seqera launch form hides. Copy the template, fill in the six dataset lines, launch.
 
-**Template:** [`params_template.yml`](params_template.yml) — every launch-form field in launch-form
+**Template:** [`params_template.yml`](params_template.yml) holds every launch-form field in launch-form
 order, at the validated Tier-1 recipe values, plus the hidden parameters a Tier-1 run needs. It is
 generated from the pipeline schema and the recipe config by `bin/make_params_template.py`, so it
 cannot drift from the form; do not edit it in place, copy it.
@@ -15,7 +15,7 @@ The six `<-- SET` lines are the dataset. Everything else is the recipe; leave it
 you do not change (a deleted line falls back to the pipeline default, which is the same value).
 
 ```yaml
-# my_project_2026-09-10-01.yml — a real dataset, Tier-1 recipe
+# my_project_2026-09-10-01.yml: a real dataset, Tier-1 recipe
 input: "/data/my_project/samplesheet.csv"            # absolute paths inside the CSV too
 outdir: "/data/my_project/results/2026-09-10-01"     # new directory for every run
 fasta: "/data/references/my_strain/my_strain.fa"
@@ -40,7 +40,7 @@ run's credential can read them (Azure Batch has one extra rule, see
 `outdir` per run: `publishDir` overwrites files but never deletes the ones a later version stops
 producing, so a reused `outdir` silently mixes runs.
 
-## 2. Launch it — three ways
+## 2. Launch it: three ways
 
 | Where | How | Notes |
 |---|---|---|

@@ -1,10 +1,10 @@
-# Read preprocessing — what happens to reads before alignment
+# Read preprocessing: what happens to reads before alignment
 
 Everything between the samplesheet and bwa-mem, in run order. **The ALE default (since 2026-09-04)
 is adapter trimming plus 3′ tail quality trimming**, with fastp's read filter on: `--trim_adapter
 --trim_quality_3prime tail`. Each step is its own switch; for reads exactly as sequenced set
 `--trim_adapter false` and leave `trim_quality_3prime` unset, and fastp then runs only if step 2 is set
-or `split_fastq > 0`. FastQC reports on the raw reads either way, and — whenever fastp runs — a second
+or `split_fastq > 0`. FastQC reports on the raw reads either way, and, whenever fastp runs, a second
 time on its output, so the reads that are actually aligned are assessed too ([Post-trim QC](#post-trim-qc)).
 Parameter group in the launch form / `--help`: **Read preprocessing**.
 
@@ -29,14 +29,14 @@ The default recipe (see [Defaults and the baseline](#defaults-and-the-baseline))
 --trim_adapter --trim_quality_3prime tail
 ```
 
-## Step 0 — UMI consensus (fgbio)
+## Step 0: UMI consensus (fgbio)
 
 Only when `--umi_read_structure` is given: reads carrying unique molecular identifiers are grouped
 (`--group_by_umi_strategy`) and collapsed into consensus reads, which then continue into fastp. This
 step is independent of the fastp steps below. **No ALE library uses UMIs**, so both parameters are
-hidden in the launch form (still accepted from a params file — [`launch_params_file.md`](launch_params_file.md)).
+hidden in the launch form (still accepted from a params file, see [`launch_params_file.md`](launch_params_file.md)).
 
-## Step 1 — Adapter trimming
+## Step 1: Adapter trimming
 
 `--trim_adapter` runs fastp adapter removal. No adapter sequence is required: paired reads are trimmed
 wherever the two mates overlap, and fastp infers the adapter sequence from the data for pairs that do
@@ -47,12 +47,12 @@ the evolved clone's reads and trimmed 10 Mb of sequence that bwa would otherwise
 |---|---|---|
 | `trim_adapter` | off | the switch. `trim_fastq` (upstream sarek's name) is a deprecated alias with the same behaviour. |
 | `adapter_sequence`, `adapter_sequence_r2` | auto | name the kit's adapter explicitly when fastp reports `unspecified` (low-adapter libraries): Nextera `CTGTCTCTTATACACATCT`, TruSeq R1 `AGATCGGAAGAGCACACGTCTGAACTCCAGTCA` / R2 `AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT`. |
-| `trim_nextseq` | 0 | any non-zero value forces poly-G tail trimming (two-colour NextSeq/NovaSeq chemistry). At 0 fastp decides by itself from the read names, as in upstream sarek: on when the first read name has a NextSeq/NovaSeq prefix (`@A00123:…`), off otherwise — so SRA-renamed data (`@SRR…`) is only trimmed if you set this. |
+| `trim_nextseq` | 0 | any non-zero value forces poly-G tail trimming (two-colour NextSeq/NovaSeq chemistry). At 0 fastp decides by itself from the read names, as in upstream sarek: on when the first read name has a NextSeq/NovaSeq prefix (`@A00123:…`), off otherwise, so SRA-renamed data (`@SRR…`) is only trimmed if you set this. |
 
 Step 1 behaves as upstream sarek's `--trim_fastq`: fastp's read-level quality filter (step 4) is on
 unless you turn it off.
 
-## Step 2 — Fixed-count clipping
+## Step 2: Fixed-count clipping
 
 Removes a set number of bases from a read end regardless of quality: `clip_r1`, `clip_r2` from the
 5′ end and `three_prime_clip_r1`, `three_prime_clip_r2` from the 3′ end (fastp `--trim_front*` /
@@ -61,9 +61,9 @@ otherwise leave it at 0 and let step 3 decide per read. fastp applies these clip
 quality cut, so the two compose: clip the cycles you know are bad, then let the window cut adapt to
 what remains. Not part of the ALE recipe.
 
-## Step 3 — Quality trimming, per read end
+## Step 3: Quality trimming, per read end
 
-Trims a **variable** number of low-quality bases from a read end — no fixed base count (that is step 2).
+Trims a **variable** number of low-quality bases from a read end, not a fixed base count (that is step 2).
 fastp's order between this cut and step 1's adapter detection is its own; what is guaranteed is that
 step 2 runs before this cut and step 4 evaluates the fully trimmed read. fastp
 slides a window (`trim_quality_window`, default 4 bases) and trims where the window's mean quality is
@@ -87,17 +87,17 @@ mode removes only a low start. Source: `docs/dev-practices/figures/fastq_trimmin
 
 Which 3′ mode: `tail` is the gentle choice and matches Illumina's 3′ quality decay. On the ottilie
 test set it removed 0.03 % (evolved clone) to 2.2 % (parent) of bases beyond the adapters. `right` is
-3–4 × more aggressive because a single mid-read dip discards the rest of the read — the parent sample
+3–4 × more aggressive because a single mid-read dip discards the rest of the read: the parent sample
 has a systematic dip at position 58 that truncates 10 % of its reads under `right`. Measurements:
 [`fastq_preprocessing_audit.md` §2.4](../dev-practices/fastq_preprocessing_audit.md#24-what-each-option-does-to-the-ottilie-test-set).
 
-## Step 4 — Read filtering
+## Step 4: Read filtering
 
 Evaluated on the read **after** steps 1–3. A pair is discarded when either mate fails.
 
 | Parameter | Default | Use |
 |---|---|---|
-| `filter_quality` | **on** | fastp's read-level quality filter: discard a read when more than `filter_quality_percent` (40) of its bases are below `filter_quality_phred` (Q15), or it has more than 5 N. Counted base by base — the read's *mean* quality is never used (that is step 3's sliding window). On by default whenever fastp runs, exactly as in upstream sarek. `--filter_quality false` keeps every read (trimming only). |
+| `filter_quality` | **on** | fastp's read-level quality filter: discard a read when more than `filter_quality_percent` (40) of its bases are below `filter_quality_phred` (Q15), or it has more than 5 N. Counted base by base: the read's *mean* quality is never used (that is step 3's sliding window). On by default whenever fastp runs, exactly as in upstream sarek. `--filter_quality false` keeps every read (trimming only). |
 | `filter_quality_phred`, `filter_quality_percent` | 15, 40 | the two thresholds (fastp `-q`, `-u`). |
 | `length_required` | 15 | discard reads shorter than this after trimming (fastp `-l`). Always applied when fastp runs. |
 
@@ -108,7 +108,7 @@ the MultiQC fastp section.
 ## Post-trim QC
 
 FastQC runs twice: on the input FASTQs (as upstream sarek does) and, whenever fastp runs, on what
-fastp emits — the reads bwa-mem receives. Both are report-only; nothing downstream reads their
+fastp emits, the reads bwa-mem receives. Both are report-only; nothing downstream reads their
 verdicts. `--skip_tools fastqc` skips both.
 
 - **Outputs**: `reports/fastqc/<id>/` (raw) and `reports/fastqc/<id>/trimmed/` (post-trim, files named
@@ -119,14 +119,14 @@ verdicts. `--skip_tools fastqc` skips both.
   with the fastp section between them, and their General Stats columns sit side by side on the same
   sample row (column groups `fastqc_raw` and `fastqc_after_preprocessing`). What to compare: residual
   adapter content, per-base quality at the 3′ end, sequence-length distribution (now variable), and
-  the read count — the after-preprocessing count is what fastp's step 4 let through.
+  the read count: the after-preprocessing count is what fastp's step 4 let through.
 
 ## Not preprocessing steps
 
-- **Parallelisation** — `split_fastq` (main options group, hidden; every ALE profile sets 0) shards
+- **Parallelisation**: `split_fastq` (main options group, hidden; every ALE profile sets 0) shards
   FASTQs through the same fastp process. A non-zero value runs fastp even with steps 1–3 off; step 4's
   filter then still applies unless `--filter_quality false`.
-- **Outputs** — `save_trimmed` publishes the trimmed FASTQs under `preprocessing/fastp/<sample>/`;
+- **Outputs**: `save_trimmed` publishes the trimmed FASTQs under `preprocessing/fastp/<sample>/`;
   `save_split_fastqs` (hidden) the shards.
 
 ## Defaults and the baseline

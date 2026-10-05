@@ -8,7 +8,7 @@ prerequisite for both. Everything here is what the Ottilie/S288C test data itsel
 | Parameter | Needed? | What |
 |---|---|---|
 | `--fasta` | yes | Reference FASTA. `.fai`, `.dict` and the bwa-mem2 index are built in-run (seconds on yeast). |
-| `--snpeff_cache` + `--snpeff_db` | yes when `snpeff` is in `--tools` (the Tier-1 recipe) | A SnpEff database **directory**: `<snpeff_cache>/<snpeff_db>/snpEffectPredictor.bin` plus `sequence*.bin` and `snpEff.config`; `--snpeff_db` is that directory's name. There is **no default** — omitting it fails at launch with `Please specify --snpeff_cache …`. |
+| `--snpeff_cache` + `--snpeff_db` | yes when `snpeff` is in `--tools` (the Tier-1 recipe) | A SnpEff database **directory**: `<snpeff_cache>/<snpeff_db>/snpEffectPredictor.bin` plus `sequence*.bin` and `snpEff.config`; `--snpeff_db` is that directory's name. There is **no default**: omitting it fails at launch with `Please specify --snpeff_cache …`. |
 | `--report_gff3` | optional | GFF3 for the gene track in the igv-reports dashboard. Without it the reports have no gene track. An uncompressed file whose name ends in `.gff3` or `.gff`: another name, or a local path that does not exist, stops the run at parameter validation. Its contig names must be the FASTA's: checked by the first task of every run ([`preflight_checks.md`](preflight_checks.md) → *Reference files*). |
 | `--genbank` | Tier-2 only | breseq input (not part of the Tier-1 recipe). |
 | `--chr_dir` | Tier-2 only | Per-chromosome FASTAs for Control-FREEC. |
@@ -18,7 +18,7 @@ Rules that apply to the SnpEff cache whichever way you build it:
 - **snpEff version lock.** Build with the version the pipeline's module runs, **5.1**
   (`quay.io/biocontainers/snpeff:5.1--hdfd78af_2`). snpEff refuses a database from a newer version:
   `Database version: '5.2', Program version: '5.1'`. Both scripts below pin that image. A sarek rebase
-  that bumps snpEff means rebuilding every cache — see `docs/dev-practices/ale_sarek_upgrade_runbook.md`
+  that bumps snpEff means rebuilding every cache; see `docs/dev-practices/ale_sarek_upgrade_runbook.md`
   → *Known Rebase Hazards: SnpEff cache*.
 - **Flat layout.** `<snpeff_cache>/<snpeff_db>/…`, not the `<db>/<db>/` form that nf-core's
   `annotation-cache` bucket uses.
@@ -27,14 +27,14 @@ Rules that apply to the SnpEff cache whichever way you build it:
   checks this; `process_genbank_auto.sh` derives both from the same GenBank so they agree by construction.
   The pipeline checks the `--report_gff3` file against the FASTA at the start of every run
   (`PREFLIGHT_REFERENCE`: error when no contig name is shared; GFF3 contigs the FASTA lacks are only
-  noted — [`preflight_checks.md`](preflight_checks.md)); the cache itself is **not** checked at start-up.
+  noted, see [`preflight_checks.md`](preflight_checks.md)); the cache itself is **not** checked at start-up.
 - **Runtime files only are needed**: `snpEffectPredictor.bin`, `sequence*.bin`, `snpEff.config` (~6 MB
   for yeast). `genes.gff` and `sequences.fa` are build inputs and may be left out of what you ship.
 - **Running from cloud storage** (Seqera, AWS Batch, HPC): upload the directory to your own bucket and
-  pass the `az://` / `s3://` / `gs://` path — see the README section *Running the SnpEff cache from cloud
+  pass the `az://` / `s3://` / `gs://` path; see the README section *Running the SnpEff cache from cloud
   storage*. An https URL cannot be used for a directory.
 
-## Path A — from a GenBank file
+## Path A: from a GenBank file
 
 ```bash
 bash docs/prepare_input/process_GeneBank/process_genbank_auto.sh <input.gbk> [output_dir]
@@ -50,18 +50,18 @@ matching the `snpeff_cache/<name>/` directory. The script prints the exact `--fa
 match. Against the project's Ensembl-built cache on the 100-variant contract-test VCF: 89/100 same
 primary effect, 92/100 same impact, all 4 truth SNVs identical in effect and impact.
 
-⚠️ **Known limitation — the GenBank → GFF3 step is lossy** (roadmap item). It writes every feature as
+⚠️ **Known limitation: the GenBank → GFF3 step is lossy** (roadmap item). It writes every feature as
 one flat line: no gene → mRNA → CDS `Parent` links, no CDS phase, and the `/gene=` symbols are dropped
 (`ID=locus_tag`, `Name=product`). Consequences: snpEff invents one transcript per CDS
 (`WARNING_TRANSCRIPT_NOT_FOUND … Created transcript` throughout the build log); multi-exon CDS are
 collapsed to a single span (83 of 1,949 CDS on S288C; 3 of the 11 changed calls above sit on such genes, the
-other 8 are frame and feature-type artefacts of the flat conversion — tRNAs written like CDS-less genes,
+other 8 are frame and feature-type artefacts of the flat conversion: tRNAs written like CDS-less genes,
 no phase); and
 reports show systematic names (`YDL140C`) where the Ensembl cache shows gene symbols (`RPO21`). Tolerable
 for a nearly intronless yeast, wrong for an intron-rich genome. If your GenBank comes from an Ensembl or
 NCBI genome that also has a GFF3, prefer Path B.
 
-## Path B — from FASTA + GFF3 (Ensembl, NCBI, or your own annotation)
+## Path B: from FASTA + GFF3 (Ensembl, NCBI, or your own annotation)
 
 ```bash
 bash docs/prepare_input/build_snpeff_cache.sh <snpeff_db> <reference.fa> <annotation.gff3> [out_dir] [genome_description]
@@ -69,7 +69,7 @@ bash docs/prepare_input/build_snpeff_cache.sh <snpeff_db> <reference.fa> <annota
 bash docs/prepare_input/build_snpeff_cache.sh R64-1-1.105 S288C_R64.fa S288C_R64.gff3 ./ref Saccharomyces_cerevisiae
 ```
 
-Builds only the cache (you already have the FASTA and the GFF3 — pass the same GFF3 as `--report_gff3`).
+Builds only the cache (you already have the FASTA and the GFF3; pass the same GFF3 as `--report_gff3`).
 It checks the contig names, strips the Ensembl `gene:` / `transcript:` / `CDS:` ID prefixes and exon
 `Name=` / `exon_id=` attributes that break snpEff 5.1's gene models (a no-op on other GFF3s), builds with
 `-noCheckCds -noCheckProtein`, keeps snpEff's build log next to the cache, and prints the parameters.
@@ -78,7 +78,7 @@ Pick any `<snpeff_db>` name; the convention here is `<assembly>.<annotation rele
 **Verified 2026-09-08**: rebuilding `R64-1-1.105` from the published `S288C_R64.fa` + `S288C_R64.gff3` with
 the original description `Saccharomyces_cerevisiae` reproduces the project's cache **byte for byte** (all
 five files). The build is deterministic: same snpEff, FASTA, GFF3 and description give the same bytes, so a
-checksum is a valid way to confirm a cache. The optional last argument is that description — the free-text
+checksum is a valid way to confirm a cache. The optional last argument is that description, the free-text
 `<db>.genome : <description>` line of `snpEff.config`. It is stored inside both `.bin` files but does not
 affect annotation: built with the default description (the db name) the `.bin` files differ from the
 project's by exactly that one string, and the 100 contract-test variants annotate identically.

@@ -18,12 +18,12 @@ This occurs when:
 2. **`executor.memory`** is barely larger than **`process.memory`**, so only 1 task fits at a time
 3. The scheduler cannot resolve which waiting process to run next
 
-**Not affected**: HPC/cloud executors (SLURM, AWS Batch, Azure Batch, Seqera Platform) — these have independent resource pools and don't share a single memory budget.
+**Not affected**: HPC/cloud executors (SLURM, AWS Batch, Azure Batch, Seqera Platform). These have independent resource pools and don't share a single memory budget.
 
 ## Example (Tier 2 run, May 2026)
 
 ```groovy
-// DEADLOCKED — only 1 task fits (10 / 8 = 1)
+// DEADLOCKED: only 1 task fits (10 / 8 = 1)
 executor { memory = '10 GB' }
 process  { memory = '8 GB'  }
 ```
@@ -37,7 +37,7 @@ The pipeline sat idle for 4 days before being killed manually.
 Ensure `executor.memory / process.memory >= 2` so at least 2 tasks can run concurrently:
 
 ```groovy
-// FIXED — 3 tasks fit (14 / 4 = 3), breaks deadlock
+// FIXED: 3 tasks fit (14 / 4 = 3), breaks deadlock
 executor { memory = '14 GB' }
 process  { memory = '4 GB'  }
 
@@ -51,7 +51,7 @@ withName: 'GATK4_GENOMICSDBIMPORT|GATK4_GENOTYPEGVCFS' { memory = '12 GB' }
 
 1. Check if the pipeline is idle: `docker ps` shows no containers, `top` shows 0% CPU for the Nextflow Java process
 2. Check the log: `grep "No more task to compute" .nextflow.log`
-3. The log block lists which process nodes are `ACTIVE` with `port 0: (queue) OPEN` — these have tasks waiting but can't be scheduled
+3. The log block lists which process nodes are `ACTIVE` with `port 0: (queue) OPEN`. These have tasks waiting but can't be scheduled
 
 ## Key takeaway
 

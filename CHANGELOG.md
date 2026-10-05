@@ -259,7 +259,7 @@
   parameters are unchanged. `docs/usage/params_template.yml` regenerated (it carries the same
   descriptions). Text only. On 2026-10-05 the long dash was taken out of the four form texts that
   carried it (the line under `filter_quality`, the help texts of `tools`, `qc_only` and
-  `joint_manta`), each sentence
+  `joint_manta`), and out of the README, the docs index and the `docs/usage/` pages, each sentence
   reworded with a full stop, colon, comma or brackets. `qc_only`: "Requires step = mapping; breseq
   is not run." moved from the line under the field to the help text, which is now four paragraphs
   (what it is for, run 1, run 2, conditions) instead of one; the line under the field now reads

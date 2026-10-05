@@ -39,7 +39,7 @@ sudo sed -i '/\/swapfile/d' /etc/fstab
 
 ## Notes
 
-- This VM has a single 1 TB OS disk (`/dev/sda`, ext4) — no ephemeral/temp disk
+- This VM has a single 1 TB OS disk (`/dev/sda`, ext4), no ephemeral/temp disk
 - `fallocate` works on ext4; use `dd` instead on XFS or btrfs
 - For VMs with an ephemeral disk (`/mnt`), prefer swap there for lower latency
   (but data is wiped on deallocation)

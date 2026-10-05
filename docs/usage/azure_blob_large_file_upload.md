@@ -76,7 +76,7 @@ Compare `size` against `ls -l <local_file>` to confirm byte-exact match.
 
 ## Alternatives (not tested)
 
-- **SAS token auth**: Bypasses MSAL entirely — `azcopy` with a SAS URL would avoid the lock issue
+- **SAS token auth**: Bypasses MSAL entirely: `azcopy` with a SAS URL would avoid the lock issue
   and allow full parallel throughput.
 - **Managed identity**: May handle token caching differently, but untested for large uploads.
 - **Split + upload**: `split -b 20G file.tar.gz file.tar.gz.part_` then upload parts individually.
