@@ -1117,4 +1117,72 @@ Seqera's docs show both forms on separate pages and do not mention the mismatch.
 reads `az://<container>/…`. This applies to every path field (`input`, `outdir`, `fasta`,
 `snpeff_cache`, `report_gff3`). The launch form says so since 2026-10-02: a warning in the
 descriptions of the *Input/output options* and *Reference genome options* sections and under the
-`input` field (`conf/schema_overlay.yml`).
+`input` field (`conf/schema_overlay.yml`). The form cannot do more than warn: the one schema rule it
+checks is also the file browser's filter, so a rule against the account name disables the browser
+for every Azure file (§20).
+
+**At start-up (since 2026-10-04).** The five path parameters carry the rule where only parameter
+validation reads it: an `allOf` subschema with the pattern `^(?!az://[^/]*\.)` and an `errorMessage`
+(`conf/schema_overlay.yml` → `nextflow_schema.json`). A dot is not legal in an Azure container name,
+so no valid path is rejected. What the rule changes, *measured* in `-preview` start-ups under the
+service-principal credential on 2026-10-04, on the change that introduced it:
+
+| Account-prefixed value in | The run stops with |
+|---|---|
+| `fasta`, `snpeff_cache` | `* --fasta (az://aledata.aletest/…): "az://aledata.aletest/…" does not match regular expression [^(?!az://[^/]*\.)] (Azure paths read az://<container>/..., without the storage account name: remove '<account>.' from a path picked with the Browse button.)` |
+| `report_gff3` | the same message under `--report_gff3`; *measured* 2026-10-05, a `-preview` start-up of the same kind (the paired start-up with the valid path passed) |
+| `input` | the bare `Status code 400, InvalidResourceName`, as before. nf-schema's samplesheet check (`SchemaEvaluator`) asks Azure whether the file exists, and the exception leaves validation before any error is listed |
+| `outdir` | the bare 400, as before. The nf-prov plugin (`ProvHelper.checkFileOverwrite`) reads the output path when the session starts, before the pipeline script |
+
+Valid `az://<container>/…` paths pass (same runs), and so do the local paths of the `ottilie_test`
+profile and the `https://` paths of `ottilie_test_ci`. `s3://` and `gs://` paths are not touched:
+their bucket names may hold dots.
+
+## 20. What the launch form checks from the schema, and what it ignores (2026-10-04)
+
+**Why it was looked at.** §19: the aim was a field that turns red when the browser has inserted an
+account-prefixed Azure path. The form cannot do that. The attempt also showed how the form reads
+`nextflow_schema.json` in four other respects.
+
+**How it was tested.** A Launchpad entry pins its revision (§14), so a schema that is not on `main`
+is seen through a copy of the entry whose revision is a branch. The entry `yAMP` was copied in the
+UI, the copy was pointed at a preview branch, and three schema variants were pushed to that branch
+in turn. `GET /pipelines/<pipeline id>/schema?workspaceId=<workspace id>` returns the schema Platform
+serves for an entry, so each push was read back before the form was opened. That endpoint ignores a
+`revision` query parameter: it always answers for the entry's own revision. Everything in the middle
+column below was seen in the browser by the user; nothing was launched.
+
+| In the schema | What the form does | Evidence |
+|---|---|---|
+| `pattern` on a parameter | A typed value that fails it turns the field red, with a warning | *measured*: variant 1, the rule inside `pattern` |
+| the same `pattern`, in the file browser | The *Data Explorer* tab tests each file against it in its own notation, `az://<account>.<container>/…`, prints "The selected file must match the pattern specified in the pipeline schema" with the regex, and greys out *Select* on every file that fails | *measured*: variant 1, every file under `az://aledata.aletest` unselectable |
+| `allOf`, `anyOf`, `oneOf`, `not` on a parameter | Nothing: no red field. The field keeps its look and its Browse button | *measured*: variant 2 (`allOf` on five fields) and variant 3 (one keyword per field: `allOf`, `anyOf` and `oneOf` with a `type`, `anyOf` without one, `not`), an account-prefixed path in all five fields |
+| `errorMessage` | Not established for the form. At start-up nf-schema 2.2.1 appends it in parentheses to an error raised in the same (sub)schema | start-up *measured* (§19) |
+| Markdown in a section's `description` | Rendered: code spans show as code | *measured* |
+| Markdown in a parameter's `description`, the line under a field | Printed as typed: the backticks show | *measured*: 18 of the 32 visible fields had them |
+| a section's `help_text` | Printed under the section's description, always on screen | *measured*: *Input/output options* |
+
+Whether a red field also blocks the *Launch* button was not checked. Seqera's documentation says the
+form "blocks the launch if validation fails".
+
+**What follows.**
+
+- **A browsed Azure path cannot be flagged in the form.** The only rule the form checks is the
+  field's `pattern`, the browser uses the same `pattern` as its file filter, and both test the same
+  account-prefixed string. A rule that turns the field red therefore also disables *Select*.
+  Decision (user, 2026-10-04): no rule in the form, the browser stays usable, the warning texts
+  stay, and the rule sits in an `allOf` subschema for start-up (§19).
+- **`pattern` is the browser's file filter.** It is what makes `input` offer only `.csv` files.
+  `report_gff3` has a pattern since 2026-10-04 (`^\S+\.gff3?$`); its effect in the browser has not
+  been looked at yet.
+- **Keep Markdown out of the line under a field.** `strip_description_backticks` in
+  `conf/schema_overlay.yml` removes backticks from the description of every visible parameter. Help
+  texts were left alone: how the form shows them was not looked at.
+- **A section's `help_text` is not a tooltip.** Upstream's iGenomes paragraph was on screen in
+  *Reference genome options* for that reason. It moved to the help text of the hidden `genome`
+  parameter (`group_removals` in the overlay). The one line of *Input/output options* ("Specify
+  input samplesheet, step and output folder.") repeated the section description and was dropped with
+  the same key on 2026-10-05; no section with a visible field carries a `help_text` since.
+- **To look at a schema change before it is on `main`:** push it to a branch, copy the Launchpad
+  entry, set the copy's revision to the branch, read the schema back with the call above, open the
+  form. Delete the copy and the branch afterwards.

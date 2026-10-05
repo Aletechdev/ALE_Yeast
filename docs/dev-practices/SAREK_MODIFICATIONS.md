@@ -119,6 +119,16 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   [`docs/usage/params_template.yml`](../usage/params_template.yml) is generated from the result by
   [`bin/make_params_template.py`](../../bin/make_params_template.py) (also `--check`) — re-run it
   whenever the visible set or `conf/test/ottilie_common.config` changes.
+  **The overlay also carries validation rules since 2026-10-04**, so it changes start-up behaviour
+  and not only the form: (1) `report_gff3` gains `pattern: ^\S+\.gff3?$` with an `errorMessage`,
+  and `exists: true`; (2) the five visible path parameters (`input`, `outdir`, `fasta`,
+  `snpeff_cache`, `report_gff3`) gain one `allOf` subschema, `^(?!az://[^/]*\.)`, that fails an
+  account-prefixed Azure path. Upstream's own `pattern` on those fields is left untouched: the
+  launch form uses a field's `pattern` as its file browser's filter, which is why the Azure rule
+  sits in `allOf` ([`azure_batch_execution.md` §19–§20](azure_batch_execution.md#19-a-path-picked-in-platforms-file-browser-stops-the-run-at-start-up-2026-10-01)).
+  At a sarek upgrade: if upstream adds a `pattern`, `exists` or
+  `allOf` to one of these fields, the overlay's value replaces it key by key, so compare the two
+  before re-running the script.
 
 ### New params (nextflow.config / schema)
 
@@ -244,7 +254,7 @@ One row per file (`*.config` and `*.yml`, path relative to `conf/`), kept equal 
 | `azure_batch.config` | Azure Batch executor with a local head job (`-c`, deliberately not a profile). |
 | `disk_probe.config` | Opt-in diagnostic: logs each Batch node's disk usage at the start of every task. |
 | `seqera_azure.config` | Seqera Platform supplement to `base.config` for Azure Batch. |
-| `schema_overlay.yml` | The ALE overlay that `bin/apply_schema_overlay.py` applies to the upstream schema (groups, launch-form order). |
+| `schema_overlay.yml` | The ALE overlay that `bin/apply_schema_overlay.py` applies to the upstream schema (visible parameters, groups, launch-form order and texts; since 2026-10-04 also the file-name and Azure-path validation rules of the path parameters). |
 | `params_ottilie_test_blob.yml` | Params file for the blob-hosted test run with `azure_batch.config`. |
 
 The two legacy Seqera presets are gone — `params_seqera_test.yml`, the CEN.PK preset, removed

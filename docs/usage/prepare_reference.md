@@ -9,7 +9,7 @@ prerequisite for both. Everything here is what the Ottilie/S288C test data itsel
 |---|---|---|
 | `--fasta` | yes | Reference FASTA. `.fai`, `.dict` and the bwa-mem2 index are built in-run (seconds on yeast). |
 | `--snpeff_cache` + `--snpeff_db` | yes when `snpeff` is in `--tools` (the Tier-1 recipe) | A SnpEff database **directory**: `<snpeff_cache>/<snpeff_db>/snpEffectPredictor.bin` plus `sequence*.bin` and `snpEff.config`; `--snpeff_db` is that directory's name. There is **no default** — omitting it fails at launch with `Please specify --snpeff_cache …`. |
-| `--report_gff3` | optional | GFF3 for the gene track in the igv-reports dashboard. Without it the reports have no gene track. Its contig names must be the FASTA's — checked by the first task of every run ([`preflight_checks.md`](preflight_checks.md) → *Reference files*). |
+| `--report_gff3` | optional | GFF3 for the gene track in the igv-reports dashboard. Without it the reports have no gene track. An uncompressed file whose name ends in `.gff3` or `.gff`: another name, or a local path that does not exist, stops the run at parameter validation. Its contig names must be the FASTA's: checked by the first task of every run ([`preflight_checks.md`](preflight_checks.md) → *Reference files*). |
 | `--genbank` | Tier-2 only | breseq input (not part of the Tier-1 recipe). |
 | `--chr_dir` | Tier-2 only | Per-chromosome FASTAs for Control-FREEC. |
 

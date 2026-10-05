@@ -238,6 +238,26 @@
 
 ### Changed
 
+- **`--report_gff3` must be named `.gff3` or `.gff`** (2026-10-04). The parameter had no file-name
+  check, so a gzipped or otherwise unusable file was accepted at start-up and in the launch form. It
+  now carries the pattern `^\S+\.gff3?$` (`conf/schema_overlay.yml`): the gene track is read as plain
+  text by `PREPARE_GFF3` and by the reference preflight, so a `.gz` cannot work. A run given another
+  name stops at parameter validation with "The gene annotation must be an uncompressed GFF3 file
+  whose name ends in .gff3 or .gff"; the launch form's file browser offers only matching files
+  (expected from how it treats `input`, not yet seen for this field). It also carries `exists: true`:
+  a local or https path that is not there stops at validation, where it used to abort the DAG build
+  with the unrelated "sample-sheet only contains tumor-samples" message. nf-schema does not check
+  cloud paths.
+
+- **An account-prefixed Azure path is named at start-up** (2026-10-04). The five visible path
+  parameters carry an `allOf` subschema that fails `az://<account>.<container>/…`, the form the
+  launch form's Browse button inserts. An account-prefixed `fasta`, `snpeff_cache` or `report_gff3`
+  now stops at parameter validation with the parameter's name and "Azure paths read
+  az://<container>/..., without the storage account name"; `input` and `outdir` still stop with the
+  bare `Status code 400`, raised before validation reports. The launch form itself cannot flag the
+  path: it checks only a field's `pattern`, which is also its file browser's filter
+  (`docs/dev-practices/azure_batch_execution.md` §19 and §20).
+
 - **`VARIANTFILTRATION_FALLBACK` runs on the same GATK image as the other GATK steps** (2026-10-01;
   `modules/nf-core/gatk4/variantfiltration`). The module — a later nf-core version than the rest of
   the 3.5.1 tree — pinned the Wave community image `gatk4_gcnvkernel` (GATK 4.6.2.0, a 2 GB layer no
@@ -420,7 +440,9 @@
   InvalidResourceName`. Delete `<account>.` after picking a path. Upstream:
   [nextflow#4683](https://github.com/nextflow-io/nextflow/issues/4683), open. The launch form now warns
   about it in the *Input/output options* and *Reference genome options* section descriptions and under
-  `input` (`conf/schema_overlay.yml`). Detail: `docs/dev-practices/azure_batch_execution.md` §19.
+  `input` (`conf/schema_overlay.yml`). It cannot flag the path itself (§20); since 2026-10-04
+  start-up validation names it for the three reference parameters. Detail:
+  `docs/dev-practices/azure_batch_execution.md` §19.
 
 ## v1.0.0 — first production release (on nf-core/sarek 3.5.1)
 

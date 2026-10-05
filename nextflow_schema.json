@@ -25,7 +25,13 @@
                     "exists": true,
                     "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
-                    "pattern": "^\\S+\\.csv$"
+                    "pattern": "^\\S+\\.csv$",
+                    "allOf": [
+                        {
+                            "pattern": "^(?!az://[^/]*\\.)",
+                            "errorMessage": "Azure paths read az://<container>/..., without the storage account name: remove '<account>.' from a path picked with the Browse button."
+                        }
+                    ]
                 },
                 "input_restart": {
                     "type": "string",
@@ -58,7 +64,13 @@
                     "type": "string",
                     "format": "directory-path",
                     "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
-                    "fa_icon": "fas fa-folder-open"
+                    "fa_icon": "fas fa-folder-open",
+                    "allOf": [
+                        {
+                            "pattern": "^(?!az://[^/]*\\.)",
+                            "errorMessage": "Azure paths read az://<container>/..., without the storage account name: remove '<account>.' from a path picked with the Browse button."
+                        }
+                    ]
                 }
             }
         },
@@ -177,7 +189,13 @@
                     "pattern": "^\\S+\\.fn?a(sta)?(\\.gz)?$",
                     "description": "Path to FASTA genome file.",
                     "help_text": "This parameter is *mandatory* if `--genome` is not specified.\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
-                    "fa_icon": "fas fa-file"
+                    "fa_icon": "fas fa-file",
+                    "allOf": [
+                        {
+                            "pattern": "^(?!az://[^/]*\\.)",
+                            "errorMessage": "Azure paths read az://<container>/..., without the storage account name: remove '<account>.' from a path picked with the Browse button."
+                        }
+                    ]
                 },
                 "fasta_fai": {
                     "type": "string",
@@ -296,7 +314,13 @@
                     "format": "directory-path",
                     "fa_icon": "fas fa-cloud-download-alt",
                     "description": "Path to snpEff cache.",
-                    "help_text": "Path to snpEff cache which should contain the relevant genome and build directory in the path ${snpeff_species}.${snpeff_version}\n\nIf you use AWS iGenomes, this has already been set for you appropriately."
+                    "help_text": "Path to snpEff cache which should contain the relevant genome and build directory in the path ${snpeff_species}.${snpeff_version}\n\nIf you use AWS iGenomes, this has already been set for you appropriately.",
+                    "allOf": [
+                        {
+                            "pattern": "^(?!az://[^/]*\\.)",
+                            "errorMessage": "Azure paths read az://<container>/..., without the storage account name: remove '<account>.' from a path picked with the Browse button."
+                        }
+                    ]
                 },
                 "snpeff_db": {
                     "type": "string",
@@ -347,7 +371,16 @@
                     "format": "file-path",
                     "fa_icon": "fas fa-dna",
                     "description": "Gene-annotation GFF3 for the mutation-report gene track (used when --generate_reports).",
-                    "help_text": "Per-genome GFF3 providing the gene track shown in the igv-reports dashboards. Optional — if omitted, reports are still generated without the gene annotation track."
+                    "help_text": "Per-genome GFF3 providing the gene track shown in the igv-reports dashboards. An uncompressed file whose name ends in `.gff3` or `.gff`. Optional: if omitted, reports are still generated without the gene annotation track.",
+                    "exists": true,
+                    "pattern": "^\\S+\\.gff3?$",
+                    "errorMessage": "The gene annotation must be an uncompressed GFF3 file whose name ends in .gff3 or .gff.",
+                    "allOf": [
+                        {
+                            "pattern": "^(?!az://[^/]*\\.)",
+                            "errorMessage": "Azure paths read az://<container>/..., without the storage account name: remove '<account>.' from a path picked with the Browse button."
+                        }
+                    ]
                 },
                 "breseq_args": {
                     "type": "string",

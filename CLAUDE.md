@@ -161,8 +161,15 @@ file browser inserts Azure paths as `az://<account>.<container>/…`; Nextflow r
 only, so the run stops at start-up with a bare `Status code 400, InvalidResourceName` (run
 `5syUy3CSjd3kyO`, 2026-10-01). Delete `<account>.`. Not a setting of ours and not credential-dependent:
 nextflow#4683, open since 2024. The launch form carries the warning (two section descriptions and the
-`input` field, `conf/schema_overlay.yml`).
-[`azure_batch_execution.md` §19](docs/dev-practices/azure_batch_execution.md#19-a-path-picked-in-platforms-file-browser-stops-the-run-at-start-up-2026-10-01).
+`input` field, `conf/schema_overlay.yml`) **and cannot do more** (measured 2026-10-04): it checks
+only a field's own `pattern`, and its file browser greys out *Select* on every file that fails that
+same pattern, so a rule against the account name disables Browse for every Azure file; `allOf` /
+`anyOf` / `oneOf` / `not` on a parameter are ignored by the form. The rule therefore sits in an
+`allOf` subschema that only start-up validation reads: a readable error for `fasta`, `snpeff_cache`
+and `report_gff3`, while `input` and `outdir` still stop with the bare 400.
+[`azure_batch_execution.md` §19](docs/dev-practices/azure_batch_execution.md#19-a-path-picked-in-platforms-file-browser-stops-the-run-at-start-up-2026-10-01) ·
+what the form reads from the schema, and how to preview a schema change on a branch:
+[§20](docs/dev-practices/azure_batch_execution.md#20-what-the-launch-form-checks-from-the-schema-and-what-it-ignores-2026-10-04).
 
 ⚠️ **Seqera clones from GitHub over HTTPS only** — an SSH deploy key cannot be used for a pipeline
 repository, so a GitHub App or PAT credential is required. See

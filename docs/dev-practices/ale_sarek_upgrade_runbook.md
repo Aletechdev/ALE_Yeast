@@ -232,6 +232,9 @@ output changes: `SAREK_MODIFICATIONS.md` → `modules/nf-core/` PATCHED; `output
 
 > **Schema visibility is NOT patched** (since 2026-09): the launch-form hidden/visible state and the
 > ALE-owned help texts live in `conf/schema_overlay.yml`, applied by `bin/apply_schema_overlay.py`.
+> Since 2026-10-04 the overlay also sets validation keywords on the path parameters (`pattern` and
+> `exists` on `report_gff3`, an `allOf` Azure-path rule on five fields): check them against the new
+> upstream entries of those parameters, the overlay replaces a keyword it names.
 > After applying patches to a new upstream `nextflow_schema.json`, re-run
 > `python bin/apply_schema_overlay.py` (then `--check` in verification) — see
 > `SAREK_MODIFICATIONS.md` → root files → `nextflow_schema.json`.

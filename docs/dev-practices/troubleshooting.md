@@ -68,6 +68,13 @@ possibly-misleading validation message in the log, (3) the actual root cause.
   **Fixed (2026-08-04)** — `report_gff3` is now genuinely optional; reports build without the gene
   track. Verified end-to-end: 30 reports, `PREPARE_GFF3` skipped, cohort report carries a full
   variant table.
+- **A `--report_gff3` path that does not exist.** A local path with nothing behind it passed
+  parameter validation, `file(params.report_gff3, checkIfExists: true)` then threw while the DAG was
+  being built, and the abort surfaced as the same *"only contains tumor-samples"* message (seen in a
+  `-preview` start-up, 2026-10-04). **Caught earlier since 2026-10-04**: the schema entry carries
+  `exists: true`, so the run stops at parameter validation with `the file or directory '…' does not
+  exist`. nf-schema does not check cloud paths (`az://`, `s3://`, `gs://`), so a missing blob still
+  takes the old route.
 
 ### Making an optional file param actually optional
 
