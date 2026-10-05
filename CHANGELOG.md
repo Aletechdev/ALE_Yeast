@@ -238,6 +238,45 @@
 
 ### Changed
 
+- **Launch form: the iGenomes paragraph left the *Reference genome options* section** (2026-10-04).
+  Upstream's section help text ("The pipeline config files come bundled with paths to the Illumina
+  iGenomes reference index files. …") is now the last paragraph of the help text of the hidden
+  `genome` parameter, the one field it is about; the section shows its description and the four
+  custom-genome fields only. New overlay key `group_removals` (`conf/schema_overlay.yml`,
+  `bin/apply_schema_overlay.py`), the group-level twin of `property_removals`, so the move is
+  re-applied when the upstream schema is taken at a sarek upgrade. Schema text only; no parameter,
+  default or visibility change (32 visible / 120 hidden). The Azure file-browser warning in the
+  *Input/output options* and *Reference genome options* descriptions is now a paragraph of its own.
+  The same key drops upstream's help text of *Input/output options* ("Specify input samplesheet,
+  step and output folder."), which was printed under a description that already says it
+  (2026-10-05); no section with a visible field carries a help text now.
+
+- **Launch form: backticks removed from the line under each field** (2026-10-04). The form prints a
+  field's description as plain text (Markdown is rendered in section descriptions only), so code
+  spans showed their backticks on 18 of the 32 visible fields. New overlay switch
+  `strip_description_backticks` (`conf/schema_overlay.yml`, `bin/apply_schema_overlay.py`) removes
+  them from the description of every visible parameter; help texts, section descriptions and hidden
+  parameters are unchanged. `docs/usage/params_template.yml` regenerated (it carries the same
+  descriptions). Text only. On 2026-10-05 the long dash was taken out of the four form texts that
+  carried it (the line under `filter_quality`, the help texts of `tools`, `qc_only` and
+  `joint_manta`), each sentence
+  reworded with a full stop, colon, comma or brackets. `qc_only`: "Requires step = mapping; breseq
+  is not run." moved from the line under the field to the help text, which is now four paragraphs
+  (what it is for, run 1, run 2, conditions) instead of one; the line under the field now reads
+  "Stop before alignment and write a MultiQC report of the reads: fastp (trimming and filtering)
+  and FastQC before and after read preprocessing." `qc_only` is now the first
+  field of *Main options*, above `tools`, and its own section *QC-first run* is gone (the schema
+  group `qc_first_run` is removed; a QC-only run's parameter summary lists `qc_only` under *Main
+  options*). The
+  sections after it follow the run: *Read preprocessing*, *Alignment*, *Variant Calling*
+  (`group_order`; until now *Variant Calling* came before the read-level sections).
+  `docs/usage/params_template.yml` follows the form's order. *Read preprocessing* reads shorter:
+  the section text went from 86 to 44 words and the lines under its 17 fields from 400 to 251, as
+  "Step N · what it does. Default or empty meaning."; the fastp option names and the background a
+  line carried are in that field's help text (five help texts gained a sentence). The *Alignment*
+  section text went from 55 to 24 words; what `save_mapped` and `save_output_as_bam` do is now
+  said in the lines under those two fields.
+
 - **`--report_gff3` must be named `.gff3` or `.gff`** (2026-10-04). The parameter had no file-name
   check, so a gzipped or otherwise unusable file was accepted at start-up and in the launch form. It
   now carries the pattern `^\S+\.gff3?$` (`conf/schema_overlay.yml`): the gene track is read as plain

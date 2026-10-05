@@ -16,8 +16,8 @@ raw FASTQ ─┬─► FastQC (raw)                                             
 
 ## The two runs
 
-**Run 1** — your normal launch plus `--qc_only` (locally, in a params file, or the *QC-first run*
-box on the Seqera launch form):
+**Run 1** — your normal launch plus `--qc_only` (locally, in a params file, or the `qc_only`
+box on the Seqera launch form, the first field of *Main options*):
 
 ```bash
 nextflow -c conf/mymachine.config run main.nf -profile docker -params-file my_project.yml --qc_only
@@ -45,7 +45,7 @@ rather than the command line, the message says so — set it to `false` there.
 
 ### On Seqera Platform
 
-Run 1 from the Launchpad entry: in the launch form tick `qc_only` (group *QC-first run*) and give
+Run 1 from the Launchpad entry: in the launch form tick `qc_only` (the first field of *Main options*) and give
 `outdir` a folder you intend to keep — or from a shell, which records exactly what was sent:
 
 ```bash

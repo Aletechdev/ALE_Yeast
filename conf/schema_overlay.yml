@@ -24,10 +24,9 @@ visible:
   # Input/output
   - input
   - outdir
-  # Main options
-  - tools
-  # QC-first run (docs/usage/qc_first_run.md)
+  # Main options: the QC-first switch (docs/usage/qc_first_run.md) and the recipe
   - qc_only
+  - tools
   # Read preprocessing (docs/usage/read_preprocessing.md) - visible = the four fastp steps and
   # the trimmed-FASTQ publish flag. Hidden: step 0 UMI consensus (no ALE library has UMIs), the deprecated trim_fastq alias,
   # save_split_fastqs.
@@ -66,19 +65,20 @@ visible:
   - snpeff_db
   - report_gff3
 
-# Launch-form section order (2026-09-10, user review): every dataset-shaped field first (input,
-# output, reference, cache), then the recipe (`tools`) and its switches (Variant calling), then the
-# read-level groups (Read preprocessing, Alignment) that most launches leave at their defaults.
+# Launch-form section order (user review, 2026-10-05): every dataset-shaped field first (input,
+# output, reference, cache), then Main options (what the run does: `qc_only`, `tools`), then the
+# stages in the order the run goes through them: Read preprocessing, Alignment, Variant calling.
+# Until 2026-10-05 Variant calling came right after Main options (2026-09-10 review: the groups
+# most launches leave at their defaults last), and `qc_only` had a group of its own, QC-first run.
 # Groups not listed keep their original relative order after the listed ones (new upstream
 # groups land last).
 group_order:
   - input_output_options
   - reference_genome_options
   - main_options
-  - qc_first_run
-  - variant_calling
   - fastq_preprocessing
   - preprocessing
+  - variant_calling
   - annotation
   - general_reference_genome_options
   - institutional_config_options
@@ -90,21 +90,53 @@ group_overrides:
   # its own `az://<account>.<container>/` notation, which Nextflow reads as a container name and
   # Azure rejects (run 5syUy3CSjd3kyO, 2026-10-01: `Status code 400, InvalidResourceName` before any
   # task; nextflow-io/nextflow#4683, open since 2024). Same sentence in both, and on `input` below.
+  # The warning is its own paragraph (blank line before it; section descriptions render Markdown).
   input_output_options:
-    description: "Where the run reads its samplesheet and writes its results. ⚠️ Azure: the Browse button inserts `az://<account>.<container>/…`. Delete `<account>.` or the run fails at start-up."
+    description: "Where the run reads its samplesheet and writes its results.\n\n⚠️ Azure: the Browse button inserts `az://<account>.<container>/…`. Delete `<account>.` or the run fails at start-up."
   reference_genome_options:
-    description: "Reference genome files of the run. ⚠️ Azure: the Browse button inserts `az://<account>.<container>/…`. Delete `<account>.` or the run fails at start-up."
+    description: "Reference genome files of the run.\n\n⚠️ Azure: the Browse button inserts `az://<account>.<container>/…`. Delete `<account>.` or the run fails at start-up."
   # Upstream calls this group "Preprocessing" — next to "Read preprocessing" that reads as a
   # duplicate. Its visible fields are all alignment-output choices (2026-09-09).
   preprocessing:
     title: "Alignment"
-    description: "bwa-mem alignment of the (preprocessed) reads and duplicate marking, and what to publish of it: save_mapped keeps the aligned CRAM before duplicate marking; save_output_as_bam publishes BAM instead of CRAM. Base quality recalibration is always skipped on custom genomes (no known-sites VCFs; skip_tools = baserecalibrator in every ALE profile)."
+    # Slimmed 2026-10-05 (55 words to 24, user review): what the two publish switches do moved to
+    # the lines under them (property_overrides: save_mapped, save_output_as_bam).
+    description: "Alignment of the reads and duplicate marking, and which alignment files to publish. Base quality recalibration is skipped: custom genomes have no known-sites VCFs."
   fastq_preprocessing:
     title: "Read preprocessing"
-    description: "Optional steps between the samplesheet and alignment, in run order: step 0 UMI consensus (fgbio, only with umi_read_structure) → fastp: step 1 adapter trimming · step 2 fixed-count clipping · step 3 quality trimming per read end · step 4 read filtering. ALE default: step 1 adapter trimming + step 3 tail quality trimming (+ step 4 read filter). For reads exactly as sequenced set trim_adapter = false and trim_quality_3prime unset; fastp then runs only if step 2 is set or split_fastq > 0. Details: docs/usage/read_preprocessing.md\n\n![One read through the preprocessing steps in run order; ALE default path in colour, optional steps in grey](https://raw.githubusercontent.com/Aletechdev/ALE_Yeast/main/docs/dev-practices/figures/fastq_trimming/read_preprocessing_steps.svg)"
+    # Slimmed 2026-10-05 (86 words to 43): the step list is what the field lines and the figure
+    # already say, step 0 (UMI) and split_fastq have no visible field, and the repo path is of no
+    # use to someone in the form. The full account is docs/usage/read_preprocessing.md.
+    description: "Optional steps before alignment, run by fastp in the order of the step numbers below.\n\nDefault: adapter trimming (step 1), 3' tail quality trimming (step 3) and the read filter (step 4). For reads exactly as sequenced, set `trim_adapter` to false and clear `trim_quality_3prime`.\n\n![One read through the preprocessing steps in run order; ALE default path in colour, optional steps in grey](https://raw.githubusercontent.com/Aletechdev/ALE_Yeast/main/docs/dev-practices/figures/fastq_trimming/read_preprocessing_steps.svg)"
+
+# The launch form prints the line under a field as plain text: Markdown is rendered in section
+# descriptions but not there, so a code span showed its backticks (seen in the form, 2026-10-04).
+# With this switch the script removes backticks from the `description` of every VISIBLE parameter,
+# whether the text comes from this overlay, from the fork's own schema entries or from upstream.
+# Help texts, section descriptions and hidden parameters are left as they are.
+strip_description_backticks: true
+
+# Keys DELETED from a group's entry (applied after group_overrides).
+# reference_genome_options: upstream's section help_text is the iGenomes paragraph ("The pipeline
+# config files come bundled with paths to the Illumina iGenomes reference index files. ..."). The
+# section's visible fields are the custom-genome files (fasta, snpeff_cache, snpeff_db, report_gff3),
+# so the paragraph moved to the help text of the hidden `genome` parameter, the one field it is
+# about (property_overrides below; user review, 2026-10-04).
+# input_output_options: upstream's section help_text, "Specify input samplesheet, step and output
+# folder.", was printed under the section description, which already says it; `step` is hidden.
+# Nothing to move, the text is dropped (2026-10-05).
+group_removals:
+  reference_genome_options:
+    - help_text
+  input_output_options:
+    - help_text
 
 # Parameter order inside a group (listed first, in this order; the rest follow in upstream order).
 property_order:
+  # `qc_only` is a fork parameter placed in upstream's group: first, above `tools` (2026-10-05).
+  main_options:
+    - qc_only
+    - tools
   fastq_preprocessing:
     # step 0 - UMI consensus (hidden)
     - umi_read_structure
@@ -150,7 +182,7 @@ property_order:
 property_overrides:
   # Upstream text plus the Azure file-browser note (see group_overrides).
   input:
-    description: "Path to comma-separated file containing information about the samples in the experiment. On Azure: `az://<container>/…`, without the account name."
+    description: "Path to comma-separated file containing information about the samples in the experiment. On Azure: az://<container>/…, without the account name."
     help_text: "A design file with information about the samples in your experiment. Use this parameter to specify the location of the input files. It has to be a comma-separated file with a header row. See [usage docs](https://nf-co.re/sarek/usage#input).\n\nIf no input file is specified, sarek will attempt to locate one in the `{outdir}` directory. If no input should be supplied, i.e. when --step is supplied or --build_only_index, then set --input false\n\nAzure: a path picked with Seqera Platform's file browser reads `az://<account>.<container>/…`. Nextflow takes `<account>.<container>` as the container name and the run stops at start-up with `Status code 400, InvalidResourceName` ([nextflow#4683](https://github.com/nextflow-io/nextflow/issues/4683)). Remove `<account>.`; this applies to every path field."
     allOf: &az_path_rule
       - pattern: "^(?!az://[^/]*\\.)"
@@ -174,32 +206,45 @@ property_overrides:
     errorMessage: "The gene annotation must be an uncompressed GFF3 file whose name ends in .gff3 or .gff."
     help_text: "Per-genome GFF3 providing the gene track shown in the igv-reports dashboards. An uncompressed file whose name ends in `.gff3` or `.gff`. Optional: if omitted, reports are still generated without the gene annotation track."
     allOf: *az_path_rule
+  # Upstream text plus the iGenomes paragraph that was the section's help_text (see group_removals).
+  genome:
+    help_text: "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`.\n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details.\n\nThe pipeline config files come bundled with paths to the Illumina iGenomes reference index files. The configuration is set up to use the AWS-iGenomes resource cf https://ewels.github.io/AWS-iGenomes/."
+  # Alignment (2026-10-05): the section text used to explain these two switches. Upstream's lines
+  # are "Save mapped files." and "Saves output from mapping (if --save_mapped), Markduplicates &
+  # Baserecalibration as BAM file instead of CRAM".
+  save_mapped:
+    description: "Also publish the aligned CRAM from before duplicate marking."
+  save_output_as_bam:
+    description: "Publish the alignment files as BAM instead of CRAM."
+  # Lines under the read-preprocessing fields (2026-10-05, user review): short, "Step N · what it
+  # does. Default or empty meaning." The fastp option names and the background live in the help
+  # texts only (each option a line used to name is in that field's help text).
   trim_fastq:
     description: "Deprecated alias of `trim_adapter` (upstream sarek name) - same behaviour, warns at startup."
     help_text: "Kept so upstream-shaped params files keep working. Use `--trim_adapter`."
   trim_nextseq:
-    description: "Step 1 · Adapter trimming: force poly-G tail trimming (fastp `--trim_poly_g`); any non-zero value enables it. At 0 fastp decides from the read names, as in upstream sarek."
-    help_text: "Poly-G tails come from two-colour chemistry (NextSeq/NovaSeq), where no signal reads as G. At 0 nothing is passed and fastp applies its own rule: poly-G trimming switches on automatically when the first read name carries a NextSeq/NovaSeq instrument prefix (e.g. `@A00123:...`) and stays off otherwise - so data renamed by SRA (`@SRR...`) is never poly-G-trimmed unless you set this. Any non-zero value forces it on for every dataset. The value itself is not passed to fastp (this is not Trim Galore's `--nextseq=X` quality cutoff); use `trim_quality_3prime` for quality trimming.\n\nfastp: non-zero = `--trim_poly_g` / `-g`; 0 = nothing passed (fastp's read-name auto-detection; `--disable_trim_poly_g` / `-G` is not exposed)."
+    description: "Step 1 · Poly-G tails: any non-zero value forces trimming. At 0 fastp decides from the read names."
+    help_text: "Poly-G tails come from two-colour chemistry (NextSeq/NovaSeq), where no signal reads as G. At 0 nothing is passed and fastp applies its own rule, as in upstream sarek: poly-G trimming switches on automatically when the first read name carries a NextSeq/NovaSeq instrument prefix (e.g. `@A00123:...`) and stays off otherwise - so data renamed by SRA (`@SRR...`) is never poly-G-trimmed unless you set this. Any non-zero value forces it on for every dataset. The value itself is not passed to fastp (this is not Trim Galore's `--nextseq=X` quality cutoff); use `trim_quality_3prime` for quality trimming.\n\nfastp: non-zero = `--trim_poly_g` / `-g`; 0 = nothing passed (fastp's read-name auto-detection; `--disable_trim_poly_g` / `-G` is not exposed)."
   clip_r1:
-    description: "Step 2 · Fixed-count clipping: remove this many bp from the 5' end of read 1 regardless of quality (fastp `--trim_front1`). For a known bad cycle; applied before step 3."
-    help_text: "fastp: `--trim_front1` / `-f`."
+    description: "Step 2 · Clip this many bases from the 5' end of read 1, whatever their quality."
+    help_text: "Removes a fixed number of bases, for a known bad cycle. Applied before step 3's quality trimming.\n\nfastp: `--trim_front1` / `-f`."
 
   clip_r2:
-    description: "Step 2 · Fixed-count clipping: remove this many bp from the 5' end of read 2 regardless of quality (fastp `--trim_front2`)."
+    description: "Step 2 · Clip this many bases from the 5' end of read 2, whatever their quality."
     help_text: "fastp: `--trim_front2` / `-F`."
 
   three_prime_clip_r1:
-    description: "Step 2 · Fixed-count clipping: remove this many bp from the 3' end of read 1 regardless of quality (fastp `--trim_tail1`); applied before step 3's quality cut."
-    help_text: "fastp: `--trim_tail1` / `-t`."
+    description: "Step 2 · Clip this many bases from the 3' end of read 1, whatever their quality."
+    help_text: "Applied before step 3's quality trimming.\n\nfastp: `--trim_tail1` / `-t`."
 
   three_prime_clip_r2:
-    description: "Step 2 · Fixed-count clipping: remove this many bp from the 3' end of read 2 regardless of quality (fastp `--trim_tail2`)."
+    description: "Step 2 · Clip this many bases from the 3' end of read 2, whatever their quality."
     help_text: "fastp: `--trim_tail2` / `-T`."
 
   filter_quality:
-    description: "Step 4 · Read filtering: discard read pairs with too many low-quality bases (fastp's read-level filter; thresholds below). Counted base by base against filter_quality_phred — the read's mean quality is never used; that is step 3's window. On by default whenever fastp runs, as in upstream sarek."
+    description: "Step 4 · Read filter: discard read pairs with too many low-quality bases (thresholds below). On whenever fastp runs."
   length_required:
-    description: "Step 4 · Read filtering: discard reads shorter than this after trimming (fastp `--length_required`)."
+    description: "Step 4 · Discard reads shorter than this after trimming."
     help_text: "fastp's default is 15 bp. A pair is discarded when either mate is too short. Always applied when fastp runs, independent of `filter_quality`.\n\nfastp: `--length_required` / `-l`; the length filter itself can only be disabled by fastp's `-L`, which is not exposed."
   save_trimmed:
     description: "Outputs: publish the trimmed FASTQ files (preprocessing/fastp/<sample>/)."
@@ -212,12 +257,12 @@ property_overrides:
   split_fastq:
     help_text: "Uses fastp to split FASTQ files by number of reads, parallelising alignment across the shards. Note that a non-zero value runs fastp even with every trimming step off, and fastp's read-level quality filter then still applies (as in upstream sarek) unless `--filter_quality false`; adapter trimming stays off and poly-G trimming follows fastp's read-name auto-detection (NextSeq/NovaSeq names), as in upstream. Although the minimum value is 250 reads, if you have fewer than 250 reads a single FASTQ shard will still be created. Every ALE profile sets 0.\n\nfastp: `--split_by_lines` / `-S` with 4 x this value."
   tools:
-    description: "Comma-separated list of tools to run. Tier-1 ALE recipe: `snpeff,cnvkit,tiddit,manta,haplotypecaller`."
-    help_text: "Multiple tools separated with commas. All calling is **germline** — every sample carries `status = 0` in the samplesheet (see `docs/usage/input_samplesheet.md`); sarek's tumor-only and paired somatic modes are unused.\n\n**Tier-1 (release-validated for ALE):**\n\n- SNVs/Indels: `haplotypecaller` — GATK HaplotypeCaller, joint cohort calling per `experiment` (`--joint_germline`)\n- Copy-number: `cnvkit`\n- Structural variants: `manta`, `tiddit` — cohort-merged via SVDB\n- Annotation: `snpeff` (custom cache)\n\nOther sarek callers (`mutect2`, `freebayes`, `controlfreec`, ...) remain runnable but are Tier-2: functional, not release-validated for ALE."
+    description: "Comma-separated list of tools to run. Tier-1 ALE recipe: snpeff,cnvkit,tiddit,manta,haplotypecaller."
+    help_text: "Multiple tools separated with commas. All calling is **germline**: every sample carries `status = 0` in the samplesheet (see `docs/usage/input_samplesheet.md`); sarek's tumor-only and paired somatic modes are unused.\n\n**Tier-1 (release-validated for ALE):**\n\n- SNVs/Indels: `haplotypecaller` (GATK HaplotypeCaller, joint cohort calling per `experiment` with `--joint_germline`)\n- Copy-number: `cnvkit`\n- Structural variants: `manta`, `tiddit` (cohort-merged via SVDB)\n- Annotation: `snpeff` (custom cache)\n\nOther sarek callers (`mutect2`, `freebayes`, `controlfreec`, ...) remain runnable but are Tier-2: functional, not release-validated for ALE."
   joint_manta:
     default: true
     description: "One multi-sample Manta germline run per experiment, every sample of the experiment genotyped at each candidate SV."
-    help_text: "Evidence-backed presence/absence in the cohort SV matrix: an event with weak evidence in one sample is reported as a genotype (with PR/SR read support and a per-sample FT) instead of being absent from that sample's VCF. Outputs publish under `variant_calling/manta/<experiment>/` and are split back to per-sample VCFs.\n\nJoint SV calling is a single task per experiment whose cost grows with each added sample; intended for small cohorts (validated at 4 samples). For large samplesheets leave this off — per-sample Manta feeds the same cohort SV merge, only without explicit `0/0` genotypes at other samples' candidates.\n\nNote: samplesheets with multiple experiments are untested in joint mode; planned development will move joint calling to all samples (matching joint HaplotypeCaller's cohort-wide behavior)."
+    help_text: "Evidence-backed presence/absence in the cohort SV matrix: an event with weak evidence in one sample is reported as a genotype (with PR/SR read support and a per-sample FT) instead of being absent from that sample's VCF. Outputs publish under `variant_calling/manta/<experiment>/` and are split back to per-sample VCFs.\n\nJoint SV calling is a single task per experiment whose cost grows with each added sample; intended for small cohorts (validated at 4 samples). For large samplesheets leave this off: per-sample Manta feeds the same cohort SV merge, only without explicit `0/0` genotypes at other samples' candidates.\n\nNote: samplesheets with multiple experiments are untested in joint mode; planned development will move joint calling to all samples (matching joint HaplotypeCaller's cohort-wide behavior)."
   multiqc_title:
     description: "Prefix of the three MultiQC report titles (default 'yAMP': 'yAMP read-QC', 'yAMP alignment-QC', 'yAMP complete-QC')."
     help_text: "The pipeline writes three MultiQC reports to `multiqc/`: read-QC and alignment-QC while the run continues, complete-QC at the end. The early two take their file names from the title (`<prefix>-read-QC_multiqc_report.html`, `<prefix>-alignment-QC_multiqc_report.html`); the complete report always keeps the plain `multiqc_report.html` / `multiqc_data/`, which the mutation-report index links to."

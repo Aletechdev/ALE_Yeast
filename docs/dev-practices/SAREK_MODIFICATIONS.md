@@ -118,7 +118,8 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   schema wholesale, re-run the script, review the diff. The user-facing
   [`docs/usage/params_template.yml`](../usage/params_template.yml) is generated from the result by
   [`bin/make_params_template.py`](../../bin/make_params_template.py) (also `--check`) — re-run it
-  whenever the visible set or `conf/test/ottilie_common.config` changes.
+  whenever the visible set, a visible parameter's description or `conf/test/ottilie_common.config`
+  changes.
   **The overlay also carries validation rules since 2026-10-04**, so it changes start-up behaviour
   and not only the form: (1) `report_gff3` gains `pattern: ^\S+\.gff3?$` with an `errorMessage`,
   and `exists: true`; (2) the five visible path parameters (`input`, `outdir`, `fasta`,
@@ -126,13 +127,16 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   account-prefixed Azure path. Upstream's own `pattern` on those fields is left untouched: the
   launch form uses a field's `pattern` as its file browser's filter, which is why the Azure rule
   sits in `allOf` ([`azure_batch_execution.md` §19–§20](azure_batch_execution.md#19-a-path-picked-in-platforms-file-browser-stops-the-run-at-start-up-2026-10-01)).
-  At a sarek upgrade: if upstream adds a `pattern`, `exists` or
+  Two overlay keys were added with them: `group_removals` (keys deleted from a section's entry;
+  drops upstream's section `help_text` of *Reference genome options* and *Input/output options*,
+  which the form prints on screen) and `strip_description_backticks` (the form prints the line
+  under a field as plain text). At a sarek upgrade: if upstream adds a `pattern`, `exists` or
   `allOf` to one of these fields, the overlay's value replaces it key by key, so compare the two
   before re-running the script.
 
 ### New params (nextflow.config / schema)
 
-`qc_only` (2026-09-24; own schema group `qc_first_run`, fork-owned), `joint_manta` (upstream-shaped, PR candidate), `manta_high_sensitivity`, `generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
+`qc_only` (2026-09-24; first field of upstream's `main_options` group since 2026-10-05, until then in a fork-owned group `qc_first_run`), `joint_manta` (upstream-shaped, PR candidate), `manta_high_sensitivity`, `generate_reports`, `split_haplotypecaller_joint_vcf`, `hard_filter_haplotypecaller_joint`,
 `report_gff3`, `report_filter_config`, `report_cohort_template`, `report_sample_template`,
 `report_index_script`, `report_templates_dir`, `report_outdir`, `report_multiqc_path`,
 `seqera_workspace_url` (2026-10-01; hidden, schema group `generic_options` — the report index's link to its Seqera run);

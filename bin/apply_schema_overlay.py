@@ -12,7 +12,11 @@ Policy implemented here:
   * property_removals — per parameter, keys DELETED from its entry (e.g. an upstream `default` the
     fork must not carry; applied after property_overrides).
   * group_overrides — title/description merged into the named group.
+  * group_removals — per group, keys DELETED from its entry (e.g. an upstream section `help_text`
+    that belongs on one parameter; applied after group_overrides).
   * property_order — per group, listed parameters first in that order; the rest keep their order.
+  * strip_description_backticks — backticks removed from the description of every visible
+    parameter (the launch form prints that line as plain text; applied after property_overrides).
   * a listed name missing from the schema warns (renamed/removed upstream) but does not fail.
 """
 
@@ -34,6 +38,7 @@ def apply_overlay(schema: dict, overlay: dict) -> tuple[dict, list[str]]:
     visible = set(overlay.get("visible") or [])
     overrides = overlay.get("property_overrides") or {}
     removals = overlay.get("property_removals") or {}
+    strip_backticks = bool(overlay.get("strip_description_backticks"))
 
     seen = set()
     for group in groups.values():
@@ -47,6 +52,8 @@ def apply_overlay(schema: dict, overlay: dict) -> tuple[dict, list[str]]:
                 prop.update(overrides[name])
             for key in removals.get(name) or []:
                 prop.pop(key, None)
+            if strip_backticks and name in visible and isinstance(prop.get("description"), str):
+                prop["description"] = prop["description"].replace("`", "")
 
     for name in sorted(visible - seen):
         warnings.append(f"visible-list parameter not in schema (renamed/removed upstream?): {name}")
@@ -61,6 +68,14 @@ def apply_overlay(schema: dict, overlay: dict) -> tuple[dict, list[str]]:
             groups[gname].update(over)
         else:
             warnings.append(f"group_overrides group not in schema: {gname}")
+
+    # group_removals: keys deleted from a group's entry (the group-level twin of property_removals).
+    for gname, keys in (overlay.get("group_removals") or {}).items():
+        if gname not in groups:
+            warnings.append(f"group_removals group not in schema: {gname}")
+            continue
+        for key in keys or []:
+            groups[gname].pop(key, None)
 
     # property_order: per group, listed parameters first in that order; unlisted ones keep their
     # original relative order after them (a parameter new in an upgrade lands at the end).

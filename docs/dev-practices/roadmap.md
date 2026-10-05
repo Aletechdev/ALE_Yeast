@@ -625,9 +625,11 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
   instead of hard-blocking it.
 - **[open — USER CHECK, minutes] Eyeball the launch form after the 2026-09-09/10 schema changes.**
   No re-registration needed: the form reads `nextflow_schema.json` from `main` (pushed through
-  `fd722ca`). Open the Launchpad entry `yAMP-ottilie-test-az` (id `166797736834160`) and confirm:
+  `fd722ca`). Open the Launchpad entry `yAMP-ottilie-test-az` (id `166797736834160`; named `yAMP` since 2026-10) and confirm:
   (a) section order is Input/output → Reference genome → Main options → Variant calling → Read
-  preprocessing → Alignment (`group_order` in `conf/schema_overlay.yml`); (b) the read-preprocessing
+  preprocessing → Alignment (`group_order` in `conf/schema_overlay.yml`; since 2026-10-05 the order is
+  Input/output → Reference genome → Main options (`qc_only`, `tools`) → Read preprocessing →
+  Alignment → Variant calling); (b) the read-preprocessing
   figure renders in the "Read preprocessing" group description and in the `trim_adapter` /
   `trim_quality_3prime` tooltips — if the group-description image does not render, drop that link
   from `group_overrides` (keep the tooltip links and the user-page figures); (c) `filter_quality`'s
