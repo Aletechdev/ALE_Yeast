@@ -50,7 +50,7 @@ the RUNBOOK's dated entries reference these names, so this table is the index, n
 
 | Status | Scripts |
 |---|---|
-| **Live tools** — run these today | `12_verify_compute_env.sh` (assert a CE before launching) · `13_create_compute_env.sh` (create/delete CEs from the template) · `14_register_pipeline.sh` (register the Launchpad entry + regenerate its params box) · `11_check_cost.sh` · `10_store_secret.sh` · `03_create_secret.sh` (any rotation — parameterized for other SPs too) · `06_seqera_readback.sh` |
+| **Live tools** — run these today | `12_verify_compute_env.sh` (assert a CE before launching) · `13_create_compute_env.sh` (create/delete CEs from the template) · `14_register_pipeline.sh` (register the Launchpad entry, regenerate its params box, or put the box into the existing entry in place with `--update`) · `11_check_cost.sh` · `10_store_secret.sh` · `03_create_secret.sh` (any rotation — parameterized for other SPs too) · `06_seqera_readback.sh` |
 | **One-shot, executed** — kept for audit + re-provisioning | `01_preflight.sh` · `02_grant_roles.sh` · `05_verify_sp_access.sh` (2026-07-31) · `08_upload_test_data.sh` · `09_test_az_dir_param.sh` (2026-07-31; 09's finding is recorded in the RUNBOOK) |
 | **Teardown** — only when retiring the whole setup | `04_revoke_roles.sh` |
 

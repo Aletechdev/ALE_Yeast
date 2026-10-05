@@ -3,6 +3,7 @@
 #
 #   ./14_register_pipeline.sh              # register, then read back and verify
 #   ./14_register_pipeline.sh --generate   # regenerate the params box from the profile
+#   ./14_register_pipeline.sh --update     # put the committed box into the EXISTING entry, in place
 #   DRY_RUN=1 ./14_register_pipeline.sh    # print what would happen, touch nothing
 #
 # 🚨 WHY THE PARAMS BOX REPEATS THE PROFILE.
@@ -20,9 +21,9 @@
 #
 # ⚠️ CONSEQUENCE, accepted deliberately: `-params-file` beats config, so a Launchpad run is
 #    now driven by this box, not by the profile. Changing a param means editing the profile,
-#    re-running `--generate`, committing, and re-registering — which mints a NEW pipeline id
-#    every time, because `tw pipelines update` is broken. The profile remains the single
-#    source of truth and is what local runs and nf-test actually use.
+#    re-running `--generate`, committing, and applying it with `--update` (in place, since
+#    2026-10-05; until then every change was a re-registration with a NEW pipeline id). The
+#    profile remains the single source of truth and is what local runs and nf-test actually use.
 #
 # 🚨 WHY THIS IS A SCRIPT AND NOT A UI CLICK-THROUGH.
 #
@@ -33,12 +34,18 @@
 # launchpad_params_ottilie_test_az.yml and applying them from here makes that copy
 # reproducible and reviewable, instead of living only in a browser field.
 #
-# ⚠️ EVERY RUN REPLACES THE ENTRY. No route updates one in place: `tw pipelines update`
-#    returns HTTP 500 on 0.38.0, `PUT /pipelines/{id}` returns 400 both with `name` supplied
-#    and with the full launch object round-tripped from GET, `versions manage` only renames,
-#    and `import --overwrite` reports "New pipeline added" with a changed id (all tested
-#    2026-08-12). So a NEW pipeline id is minted each time. Nothing in this repo depends on
-#    the id — only RUNBOOK.md records it — but a bookmarked Launchpad URL will break.
+# ⚠️ A RUN WITHOUT A FLAG REPLACES THE ENTRY and mints a NEW pipeline id: `tw pipelines update`
+#    returns HTTP 500 on 0.38.0, `versions manage` only renames, and `import --overwrite`
+#    reports "New pipeline added" with a changed id (all tested 2026-08-12). Nothing in this
+#    repo depends on the id (only RUNBOOK.md records it), but a bookmarked Launchpad URL breaks.
+#
+#    `--update` (2026-10-05) changes the params box and keeps the id. `PUT /pipelines/{id}`
+#    returns 200 when `launch` carries `computeEnvId` and the other launch fields as GET gives
+#    them. Measured on the entry `yAMP_copy`: same pipeline id, revision, profiles, compute
+#    environment and engine pin; Platform stores the change as a new default VERSION of the
+#    entry (`<version name>-1`) with a new version hash. The 2026-08-12 attempts got HTTP 400
+#    sending the GET object back as it was, which holds a `computeEnv` object and no
+#    `computeEnvId` (the likely reason; the 400 was not reproduced).
 #
 # WHAT LIVES WHERE, and why it is split:
 #
@@ -57,7 +64,8 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-NAME="${PIPELINE_NAME:-yAMP-ottilie-test-az}"
+# The entry was renamed from `yAMP-ottilie-test-az` to `yAMP` in the UI (default follows since 2026-10-05).
+NAME="${PIPELINE_NAME:-yAMP}"
 WORKSPACE="${SEQERA_WORKSPACE:-DTU-Biosustain/RECON-ALE}"
 REPO="${PIPELINE_REPO:-https://github.com/Aletechdev/ALE_Yeast}"
 REVISION="${PIPELINE_REVISION:-main}"
@@ -87,7 +95,9 @@ fi
 #                       of it into the box would publish every future run to one stale second.
 #   genomes             an empty-list artifact of igenomes_ignore, not a real input.
 #   config_profile_*    nf-core display strings, not run parameters.
-EXCLUDE="outdir genomes config_profile_name config_profile_description"
+#   qc_only             set below by ENTRY_QC_ONLY: like outdir, a value of the ENTRY and not of the
+#                       profile, which stays a complete run for local runs and nf-test.
+EXCLUDE="outdir qc_only genomes config_profile_name config_profile_description"
 
 # A deliberately DISPOSABLE default, so the launch form's outdir field is populated (the whole
 # point of generating this box) without ever looking like a destination worth keeping. Runs that
@@ -96,10 +106,22 @@ EXCLUDE="outdir genomes config_profile_name config_profile_description"
 # ⚠️ Change it in the launch form for anything you intend to compare, publish or cite.
 DEFAULT_OUTDIR="${DEFAULT_OUTDIR:-az://aletest/seqera-runs/yAMP-out-test-DUMP}"
 
+# QC-first by default (user decision, 2026-10-05). The box carries `qc_only: true`, so the launch
+# form opens with `qc_only` ticked (first field of *Main options*) and a launch from this entry stops after read QC
+# unless it is unticked. This is a default of the ENTRY only: nextflow.config, the schema and every
+# profile keep `qc_only = false`, so command-line runs, nf-test and the pipeline's own default stay
+# a complete run. The form takes the box's value over the schema default (read back from
+# GET /pipelines/<id>/schema, whose `params` held `qc_only: false` while the box had no such key).
+# Run 2 is Platform's Resume with the box unticked (docs/usage/qc_first_run.md).
+# ENTRY_QC_ONLY=false registers an entry whose form opens unticked (the key is then left out).
+ENTRY_QC_ONLY="${ENTRY_QC_ONLY:-true}"
+[[ "$ENTRY_QC_ONLY" == true || "$ENTRY_QC_ONLY" == false ]] || { echo "ENTRY_QC_ONLY must be true or false" >&2; exit 2; }
+
 generate_box() {
-    python - "$PROFILES" "$EXCLUDE" "$DEFAULT_OUTDIR" <<'PY'
+    python - "$PROFILES" "$EXCLUDE" "$DEFAULT_OUTDIR" "$ENTRY_QC_ONLY" <<'PY'
 import subprocess, re, sys
 profiles, exclude, default_outdir = sys.argv[1], set(sys.argv[2].split()), sys.argv[3]
+entry_qc_only = sys.argv[4] == 'true'
 base_profile = profiles.split(',')[0]
 
 def params(p):
@@ -132,9 +154,8 @@ print(f"""# GENERATED — do not edit by hand. Regenerate with:
 # this, the launch page shows an empty `input` box and you have to go read the profile.
 #
 # ⚠️ `-params-file` beats config, so THESE values are what a Launchpad run actually uses.
-# The profile ({profiles.split(',')[-1]}) stays the source of truth — edit it, regenerate
-# here, commit, and re-register. `tw pipelines update` is broken, so re-registering mints a
-# new pipeline id.
+# The profile ({profiles.split(',')[-1]}) stays the source of truth: edit it, regenerate
+# here, commit, and put it into the entry with `./14_register_pipeline.sh --update`.
 #
 # ⚠️ `outdir` below is a DISPOSABLE DEFAULT, not a destination. Runs that leave it publish
 # on top of each other there — publishDir overwrites but never deletes, so it accumulates a
@@ -146,12 +167,28 @@ print(f"""# GENERATED — do not edit by hand. Regenerate with:
 # ⚠️ RUNNING THE FULL-DEPTH PILOT FROM THIS ENTRY? Switch the profile to
 # `docker,ottilie_pilot_az` AND change every path below from S288C_reference_test/ to
 # S288C_reference/ — or give the pilot its own entry.
-""")
+""" + ("""#
+# ⚠️ `qc_only: true` below is a default of this ENTRY, not of the pipeline. The launch form
+# opens with `qc_only` ticked (*Main options*), so the run stops after read QC. Untick it for a complete
+# run in one go. After a QC-only run: Resume it with the box unticked
+# (docs/usage/qc_first_run.md).
+""" if entry_qc_only else ""))
 for k in sorted(diff):
     print(f"{k}: {to_yaml(diff[k])}")
 print(f'outdir: "{default_outdir}"')
+if entry_qc_only:
+    print("qc_only: true")
 PY
 }
+
+# Anything but the two flags is refused: with no flag the script deletes and re-registers the entry,
+# so a mistyped flag must not end up there.
+case "${1:-}" in
+    ""|--generate|--update) ;;
+    *) echo "unknown argument: $1 (use --generate, --update, or no argument to re-register)" >&2; exit 2 ;;
+esac
+MODE=register
+[[ "${1:-}" == "--update" ]] && MODE=update
 
 if [[ "${1:-}" == "--generate" ]]; then
     TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
@@ -197,6 +234,74 @@ if [[ -n "$(git log --oneline "origin/$REVISION..$REVISION" 2>/dev/null || true)
     echo "  ⚠️  local '$REVISION' is ahead of origin/$REVISION — PUSH before launching." >&2
 fi
 
+API="${SEQERA_API:-https://api.cloud.seqera.io}"
+resolve_pid() {
+    tw -o json pipelines list -w "$WORKSPACE" 2>/dev/null | python -c "
+import json,sys
+for p in json.load(sys.stdin)['pipelines']:
+    if p['name']=='$NAME': print(p['pipelineId']); break"
+}
+resolve_ws_id() {
+    tw -o json workspaces list 2>/dev/null | python -c "
+import json,sys
+want='$WORKSPACE'.lower()
+for w in json.load(sys.stdin)['workspaces']:
+    if f\"{w['orgName']}/{w['workspaceName']}\".lower()==want: print(w['workspaceId']); break"
+}
+
+if [[ "$MODE" == update ]]; then
+# ---------------------------------------------------------------------------
+# --update: the committed box goes into the existing entry; everything else stays as the entry has it
+# ---------------------------------------------------------------------------
+echo "Updating the params box of '$NAME' in $WORKSPACE (in place)"
+echo "  params box    : $PARAMS_FILE"
+PID=$(resolve_pid)
+: "${PID:?no entry named '$NAME' in $WORKSPACE (set PIPELINE_NAME, or register it: run without --update)}"
+WS_ID=$(resolve_ws_id)
+CUR=$(mktemp); PIPE=$(mktemp); REQ=$(mktemp --suffix=.json); PUT_RESP=$(mktemp)
+curl -sS -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" "$API/pipelines/$PID/launch?workspaceId=$WS_ID" > "$CUR"
+curl -sS -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" "$API/pipelines/$PID?workspaceId=$WS_ID" > "$PIPE"
+python - "$CUR" "$PIPE" "$PARAMS_FILE" "$REQ" <<'PY'
+import json, sys, yaml
+cur, pipe, box_file, dst = sys.argv[1:5]
+l, p = json.load(open(cur))['launch'], json.load(open(pipe))['pipeline']
+box = open(box_file).read()
+old, new = yaml.safe_load(l.get('paramsText') or '') or {}, yaml.safe_load(box)
+changed = sorted(k for k in set(old) | set(new) if old.get(k) != new.get(k))
+print(f"  entry         : {p['pipelineId']} '{p['name']}' @ {l.get('revision')}, -p {','.join(l.get('configProfiles') or [])}")
+print("  box changes   : " + ("; ".join(f"{k}: {old.get(k, '(absent)')!r} -> {new.get(k, '(absent)')!r}" for k in changed)
+                               if changed else "no value changes (comments only, or nothing)"))
+# Sent back as the entry has them; only paramsText is new. `computeEnvId` is the id: GET returns a
+# `computeEnv` object, which PUT does not take.
+keep = ['pipeline', 'workDir', 'revision', 'configProfiles', 'nextflowVersion', 'configText', 'towerConfig',
+        'preRunScript', 'postRunScript', 'mainScript', 'entryName', 'schemaName', 'userSecrets',
+        'workspaceSecrets', 'pullLatest', 'stubRun', 'headJobCpus', 'headJobMemoryMb', 'launchContainer',
+        'optimizationId', 'optimizationTargets']
+launch = {k: l.get(k) for k in keep}
+launch['computeEnvId'] = l['computeEnv']['id']
+launch['paramsText'] = box
+req = {'name': p['name'], 'description': p.get('description'), 'icon': p.get('icon'), 'launch': launch}
+if p.get('labels'):
+    req['labelIds'] = [lab['id'] for lab in p['labels']]
+json.dump(req, open(dst, 'w'))
+PY
+if [[ -n "$DRY_RUN" ]]; then
+    echo "  DRY-RUN: would PUT $API/pipelines/$PID with the new params box; nothing sent"
+    rm -f "$CUR" "$PIPE" "$REQ" "$PUT_RESP"; exit 0
+fi
+code=$(curl -sS -o "$PUT_RESP" -w '%{http_code}' -X PUT -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" \
+            -H 'Content-Type: application/json' --data @"$REQ" "$API/pipelines/$PID?workspaceId=$WS_ID")
+if [[ "$code" != 200 ]]; then
+    echo "FATAL: PUT /pipelines/$PID returned HTTP $code:" >&2; head -c 800 "$PUT_RESP" >&2; echo >&2
+    rm -f "$CUR" "$PIPE" "$REQ" "$PUT_RESP"; exit 1
+fi
+rm -f "$CUR" "$PIPE" "$REQ" "$PUT_RESP"
+echo "  updated in place (HTTP 200); pipeline id unchanged: $PID"
+
+else
+# ---------------------------------------------------------------------------
+# register: delete any entry of this name and import a new one (new pipeline id)
+# ---------------------------------------------------------------------------
 echo "Registering '$NAME' in $WORKSPACE"
 echo "  repo/revision : $REPO @ $REVISION"
 echo "  compute env   : $COMPUTE_ENV"
@@ -208,7 +313,7 @@ if [[ -n "$DRY_RUN" ]]; then
     exit 0
 fi
 
-# Delete first: `add` refuses a duplicate name, and `update` is broken (see header).
+# Delete first: `add` refuses a duplicate name, and `tw pipelines update` is broken (see header).
 if tw pipelines view -n "$NAME" -w "$WORKSPACE" >/dev/null 2>&1; then
     echo "  existing entry found — deleting (its pipeline id will not be reused)"
     tw pipelines delete -n "$NAME" -w "$WORKSPACE"
@@ -243,23 +348,14 @@ PY
 # if you want them; they are cosmetic and would be lost on the next re-registration anyway.
 tw pipelines import -n "$NAME" -w "$WORKSPACE" --overwrite "$IMPORT_JSON"
 rm -f "$IMPORT_JSON"
+fi
 
 # Readback. The API accepts unvalidated payloads elsewhere, so assert rather than assume.
 echo
 echo "=== verifying ==="
-PID=$(tw -o json pipelines list -w "$WORKSPACE" 2>/dev/null \
-      | python -c "
-import json,sys
-for p in json.load(sys.stdin)['pipelines']:
-    if p['name']=='$NAME': print(p['pipelineId']); break")
-: "${PID:?could not resolve the new pipeline id}"
-
-API="${SEQERA_API:-https://api.cloud.seqera.io}"
-WS_ID=$(tw -o json workspaces list 2>/dev/null | python -c "
-import json,sys
-want='$WORKSPACE'.lower()
-for w in json.load(sys.stdin)['workspaces']:
-    if f\"{w['orgName']}/{w['workspaceName']}\".lower()==want: print(w['workspaceId']); break")
+PID=$(resolve_pid)
+: "${PID:?could not resolve the pipeline id}"
+WS_ID=$(resolve_ws_id)
 
 # ⚠️ The response goes to a temp FILE, not a pipe. `python -` reads its program from stdin,
 # and the heredoc below already claims stdin — a piped body would never reach json.load
@@ -269,7 +365,7 @@ RESP=$(mktemp); trap 'rm -f "$TMP" "$RESP"' EXIT
 curl -sS -H "Authorization: Bearer $TOWER_ACCESS_TOKEN" \
      "$API/pipelines/$PID/launch?workspaceId=$WS_ID" > "$RESP"
 
-python - "$RESP" "$PID" "$PROFILES" "$NEXTFLOW_VERSION" <<'PY'
+python - "$RESP" "$PID" "$PROFILES" "$NEXTFLOW_VERSION" "$ENTRY_QC_ONLY" <<'PY'
 import json, sys, yaml
 l = json.load(open(sys.argv[1]))['launch']
 pid, want_profiles = sys.argv[2], sys.argv[3].split(',')
@@ -283,6 +379,10 @@ box = yaml.safe_load(l.get('paramsText') or '') or {}
 chk(isinstance(box, dict) and bool(box), f"params box is a non-empty object: {box}")
 chk('snpeff_cache' in box,
     "snpeff_cache present in the box — kept because it differs per dataset (the schema default the form used to inject is gone since 2026-09-07, §13)")
+want_qc = True if sys.argv[5] == 'true' else None
+chk(box.get('qc_only') is want_qc,
+    f"qc_only in the box = {want_qc!r} (got {box.get('qc_only')!r}): the form opens with QC-first "
+    + ("ticked" if want_qc else "unticked, from the schema default"))
 want_nf = sys.argv[4] or None
 chk(l.get('nextflowVersion') == want_nf,
     f"nextflowVersion = {want_nf!r} (got {l.get('nextflowVersion')!r}) — the CE no longer pins the "
@@ -296,4 +396,8 @@ print("\n✅ All checks passed.")
 PY
 
 echo
-echo "⚠️  Record the new pipeline id in RUNBOOK.md — it changes on every re-registration."
+if [[ "$MODE" == update ]]; then
+    echo "Pipeline id unchanged ($PID). Record the box change in RUNBOOK.md."
+else
+    echo "⚠️  Record the new pipeline id in RUNBOOK.md — it changes on every re-registration."
+fi

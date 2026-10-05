@@ -277,6 +277,19 @@
   section text went from 55 to 24 words; what `save_mapped` and `save_output_as_bam` do is now
   said in the lines under those two fields.
 
+- **The Launchpad entry opens with `qc_only` ticked** (2026-10-05). A launch from the entry is a
+  QC-first run 1 unless the box is unticked. The value sits in the entry's saved parameters
+  (`qc_only: true` in `deploy/azure/seqera-sp/launchpad_params_ottilie_test_az.yml`, written by
+  `14_register_pipeline.sh`, `ENTRY_QC_ONLY`), not in `nextflow.config` or the schema: the pipeline
+  default, the command line, nf-test and every profile are unchanged. `15_launch_run.sh` sends the
+  same parameters, so a scripted launch now stops after read QC unless `--set qc_only=false`;
+  `--resume` sends `qc_only: false` unless told otherwise. New `14_register_pipeline.sh --update`
+  puts the committed parameters into an existing entry in place (`PUT /pipelines/{id}`, same
+  pipeline id; Platform records a new version of the entry), so a parameter change no longer needs a
+  re-registration. Measured on the preview entry; `docs/usage/qc_first_run.md` → *On Seqera Platform*.
+  Both scripts now default to the entry name `yAMP` (the entry was renamed from
+  `yAMP-ottilie-test-az`).
+
 - **`--report_gff3` must be named `.gff3` or `.gff`** (2026-10-04). The parameter had no file-name
   check, so a gzipped or otherwise unusable file was accepted at start-up and in the launch form. It
   now carries the pattern `^\S+\.gff3?$` (`conf/schema_overlay.yml`): the gene track is read as plain

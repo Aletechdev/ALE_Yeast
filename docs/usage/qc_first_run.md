@@ -45,12 +45,19 @@ rather than the command line, the message says so; set it to `false` there.
 
 ### On Seqera Platform
 
-Run 1 from the Launchpad entry: in the launch form tick `qc_only` (the first field of *Main options*) and give
-`outdir` a folder you intend to keep. Or launch from a shell, which records exactly what was sent:
+The Launchpad entry opens with `qc_only` ticked (the first field of *Main options*, the third section of the form), so
+a launch from it is run 1 unless you untick the box. This is a setting of the entry, saved in its
+parameters (`deploy/azure/seqera-sp/14_register_pipeline.sh`). The pipeline's own default stays a
+complete run: the command line is not affected, and a params file uploaded in the form replaces the
+entry's parameters, so the file decides ([`params_template.yml`](params_template.yml) carries
+`qc_only: false`).
+
+Run 1: give `outdir` a folder you intend to keep and launch. Or launch from a shell, which records
+exactly what was sent:
 
 ```bash
 deploy/azure/seqera-sp/15_launch_run.sh --name yAMP-qc-first-run1-<date> \
-    --set outdir=az://aletest/seqera-runs/<folder> --set qc_only=true
+    --set outdir=az://aletest/seqera-runs/<folder>
 deploy/azure/seqera-sp/16_watch_run.sh <run id>        # one line per status change, then task stats
 ```
 
@@ -62,11 +69,15 @@ deploy/azure/seqera-sp/15_launch_run.sh --resume <run-1 id> --name yAMP-qc-first
     --set outdir=az://aletest/seqera-runs/<the same folder>
 ```
 
+For a complete run in one go, untick `qc_only` before launching, or add `--set qc_only=false` to
+the first command.
+
 Resume keeps run 1's session, work directory, compute environment, profiles and **commit** (it pins
 the hash run 1 ran, even if `main` has moved since) and replaces only the parameters. The script sends
-the committed params box plus your overrides, so leaving `qc_only` out clears it; `outdir` must be
-run 1's. Measured 2026-09-28 on the test set (runs `5m9NorL3JmkHFq` → `464Scp5QNoznbD`;
-`deploy/azure/seqera-sp/RUNBOOK.md`):
+the committed params box plus your overrides, and with `--resume` it sets `qc_only: false` itself;
+`outdir` must be run 1's. Measured 2026-09-28 on the test set (runs `5m9NorL3JmkHFq` →
+`464Scp5QNoznbD`; `deploy/azure/seqera-sp/RUNBOOK.md`), when the entry did not yet tick the box and
+run 1 was launched with `--set qc_only=true`:
 
 - **Run 1:** 18 tasks, the 15 read-QC and reference-preparation processes, 12 min wall time, of which
   about 10 min is the head pool starting from zero. Both pools scale back to zero after a run

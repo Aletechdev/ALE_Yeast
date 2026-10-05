@@ -3,9 +3,11 @@
 # resume a finished run with changed parameters. What the launch form does, scripted and recorded.
 #
 #   ./15_launch_run.sh --name yAMP-qc-first-run1-20260928 \
-#       --set outdir=az://aletest/seqera-runs/yAMP-qc-first-20260928 --set qc_only=true
+#       --set outdir=az://aletest/seqera-runs/yAMP-qc-first-20260928          # run 1: stops after read QC
 #   ./15_launch_run.sh --resume 5m9NorL3JmkHFq --name yAMP-qc-first-run2-20260928 \
-#       --set outdir=az://aletest/seqera-runs/yAMP-qc-first-20260928
+#       --set outdir=az://aletest/seqera-runs/yAMP-qc-first-20260928          # run 2: the rest
+#   ./15_launch_run.sh --name yAMP-oneshot-20261005 \
+#       --set outdir=az://aletest/seqera-runs/yAMP-oneshot-20261005 --set qc_only=false   # complete run in one go
 #   DRY_RUN=1 ./15_launch_run.sh ...        # print the params and the command, launch nothing
 #
 # The params text sent is the COMMITTED box (launchpad_params_ottilie_test_az.yml — what the launch
@@ -15,17 +17,21 @@
 #
 # --resume RUN_ID is Platform's *Resume* button: `tw runs relaunch` on that run keeps its session,
 # work dir, compute environment, revision and profiles and resumes from the cache; only the params
-# are replaced. The QC-first pair (docs/usage/qc_first_run.md): run 1 with `--set qc_only=true`,
-# run 2 `--resume <run 1>` WITHOUT that override (the box has no qc_only, so leaving it out clears
-# it) and the SAME outdir. `--set qc_only=false` also works but records a param a one-shot run never
-# carries, so the two runs' params would differ for no reason.
+# are replaced.
+#
+# qc_only: since 2026-10-05 the box carries `qc_only: true` (the entry opens with QC-first ticked,
+# 14_register_pipeline.sh), so a launch from here is a QC-only run unless `--set qc_only=false`.
+# The QC-first pair (docs/usage/qc_first_run.md): run 1 as it is, run 2 `--resume <run 1>` with the
+# SAME outdir. `--resume` sends `qc_only: false` unless a `--set qc_only=...` says otherwise: the
+# box's `true` would end a resumed run after read QC a second time, and would cut a resumed
+# complete run short without an error. To resume a QC-only run that failed: `--set qc_only=true`.
 #
 # ⚠️ Platform clones the registered revision from GitHub: your working tree is invisible. The script
 #    refuses to launch while local main is ahead of origin/main.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-ENTRY="${PIPELINE_NAME:-yAMP-ottilie-test-az}"
+ENTRY="${PIPELINE_NAME:-yAMP}"
 WORKSPACE="${SEQERA_WORKSPACE:-DTU-Biosustain/RECON-ALE}"
 PROFILES="${SEQERA_PROFILES:-docker,ottilie_test_az}"
 BOX="${PARAMS_FILE:-launchpad_params_ottilie_test_az.yml}"
@@ -41,7 +47,7 @@ while [[ $# -gt 0 ]]; do
         --name)    name=$2;   shift 2 ;;
         --resume)  resume=$2; shift 2 ;;
         --set)     sets+=("$2"); shift 2 ;;
-        -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown argument: $1 (see --help)" >&2; exit 2 ;;
     esac
 done
@@ -56,10 +62,12 @@ fi
 
 # params = the committed box + the overrides (values parse as YAML scalars: true/false/null/numbers/strings)
 PARAMS=$(mktemp --suffix=.yml); trap 'rm -f "$PARAMS"' EXIT
-python - "$BOX" "$PARAMS" "${sets[@]}" <<'PY'
+python - "$BOX" "$PARAMS" "$resume" "${sets[@]}" <<'PY'
 import sys, yaml
-box, dst, *sets = sys.argv[1:]
+box, dst, resume, *sets = sys.argv[1:]
 d = yaml.safe_load(open(box))
+if resume:
+    d['qc_only'] = False      # a resumed run continues past read QC unless --set says otherwise (see header)
 for s in sets:
     k, eq, v = s.partition('=')
     if not eq or not k:
@@ -67,6 +75,11 @@ for s in sets:
     d[k] = yaml.safe_load(v) if v != '' else None
 yaml.safe_dump(d, open(dst, 'w'), sort_keys=True, default_flow_style=False)
 print(f"  params: {len(d)} keys" + (f"; overrides: {', '.join(sets)}" if sets else "; no overrides"))
+if d.get('qc_only') is True:
+    print("  qc_only = true: this run STOPS AFTER READ QC" + ("" if any(s.startswith('qc_only=') for s in sets)
+          else " (the entry's default; for a complete run in one go add --set qc_only=false)"))
+else:
+    print("  qc_only = false: a complete run" + (" (set by --resume)" if resume and not any(s.startswith('qc_only=') for s in sets) else ""))
 PY
 
 if [[ -n "$resume" ]]; then

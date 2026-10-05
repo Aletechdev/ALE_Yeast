@@ -9,9 +9,8 @@
 # this, the launch page shows an empty `input` box and you have to go read the profile.
 #
 # ⚠️ `-params-file` beats config, so THESE values are what a Launchpad run actually uses.
-# The profile (ottilie_test_az) stays the source of truth — edit it, regenerate
-# here, commit, and re-register. `tw pipelines update` is broken, so re-registering mints a
-# new pipeline id.
+# The profile (ottilie_test_az) stays the source of truth: edit it, regenerate
+# here, commit, and put it into the entry with `./14_register_pipeline.sh --update`.
 #
 # ⚠️ `outdir` below is a DISPOSABLE DEFAULT, not a destination. Runs that leave it publish
 # on top of each other there — publishDir overwrites but never deletes, so it accumulates a
@@ -23,6 +22,11 @@
 # ⚠️ RUNNING THE FULL-DEPTH PILOT FROM THIS ENTRY? Switch the profile to
 # `docker,ottilie_pilot_az` AND change every path below from S288C_reference_test/ to
 # S288C_reference/ — or give the pilot its own entry.
+#
+# ⚠️ `qc_only: true` below is a default of this ENTRY, not of the pipeline. The launch form
+# opens with `qc_only` ticked (*Main options*), so the run stops after read QC. Untick it for a complete
+# run in one go. After a QC-only run: Resume it with the box unticked
+# (docs/usage/qc_first_run.md).
 
 fasta: "az://aletest/ottilie/v1/S288C_reference_test/S288C_R64_test.fa"
 genome: null
@@ -38,3 +42,4 @@ split_fastq: 0
 split_haplotypecaller_joint_vcf: true
 tools: "snpeff,cnvkit,tiddit,manta,haplotypecaller"
 outdir: "az://aletest/seqera-runs/yAMP-out-test-DUMP"
+qc_only: true

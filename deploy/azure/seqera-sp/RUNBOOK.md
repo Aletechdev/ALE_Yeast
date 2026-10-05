@@ -344,6 +344,8 @@ Both since replaced: the PAT by the fine-grained token (2026-08-07), the entry b
   if the repo seems missing, the cause is Resource owner still set to the personal account.
 - ⚠️ **`tw pipelines update` is broken** (HTTP 500; every alternative route fails too — the full
   four-route table is in the 2026-08-12 entry). Every edit is delete-and-re-add, minting a new id.
+  **Superseded 2026-10-05 for the params box:** `14_register_pipeline.sh --update` changes it in
+  place through `PUT /pipelines/{id}` (2026-10-05 entry).
 - **One entry serves many CEs and profiles** — both are overridable per launch, which is also the
   methodologically clean way to compare two CEs with nothing else varying. Separate `outdir` per run.
 - 🚨 **An entry stores a pasted COPY of params (`paramsText`), never a reference** — editing the repo
@@ -675,9 +677,12 @@ under id `227711052831937` was itself replaced within hours — the id churn bel
 | `tw pipelines versions manage` | only **renames** a version or sets it default — cannot create one |
 | `tw pipelines import --overwrite` | works, but reports *"New pipeline added"* and **the pipeline id changes** — delete-and-re-add underneath |
 
-So every edit mints a new pipeline id, and **a bookmarked Launchpad URL breaks each time**. Nothing in
+So every edit mints a new pipeline id, and **a bookmarked Launchpad URL breaks each time**
+(no longer true for a params-box change: `PUT` works when `launch` carries `computeEnvId`,
+2026-10-05 entry). Nothing in
 this repo depends on the id; only this entry records it. Platform pipelines *do* carry versions
-(`yAMP-ottilie-test-az-1`, default), but nothing exposed by `tw` or the API can add one.
+(`yAMP-ottilie-test-az-1`, default), but nothing exposed by `tw` or the API can add one
+(2026-10-05: a `PUT` that changes the entry does add one and makes it the default).
 
 🔬 **And the version hash is blind to the repo — a reproducibility trap.** `main` advanced
 `bd4e49a` → `b2c069a` (six commits, two new profiles, a config refactor) and the hash was
@@ -1634,3 +1639,49 @@ listed by path only — the tab's documented limits).
 Task count 269 against 307–310 on the pilot runs of 2026-08/09: those ran the recipe of their day
 (hard filter family, the `tabix/` step, no post-trim FastQC or early MultiQC reports); the count was
 not reconciled process by process.
+
+### 2026-10-05: ✅ a Launchpad entry's params box can be changed in place (`14_register_pipeline.sh --update`); `qc_only: true` in the box, preview entry only so far
+
+**Why.** User decision in the launch-form review: the form should open with `qc_only` ticked.
+Three levels were on the table (entry parameters, pipeline default, schema default only); the
+entry level was chosen because it changes launches from the entry and nothing else. The pipeline
+default, the schema, every profile, the command line and nf-test stay a complete run.
+
+**How the form picks the box's state** (*measured*, `GET /pipelines/<id>/schema`, field `params`,
+entry `yAMP_copy` = `229869124167989`): with no `qc_only` key in the entry's params box the form's
+value was `false`, the schema default. With `qc_only: true` in the box it is `true`, the schema
+default still `false`. Not yet looked at in the browser.
+
+**In-place update works.** `PUT /pipelines/{id}?workspaceId=…` returned 200 with `name`,
+`description`, `icon` and a `launch` object holding `computeEnvId` (the id from GET's `computeEnv`
+object), `paramsText` (new) and the other launch fields as GET returned them (`pipeline`, `workDir`,
+`revision`, `configProfiles`, `nextflowVersion`, the script and secret fields). Read back on
+`yAMP_copy`: same pipeline id; revision `launch-form-preview`, profiles, compute environment and the
+`25.10.4` engine pin unchanged; the launch object has a new id and creation date. Platform stored
+the change as a **new default version** of the entry, `yAMP_preview_launch-1`, next to
+`yAMP_preview_launch`, with a new version hash. A second `PUT` whose box differed in comments only
+added no further version. The 2026-08-12 table says `PUT` returns 400 "with the full launch object
+round-tripped from GET": that object holds `computeEnv`, not `computeEnvId`, the likely reason
+(*inferred*; the 400 was not reproduced).
+
+**In the repo** (uncommitted on this date): `14_register_pipeline.sh` writes `qc_only: true` into the
+generated box (`ENTRY_QC_ONLY`, default `true`; `qc_only` is excluded from the profile diff) and has
+the `--update` mode, with the same drift guard and readback as a registration plus a check of the
+box's `qc_only`. `15_launch_run.sh` sends that box, so a scripted launch is a QC-only run unless
+`--set qc_only=false`; with `--resume` it sends `qc_only: false` unless a `--set qc_only=…` is given
+(the box's `true` would end a resumed run after read QC again). Three dry runs: plain launch
+`qc_only: true`, `--set qc_only=false` → `false`, `--resume` → `false`.
+
+**Not done yet: the entry `yAMP` (`166797736834160`, `main`).** A dry run of the update against it
+(`DRY_RUN=1 ./14_register_pipeline.sh --update`, nothing sent) lists two box
+changes: `qc_only` absent → `true`, and `seqera_workspace_url` absent → the workspace URL. The
+second one means the entry's stored box predates `973027b` (2026-10-01; its version dates from
+2026-09-08). A launch from the form therefore sends no workspace URL and its index page shows the
+Seqera run id without a link (*inferred* from the box: the parameter is hidden and has no default),
+while the scripted launches send the committed box and have the link (run `4REMpK9OCBKY4z`). The
+update brings both.
+
+**Entry names.** The entries are now named `yAMP` and `yAMP_copy` (the 2026-10-01 evening entry
+above still names `yAMP-ottilie-test-az`). `14_register_pipeline.sh` and `15_launch_run.sh` defaulted
+to the old name and would not have found the entry; their default is `yAMP` since this date (user
+decision). `PIPELINE_NAME` still overrides it, as for the preview copy.

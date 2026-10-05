@@ -24,7 +24,7 @@ Two names, and **the identity must match the repo handle**:
 
 | What | Value | Notes |
 |------|-------|-------|
-| **Brand** (this version) | **yAMP** — *yeast Automated Mutation Pipeline* | Product name; future majors → AMPv3, … Lives in `manifest.description`, and in the Seqera Launchpad entry name (`yAMP-ottilie-test`). |
+| **Brand** (this version) | **yAMP** — *yeast Automated Mutation Pipeline* | Product name; future majors → AMPv3, … Lives in `manifest.description`, and in the Seqera Launchpad entry name (`yAMP` since 2026-10; before that `yAMP-ottilie-test-az`). |
 | **`manifest.name`** = **GitHub repo** | **`Aletechdev/ALE_Yeast`** → https://github.com/Aletechdev/ALE_Yeast | Drives the console banner, MultiQC header, versions `id:`, and the Seqera runs view. Also `manifest.homePage`. |
 
 **Keep `manifest.name` equal to the `org/repo` handle.** Two reasons, both learned the hard way
@@ -353,7 +353,12 @@ row of one *yAMP input checks* table at the top of all three MultiQC reports —
 Since 2026-09-24: run 1 = the normal command + `--qc_only` stops after read QC (preflight, FastQC raw,
 fastp, FastQC on the fastp output, MultiQC, plus reference prep and the reference preflight task — 18 tasks / ~5 min on the test set),
 exits 0 and prints the follow-up; run 2 = the same command without the flag + `-resume <session id>`
-(every QC task cached; Platform: *Resume* with `qc_only` cleared). **Three MultiQC reports** (since
+(every QC task cached; Platform: *Resume* with `qc_only` cleared). **The Launchpad entry opens with
+`qc_only` ticked** (user decision 2026-10-05): `qc_only: true` sits in the entry's params box
+(`deploy/azure/seqera-sp/14_register_pipeline.sh`, `ENTRY_QC_ONLY`), not in `nextflow.config` or the
+schema, so command-line runs, nf-test and every profile stay a complete run; `15_launch_run.sh`
+sends that box, so a scripted launch is QC-only unless `--set qc_only=false`, and `--resume` sets
+`false` itself. **Three MultiQC reports** (since
 2026-09-29), each published as its stage ends: `yAMP-read-QC_multiqc_report.html` (the QC-only run's
 report), `yAMP-alignment-QC_multiqc_report.html`, and the complete one — titled *complete-QC* but
 keeping `multiqc_report.html` / `multiqc_data/` (the index and baselines key on them). The early two
