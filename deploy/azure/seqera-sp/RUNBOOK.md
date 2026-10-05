@@ -1640,7 +1640,7 @@ Task count 269 against 307–310 on the pilot runs of 2026-08/09: those ran the 
 (hard filter family, the `tabix/` step, no post-trim FastQC or early MultiQC reports); the count was
 not reconciled process by process.
 
-### 2026-10-05: ✅ a Launchpad entry's params box can be changed in place (`14_register_pipeline.sh --update`); `qc_only: true` in the box, preview entry only so far
+### 2026-10-05: ✅ a Launchpad entry's params box can be changed in place (`14_register_pipeline.sh --update`); the entry `yAMP` opens with `qc_only` ticked
 
 **Why.** User decision in the launch-form review: the form should open with `qc_only` ticked.
 Three levels were on the table (entry parameters, pipeline default, schema default only); the
@@ -1664,7 +1664,7 @@ added no further version. The 2026-08-12 table says `PUT` returns 400 "with the 
 round-tripped from GET": that object holds `computeEnv`, not `computeEnvId`, the likely reason
 (*inferred*; the 400 was not reproduced).
 
-**In the repo** (uncommitted on this date): `14_register_pipeline.sh` writes `qc_only: true` into the
+**In the repo** (commit `89c8bcd`): `14_register_pipeline.sh` writes `qc_only: true` into the
 generated box (`ENTRY_QC_ONLY`, default `true`; `qc_only` is excluded from the profile diff) and has
 the `--update` mode, with the same drift guard and readback as a registration plus a check of the
 box's `qc_only`. `15_launch_run.sh` sends that box, so a scripted launch is a QC-only run unless
@@ -1672,14 +1672,24 @@ box's `qc_only`. `15_launch_run.sh` sends that box, so a scripted launch is a QC
 (the box's `true` would end a resumed run after read QC again). Three dry runs: plain launch
 `qc_only: true`, `--set qc_only=false` → `false`, `--resume` → `false`.
 
-**Not done yet: the entry `yAMP` (`166797736834160`, `main`).** A dry run of the update against it
-(`DRY_RUN=1 ./14_register_pipeline.sh --update`, nothing sent) lists two box
-changes: `qc_only` absent → `true`, and `seqera_workspace_url` absent → the workspace URL. The
-second one means the entry's stored box predates `973027b` (2026-10-01; its version dates from
-2026-09-08). A launch from the form therefore sends no workspace URL and its index page shows the
-Seqera run id without a link (*inferred* from the box: the parameter is hidden and has no default),
-while the scripted launches send the committed box and have the link (run `4REMpK9OCBKY4z`). The
-update brings both.
+**Applied to the entry `yAMP` (`166797736834160`, `main`) on 2026-10-05, 15:30 UTC**, after the
+push of `89c8bcd`: `./14_register_pipeline.sh --update`, HTTP 200, the script's readback green
+(profiles, box, `qc_only` in the box, engine pin `25.10.4`). The dry run before it had listed two
+box changes, and both went in: `qc_only` absent → `true`, and `seqera_workspace_url` absent → the
+workspace URL. The second one means the entry's stored box predated `973027b` (2026-10-01; its
+version dated from 2026-09-08): until this update a launch from the form sent no workspace URL, so
+its index page showed the Seqera run id without a link (*inferred* from the box: the parameter is
+hidden and has no default), while the scripted launches sent the committed box and had the link
+(run `4REMpK9OCBKY4z`). Read back afterwards (`GET /pipelines/<id>/schema` and `/pipelines/<id>`):
+same pipeline id; the form's values hold `qc_only: true` and the workspace URL; the schema served
+equals `nextflow_schema.json` of `89c8bcd` (sections Input/output, Reference genome, Main options,
+Read preprocessing, Alignment, Variant Calling); the default version of the entry is now
+`yAMP-ottilie-test-az-2` (was `-1`). Not launched: the first run from the form is the check that a
+ticked box gives a QC-only run there.
+
+**Preview set-up removed** the same hour: the entry `yAMP_copy` (`229869124167989`) deleted, the
+remote branch `launch-form-preview` deleted. How to set one up again:
+`docs/dev-practices/azure_batch_execution.md` §20, last bullet.
 
 **Entry names.** The entries are now named `yAMP` and `yAMP_copy` (the 2026-10-01 evening entry
 above still names `yAMP-ottilie-test-az`). `14_register_pipeline.sh` and `15_launch_run.sh` defaulted
