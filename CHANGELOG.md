@@ -238,6 +238,7 @@
 
 ### Changed
 
+- **Samplesheet: `status` and `sex` documented as optional, dropped from the examples** (2026-10-06; `docs/usage/input_samplesheet.md`, `README.md`, `docs/README.md`, `CLAUDE.md`). No code change: nf-schema already fills a missing column from `assets/schema_input.json` (`status` 0, `sex` NA), and a Tier-1 run reads neither, so a sheet without them is the recommended form and is easier to inspect. Verified by parsing a two-sample sheet without either column and building its DAG in preview, identical to the test sheet's. Only `--tools ascat` / `controlfreec` (Tier-2) still need `sex`; the `csv/` restart sheets carry the filled-in values.
 - **Launch form: the iGenomes paragraph left the *Reference genome options* section** (2026-10-04).
   Upstream's section help text ("The pipeline config files come bundled with paths to the Illumina
   iGenomes reference index files. …") is now the last paragraph of the help text of the hidden

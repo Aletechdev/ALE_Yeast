@@ -23,7 +23,7 @@ how to run it, start at the [**root README**](../README.md).
 
 | Doc | What it covers |
 |---|---|
-| [`usage/input_samplesheet.md`](usage/input_samplesheet.md) | Samplesheet columns (`experiment`, `status`, `ploidy`, `clonal_or_population`, …), conventions, and the one-normal-per-experiment rule |
+| [`usage/input_samplesheet.md`](usage/input_samplesheet.md) | Samplesheet columns (`experiment`, `sample`, `ploidy`, `clonal_or_population`, …), the optional `status` / `sex` columns and their defaults, conventions, and the one-normal-per-experiment rule |
 | [`usage/prepare_reference.md`](usage/prepare_reference.md) | **Preparing a reference**: GenBank → FASTA + GFF3 + SnpEff cache (`prepare_input/process_GeneBank/process_genbank_auto.sh`), or FASTA + GFF3 → cache (`prepare_input/build_snpeff_cache.sh`); snpEff 5.1 lock, flat layout, chromosome-name rule, GenBank-converter limitation |
 | [`prepare_input/sarek_csv_to_XPMD/README.md`](prepare_input/sarek_csv_to_XPMD/README.md) | Samplesheet conversion to XPMD format |
 | [`benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md`](benchmarking/ottilie_xenobiotic_ale/DATA_PROVENANCE.md) | Test-data lineage, truth set, and how to regenerate or download it |

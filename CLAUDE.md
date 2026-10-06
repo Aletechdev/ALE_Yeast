@@ -261,15 +261,17 @@ Canonical column reference, conventions, and non-Tier-1 notes:
 [`docs/usage/input_samplesheet.md`](docs/usage/input_samplesheet.md). A worked example is in
 [`README.md`](README.md). The **ALE-specific invariants** worth knowing without opening either:
 
-- **All samples are normal (`status = 0`)** — that is what puts HaplotypeCaller in joint-germline
-  mode. Tumor/`1` is unused; tumor-only mode is a deferred fork idea
-  ([`docs/archive/sarek_fork_ideas.md`](docs/archive/sarek_fork_ideas.md)).
+- **All samples are normal (`status = 0`), and the column is optional.** The schema default is `0`, so
+  the recommended sheet leaves it out (2026-10-06; verified to parse and build the same DAG as the test
+  sheet). `0` is what puts HaplotypeCaller in joint-germline mode. Tumor/`1` is unused; tumor-only mode
+  is a deferred fork idea ([`docs/archive/sarek_fork_ideas.md`](docs/archive/sarek_fork_ideas.md)).
 - **`experiment`** maps to Sarek's `patient` and groups samples for joint calling.
 - **`ploidy`** and **`clonal_or_population`** are ALE additions — ploidy feeds
   `--sample-ploidy`/FreeBayes/TIDDIT/Control-FREEC; clonal-vs-population drives the joint HC
   hard-filter AF thresholds.
-- **`sex`** is inert on a Tier-1 run — only Control-FREEC/ASCAT read it. Not auto-filled (open
-  convenience item, Tier-2 only).
+- **`sex`** is inert on a Tier-1 run and optional: only Control-FREEC/ASCAT read it, and the schema
+  fills `NA` when the column is missing. Those two Tier-2 tools error on `NA`, so only they need the
+  column (`XX` for yeast). A default of `XX` stays an open Tier-2 convenience item.
 
 ---
 

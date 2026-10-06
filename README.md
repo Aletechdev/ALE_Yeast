@@ -195,17 +195,19 @@ before signing off: [`docs/usage/qc_first_run.md`](docs/usage/qc_first_run.md).
 |--------|-------------|
 | `experiment` | Experiment ID (maps to Sarek's "patient"); groups samples for joint calling |
 | `sample` | Sample ID in ALE format (e.g. `A1-F6-I1-R1`) |
-| `status` | `0` = normal. ALE treats **all** samples as normal so HaplotypeCaller runs joint-germline |
 | `clonal_or_population` | `clonal` for isolate sequencing, `population` for bulk/pooled |
 | `ploidy` | `1` = haploid, `2` = diploid (higher supported) |
-| `sex` | `XX` for yeast. Only read by Control-FREEC/ASCAT (Tier 2); inert otherwise |
 | `lane` | Sequencing lane (e.g. `L001`); multiple lanes per sample are merged |
 | `fastq_1`, `fastq_2` | Paired-end FASTQ paths (absolute, or `az://` blob URLs) |
 
+Two sarek columns, `status` and `sex`, are optional and best left out: the schema fills `status = 0`
+(every ALE sample is normal, which is what makes HaplotypeCaller run joint-germline) and `sex = NA`
+(read only by the Tier-2 Control-FREEC / ASCAT, inert otherwise).
+
 ```csv
-experiment,sample,status,clonal_or_population,ploidy,sex,lane,fastq_1,fastq_2
-Ottilie_test,NODRUG-GM2,0,clonal,1,XX,L001,/data/NODRUG-GM2_R1.fastq.gz,/data/NODRUG-GM2_R2.fastq.gz
-Ottilie_test,CBR110-15-R3a,0,clonal,1,XX,L001,/data/CBR110-15-R3a_R1.fastq.gz,/data/CBR110-15-R3a_R2.fastq.gz
+experiment,sample,clonal_or_population,ploidy,lane,fastq_1,fastq_2
+Ottilie_test,NODRUG-GM2,clonal,1,L001,/data/NODRUG-GM2_R1.fastq.gz,/data/NODRUG-GM2_R2.fastq.gz
+Ottilie_test,CBR110-15-R3a,clonal,1,L001,/data/CBR110-15-R3a_R1.fastq.gz,/data/CBR110-15-R3a_R2.fastq.gz
 ```
 
 Full column reference and conventions:
