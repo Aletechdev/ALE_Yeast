@@ -302,11 +302,13 @@ post-filters for Mutect2/FreeBayes were removed 2026-09-09
 └── pipeline_info/            # execution report, timeline, trace, software versions
 ```
 
-The **mutation report bundle** is the ALE-specific deliverable. Start at its `index.html`. Its Summary
-section prints the **complete-output folder** (the run's resolved `outdir`, an `az://` URL on a cloud run), so a
-viewer in Seqera or of a downloaded copy knows where everything else lives, and below it the **run that
-produced the bundle**: run name, start time, pipeline commit, Nextflow version, the session id (what
-`-resume` takes) and, on a Seqera Platform run, the Seqera run id. That id is a link to the run when
+The **mutation report bundle** is the ALE-specific deliverable. Start at its `index.html`. Its header
+names the **run that produced the bundle** (run name, start time, pipeline version and commit, Nextflow version,
+the session id that `-resume` takes and, on a Seqera Platform run, the Seqera run id) and prints the
+**complete-output folder** (the run's resolved `outdir`, an `az://` URL on a cloud run) with a Copy button, so a
+viewer in Seqera or of a downloaded copy knows where everything else lives. The Summary table below it counts
+samples (with their QC verdicts: the thresholds are the hidden `report_qc_*` parameters), differing SNV / InDel
+sites, SV events, aneuploid chromosomes and changed copy-number windows, each a link to its section. The Seqera run id is a link to the run when
 `--seqera_workspace_url` holds your workspace's browser URL
 (`https://cloud.seqera.io/orgs/<organisation>/workspaces/<workspace>`). A run cannot find that address
 itself; set it once in the Launchpad entry's parameters

@@ -52,6 +52,7 @@ Output-directory layout is in the [root README](../README.md#output).
 |---|---|
 | [`igvreports/README.md`](igvreports/README.md) | igv-reports report structure, templates, and the static assets the pipeline consumes |
 | [`igvreports/check_mutations.md`](igvreports/check_mutations.md) | How the report is assembled for ALE variant review |
+| [`igvreports/templates/README.md`](igvreports/templates/README.md) | The `index.html.j2` contract: the context the renderer builds, what changed in the 2026-10-06 redesign, presentation mode |
 | [`generate_mutation_report/README.md`](generate_mutation_report/README.md) | MUTATION_REPORT integration design |
 | [`generate_mutation_report/generate_index_container.md`](generate_mutation_report/generate_index_container.md) | The `ale-reports` container (pandas + jinja2) used by GENERATE_INDEX |
 | [`qc-reporting/multiqc_mosdepth_coverage.md`](qc-reporting/multiqc_mosdepth_coverage.md) | How to read MultiQC/mosdepth coverage numbers |

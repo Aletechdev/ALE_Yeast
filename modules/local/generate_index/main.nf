@@ -54,11 +54,24 @@ process GENERATE_INDEX {
     def report_dir_arg = report_dir_label ? "--report-dir '${report_dir_label}'" : ""
     // Handed over as a file through a quoted heredoc, so no value needs shell quoting.
     def run_info_json = groovy.json.JsonOutput.toJson(run_info ?: [:])
+    // The Samples-table QC thresholds (params.report_qc_*, hidden on the launch form). Read here rather
+    // than threaded through the subworkflow; they are part of the script, hence of the task hash, so a
+    // changed threshold re-renders the index. Missing (null) values fall back to the script's defaults.
+    def qc_thresholds_json = groovy.json.JsonOutput.toJson([
+        cov_pass: params.report_qc_cov_pass, cov_fail: params.report_qc_cov_fail,
+        breadth_pass: params.report_qc_breadth_pass, breadth_fail: params.report_qc_breadth_fail,
+        map_pass: params.report_qc_map_pass, map_fail: params.report_qc_map_fail,
+        dup_pass: params.report_qc_dup_pass, dup_fail: params.report_qc_dup_fail,
+        cohort_cov_frac: params.report_qc_cohort_cov_frac, min_dp: params.report_qc_min_dp,
+    ])
 
     """
     cat <<'RUN_INFO_JSON' > run_info.json
     ${run_info_json}
     RUN_INFO_JSON
+    cat <<'QC_THRESHOLDS_JSON' > qc_thresholds.json
+    ${qc_thresholds_json}
+    QC_THRESHOLDS_JSON
 
     # Create samples/ symlinks so discover_igv_reports() can find reports.
     # Exclude cohort and multiqc reports (they are not per-sample reports).
@@ -77,7 +90,7 @@ process GENERATE_INDEX {
         --outdir '${outdir_label}' ${report_dir_arg} \\
         --pipeline-version '${workflow.manifest.version}' \\
         --snv-csv data/snv_indel_sites.csv \\
-        --run-info run_info.json \\
+        --run-info run_info.json --qc-thresholds qc_thresholds.json \\
         ${cnv_sv_arg} ${mqc_path_arg} ${prepared_vcf_arg} ${pass_stats_arg}
 
     cat <<-END_VERSIONS > versions.yml

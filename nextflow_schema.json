@@ -1249,6 +1249,103 @@
                     "help_text": "On a run launched by Seqera Platform the mutation report index prints the run id (read from the environment Platform sets) in its *Run* line. A run cannot learn the address of its own page, so the id is plain text unless this is set to the workspace's URL as shown in the browser, e.g. `https://cloud.seqera.io/orgs/<organisation>/workspaces/<workspace>`; the index then links `<this URL>/watch/<run id>`. Set it once, in the Launchpad entry's parameters or in a config file, not per run. It has no effect on a run started outside Seqera Platform.",
                     "hidden": true
                 },
+                "report_qc_cov_pass": {
+                    "type": "number",
+                    "default": 30,
+                    "description": "Mutation report QC: median coverage (x) at or above which a sample passes the coverage column.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "hidden": true
+                },
+                "report_qc_cov_fail": {
+                    "type": "number",
+                    "default": 15,
+                    "description": "Mutation report QC: median coverage (x) below which a sample fails the coverage column.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "hidden": true
+                },
+                "report_qc_breadth_pass": {
+                    "type": "number",
+                    "default": 95,
+                    "description": "Mutation report QC: percent of the genome at >= 20x at or above which a sample passes the breadth column.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "hidden": true
+                },
+                "report_qc_breadth_fail": {
+                    "type": "number",
+                    "default": 90,
+                    "description": "Mutation report QC: percent of the genome at >= 20x below which a sample fails the breadth column.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "hidden": true
+                },
+                "report_qc_map_pass": {
+                    "type": "number",
+                    "default": 95,
+                    "description": "Mutation report QC: percent of reads mapped at or above which a sample passes the mapping column.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "hidden": true
+                },
+                "report_qc_map_fail": {
+                    "type": "number",
+                    "default": 90,
+                    "description": "Mutation report QC: percent of reads mapped below which a sample fails the mapping column.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "hidden": true
+                },
+                "report_qc_dup_pass": {
+                    "type": "number",
+                    "default": 20,
+                    "description": "Mutation report QC: percent duplicates below which a sample passes the duplicates column.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "hidden": true
+                },
+                "report_qc_dup_fail": {
+                    "type": "number",
+                    "default": 40,
+                    "description": "Mutation report QC: percent duplicates above which a sample fails the duplicates column.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "hidden": true
+                },
+                "report_qc_cohort_cov_frac": {
+                    "type": "number",
+                    "default": 0.33,
+                    "description": "Mutation report QC: a sample whose median coverage is below this share of the cohort's median coverage gets a coverage warning whatever its absolute depth; 0 disables the check.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "hidden": true
+                },
+                "report_qc_min_dp": {
+                    "type": "integer",
+                    "default": 8,
+                    "description": "Mutation report: the per-sample depth below which a cell of the SNV / InDel events table is marked amber.",
+                    "help_text": "One of the mutation report index's Samples-table QC thresholds (hidden on the launch form; the defaults suit clonal microbial WGS against a close reference). A sample passes a column at or above the *_pass bound and fails below the *_fail bound (duplicates the other way round), warns in between; the worst column sets its QC status and a failed sample is named in the Summary. The thresholds are printed under the column headers and in the Methods section.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "minimum": 0,
+                    "hidden": true
+                },
                 "multiqc_title": {
                     "type": "string",
                     "description": "Prefix of the three MultiQC report titles (default 'yAMP': 'yAMP read-QC', 'yAMP alignment-QC', 'yAMP complete-QC').",

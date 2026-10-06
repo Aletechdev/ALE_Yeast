@@ -73,8 +73,9 @@ needs in-session are repeated here.
   regardless of what conda installed). **26.x cannot parse `nextflow.config`** —
   see [`ale_sarek_upgrade_runbook.md`](docs/dev-practices/ale_sarek_upgrade_runbook.md).
 - **What counts as validated (before any commit that can change outputs).** A change under
-  `conf/modules/`, `subworkflows/`, `modules/`, `workflows/`, a task script in `bin/`, or a default in
-  `nextflow.config` must run the e2e **contract test** —
+  `conf/modules/`, `subworkflows/`, `modules/`, `workflows/`, a task script in `bin/`, a report asset under
+  `docs/igvreports/` that a `report_*` param in `nextflow.config` hands to a report process (renderer, templates,
+  filter config), or a default in `nextflow.config` must run the e2e **contract test** —
   `nf-test test -c tests/nf-test-ottilie.config tests/ottilie_e2e.nf.test` (NXF_VER=25.10.4, ~25 min) —
   and every snapshot difference must be explained and re-recorded (`--update-snapshot`) **in the same
   commit** as the code. A launcher run (`bin/test_ottilie.sh`) or a pilot run shows the change's *value*
@@ -512,12 +513,15 @@ tool-comparison views — is now delivered by the **`MUTATION_REPORT` subworkflo
 (igv-reports HTML dashboard backed by `cn_cohort_matrix.csv` / `sv_cohort_matrix_*.csv` /
 `cn_segments_*.csv` / `contig_copy_number.csv` — the last from TIDDIT's per-contig coverage table,
 plus the prepared cohort VCF read in pure Python for the *SNV / InDel events* table: PASS sites that differ
-between samples, protein-changing first, capped at 300 rows; the report container has no bcftools —
+between samples, protein-changing first, capped at 1,000 rows with the full counts printed; the report container has no bcftools —
 whole-contig only, and the **only** place the mitochondrial contig is quantified: CNVKit's hard-coded
 0.30–0.70 GC mask drops every Mito bin). `index.html` names the run that produced it (run name, commit, session id, Seqera run id from
 `TOWER_WORKFLOW_ID`; a link only when the optional hidden `seqera_workspace_url` is set — a run cannot
 learn its own page address) and needs no network: Tabulator 6.3.0 is inlined from
-`docs/igvreports/templates/vendor/` (the cohort and per-sample IGV pages still use CDNs).
+`docs/igvreports/templates/vendor/` (the cohort and per-sample IGV pages still use CDNs). Since 2026-10-06 the
+index is the redesigned light-only page (template contract: [`docs/igvreports/templates/README.md`](docs/igvreports/templates/README.md));
+its Samples table grades QC pass / warn / fail with the hidden `report_qc_*` params (coverage, breadth at 20×, mapped %,
+duplicates %, plus a relative check at 0.33 of the cohort median coverage), and Mito is counted like any contig.
 See [`docs/igvreports/`](docs/igvreports/) and
 [`subworkflows/local/mutation_report/`](subworkflows/local/mutation_report/main.nf). The original design
 writeup (kept for future mutation-report work) is archived at

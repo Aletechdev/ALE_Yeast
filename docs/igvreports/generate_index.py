@@ -57,6 +57,32 @@ CALLER_SUFFIXES = [
 TARGET_CALLERS = {"HaplotypeCaller", "CNVKit", "TIDDIT", "Manta"}
 
 
+# ---------------------------------------------------------------------------
+# Page constants. The QC thresholds are mirrored by params.report_qc_* (nextflow.config, hidden on the
+# launch form); GENERATE_INDEX hands the live values over as qc_thresholds.json, these defaults serve a
+# standalone render. cohort_cov_frac 0.33 (not 0.5): at 0.5 the pilot's parent strain, 43x against a
+# cohort median of 86.5x, was flagged although 43x is ample for haploid yeast (2026-10-06).
+# ---------------------------------------------------------------------------
+QC_THRESHOLD_DEFAULTS = {
+    "cov_pass": 30, "cov_fail": 15,          # median coverage, x
+    "breadth_pass": 95, "breadth_fail": 90,  # % of the genome at >= 20x
+    "map_pass": 95, "map_fail": 90,          # % reads mapped
+    "dup_pass": 20, "dup_fail": 40,          # % duplicates (lower is better)
+    "cohort_cov_frac": 0.33,                 # warn below this share of the cohort's median coverage
+    "min_dp": 8,                             # amber depth in the SNV / InDel events table
+}
+CN_THRESHOLDS = {"loss": -0.4, "gain": 0.3, "amp": 2.3, "deep_loss": -1.0}  # log2; the page's colours and the counts here
+MITO_CONTIGS = ["Mito", "chrM", "MT"]  # coloured against the cohort median, not against 1 (multi-copy)
+IGV_LOCUS_TEMPLATE = "samples/{sample}_hc_report.html?locus={chrom}:{pos}"  # custom_template_sample.html reads ?locus=
+TOOL_LINKS = {  # the header's caller line
+    "HaplotypeCaller": ("GATK HaplotypeCaller", "https://gatk.broadinstitute.org/hc/en-us/articles/360037225632-HaplotypeCaller"),
+    "CNVKit": ("CNVKit", "https://cnvkit.readthedocs.io/"),
+    "Manta": ("Manta", "https://github.com/Illumina/manta"),
+    "TIDDIT": ("TIDDIT", "https://github.com/SciLifeLab/TIDDIT"),
+    "SnpEff": ("SnpEff", "https://pcingola.github.io/SnpEff/"),
+}
+
+
 def parse_sample_caller(name: str) -> tuple[str | None, str | None]:
     """Extract (sample_id, caller_display_name) from a MultiQC sample name.
 
@@ -139,7 +165,8 @@ def get_joint_vcf_pass_count(joint_vcf: Path | None) -> int | None:
 # SNV / InDel events table (from the prepared cohort VCF: post-norm, FILTER promoted, FORMAT/VAF)
 # ---------------------------------------------------------------------------
 IMPACT_RANK = {"HIGH": 0, "MODERATE": 1, "LOW": 2, "MODIFIER": 3}
-SNV_TABLE_MAX_ROWS = 300  # rows shipped in the page; sorted by impact then position before the cut
+SNV_TABLE_MAX_ROWS = 1000  # rows shipped in the page; sorted by impact then position before the cut (300 until 2026-10-06;
+                           # the page prints the full counts and says when the table is cut)
 
 
 def _display_sample(vcf_name: str, known: list[str]) -> str:
@@ -298,6 +325,8 @@ def load_snv_table(prepared_vcf: Path | None, known_samples: list[str],
     return {
         "samples": samples, "rows": base[:max_rows],
         "total": total, "pass": n_pass,
+        "listed": len(base),                  # rows before the cut, whatever the sample count
+        "contigs": list(chrom_order),         # the VCF's contig order, for the page's sort
         "differing": len(base) if len(samples) > 1 else None,
         "candidate": candidate, "has_ann": has_ann,
         "single_sample": len(samples) <= 1,
@@ -357,13 +386,14 @@ def load_general_stats(multiqc_dir: Path, known_samples: set[str] | None = None)
         "gatk4_markduplicates_mark_duplicates-PERCENT_DUPLICATION": "dup_pct",
         "samtools_flagstat_stats-reads_mapped_percent": "mapped_pct",
         "mosdepth-median_coverage": "median_coverage",
+        "mosdepth-20_x_pc": "breadth_20x_pct",   # share of the genome at >= 20x (MultiQC's coverage columns, whole percent)
         "samtools_flagstat_stats-reads_mapped": "mapped_reads",
     }
     available = {k: v for k, v in cols.items() if k in df.columns}
     df = df[list(available.keys())].rename(columns=available)
 
     # Convert numeric columns
-    for col in ["dup_pct", "mapped_pct", "median_coverage", "mapped_reads"]:
+    for col in ["dup_pct", "mapped_pct", "median_coverage", "mapped_reads", "breadth_20x_pct"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -517,8 +547,8 @@ def load_sv_matrix(path: Path) -> dict | None:
 
 
 def _has_cn_change(log2: float) -> bool:
-    """Return True if log2 ratio indicates a CN change (same thresholds as heatmap)."""
-    return log2 < -0.4 or log2 > 0.3
+    """Return True if log2 ratio indicates a CN change (CN_THRESHOLDS, the same values the page colours with)."""
+    return log2 < CN_THRESHOLDS["loss"] or log2 > CN_THRESHOLDS["gain"]
 
 
 
@@ -647,6 +677,7 @@ def build_context(
             "mapped_pct": round(row.get("mapped_pct", 0), 1) if pd.notna(row.get("mapped_pct")) else None,
             "median_coverage": int(row.get("median_coverage", 0)) if pd.notna(row.get("median_coverage")) else None,
             "mapped_reads_m": round(row.get("mapped_reads", 0), 1) if pd.notna(row.get("mapped_reads")) else None,
+            "breadth_20x_pct": round(float(row.get("breadth_20x_pct")), 1) if pd.notna(row.get("breadth_20x_pct")) else None,
         }
 
     # Load PASS filter stats (from FILTER_PASS_VCF)
@@ -674,6 +705,7 @@ def build_context(
             "sample": sample,
             # QC fields
             "median_coverage": qc.get("median_coverage"),
+            "breadth_20x_pct": qc.get("breadth_20x_pct"),
             "dup_pct": qc.get("dup_pct"),
             "mapped_pct": qc.get("mapped_pct"),
             "mapped_reads_m": qc.get("mapped_reads_m"),
@@ -733,7 +765,7 @@ def build_context(
         "cohort_pass_count": cohort_pass_count,
         "cohort_prenorm_count": cohort_prenorm_count,
         "snv": snv,
-        "multiqc_report_path": multiqc_report_path or "../../output_all/multiqc/multiqc_report.html",
+        "multiqc_report_path": multiqc_report_path,   # None = no MultiQC link (the nav shows one only when the report exists)
         "summary_data_json": json.dumps(summary_data),
         # CN/SV data (None if not provided)
         "cn_chr": cnv_sv.get("cn_chr"),
@@ -797,6 +829,107 @@ def load_run_info(path: Path | None) -> dict | None:
     }
 
 
+def load_qc_thresholds(path: Path | None) -> dict:
+    """QC_THRESHOLD_DEFAULTS overridden by the JSON GENERATE_INDEX writes from params.report_qc_* (a key per
+    threshold, same names). A missing file or key keeps the default; whole numbers print as integers."""
+    values = dict(QC_THRESHOLD_DEFAULTS)
+    if path is None or not Path(path).is_file():
+        return values
+    try:
+        given = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return values
+    for key, raw in (given or {}).items():
+        if key not in values or raw is None:
+            continue
+        try:
+            v = float(raw)
+        except (TypeError, ValueError):
+            continue
+        values[key] = int(v) if v.is_integer() and key != "cohort_cov_frac" else v
+    return values
+
+
+def _tool(name: str) -> dict:
+    label, url = TOOL_LINKS[name]
+    return {"name": label, "url": url}
+
+
+def template_context(ctx: dict, run: dict | None, outdir: str | None, report_dir: str | None,
+                     qc_thresholds: dict) -> dict:
+    """Map the loaded data onto the template's contract (docs/igvreports/templates/README.md)."""
+    summary = json.loads(ctx["summary_data_json"])
+    samples = [s["sample"] for s in summary]
+    snv, sv = ctx.get("snv"), ctx.get("sv_pass")
+    cn_chr, cn_reg, contig = ctx.get("cn_chr"), ctx.get("cn_reg"), ctx.get("contig_cn")
+    run = run or {}
+
+    # The header's caller line names what produced something in this run.
+    def used(key: str) -> bool:
+        return any((s.get(key) or 0) > 0 for s in summary)
+    tools = [{"label": "SNV/InDel", "links": [_tool("HaplotypeCaller")]}]
+    if cn_chr or cn_reg or used("cnvkit_events"):
+        tools.append({"label": "CNV", "links": [_tool("CNVKit")]})
+    sv_links = [_tool(c) for c, key in (("Manta", "manta_svs"), ("TIDDIT", "tiddit_svs")) if used(key)]
+    if sv_links or sv:
+        tools.append({"label": "SV", "links": sv_links or [_tool("Manta"), _tool("TIDDIT")]})
+    if snv and snv.get("has_ann"):
+        tools.append({"label": "annotation", "links": [_tool("SnpEff")]})
+
+    # Download links only for files that exist in the bundle; the template falls back to the bundle's
+    # fixed names for the rest, so a missing optional file costs at most one dead link, never a crash.
+    downloads = {}
+    if snv:
+        if snv.get("csv_link"):
+            downloads["snv_csv"] = snv["csv_link"]
+        if snv.get("vcf_link"):
+            downloads["snv_vcf"] = snv["vcf_link"]
+    if ctx.get("cohort_link"):
+        downloads["cohort_igv"] = ctx["cohort_link"]
+    sv_dl, cn_dl = ctx.get("sv_downloads") or {}, ctx.get("cn_downloads") or {}
+    for key, src in (("sv_csv", sv_dl.get("pass_csv")), ("sv_vcf", sv_dl.get("pass_vcf")),
+                     ("contig_cn_csv", cn_dl.get("contig")), ("cn_chr_csv", cn_dl.get("chr")),
+                     ("cn_win_csv", cn_dl.get("regions")), ("cn_full_csv", cn_dl.get("matrix"))):
+        if src:
+            downloads[key] = src
+
+    chromosomes = (snv or {}).get("contigs") or [r["chromosome"] for r in (contig or {}).get("rows", [])]
+    return {
+        "report": {
+            "title": ctx["title"], "pipeline_name": "yAMP", "version": ctx.get("pipeline_version"),
+            "run_name": run.get("name") or "standalone render", "started": run.get("start"),
+            "generated": ctx["generated_at"],
+            "commit": run.get("commit"), "commit_url": run.get("commit_url"), "branch": run.get("revision"),
+            "nextflow_version": run.get("nextflow"),
+            "seqera_run_id": run.get("seqera_id"), "seqera_url": run.get("seqera_url"),
+            "session_id": run.get("session"), "output_dir": outdir or None, "report_dir": report_dir or None,
+        },
+        "tools": tools,
+        "multiqc_href": ctx.get("multiqc_report_path") or None,
+        "load_web_fonts": False,
+        "samples": samples,
+        "chromosomes": chromosomes,
+        "mito_contigs": MITO_CONTIGS,
+        "igv_locus_template": IGV_LOCUS_TEMPLATE,
+        "qc_thresholds": qc_thresholds,
+        "cn_thresholds": CN_THRESHOLDS,
+        "counts": {
+            "snv_called": snv["total"] if snv else None, "snv_pass": snv["pass"] if snv else None,
+            "snv_listed": snv["listed"] if snv else None, "snv_coding": snv["candidate"] if snv else None,
+            "snv_max_rows": SNV_TABLE_MAX_ROWS,
+        },
+        "snv_single_sample": bool(snv and snv["single_sample"]),
+        "snv_has_ann": bool(snv and snv["has_ann"]),
+        "summary_data": summary,
+        "snv_rows": snv["rows"] if snv else None,
+        "sv_rows": sv["rows"] if sv else None,
+        "contig_cn_rows": contig["rows"] if contig else [],
+        "cn_chr_rows": cn_chr["rows"] if cn_chr else [],
+        "cn_reg_rows": cn_reg["rows"] if cn_reg else [],
+        "downloads": downloads,
+    }
+
+
 TABULATOR_VENDOR_DIR = "vendor/tabulator-6.3.0"  # under the templates dir; pristine upstream files + LICENSE
 
 
@@ -817,7 +950,7 @@ def render(context: dict, template_dir: Path, output_path: Path) -> None:
     """Render the Jinja2 template and write to output."""
     env = Environment(
         loader=FileSystemLoader(str(template_dir)),
-        autoescape=False,  # We handle escaping in the template
+        autoescape=True,  # the template marks the inlined Tabulator files | safe and injects data with | tojson
     )
     template = env.get_template("index.html.j2")
     html = template.render(
@@ -893,6 +1026,11 @@ def main():
              "revision, repository, nextflow_version, seqera_run_id, seqera_workspace_url); printed as the Run line",
     )
     parser.add_argument(
+        "--qc-thresholds", type=Path, default=None,
+        help="JSON written by GENERATE_INDEX from params.report_qc_* (cov_pass, cov_fail, breadth_pass, breadth_fail, map_pass, "
+             "map_fail, dup_pass, dup_fail, cohort_cov_frac, min_dp); the Samples-table grading. Defaults apply when absent.",
+    )
+    parser.add_argument(
         "--pipeline-version", type=str, default=None,
         help="Pipeline version shown as a chip next to the title (the workflow's manifest version); omitted when not given",
     )
@@ -922,9 +1060,8 @@ def main():
         prepared_vcf=args.prepared_vcf,
         pass_stats_files=args.pass_stats,
     )
-    context["outdir"] = args.outdir
-    context["report_dir"] = args.report_dir
-    context["run"] = load_run_info(args.run_info)
+    context = template_context(context, run=load_run_info(args.run_info), outdir=args.outdir,
+                               report_dir=args.report_dir, qc_thresholds=load_qc_thresholds(args.qc_thresholds))
 
     # Template directory: explicit arg or relative to this script
     template_dir = args.templates_dir or (Path(__file__).parent / "templates")

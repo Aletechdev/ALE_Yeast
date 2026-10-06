@@ -11,6 +11,27 @@
 
 ### Added
 
+- **Mutation report index redesigned** (2026-10-06; `docs/igvreports/templates/index.html.j2` from the design
+  handoff, `docs/igvreports/generate_index.py`, `modules/local/generate_index/main.nf`; contract in
+  `docs/igvreports/templates/README.md`). Light document style, sticky section nav, a ruled Summary table instead of
+  cards, provenance block in the header (commit, Nextflow and Seqera ids, session, output path with a Copy button, the
+  report bundle's folder when it differs). Samples table with a QC status column graded by ten new hidden parameters
+  `report_qc_*` (median coverage, breadth at ≥ 20× from MultiQC general stats, mapped %, duplicates %, a relative
+  check at 0.33 of the cohort median coverage, the amber depth of the events table); a failed sample is named in the
+  Summary. SNV / InDel: one Locus column, VAF cells with depth, a per-sample panel on click with a link into that
+  sample's IGV report at the locus, an *IGV, all samples* button, the row cap raised from 300 to 1,000 with the full
+  counts printed and a notice when cut, the three wordings kept (annotated, without SnpEff, one sample). SV: Type /
+  Location / Length layout, a *Differ between samples* toggle. Copy number: the three tabs replaced by a Whole
+  chromosomes table (samples as rows, TIDDIT / CNVKit source toggle, Mito coloured against the cohort median) and a
+  Changed windows table with per-sample strips, chromosome chips and a hide-shared toggle; *All bins CSV* download.
+  Methods: the eight previous sections after a generated QC-thresholds entry. Presentation mode (`?present`, key P).
+  Dark mode and Google Fonts are gone; the page stays offline. Validated by the e2e contract test (snapshot unchanged:
+  `index.html` is name-only, `data/snv_indel_sites.csv` identical) and headless Chromium on the 2-sample, pilot and a
+  synthetic 60-sample render.
+- **Commit gate: report assets count as output-changing paths** (2026-10-06; `bin/check_snapshot_staged.sh`). Every
+  `${projectDir}` path a `report_*` param names in `nextflow.config` (the index renderer, its templates, the
+  igv-reports templates and filter config under `docs/igvreports/`) now demands the e2e trailer like a `bin/` task
+  script; a template-only commit used to pass with no trailer.
 - **Mutation report index: readable at a glance, plus an SNV / InDel events table** (2026-09-30;
   `docs/igvreports/templates/index.html.j2`, `docs/igvreports/generate_index.py`). Header with a
   version chip (`--pipeline-version`, the manifest version), four tool chips and jump links; summary

@@ -140,6 +140,9 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
 `report_gff3`, `report_filter_config`, `report_cohort_template`, `report_sample_template`,
 `report_index_script`, `report_templates_dir`, `report_outdir`, `report_multiqc_path`,
 `seqera_workspace_url` (2026-10-01; hidden, schema group `generic_options` — the report index's link to its Seqera run);
+the ten `report_qc_*` thresholds of the report index's Samples-table QC grading (2026-10-06; hidden, `generic_options`:
+`report_qc_{cov,breadth,map,dup}_{pass,fail}`, `report_qc_cohort_cov_frac`, `report_qc_min_dp`; read by `modules/local/generate_index`
+and handed to `generate_index.py` as `qc_thresholds.json`);
 read preprocessing (2026-09-02): `trim_adapter` (upstream `trim_fastq` kept as deprecated alias),
 `adapter_sequence`, `adapter_sequence_r2`, `trim_quality_3prime`, `trim_quality_5prime`, `trim_quality_mean`,
 `trim_quality_window`, `filter_quality`, `filter_quality_phred`, `filter_quality_percent`.

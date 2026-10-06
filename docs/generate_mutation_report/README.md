@@ -82,7 +82,7 @@ outdir/mutation_reports/
 | `generate_demo_reports.sh` | CEN.PK launcher (6 I1 samples) | Hardcoded samples/paths |
 | `generate_ottilie_reports.sh` | Ottilie launcher (4 samples) | Hardcoded samples/paths, manual steps |
 | `generate_index.py` | Jinja2 dashboard renderer | Working, some hardcoded assumptions |
-| `templates/index.html.j2` | Dashboard template (dark/light theme) | Production-ready |
+| `templates/index.html.j2` | Dashboard template (light document style since 2026-10-06; contract in `templates/README.md`) | Production-ready |
 | `custom_template.html` | Cohort report template (7:3 split) | Production-ready |
 | `custom_template_sample.html` | Per-sample template (1:1 split) | Production-ready |
 | `filter_config.yaml` | Tabulator filter definitions | Reference only (custom templates override) |
@@ -335,7 +335,7 @@ Both `sv_cohort_matrix.py` and `cn_cohort_matrix.py` produce cohort-level matric
 Add a brief header comment to each template explaining its role:
 - `custom_template.html` — Cohort report (7:3 table/IGV split, cross-links to samples)
 - `custom_template_sample.html` — Per-sample report (1:1 split, CRAM pileups + GFF3)
-- `templates/index.html.j2` — Dashboard hub (Jinja2, dark/light theme, CN/SV heatmaps)
+- `templates/index.html.j2` — Dashboard hub (Jinja2; since 2026-10-06 the redesigned light-only page, Tabulator tables; contract in `templates/README.md`)
 
 ### Phase 2: Create Subworkflow
 - Convert `generate_demo_reports.nf` processes into `subworkflows/local/mutation_report/main.nf`

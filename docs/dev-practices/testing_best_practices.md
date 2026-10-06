@@ -585,7 +585,10 @@ claim is on record:
    or the commit is blocked with one `DRIFT:` line per fix (2026-09-28; *Docs that copy the tree* below).
 1. If no *staged* file is under `conf/modules/`, `subworkflows/`, `modules/`, `workflows/`,
    `nextflow.config`, or is a task script — a `bin/` file that some `modules/**/main.nf` calls by name,
-   derived at run time (2026-09-28; was `bin/*.py`) — the commit passes (docs / tests / tooling only).
+   derived at run time (2026-09-28; was `bin/*.py`) — or a report asset, a path under `${projectDir}` that a
+   `report_*` param in `nextflow.config` names (the index renderer, its templates, the igv-reports templates
+   and filter config under `docs/igvreports/`; derived from the config, 2026-10-06), the commit passes
+   (docs / tests / tooling only).
 2. Otherwise `tests/ottilie_e2e.nf.test.snap` must be staged too (outputs moved and were re-recorded),
    **or** the message must carry a trailer `Snapshot: unchanged (e2e green on <commit>, <date>)`.
 3. Paths with a unit test additionally need `Module test: <name> green` in the message. The map is
@@ -620,7 +623,11 @@ commits made by hand install it as a git hook — `ln -s ../../bin/check_snapsho
   generators (`bin/apply_schema_overlay.py`, `bin/make_params_template.py`, which no module calls) are
   out of the rule without a second list, and `bin/preflight_reference.sh`, the first `.sh` task script,
   is in it. The `*.py` pattern had let a commit staging only that file through with no trailer at all
-  (verified on a scratch index before the fix).
+  (verified on a scratch index before the fix). **Still too narrow until 2026-10-06:** the index renderer
+  `docs/igvreports/generate_index.py` and its templates reach their process through `params.report_*`, not
+  through `bin/`, so a renderer-only or template-only commit passed with no trailer. The gate now also derives
+  every `${projectDir}` path that a `report_*` param names in `nextflow.config` (five today, all under
+  `docs/igvreports/`); found while reviewing the new index UI, verified with a fake staged list.
 
 ### Docs that copy the tree (2026-09-28)
 

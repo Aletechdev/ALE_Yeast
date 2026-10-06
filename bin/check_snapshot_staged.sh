@@ -45,8 +45,16 @@ fi
 #    rule and a .sh task script is covered (2026-09-28: bin/preflight_reference.sh was the first, and
 #    the old bin/*.py pattern let it through with no trailer at all).
 task_scripts=$(for f in "$here"/bin/*; do n=$(basename "$f"); grep -rq --include=main.nf -F -- "$n" "$here/modules" && echo "bin/$n"; done)
+#    A report asset is a repo file or directory that nextflow.config hands to a report process through a
+#    `report_*` param under ${projectDir} (the index renderer, its templates, the igv-reports templates and
+#    filter config live under docs/igvreports/, not bin/, so the bin/ rule alone let them through -
+#    found 2026-10-06 while reviewing the new index UI). Derived from nextflow.config, so a new asset
+#    param is covered without touching this file.
+report_assets=$(grep -oE '^[[:space:]]*report_[a-z_]+[[:space:]]*=[[:space:]]*"\$\{projectDir\}/[^"]+"' "$here/nextflow.config" \
+                | sed -E 's/.*\$\{projectDir\}\///; s/"$//')
 behaviour=$({ grep -E '^(conf/modules/|subworkflows/|modules/|workflows/|nextflow\.config$)' <<<"$staged"
-              grep -Fx -f <(printf '%s\n' "$task_scripts") <<<"$staged"; } | sort -u)
+              grep -Fx -f <(printf '%s\n' "$task_scripts") <<<"$staged"
+              for a in $report_assets; do grep -E "^${a}(/|$)" <<<"$staged"; done; } | sort -u)
 if [ -z "$behaviour" ]; then
   [ "$fail" -eq 0 ] && exit 0
   echo "See CLAUDE.md 'What counts as validated' / docs/dev-practices/testing_best_practices.md §12." >&2
