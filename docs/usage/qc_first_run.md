@@ -94,9 +94,18 @@ run 1 was launched with `--set qc_only=true`:
   (measured 2026-09-29, run `5CiOiON5oJuETn`; `azure_batch_execution.md` → Outputs tab).
   Before 2026-09-29 the QC-only report had its own file name and survived run 2 (`702a4c0`); now
   run 2 rewrites the same read-QC report early in its run (see *The three MultiQC reports*).
-- **The run page lists all 115 processes for both runs**: the workflow map is registered whole; 15
-  carry tasks in run 1 (61 in a full run; the rest are sarek branches this recipe never uses). The
+- **The run page lists all 117 processes for both runs** (115 before the two MultiQC reports of
+  2026-09-29): the workflow map is registered whole; 15 carry tasks in run 1 (64 in a full run on
+  2026-10-05; the rest are sarek branches this recipe never uses). The
   *Tasks* tab is the record of what ran.
+- **Repeated 2026-10-05** (runs `1VItgFdKPAxaLT` → `6iO52bvtK9Db7`, commit `616f67a`; the first
+  pair from the entry that opens with `qc_only` ticked, run 1 launched by `15_launch_run.sh` with
+  no `qc_only` override and run 2 by its `--resume`): run 1 18 tasks in 15 processes, 11.6 min;
+  run 2 submitted 55 s after run 1 ended and RUNNING after 2 min, 155 tasks of which 17 CACHED
+  (every run-1 task but `MULTIQC_READ_QC`), 64 of 117 processes with tasks, 18.2 min, no UNKNOWN.
+  The two tasks and two processes more than on 2026-09-28 are `MULTIQC_READ_QC` and
+  `MULTIQC_ALIGNMENT_QC` (the only processes new in the map since then). Outputs present (995 blobs:
+  index, cohort report, the three MultiQC reports, the joint VCF), not compared against a baseline.
 - **Platform's status is not the outcome.** Run 2 was shown as UNKNOWN from 19:00 while it kept
   completing tasks and finished cleanly at 19:07; the watch script says what to check instead
   ([`azure_batch_execution.md` §15](../dev-practices/azure_batch_execution.md)).

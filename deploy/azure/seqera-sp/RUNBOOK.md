@@ -1695,3 +1695,40 @@ remote branch `launch-form-preview` deleted. How to set one up again:
 above still names `yAMP-ottilie-test-az`). `14_register_pipeline.sh` and `15_launch_run.sh` defaulted
 to the old name and would not have found the entry; their default is `yAMP` since this date (user
 decision). `PIPELINE_NAME` still overrides it, as for the preview copy.
+
+### 2026-10-05 (late afternoon): ✅ QC-first pair from the updated entry, commit `616f67a`: `1VItgFdKPAxaLT` (18 tasks) → `6iO52bvtK9Db7` (155 tasks, 17 cached)
+
+The first launch from `yAMP` after its box gained `qc_only: true` (entry above) and the first
+Platform run of the launch-form series (`f8f16b7`…`616f67a`: start-up validation rules, `qc_only`
+in Main options, the reordered sections). Both from the command line, nothing typed in the form.
+
+- **Run 1** `1VItgFdKPAxaLT` (`yAMP-qc-first-run1-20261005`):
+  `./15_launch_run.sh --name … --set outdir=az://aletest/seqera-runs/yAMP-qc-first-20261005`, no
+  `qc_only` override, so the box's `true` applied (the script said so). SUBMITTED 15:44:41 UTC,
+  RUNNING 15:53:44 (cold head pool, 9 min), SUCCEEDED 16:03:49; wall 11.55 min, $0.04. Params
+  read back: `qc_only: true`, exit 0, commit `616f67a`. 18 tasks in 15 processes, none failed:
+  BUILD_INTERVALS, BWAMEM1_INDEX, CNVKIT_ANTITARGET, CNVKIT_REFERENCE, CREATE_INTERVALS_BED, FASTP,
+  FASTQC, FASTQC_TRIMMED, GATK4_CREATESEQUENCEDICTIONARY, MULTIQC_READ_QC, PREFLIGHT_REFERENCE,
+  PREPARE_GFF3, SAMTOOLS_FAIDX, TABIX_BGZIPTABIX_INTERVAL_COMBINED, TABIX_BGZIPTABIX_INTERVAL_SPLIT
+  (the 2026-09-28 list). So on Platform the entry's default gives a QC-only run, and the new
+  validation rules accept the real `az://aletest/…` paths.
+- **Run 2** `6iO52bvtK9Db7` (`yAMP-qc-first-run2-20261005`): `./15_launch_run.sh --resume
+  1VItgFdKPAxaLT --name … --set outdir=<the same>`; the script sent `qc_only: false` by itself.
+  SUBMITTED 16:04:44 (55 s after run 1 ended), RUNNING 16:06:45 (warm pool, 2 min), SUCCEEDED
+  16:23:53; wall 18.22 min, CPU 3.03 h, $0.26. Params read back: `qc_only: false`, resume true, the
+  same session `1ee2c4c9-…`, commit `616f67a`, exit 0. 155 tasks: 138 run + 17 CACHED, 0 failed;
+  the cached ones are every run-1 task but `MULTIQC_READ_QC`; 64 of 117 processes carried tasks.
+  No UNKNOWN at any point (§15 did not recur).
+- **Counts against 2026-09-28** (`464Scp5QNoznbD`: 153 tasks, 17 cached, 115 processes, 61 with
+  tasks): +2 tasks, +2 processes, +3 with tasks. The process map diff between the two runs
+  (`/workflow/<id>/progress`) names exactly two new processes, `MULTIQC_READ_QC` and
+  `MULTIQC_ALIGNMENT_QC` (2026-09-29), which account for the tasks and the map. The third process
+  with tasks could not be identified from the API: Platform's record of `464Scp5QNoznbD` holds only
+  62 task events and 39 processes with tasks, the UNKNOWN episode of that day (§15); its 153 came
+  from the head log and the downloaded outdir. `docs/usage/qc_first_run.md` carries the new counts.
+- **Outdir** `az://aletest/seqera-runs/yAMP-qc-first-20261005`: 995 blobs, 206 MB (multiqc 663,
+  reports 138, mutation_reports 70, variant_calling 65, annotation 27, pipeline_info 12, …).
+  `yAMP-read-QC_multiqc_report.html` written 16:08 (run 2 rewrote run 1's), the alignment-QC report
+  16:14, the complete one 16:22, `index.html` 16:23. **Not compared** against the baseline or a
+  local e2e; nothing was downloaded.
+
