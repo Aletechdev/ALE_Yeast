@@ -12,7 +12,9 @@
 {%- set snv_listed = counts.snv_listed if (counts is defined and counts.snv_listed is defined and counts.snv_listed is not none) else snv_shown -%}
 {%- set snv_coding = counts.snv_coding if (counts is defined and counts.snv_coding is defined and counts.snv_coding is not none) else none -%}
 {%- set snv_max_rows = counts.snv_max_rows if (counts is defined and counts.snv_max_rows is defined and counts.snv_max_rows is not none) else 1000 -%}
+{%- set snv_all = counts.snv_all if (counts is defined and counts.snv_all is defined and counts.snv_all is not none) else (none if snv_single else snv_shown) -%}
 {%- set snv_cut = has_snv and snv_shown < snv_listed -%}
+{%- set snv_cut_all = has_snv and snv_all is not none and snv_shown < snv_all -%}
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -267,15 +269,22 @@ html.present .strip{height:26px} html.present .strip.compact{height:18px}
     {%- elif snv_ann %}<strong data-fill="snv-coding"></strong> of {{ counts.snv_pass }} PASS sites differ between samples and change a protein; <span data-fill="snv-differ"></span> differ in total.
     {%- else %}<strong data-fill="snv-differ"></strong> of {{ counts.snv_pass }} PASS sites differ between samples. No SnpEff annotation in this run, so no gene columns.
     {%- endif %}
-    {%- if snv_cut %} The table holds the first {{ snv_shown }}{% if snv_ann %} by impact, then position{% else %} by position{% endif %}; every site is in the CSV below.{% endif %}
+    {%- if snv_cut or snv_cut_all %} The table holds the first {{ snv_shown }}{% if snv_all is not none %} PASS sites, differing ones first{% endif %}{% if snv_ann %}, by impact, then position{% else %}, by position{% endif %}; every site is in the CSV below.{% endif %}
   </p>
   <div class="toolbar">
     <div class="seg">
       {%- if snv_ann %}
       <button class="btn snv-view" data-view="coding" aria-pressed="true">Protein-changing · <span data-fill="snv-coding"></span></button>
-      <button class="btn snv-view" data-view="all" aria-pressed="false">{{ 'All PASS sites' if snv_single else 'All differing' }} · {% if snv_cut %}{{ snv_shown }} of {% endif %}<span data-fill="snv-differ"></span></button>
       {%- endif %}
-      <a class="btn" href="{{ downloads.cohort_igv | default('cohort_report.html') }}" target="_blank"{% if snv_ann %} style="margin-left:8px"{% endif %} title="Read pileups for every sample at every site">IGV, all samples ↗</a>
+      {%- if snv_single %}
+      {%- if snv_ann %}
+      <button class="btn snv-view" data-view="pass" aria-pressed="false">All PASS sites · {% if snv_cut %}{{ snv_shown }} of {% endif %}<span data-fill="snv-differ"></span></button>
+      {%- endif %}
+      {%- else %}
+      <button class="btn snv-view" data-view="differ" aria-pressed="{{ 'false' if snv_ann else 'true' }}">{{ 'All differing' if snv_ann else 'Differ between samples' }} · {% if snv_cut %}{{ snv_shown }} of {% endif %}<span data-fill="snv-differ"></span></button>
+      <button class="btn snv-view" data-view="pass" aria-pressed="false" title="Every PASS site, the strain background shared by all samples included">All PASS sites · {% if snv_cut_all %}{{ snv_shown }} of {% endif %}{{ snv_all }}</button>
+      {%- endif %}
+      <a class="btn" href="{{ downloads.cohort_igv | default('cohort_report.html') }}" target="_blank"{% if snv_ann or not snv_single %} style="margin-left:8px"{% endif %} title="Read pileups for every sample at every site">IGV, all samples ↗</a>
     </div>
     <div class="dl-row">
       <a href="{{ downloads.snv_csv | default('data/snv_indel_sites.csv') }}" download>↓ CSV, all sites</a>
@@ -289,6 +298,7 @@ html.present .strip{height:26px} html.present .strip.compact{height:18px}
     <span class="k"><span class="vaf vaf-mid mono" style="min-width:0">45%</span>sub-population or noise</span>
     <span class="k"><span class="mono g1">3×</span>depth below {{ qc_thresholds.min_dp }}× in that sample</span>
     <span class="k"><span class="multi-mark">‡</span>multi-allelic site, one row per allele</span>
+    <span class="k"><span class="vaf-none">no reads</span>no informative reads there; neither carrier nor reference</span>
     <span>Hover a cell for GT and AD; click a row for every sample</span>
   </p>
 </section>
@@ -463,17 +473,23 @@ html.present .strip{height:26px} html.present .strip.compact{height:18px}
         allele fraction &ge; 0.80 (clonal) / &ge; 0.05 (population).</p>
       <h4>SNV / InDel events table</h4>
       <p>Built from the same prepared cohort VCF as the all-samples IGV report (after the multi-allelic split, so one row per
-        ALT allele). A row is kept when the site is PASS and at least one called sample carries the variant while at least
-        one is called reference; strain background shared by every sample is left to the IGV report. With one sample in the
-        run every PASS site it carries is kept. With SnpEff annotation the default view keeps HIGH and MODERATE impact (the
-        first ANN entry for the row's allele); without it the table has no gene columns and opens on every differing site.
-        Rows are ordered by impact, contig and position and cut at {{ snv_max_rows }} when longer; the lede says so, the
-        counts above the table are the full numbers, and the CSV holds every site.
+        ALT allele). Every PASS site is in the table. A site <em>differs between samples</em> when at least one called sample
+        carries the variant while at least one is called reference; the default views keep those, and <em>All PASS sites</em>
+        adds the rest: the strain background every sample shares against the reference, and carried sites with no sample to
+        compare against (below). With one sample in the run every PASS site it carries is kept. With SnpEff annotation the
+        default view keeps HIGH and MODERATE impact (the first ANN entry for the row's allele) among the differing sites;
+        without it the table has no gene columns and opens on every differing site. Rows are ordered differing first, then by
+        impact, contig and position, and cut at {{ snv_max_rows }} when longer; the lede says so, the counts above the table
+        are the full numbers, and the CSV holds every site.
         VAF = ALT reads / (REF + ALT reads) from <code>FORMAT/AD</code> (bcftools <code>fill-tags</code> on the prepared
         VCF), shown as a percent and independent of the genotype call. The depth next to it is the caller's
         <code>FORMAT/DP</code> for that sample; it turns amber below {{ qc_thresholds.min_dp }}&times;. A sample with no reads at
         the site reads <em>no reads</em> (the CSV keeps its genotype and leaves the VAF empty) and counts as neither carrier nor
-        reference. On a multi-allelic site (&Dagger;) the split leaves one row per allele, so a sample carrying the other
+        reference, so a carried site where every other sample has no reads is not a differing site and appears under
+        <em>All PASS sites</em> only. That pattern is usually a junction between the genome and a foreign sequence, which
+        HaplotypeCaller assembled from soft-clipped reads in one sample and recorded as a zero-depth reference block in the
+        others; on an engineered strain it marks the deletion cassettes and marker alleles every sample shares, not a
+        mutation. On a multi-allelic site (&Dagger;) the split leaves one row per allele, so a sample carrying the other
         allele is 0 on this row while its VAF here counts REF and this allele only; the CSV lists the original alleles in
         <code>multiallelic_site_alleles</code>. Clicking a row opens every sample's GT, AD, DP and VAF with a link into that
         sample's IGV report at the locus.</p>
@@ -835,9 +851,11 @@ html.present .strip{height:26px} html.present .strip.compact{height:18px}
   // ---------- SNV / InDel ----------
   if ($("#snv-table")) {
     // counts come from the renderer when it passed them: SNV may be the first snv_max_rows rows of a longer list
-    const SNV_META = { single: {{ snv_single | tojson }}, hasAnn: {{ snv_ann | tojson }}, listed: {{ snv_listed | tojson }}, coding: {{ snv_coding | tojson }} };
+    const SNV_META = { single: {{ snv_single | tojson }}, hasAnn: {{ snv_ann | tojson }}, listed: {{ snv_listed | tojson }}, coding: {{ snv_coding | tojson }}, all: {{ snv_all | tojson }} };
+    const isDiff = d => d.differs !== false;   // rows without the flag (older renderers) were all differing
     const isCoding = d => d.impact === "HIGH" || d.impact === "MODERATE";
-    const nCoding = SNV_META.coding != null ? SNV_META.coding : SNV.filter(isCoding).length;
+    const VIEWS = { coding: d => isDiff(d) && isCoding(d), differ: isDiff, pass: () => true };
+    const nCoding = SNV_META.coding != null ? SNV_META.coding : SNV.filter(VIEWS.coding).length;
     fill("snv-coding", nCoding); fill("snv-differ", SNV_META.listed);
     sumRow(SNV_META.listed, SNV_META.single ? pl(SNV_META.listed, "SNV / InDel PASS site", "SNV / InDel PASS sites")
                                             : pl(SNV_META.listed, "SNV / InDel site differs", "SNV / InDel sites differ"), "#snv",
@@ -898,6 +916,7 @@ html.present .strip{height:26px} html.present .strip.compact{height:18px}
       cols.push({ title: s + " AD", field: s + "_ad", visible: false, download: true });
       cols.push({ title: s + " DP", field: s + "_dp", visible: false, download: true });
     });
+    if (!SNV_META.single) cols.push({ title: "Differs between samples", field: "differs", visible: false, download: true, accessorDownload: v => v ? "yes" : "no" });
 
     if (!SNV_META.hasAnn) ["gene", "effect", "impact", "hgvs_p"].forEach(f => cols.splice(cols.findIndex(c => c.field === f), 1));  // no SnpEff: no gene columns
     const snvAuto = !sized(SNV.length).height;
@@ -910,7 +929,9 @@ html.present .strip{height:26px} html.present .strip.compact{height:18px}
         if (on) el.insertAdjacentHTML("beforeend", detailHtml(row.getData()));
       },
     }, sized(SNV.length)));  // fixed height, not maxHeight: Tabulator 6.3 stalls on maxHeight
-    if (SNV_META.hasAnn) snvTable.on("tableBuilt", () => snvTable.setFilter(isCoding));  // default view: protein-changing, when there is annotation to filter on
+    // opening view: protein-changing differing sites; without annotation the differing sites; one sample: every row (its carried PASS sites)
+    const openView = SNV_META.hasAnn ? "coding" : SNV_META.single ? "pass" : "differ";
+    if (openView !== "pass") snvTable.on("tableBuilt", () => snvTable.setFilter(VIEWS[openView]));
     snvTable.on("rowClick", (e, row) => {
       if (e.target.closest("a, .snv-detail")) return;
       const k = key(row.getData()); open.has(k) ? open.delete(k) : open.add(k);
@@ -919,7 +940,7 @@ html.present .strip{height:26px} html.present .strip.compact{height:18px}
     });
     $$(".snv-view").forEach(b => b.addEventListener("click", () => {
       press($$(".snv-view"), b);
-      b.dataset.view === "coding" ? snvTable.setFilter(isCoding) : snvTable.clearFilter();
+      b.dataset.view === "pass" ? snvTable.clearFilter() : snvTable.setFilter(VIEWS[b.dataset.view]);
     }));
     $("#snv-csv").addEventListener("click", e => { e.preventDefault(); snvTable.download("csv", "snv_indel_events.csv", {}, "active"); });
   }

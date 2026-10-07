@@ -512,8 +512,11 @@ were removed during the v1.0.0 code cleanup. Their role — cross-sample / multi
 tool-comparison views — is now delivered by the **`MUTATION_REPORT` subworkflow + `GENERATE_INDEX`**
 (igv-reports HTML dashboard backed by `cn_cohort_matrix.csv` / `sv_cohort_matrix_*.csv` /
 `cn_segments_*.csv` / `contig_copy_number.csv` — the last from TIDDIT's per-contig coverage table,
-plus the prepared cohort VCF read in pure Python for the *SNV / InDel events* table: PASS sites that differ
-between samples, protein-changing first, capped at 1,000 rows with the full counts printed; the report container has no bcftools —
+plus the prepared cohort VCF read in pure Python for the *SNV / InDel events* table: every PASS site, opening on the
+ones that differ between samples, protein-changing first, with an *All PASS sites* view for the shared strain background
+(since 2026-10-07), capped at 1,000 rows with the differing rows first and the full counts printed; a carried site where
+every other sample has *no reads* is not "differing" — on the test strain those are cassette junctions HaplotypeCaller
+assembled in one sample only (measured 2026-10-07, CHANGELOG entry of that date); the report container has no bcftools —
 whole-contig only, and the **only** place the mitochondrial contig is quantified: CNVKit's hard-coded
 0.30–0.70 GC mask drops every Mito bin). `index.html` names the run that produced it (run name, commit, session id, Seqera run id from
 `TOWER_WORKFLOW_ID`; a link only when the optional hidden `seqera_workspace_url` is set — a run cannot

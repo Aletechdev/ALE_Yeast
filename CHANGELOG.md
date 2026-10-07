@@ -11,6 +11,16 @@
 
 ### Added
 
+- **SNV / InDel events table: every PASS site is in the page** (2026-10-07; `docs/igvreports/generate_index.py`,
+  `docs/igvreports/templates/index.html.j2`). A third view, *All PASS sites*, lists the strain background every sample
+  shares and the carried sites with no sample to compare against; the default views (*Protein-changing*, *All differing*)
+  and every count are unchanged (test set: 5 / 24 / 83; pilot: 46 / 201 / 399). Rows ship differing first, so the
+  1,000-row cut never drops a differing site for a shared one. Found on the way, with read-level evidence: a carried PASS
+  site where every other sample has *no reads* is HaplotypeCaller recording a genome-to-cassette junction it assembled in
+  one sample only (zero-depth reference block in the others, 30 to 200 soft-clipped reads overlapping); on the test strain
+  these are the PDR15, VMR1, HIS3 and CAN1 junctions, so the differing rule rightly leaves them out and the Methods say so.
+  Without SnpEff the toggle reads *Differ between samples* / *All PASS sites*. CSV unchanged; `index.html` is name-only in
+  the snapshot.
 - **Mutation report index redesigned** (2026-10-06; `docs/igvreports/templates/index.html.j2` from the design
   handoff, `docs/igvreports/generate_index.py`, `modules/local/generate_index/main.nf`; contract in
   `docs/igvreports/templates/README.md`). Light document style, sticky section nav, a ruled Summary table instead of

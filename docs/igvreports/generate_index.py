@@ -165,8 +165,8 @@ def get_joint_vcf_pass_count(joint_vcf: Path | None) -> int | None:
 # SNV / InDel events table (from the prepared cohort VCF: post-norm, FILTER promoted, FORMAT/VAF)
 # ---------------------------------------------------------------------------
 IMPACT_RANK = {"HIGH": 0, "MODERATE": 1, "LOW": 2, "MODIFIER": 3}
-SNV_TABLE_MAX_ROWS = 1000  # rows shipped in the page; sorted by impact then position before the cut (300 until 2026-10-06;
-                           # the page prints the full counts and says when the table is cut)
+SNV_TABLE_MAX_ROWS = 1000  # rows shipped in the page; sorted differing first, then impact, then position before the cut
+                           # (300 until 2026-10-06; the page prints the full counts and says when the table is cut)
 
 
 def _display_sample(vcf_name: str, known: list[str]) -> str:
@@ -217,14 +217,21 @@ def load_snv_table(prepared_vcf: Path | None, known_samples: list[str],
     """Read the prepared cohort VCF once: site counts for the card, the rows of the events table and,
     when csv_path is given, a CSV of EVERY site (FILTER kept, annotation, per-sample GT / AD / VAF).
 
-    Rows kept: PASS sites where at least one sample carries the ALT and at least one is called REF.
-    A sample with no reads at the site (AD sums to 0) is neither: its VAF is None (the table says
-    "no reads", the CSV leaves VAF empty and keeps the caller's GT verbatim) and the rule ignores it,
-    as it ignores a missing genotype. With a single sample every PASS site it
-    carries is kept. Multi-allelic sites arrive split one row per allele (INFO/ORIG_ALT): a sample
+    Rows: every PASS site (since 2026-10-07; only the differing ones before). Each row carries
+    `differs` = at least one called sample has the ALT and at least one is called REF; the page's
+    default views filter on it and its *All PASS sites* view shows the rest too: the strain background
+    every sample shares, and carried sites with no comparator. A sample with no reads at the site (AD
+    sums to 0) is neither carrier nor REF: its VAF is None (the table says "no reads", the CSV leaves
+    VAF empty and keeps the caller's GT verbatim) and the rule ignores it, as it ignores a missing
+    genotype. So a carried site where every other sample has no reads is NOT differing. On the test
+    strain those are the engineered cassette junctions (PDR15, VMR1, HIS3, CAN1): HaplotypeCaller
+    assembled the soft-clipped junction reads in one sample and left a DP 0 reference block in the
+    others (measured 2026-10-07), so the carrier pattern is a calling artefact, not a mutation. With a
+    single sample every PASS site it carries is kept. Multi-allelic sites arrive split one row per allele (INFO/ORIG_ALT): a sample
     called for the other allele is 0 on this row, and fill-tags' VAF counts REF + this allele only,
     so the row carries the original alleles for a marker in the table and a column in the CSV. Rows are
-    sorted by SnpEff impact (when annotated), then contig order, then position, and cut at max_rows.
+    sorted differing first, then by SnpEff impact (when annotated), contig order and position, and cut
+    at max_rows, so the cut never drops a differing row to keep a shared one.
     Pure Python (gzip + str.split): the report container has no bcftools.
     """
     if prepared_vcf is None or not Path(prepared_vcf).exists():
@@ -301,10 +308,11 @@ def load_snv_table(prepared_vcf: Path | None, known_samples: list[str],
             if f[6] != "PASS":
                 continue
             n_pass += 1
-            if not (differs if len(samples) > 1 else carried):
+            if len(samples) <= 1 and not carried:
                 continue
             row = {
                 "chrom": f[0], "pos": int(f[1]), "ref": f[3], "alt": f[4],
+                "differs": differs if len(samples) > 1 else carried,   # one sample: every kept row is a carried site
                 "change": f"{_short_allele(f[3])} > {_short_allele(f[4])}",
                 "orig_alt": orig_alt,
                 "gene": ann["gene"] if ann else None,
@@ -320,14 +328,17 @@ def load_snv_table(prepared_vcf: Path | None, known_samples: list[str],
             base.append(row)
     if csv_fh is not None:
         csv_fh.close()
-    base.sort(key=lambda r: (IMPACT_RANK.get(r["impact"], 4), chrom_order.get(r["chrom"], 10**6), r["pos"]))
-    candidate = sum(1 for r in base if r["impact"] in ("HIGH", "MODERATE")) if has_ann else None
+    base.sort(key=lambda r: (0 if r["differs"] else 1, IMPACT_RANK.get(r["impact"], 4),
+                             chrom_order.get(r["chrom"], 10**6), r["pos"]))
+    selected = [r for r in base if r["differs"]]      # the differing views' rows (one sample: every row)
+    candidate = sum(1 for r in selected if r["impact"] in ("HIGH", "MODERATE")) if has_ann else None
     return {
         "samples": samples, "rows": base[:max_rows],
         "total": total, "pass": n_pass,
-        "listed": len(base),                  # rows before the cut, whatever the sample count
+        "listed": len(selected),              # rows of the differing views before the cut, whatever the sample count
+        "all_listed": len(base) if len(samples) > 1 else None,   # rows of the All PASS sites view before the cut
         "contigs": list(chrom_order),         # the VCF's contig order, for the page's sort
-        "differing": len(base) if len(samples) > 1 else None,
+        "differing": len(selected) if len(samples) > 1 else None,
         "candidate": candidate, "has_ann": has_ann,
         "single_sample": len(samples) <= 1,
         "truncated": len(base) > max_rows, "shown": min(len(base), max_rows),
@@ -916,6 +927,7 @@ def template_context(ctx: dict, run: dict | None, outdir: str | None, report_dir
         "counts": {
             "snv_called": snv["total"] if snv else None, "snv_pass": snv["pass"] if snv else None,
             "snv_listed": snv["listed"] if snv else None, "snv_coding": snv["candidate"] if snv else None,
+            "snv_all": snv["all_listed"] if snv else None,
             "snv_max_rows": SNV_TABLE_MAX_ROWS,
         },
         "snv_single_sample": bool(snv and snv["single_sample"]),

@@ -9,7 +9,7 @@
 4. The per-sample IGV locus URL (`igv_locus_template`, `?locus=chrom:pos`) is handled by `custom_template_sample.html`; the link is shown only for non-reference genotypes.
 5. A render needs no network; `load_web_fonts` stays `False` (decided 2026-10-06).
 6. Methods holds the eight sections of the previous template's Methodology after *QC thresholds*. Keep the *SV event matrix* section in sync with `docs/variant-calling/sv_merge.md` (a Jinja comment says so).
-7. `SNV_TABLE_MAX_ROWS` is 1000; the renderer passes `counts.snv_listed` / `snv_coding` / `snv_max_rows`, `snv_single_sample` and `snv_has_ann`, so the page prints the full numbers and says when the table is cut.
+7. `SNV_TABLE_MAX_ROWS` is 1000; the renderer passes `counts.snv_listed` / `snv_coding` / `snv_all` / `snv_max_rows`, `snv_single_sample` and `snv_has_ann`, so the page prints the full numbers and says when the table is cut. Since 2026-10-07 every PASS row ships, each with `differs`; the rows sort differing first, so a cut costs shared rows before differing ones.
 
 ## Context
 ```python
@@ -44,16 +44,18 @@ ctx = dict(
   cn_thresholds=dict(loss=-0.4, gain=0.3, amp=2.3, deep_loss=-1.0),   # log2
 
   counts=dict(snv_called=100, snv_pass=83,   # sites in the prepared cohort VCF, and PASS among them
-              snv_listed=24, snv_coding=5,   # rows the renderer selected BEFORE its cut (differing PASS sites; with one sample, every PASS site it carries) and the HIGH + MODERATE ones among them
-              snv_max_rows=1000),            # the renderer's cap (SNV_TABLE_MAX_ROWS, raised from 300 on 2026-10-06): snv_rows is the first snv_max_rows of snv_listed, by impact then position
+              snv_listed=24, snv_coding=5,   # rows of the differing views BEFORE the cut (PASS sites that differ between samples; with one sample, every PASS site it carries) and the HIGH + MODERATE ones among them
+              snv_all=83,                    # rows of the All PASS sites view before the cut = every PASS site (None with one sample: no such view)
+              snv_max_rows=1000),            # the renderer's cap (SNV_TABLE_MAX_ROWS, raised from 300 on 2026-10-06): snv_rows is the first snv_max_rows rows, differing first, then by impact and position
   snv_single_sample=False,   # True = one sample in the run: lede, toggle and Summary row say "PASS sites it carries" instead of "differ between samples"
-  snv_has_ann=True,          # False = no SnpEff: gene columns and the Protein-changing toggle are hidden and the table opens on every row
+  snv_has_ann=True,          # False = no SnpEff: gene columns and the Protein-changing toggle are hidden; a cohort opens on the differing sites (toggle: Differ between samples / All PASS sites), one sample on every row
 
   summary_data=[ {  # one per sample — existing fields + breadth_20x_pct
     "sample", "median_coverage", "breadth_20x_pct", "mapped_pct", "mapped_reads_m", "dup_pct",
     "hc_variants", "cnvkit_events", "manta_svs", "manta_pass", "tiddit_svs", "tiddit_pass",
     "igv_link", "cnvkit_igv_link", "manta_igv_link", "tiddit_igv_link" } ],
-  snv_rows=[ {  # PASS sites that differ between samples, the first snv_max_rows of them; the counts above carry the full numbers
+  snv_rows=[ {  # every PASS site (one sample: every PASS site it carries), the first snv_max_rows of them, differing first; the counts above carry the full numbers
+    "differs",  # bool: at least one called sample carries the ALT and at least one is called REF (no-reads samples count as neither); the Protein-changing and All differing views filter on it; rows without it are treated as differing
     "chrom", "pos", "ref", "alt", "change", "gene", "effect", "impact", "hgvs_p", "orig_alt",
     "filter"?,  # optional, defaults to PASS
     "<sample>_gt", "<sample>_ad", "<sample>_dp", "<sample>_vaf" } ],
@@ -72,7 +74,7 @@ Set `snv_rows` / `sv_rows` to `None` (and leave all three CN lists empty) to hid
 - **Sticky section nav.**
 - **Summary:** a ruled count table instead of cards, built in JS from the rows. The Samples row shows how many samples failed QC or have warnings, with a reason line for each failure. This replaces the separate failure banner.
 - **Samples:** a QC status column. Pass/warn/fail colouring comes from `qc_thresholds`, which are also shown under each header. A sample below `cohort_cov_frac` × the cohort median coverage gets a warning. Mapped reads (M) and CNVKit events are kept (informational, not graded).
-- **SNV / InDel:** Locus is a single column (sorts by chromosome order, then position). VAF cells also show depth, in amber below `min_dp`. Clicking a row opens a per-sample panel (GT, AD, DP, VAF, IGV link at that locus). The view toggles show counts. An *IGV, all samples* button opens the cohort igv-report. Three wordings as before: cohort with SnpEff, cohort without SnpEff (no gene columns, no Protein-changing toggle, table opens on every row), one sample (every PASS site it carries). When the rows were cut at `snv_max_rows` the lede says so and the toggle reads "N of M".
+- **SNV / InDel:** Locus is a single column (sorts by chromosome order, then position). VAF cells also show depth, in amber below `min_dp`. Clicking a row opens a per-sample panel (GT, AD, DP, VAF, IGV link at that locus). The view toggles show counts; since 2026-10-07 a cohort has three: *Protein-changing* (opening view), *All differing*, *All PASS sites* (every PASS row: the shared strain background and the carried sites with no sample to compare against, whose other cells read *no reads*). An *IGV, all samples* button opens the cohort igv-report. Three wordings as before: cohort with SnpEff, cohort without SnpEff (no gene columns, no Protein-changing toggle, opens on the differing sites with a *Differ between samples* / *All PASS sites* toggle), one sample (every PASS site it carries; *Protein-changing* / *All PASS sites*). When the rows were cut at `snv_max_rows` the lede says so and the toggles read "N of M". The *CSV, rows shown* export carries a hidden *Differs between samples* column on a cohort.
 - **SV:** the Type / Location / Length layout. New "Differ between samples" toggle.
 - **Copy number:** the three tabs are gone.
   - *Whole chromosomes:* samples as rows. A source toggle switches between TIDDIT (incl. Mito) and CNVKit.
