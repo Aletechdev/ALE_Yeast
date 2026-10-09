@@ -647,6 +647,24 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
   note there is no schema key for a collapsed group (nf-schema spec checked 2026-09-10): `hidden: true`
   per param is the only lever, and it also drops the param from plain `--help` (`--help_full` shows it).
   Power users bypass the form anyway via a params file (user page planned: `docs/usage/launch_params_file.md`).
+- **[low] Decide whether the Seqera GitHub credential stays now that the repo is public (checked 2026-10-09).**
+  The fine-grained PAT `github_ALE_Yeast_finegrained` (personal account, expires 2027-08-07; record in
+  `deploy/azure/seqera-sp/RUNBOOK.md` → *GitHub PAT*) was needed to clone a *private* repository;
+  `Aletechdev/ALE_Yeast` has been public since 2026-09-04. *Measured 2026-10-09:* the unauthenticated
+  GitHub API reports `visibility: public` and an anonymous `git ls-remote` lists every branch; Seqera's
+  Git docs say a public pipeline launches from its URL and that GitHub credentials only raise the GitHub
+  API rate limit; the `yAMP` Launchpad entry binds no GitHub credential (Platform matches one by base URL
+  at form render and launch), so removing it needs no re-registration; the credential's `lastUsed` stamp
+  advances on every form render, so Platform does use it today. Trade-off. *Keep*: one rotation a year
+  plus the person-tied dependency the RUNBOOK open item describes (a lapsed token fails every launch in
+  the shared workspace). *Drop*: nothing expires, but the form's GitHub API calls go unauthenticated from
+  Seqera Cloud's shared egress IPs (60 requests per hour per IP, shared with other customers), so a form
+  render or launch can fail intermittently with a rate-limit error outside our control. The head job's
+  clone is unaffected either way: anonymous HTTPS from the Batch node's own IP. Recommended default: keep
+  it until a real rate-limit failure or the next rotation, whichever comes first. If dropping: delete the
+  credential in the workspace, render the form, run one QC-only launch, then update
+  `bin/check_credential_expiry.sh`, `CLAUDE.md` (Cloud execution) and the RUNBOOK's *GitHub PAT* section;
+  the org-owned GitHub App open item closes with it.
 - **[post-1.0.0] Cherry-pick `worktree-seqera-cloud` into `main`** once the Seqera cloud run is
   validated. Not a strict/clean merge — cherry-pick the cloud-specific changes as needed. The branch
   lives on `Aletechdev/ALE_Yeast`; don't merge before cloud validation (avoids pulling unvalidated

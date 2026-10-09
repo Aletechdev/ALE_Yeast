@@ -174,7 +174,10 @@ what the form reads from the schema, and how to preview a schema change on a bra
 [§20](docs/dev-practices/azure_batch_execution.md#20-what-the-launch-form-checks-from-the-schema-and-what-it-ignores-2026-10-04).
 
 ⚠️ **Seqera clones from GitHub over HTTPS only** — an SSH deploy key cannot be used for a pipeline
-repository, so a GitHub App or PAT credential is required. See
+repository, so a *private* repository needs a GitHub App or PAT credential. The repo has been public
+since 2026-09-04, so the fine-grained PAT is optional and kept only to raise the GitHub API rate limit
+on the launch form (checked 2026-10-09; keep-or-drop trade-off:
+[`roadmap.md` → Deployment](docs/dev-practices/roadmap.md#deployment--seqera-launch-ui--schema)). See
 [`deploy/azure/seqera-sp/RUNBOOK.md`](deploy/azure/seqera-sp/RUNBOOK.md) for the credential in use and
 its expiry.
 

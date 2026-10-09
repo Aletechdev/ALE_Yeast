@@ -1130,6 +1130,11 @@ revoke the token** — see the open item below.
       The fine-grained PAT closed the *blast-radius* half of the problem (`Contents: Read` on one repo,
       not `repo` on everything) but **not** the *person-tied* half: a shared org workspace still depends
       on one person's token, now expiring 2027-08-07 instead of 2026-11-04.
+      **2026-10-09:** the repository has been public since 2026-09-04, which opens a third option: no
+      GitHub credential at all. Platform launches a public pipeline from its URL and a credential only
+      raises the GitHub API rate limit (Seqera Git docs); the `yAMP` entry binds no GitHub credential,
+      so dropping it needs no re-registration. Keep-or-drop trade-off and the drop recipe:
+      [`roadmap.md` → Deployment](../../../docs/dev-practices/roadmap.md#deployment--seqera-launch-ui--schema).
 - [x] `tw launch` (plan Phase 6) and compare outputs against the local-head-job baseline — **done
       2026-08-06**: `3C5zYMYY5M32dO` SUCCEEDED, 170/170 tasks, 9/9 cohort deliverables byte-identical.
 - [x] Point the `yAMP-ottilie-test` Launchpad entry at `ale-ottilie-nf25104-bigdisk` — done 2026-08-07,
