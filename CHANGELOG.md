@@ -269,6 +269,19 @@
 
 ### Changed
 
+- **Coverage report: branch coverage is the headline measure; *Conditions seen every way* renamed
+  *Fully covered decision lines*** (dev tooling, 2026-10-13; `tests/nf_coverage_report.py`,
+  `tests/nf_coverage.sh`, `docs/dev-practices/nextflow_code_coverage.md`). A probe of how JaCoCo counts
+  Groovy bytecode (`docs/dev-practices/nextflow_branch_counting.md`, sources and per-line data in
+  `nextflow_branch_counting/`) showed two branches per conditional jump: `if (a && b)` is six where
+  Java gives four, `if (!a)` four, `x?.y` none, and a `branch` operator's `name: true` default adds
+  one branch no run can take (4 of the fork's 920). The numbers are unchanged and are not adjusted;
+  the table titles, legends and the doc say what is counted, the doc now reports branch coverage
+  (162 / 197 / 384 / 514 of 920 for plan-only, `--qc_only`, e2e, merged; the 2026-10-02 data) next to
+  the per-line worklist (80 / 254), and `RUN_INFO.txt` records the Groovy and Java versions from the
+  next run on, since the branch denominator moves with the compiler. "Condition" in these docs now
+  means the `if` itself, not the measure.
+
 - **Samplesheet: `status` and `sex` documented as optional, dropped from the examples** (2026-10-06; `docs/usage/input_samplesheet.md`, `README.md`, `docs/README.md`, `CLAUDE.md`). No code change: nf-schema already fills a missing column from `assets/schema_input.json` (`status` 0, `sex` NA), and a Tier-1 run reads neither, so a sheet without them is the recommended form and is easier to inspect. Verified by parsing a two-sample sheet without either column and building its DAG in preview, identical to the test sheet's. Only `--tools ascat` / `controlfreec` (Tier-2) still need `sex`; the `csv/` restart sheets carry the filled-in values.
 - **Launch form: the iGenomes paragraph left the *Reference genome options* section** (2026-10-04).
   Upstream's section help text ("The pipeline config files come bundled with paths to the Illumina

@@ -5,6 +5,9 @@ how that is measured, what the first measurement found, and what the numbers can
 
 > **Status (2026-10-02): a measurement, not a gate.** `tests/nf_coverage.sh run` produces the report
 > in about 35 minutes. Nothing in the commit gate or CI depends on it, and no threshold is proposed.
+> 2026-10-13: branch coverage made the headline measure and *Conditions seen every way* renamed
+> *Fully covered decision lines* after the branch-counting probe; every number is still that of the
+> 2026-10-02 run.
 > Every number on this page comes from one run (see [Provenance](#provenance)) and is labelled
 > *measured*, *inferred* or *assumed* where the difference matters
 > ([`testing_best_practices.md` §13](testing_best_practices.md#13-benchmark-claims--provenance-evidence-labels-script-before-numbers)).
@@ -18,12 +21,15 @@ how that is measured, what the first measurement found, and what the numbers can
   71 % of our own lines, because workflow code runs once at start-up to wire the steps together.
 - **Closure coverage separates wiring from work.** Counting only the closures that run when data
   arrives, the same plan-only run scores 2 % and the whole suite 80 %.
-- **Branch counters show which conditions were only ever seen one way.** 80 of our 254 conditions
-  have been exercised in every direction. This is the measured cousin of the "option coverage" that
+- **Branch coverage is the headline.** Of the 920 JaCoCo branches on our own lines, a plan-only run
+  takes 162 (17.6 %), the `--qc_only` run 197 (21.4 %), the e2e alone 384 (41.7 %) and the whole suite
+  514 (55.9 %) (*measured*). It is the measured cousin of the "option coverage" that
   [issue #13](https://github.com/Aletechdev/ALE_Yeast/issues/13) proposes, not the same count: option
-  coverage counts the launch form's switches, conditions count the `if`s and `?:`s in the code. One
-  switch can sit behind several conditions, and many conditions depend on the data or on module
-  boilerplate rather than on a switch.
+  coverage counts the launch form's switches, branches count both sides of every `if`, `?:` and
+  `&&` / `||` operand in the code. One switch can sit behind several conditions, and many conditions
+  depend on the data or on module boilerplate rather than on a switch.
+- **Fully covered decision lines are the worklist.** 80 of the 254 lines that carry a decision have
+  had every branch taken; `uncovered.txt` names the other 174 with the branch that was missed.
 - **The e2e carries almost all line and closure coverage.** What the other tests add is branches.
   [What no test executes](#what-no-test-executes) is the actionable list.
 
@@ -41,13 +47,33 @@ Nextflow compiles each script and config file to JVM classes whose line tables p
 source. *Measured* on this run: 7 055 executable lines in 245 files, none of them on a blank or
 comment line.
 
-### Three measures
+### Four measures
 
 | Measure | Counts | Why it is here |
 |---|---|---|
 | **Lines** | Executable lines with at least one executed instruction | The familiar number. High floor: wiring runs without data. |
 | **Data-driven closures** | Closures that only run when a channel item or a task arrives: operator bodies (`.map { }`), a process's `script:` / `when:` / directive closures, lazy config values (`ext.args = { }`) | Zero in a plan-only run for process and config code, so it measures work, not wiring. A process's `script:` closure is entered when a task is created for it. |
-| **Conditions seen every way** | Lines carrying branches (an `if`, `?:`, `&&`) with no branch missed | A plain `if (flag)` has two branches. A suite that only ever runs with the flag on leaves one untaken. |
+| **Branch coverage** (the headline) | JaCoCo branches taken, of all branches on the lines: two per conditional jump in the bytecode (see the note below) | The one figure that moves with every test level, from 18 % plan-only to 56 % merged, and the one a floor could be set on. |
+| **Fully covered decision lines** (the worklist) | Lines carrying branches (an `if`, `?:`, `&&`) with no branch missed | A plain `if (flag)` has two branches. A suite that only ever runs with the flag on leaves one untaken. `uncovered.txt` lists the lines with a branch still missing. |
+
+**What a branch is.** JaCoCo counts two per conditional jump in the bytecode, and Groovy emits more
+jumps than Java for the same source (*measured* 2026-10-13, Groovy 4.0.28 inside Nextflow 25.10.4,
+JaCoCo 0.8.12; identical under plain groovyc, inside a `.nf` file and inside a `-c` config file). Groovy
+gives:
+
+- `if (a && b)` six: one pair per operand, one for re-testing the result (Java: four);
+- `if (!a)` four (Java: two);
+- `x?.y` none.
+
+So compound conditions weigh more than plain ones, and the reported figure is a little stricter than
+textbook branch coverage: every operand, not only the whole condition, has to have gone both ways. The
+per-construct table, the bytecode and the share of our denominator this accounts for:
+[`nextflow_branch_counting.md`](nextflow_branch_counting.md). The `b m/n` column of `uncovered.txt`
+and the `m/n` of `annotate` are the same count.
+
+`tables.txt` also lists **named functions entered** (fork functions only): 8 of 8 in every run set, the
+plan-only run included, because a `.nf` file's functions are called while the DAG is built. The row
+cannot tell the run sets apart and is not reported here.
 
 Each is also reported for **fork lines only**: lines that are not in pristine nf-core/sarek 3.5.1,
 the surface §11 of the testing guide calls "our own modifications". nf-core modules the fork
@@ -72,8 +98,8 @@ Output goes to `output_coverage/` at the repo root (gitignored; `COV_DIR` overri
 
 | File | Content |
 |---|---|
-| `tables.txt` | The three measures per code group, for the plan-only run, the QC-only run, the e2e alone and everything merged: all code, then fork lines only, then a per-file list |
-| `uncovered.txt` | Fork lines that never ran, closures never entered, conditions seen one way only |
+| `tables.txt` | Five measures per code group (lines, data-driven closures, named functions, branch coverage, fully covered decision lines), for the plan-only run, the QC-only run, the e2e alone and everything merged: all code, then fork lines only, then a per-file list |
+| `uncovered.txt` | Fork lines that never ran, closures never entered, partly covered decision lines (`b m/n`: m of n JaCoCo branches never taken) |
 | `levels.txt` | The same tables per test level: process tests, subworkflow tests, plan-only pipeline tests, full-run pipeline tests |
 | `unique.txt` | What each test file covers that no other does |
 | `coverage.tsv`, `lcov.info` | Per-file counts; LCOV tracefile (for editor gutters, `genhtml`, Codecov; written, not yet tried in any of them) |
@@ -91,7 +117,7 @@ Output goes to `output_coverage/` at the repo root (gitignored; `COV_DIR` overri
 `+` ran · `-` never ran (line 105 is the VQSR path, which the custom genome never takes) · `~` the
 line ran but a closure on it was never entered · `F` fork line · `c` inside a data-driven closure ·
 `2/4` two of four branches never taken (line 149: the three-way choice of output VCF went the same
-way every time).
+way every time; the 4 is JaCoCo's count, two per conditional jump, see [Four measures](#four-measures)).
 
 The recipe underneath, for use outside the script:
 
@@ -119,7 +145,11 @@ launcher with `NoClassDefFoundError`).
   `tests/`, on the ottilie test set. 1 882 s of run time; the e2e took 813 s. `tests/qc_gate.sh`
   (bash, outside nf-test) is not among them: the direct `--qc_only` run takes the same route,
   without the `-resume` of its part (b).
-- **Versions:** Nextflow 25.10.4, nf-test 0.9.3, JaCoCo 0.8.12, fork baseline sarek 3.5.1.
+- **Versions:** Nextflow 25.10.4, nf-test 0.9.3, JaCoCo 0.8.12, fork baseline sarek 3.5.1. Groovy
+  4.0.28 and Java 17.0.15, added afterwards: this run's `RUN_INFO.txt` did not record them; *measured*
+  by the probe of 2026-10-13 on the same VM and the same Nextflow
+  ([`nextflow_branch_counting.md`](nextflow_branch_counting.md)). From the next run on, `RUN_INFO.txt`
+  carries both.
 - **Report:** rebuilt with `tests/nf_coverage.sh report` on 2026-10-04 from the same recorded data,
   which added `levels.txt`; no other number moved.
 
@@ -129,20 +159,21 @@ launcher with `NoClassDefFoundError`).
 |---|---|---|---|---|
 | Executable lines | 781 / 1 106 (70.6 %) | 817 (73.9 %) | 961 (86.9 %) | 1 001 (90.5 %) |
 | Data-driven closures entered | 5 / 291 (1.7 %) | 32 (11.0 %) | 231 (79.4 %) | 233 (80.1 %) |
-| Conditions seen every way | 2 / 254 (0.8 %) | 2 (0.8 %) | 35 (13.8 %) | 80 (31.5 %) |
+| **Branch coverage** (JaCoCo branches taken) | 162 / 920 (17.6 %) | 197 (21.4 %) | 384 (41.7 %) | 514 (55.9 %) |
+| Fully covered decision lines | 2 / 254 (0.8 %) | 2 (0.8 %) | 35 (13.8 %) | 80 (31.5 %) |
 
 The same, everything merged, by code group:
 
-| Group | Lines | Closures | Conditions seen every way |
-|---|---|---|---|
-| `conf/modules/` | 186 / 195 | 54 / 69 | 25 / 63 |
-| `modules/local/` | 256 / 267 | 76 / 93 | 8 / 63 |
-| `subworkflows/local/` | 378 / 451 | 77 / 101 | 41 / 99 |
-| `workflows/sarek/main.nf` | 63 / 70 | 4 / 5 | 6 / 19 |
+| Group | Lines | Closures | Branches | Fully covered decision lines |
+|---|---|---|---|---|
+| `conf/modules/` | 186 / 195 | 54 / 69 | 133 / 194 | 25 / 63 |
+| `modules/local/` | 256 / 267 | 76 / 93 | 81 / 236 | 8 / 63 |
+| `subworkflows/local/` | 378 / 451 | 77 / 101 | 220 / 342 | 41 / 99 |
+| `workflows/sarek/main.nf` | 63 / 70 | 4 / 5 | 67 / 106 | 6 / 19 |
 
 These are the four largest groups. The other four (`config (other)`, `main.nf`, `modules/nf-core`,
-`subworkflows/nf-core`) add 118 / 123 lines, 22 / 23 closures and 0 / 10 conditions to reach the
-totals above; all eight are in `tables.txt`.
+`subworkflows/nf-core`) add 118 / 123 lines, 22 / 23 closures, 13 / 42 branches and 0 / 10 fully
+covered decision lines to reach the totals above; all eight are in `tables.txt`.
 
 Reading it:
 
@@ -150,10 +181,13 @@ Reading it:
   moves 78. Quote the closure figure when the question is "did the tests exercise it".
 - The five closures a plan-only run enters are closures called while the DAG is built (a `collect`
   on a plain list, a `.set { }`), not data.
-- Conditions are the weak column: two thirds of our `if`s and `?:`s have only ever been evaluated
-  one way. `modules/local/` scores lowest because most of its conditions are module boilerplate
-  (the `task.ext.when == null || task.ext.when` guard and the container-engine choice), which one
-  configuration always resolves the same way. A low score there is not a list of missing tests.
+- Branch coverage is the number to quote for the suite as a whole: it is the one that moves at
+  every level, from 17.6 % after a plan-only run to 55.9 % merged.
+- Decision lines are the weak column: two thirds of the lines with an `if` or `?:` have had at least
+  one branch never taken. `modules/local/` scores lowest because most of its conditions are module
+  boilerplate (the `task.ext.when == null || task.ext.when` guard and the container-engine choice),
+  which one configuration always resolves the same way. A low score there is not a list of missing
+  tests.
 - Over all code, upstream included, the suite executes 4 353 of 7 055 lines (61.7 %) and enters 661
   of 1 831 closures (36.1 %). The rest is mostly sarek routes the ALE recipe never takes (Sentieon,
   Strelka, DeepVariant, the somatic and tumor-only callers).
@@ -187,39 +221,39 @@ Lines and closures that one run covers and no other does (`unique.txt`):
 
 A zero here does not make a test redundant. The process and workflow tests run code the e2e also
 runs; their value is what they assert about it, which coverage does not see. What the non-e2e runs
-do add is directions: conditions seen every way rise from 35 with the e2e alone to 80 with
-everything. The next table shows where those come from.
+do add is directions: branch coverage rises from 384 of 920 with the e2e alone to 514 with
+everything, and fully covered decision lines from 35 to 80. The next table shows where those come from.
 
 ### By test level
 
-The same three measures for each level of the suite on its own (`levels.txt`, fork code). A level
+The same measures for each level of the suite on its own (`levels.txt`, fork code). A level
 is the nf-test type of the test file; pipeline tests are split into plan-only (`-preview`, nothing
 runs) and full run.
 
-| Level | Classic name | Test files (cases) | Lines, of 1 106 | Closures, of 291 | Conditions seen every way, of 254 |
-|---|---|---|---|---|---|
-| Function | Unit | none yet | | | |
-| Process | Unit | `fastp_preprocessing`, `preflight_reference` (15) | 255 | 7 | 8 |
-| Subworkflow | Integration | `split_joint_vcf`, `manta_experiment_grouping`, `fastqc_trimmed` (9) | 296 | 21 | 8 |
-| Pipeline, plan-only | End to end, wiring only | `preflight`, `report_gff3_optional`, `tools_without_annotation` (12) | 818 | 5 | 35 |
-| Pipeline, full run | End to end | `ottilie_e2e` (1) | 961 | 231 | 35 |
-| Everything merged, with the `--qc_only` run | | | 1 001 | 233 | 80 |
+| Level | Classic name | Test files (cases) | Lines, of 1 106 | Closures, of 291 | Branches, of 920 | Fully covered decision lines, of 254 |
+|---|---|---|---|---|---|---|
+| Function | Unit | none yet | | | | |
+| Process | Unit | `fastp_preprocessing`, `preflight_reference` (15) | 255 | 7 | 65 (7.1 %) | 8 |
+| Subworkflow | Integration | `split_joint_vcf`, `manta_experiment_grouping`, `fastqc_trimmed` (9) | 296 | 21 | 68 (7.4 %) | 8 |
+| Pipeline, plan-only | End to end, wiring only | `preflight`, `report_gff3_optional`, `tools_without_annotation` (12) | 818 | 5 | 276 (30.0 %) | 35 |
+| Pipeline, full run | End to end | `ottilie_e2e` (1) | 961 | 231 | 384 (41.7 %) | 35 |
+| Everything merged, with the `--qc_only` run | | | 1 001 | 233 | 514 (55.9 %) | 80 |
 
 What each measure says at each level:
 
-- **Unit: read the conditions, ignore the totals.** A process test loads one step, so its line and
+- **Unit: read the decision lines, ignore the totals.** A process test loads one step, so its line and
   closure counts are small by design. What coverage adds is whether the test rendered every variant
-  of that step: 7 of the 8 conditions at this level are `conf/modules/trimming.config` lines that
-  the fastp cases take both ways.
+  of that step: 7 of the 8 fully covered decision lines at this level are `conf/modules/trimming.config`
+  lines that the fastp cases take both ways.
 - **Integration: read the closures.** These tests exist to show that data flows through the joins,
   branches and maps of a subworkflow, and an entered closure is direct evidence that an item reached
   that operator.
 - **End to end, full run: lines and closures show what the recipe exercises.** One 14-minute run
-  enters 231 of 291 closures. Its weak number is conditions, because one route flips each switch
-  one way.
-- **End to end, plan-only: conditions at almost no cost.** Twelve cases of about 40 seconds reach as
-  many conditions as the full run, and almost entirely different ones (35 each, 2 in common),
-  because each case flips one parameter. They enter almost no closures.
+  enters 231 of 291 closures. Its weak number is branches (384 of 920), because one route flips each
+  switch one way.
+- **End to end, plan-only: branches at almost no cost.** Twelve cases of about 40 seconds take 276
+  branches to the full run's 384 and fully cover as many decision lines, almost entirely different
+  ones (35 each, 2 in common), because each case flips one parameter. They enter almost no closures.
 
 ## What no test executes
 
@@ -229,10 +263,11 @@ reaches the lines it was written for.
 
 **The tables below are a shortlist; `uncovered.txt` is the complete list.** They name the Tier-1
 gaps judged worth a test. Module boilerplate is left out on purpose: of the 146 rows marked `b` (a
-condition seen one way on a line that ran), 43 are the `task.ext.when` guard, the container-engine
-choice, `publish_dir_mode ?: 'copy'` or a `task.ext.<x> ?:` default (*measured*, the commands
-below). The other 28 of the 174 conditions not seen every way are on lines that never ran or inside
-closures never entered, and carry those marks instead. A row of `uncovered.txt` that is neither
+partly covered decision line: the line ran, a branch on it was never taken), 43 are the
+`task.ext.when` guard, the container-engine choice, `publish_dir_mode ?: 'copy'` or a
+`task.ext.<x> ?:` default (*measured*, the commands below). The other 28 of the 174 decision lines
+not fully covered are on lines that never ran or inside closures never entered, and carry those
+marks instead. A row of `uncovered.txt` that is neither
 boilerplate nor in one of the groups below has not been triaged.
 
 ```bash
@@ -252,7 +287,7 @@ references.
 | `--hard_filter_haplotypecaller_joint` on | All of `subworkflows/local/vcf_filter_haplotypecaller_joint/main.nf` (13 lines) and its `bcftools/hard_filter` subworkflow; the four closures of `conf/modules/custom_haplotypecaller_joint_filter.config`, including the clonal-versus-population AF threshold; the branch at `bam_variant_calling_germline_all/main.nf:200` |
 | `--manta_high_sensitivity` on | `conf/modules/manta_ale.config:21`, `workflows/sarek/main.nf:809` |
 | Ploidy unset, and ploidy above 2 | The `meta.ploidy ?: 2` fallbacks (`gatk4/haplotypecaller/main.nf:44`, `conf/modules/split_joint_vcf.config:53`, `conf/modules/tiddit.config:19`); the VCFtools polyploidy skip (`modules/nf-core/vcftools/main.nf:89-90`, `conf/modules/modules.config:148`) |
-| `GENERATE_INDEX` without its optional inputs (MultiQC report, CNV/SV data, prepared VCF) | 11 conditions seen one way, `modules/local/generate_index/main.nf:42-56` |
+| `GENERATE_INDEX` without its optional inputs (MultiQC report, CNV/SV data, prepared VCF) | 11 partly covered decision lines, `modules/local/generate_index/main.nf:42-56` |
 | `MUTATION_REPORT` with a reduced tool list (no SV caller, no HaplotypeCaller, no CNVKit) | `subworkflows/local/mutation_report/main.nf:67-71`, `:249`, `:366`, `:380`, `:396` and its `else` at `:541`; without CNVKit the closure at `:490`, which no item has entered |
 | `processVersionsFromYAML` given text instead of a path, or an empty document | `subworkflows/nf-core/utils_nfcore_pipeline/main.nf:99`, `:119` |
 
@@ -339,6 +374,17 @@ entered none.
   yet `modules/nf-core/svdb/merge/main.nf` and the `withName` block it shares with the TIDDIT alias
   read as covered, and the line that calls it (`mutation_report/main.nf:307`) reads as run, because
   the call is wiring. An entered `script:` closure says that some alias of the step ran, not which.
+- **A `branch` operator's `name: true` default adds a branch no run can take** (*measured*, the
+  recorded dump at `438a9dc`). Nextflow compiles the default to a jump on a constant and attributes it
+  to the previous criterion's line, which then shows 4 branches with at most 3 coverable:
+  `mutation_report/main.nf:176, 304, 409, 470`, so those four lines can never be fully covered and
+  the most branch coverage can reach is 916 of 920. One criteria closure (`:270-273`) was compiled
+  without a line table and is outside every per-line count, its own default included.
+- **`?.` contributes no branch.** Safe navigation is a flag on the call site, not a jump, so a line
+  whose only decision is `x?.y` has no branches and never appears in the decision-line counts.
+- **The branch denominator depends on the Groovy compiler**, not only on the code: a Nextflow upgrade
+  that brings a new Groovy can move the 920 without any change to a `.nf` file. Record the Groovy and
+  Java versions with every number (`RUN_INFO.txt` does from the next run on).
 - **Coverage is not correctness.** The e2e executes the soft-filter step's `ext.args`, yet a JEXL
   expression that matches nothing would execute just the same (§11, layer 2).
 - **A killed head job loses its data** (*assumed*, not tried): the agent writes at JVM exit. A run
@@ -359,8 +405,11 @@ entered none.
 
 ## Open questions
 
-- Whether to run this on a schedule or before a release, and whether any of the three measures
-  deserves a floor. None is proposed here.
+- Whether to run this on a schedule or before a release, and whether any of the measures deserves a
+  floor. None is proposed here. The candidate, if one is ever set: a floor on branch coverage, never on
+  fully covered decision lines (the `branch` defaults cap that count below 254 for good), allowing for
+  the 4 uncoverable branches, with Nextflow pinned and the baseline reset at every upgrade, since the
+  denominator moves with the Groovy compiler.
 - Python coverage of `bin/` (`coverage.py` inside the task) is the larger half of what we wrote and
   is not covered by any of this.
 - The issue #13 comment of 2026-10-01 needs a correction pointing here.

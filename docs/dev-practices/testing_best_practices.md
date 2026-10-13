@@ -159,7 +159,7 @@ Three categories of `*.nf.test` files exist in the repo; only the first is ours 
 
 | Category | Location | Tests | Policy |
 |----------|----------|-------|--------|
-| **ALE suite (ours)** | `tests/*.nf.test` | the fork's own tests, at *any* nf-test layer — currently `ottilie_e2e` (`nextflow_pipeline`) and `split_joint_vcf` (`nextflow_workflow`) | **maintained.** All of ours live here regardless of layer — including component-level ones — see [Why our component tests live in `tests/`](#why-our-component-tests-live-in-tests-not-co-located) below |
+| **ALE suite (ours)** | `tests/*.nf.test` | the fork's own tests, at *any* nf-test layer: nine files as of 2026-10-13 (2 process, 3 subworkflow, 4 pipeline; the §11 layer table names them) | **maintained.** All of ours live here regardless of layer — including component-level ones — see [Why our component tests live in `tests/`](#why-our-component-tests-live-in-tests-not-co-located) below |
 | **Upstream pipeline-level** | `tests/*.nf.test` (inherited) | whole-pipeline scenarios on human test data | triaged out — see the next section |
 | **Upstream component-level** | `modules/nf-core/*/tests/`, `subworkflows/*/tests/` | one module/subworkflow in isolation | **leave untouched** — co-located with upstream code; deleting them creates a rebase patch per upgrade, and they don't fail from our fork changes |
 
@@ -264,7 +264,7 @@ that. Our own component tests deliberately do **not**: `split_joint_vcf.nf.test`
 even though it tests `subworkflows/local/split_joint_vcf/`. Reasons, strongest first:
 
 1. **Test discovery is scoped to `tests/`.** `tests/nf-test-ottilie.config` sets `testsDir "tests"`,
-   deliberately, so the ALE suite isn't polluted by the 99 upstream component tests (and their
+   deliberately, so the ALE suite isn't polluted by the 100 upstream component test files (and their
    duplicates under `.claude/worktrees/`). A co-located test falls outside that scope and silently
    drops out of a bare `nf-test test -c tests/nf-test-ottilie.config` — it would still run if named
    explicitly on the command line (verified: paths outside `testsDir` are honoured), but it would no
@@ -312,7 +312,7 @@ was already copied into `ottilie_e2e.nf.test`. They are deleted (with their orph
 
 **`ottilie_e2e.nf.test` is the end-to-end case for the v1.0.0 release** (the full ALE workflow on the
 ottilie 2-sample dataset via the `ottilie_test` profile); `split_joint_vcf.nf.test` is the one
-subworkflow unit test. Those two are what we maintain.
+subworkflow unit test. Those two were what we maintained at v1.0.0; the suite is nine files now (§11).
 
 **Legacy pytest-workflow stack removed in the same triage.** The `tests/` dir also inherited the
 upstream **pytest-workflow** apparatus — nf-core's *older* test framework (`- name:` / `command:` /
@@ -352,8 +352,8 @@ pristine upstream config. (Our own bcftools-norm investigation under `tests/test
 > ⚠️ **This is not a permanent state.** A future full re-fork / sarek migration copies clean upstream
 > back, so the same triage must be redone then. The planned migration would obsolete these tests
 > anyway, so we do **not** invest in adapting them — the minimal ALE suite (ottilie e2e +
-> split_joint_vcf) is what survives a migration. The 93 module + 6 subworkflow component tests are
-> **not** part of this triage (see the table above).
+> split_joint_vcf at v1.0.0, nine files now) is what survives a migration. The 100 upstream component
+> test files (94 module + 6 subworkflow) are **not** part of this triage (see the table above).
 
 ---
 
@@ -405,13 +405,16 @@ nf-test's four test types, and what each maps to in this fork:
 | Layer | nf-test type | Our surface | Status |
 |-------|--------------|-------------|--------|
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
-| Process | `nextflow_process` | the 19 `modules/local/` + upstream modules whose behaviour we own via config | **2** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 11 cases, one of them on the `nextflow.config` defaults alone, 1 000-pair fixture; `preflight_reference` — the task-level reference preflight, 4 cases on hand-made fixtures: OK with an embedded `##FASTA`, SKIPPED without a GFF3, ERROR/exit 65 on renamed contigs, OK-with-note when the GFF3 has a contig the FASTA lacks) |
+| Process | `nextflow_process` | the 19 fork-added `modules/local/` directories (the `SAREK_MODIFICATIONS.md` inventory; 20 processes, `breseq/` holds two; the three inherited from sarek, `add_info_to_vcf`, `create_intervals_bed`, `samtools/reindex_bam`, are upstream code) + upstream modules whose behaviour we own via config | **2** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 11 cases, one of them on the `nextflow.config` defaults alone, 1 000-pair fixture; `preflight_reference` — the task-level reference preflight, 4 cases on hand-made fixtures: OK with an embedded `##FASTA`, SKIPPED without a GFF3, ERROR/exit 65 on renamed contigs, OK-with-note when the GFF3 has a contig the FASTA lacks) |
 | Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **3** (`split_joint_vcf`; `manta_experiment_grouping` — `BAM_VARIANT_CALLING_GERMLINE_MANTA` under `--joint_manta`, stub mode: one Manta task per experiment, keyed and named as documented; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
 | Pipeline | `nextflow_pipeline` | supported end-to-end routes | **4** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `tools_without_annotation`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`; 8 cases incl. the three `--qc_only` ones) |
 | Gate | bash, outside nf-test | the `--qc_only` starvation gate (`workflows/sarek/main.nf`) | **`tests/qc_gate.sh`** — (a) minutes: a QC-only run of the test set executes *exactly* the allow-listed processes (read QC + reference prep, 15 processes / 18 tasks (2026-09-28, with the reference preflight task; 17 before); since 2026-09-29 the MultiQC process on the list is `MULTIQC_READ_QC` — the alignment-QC and complete-QC reports must not run); a stray process means something downstream of alignment fires on empty input (`toList`/`ifEmpty`/value channel) and the failure message names it. (b) one e2e: `-resume` of run (a) without the flag caches every run-1 task but the read-QC MultiQC report (`MULTIQC_READ_QC`; its input checks and summary record `qc_only`), matches a one-shot run's task list, and `tests/qc_gate_compare.py` finds the deliverables identical (md5 for the `.nftignore`-kept files, records for every VCF). Not nf-test because it needs two launches sharing a session. Run (a) after any `workflows/`/`subworkflows/` change (commit-gate trailer), (b) when the gate or the resume contract itself changes |
 
-The 99 upstream component tests do **not** count as coverage here — they test unmodified nf-core
-code (see the category table in §10). Only tests over fork-specific code do.
+The 100 upstream component test files do **not** count as coverage here — they test unmodified nf-core
+code (see the category table in §10). Only tests over fork-specific code do. Counted 2026-10-13 as
+`*.nf.test` files: 94 under `modules/nf-core/` (93 `tests/` dirs; `spring/decompress` keeps its test
+in a `test/` dir), 5 under `subworkflows/nf-core/` and 1 inherited under
+`subworkflows/local/samplesheet_to_channel/tests/`.
 
 ### Priority theme: the "no known-variants resource" modifications
 
@@ -446,7 +449,7 @@ prefer a case in our own `tests/` file (see §10 rationale).
 
 ### Layer 2 — `nextflow_process` (biggest gap)
 
-18 of the 19 `modules/local/` are untested in isolation (`preflight_reference` has had a process test since 2026-09-28), as is the one upstream module whose *behaviour we
+18 of the 19 fork-added `modules/local/` are untested in isolation (`preflight_reference` has had a process test since 2026-09-28), as is the one upstream module whose *behaviour we
 own via config* (`VARIANTFILTRATION_FALLBACK`). Today they're only exercised transitively through the
 e2e snapshot, which tells you *that* something changed, not *what* broke. Priority order by logic
 density:
@@ -532,10 +535,13 @@ count grows.
 
 ### Measuring it
 
-The layer table above counts tests. Which fork lines, closures and conditions those tests actually
+The layer table above counts tests. Which fork lines, closures and branches those tests actually
 execute is measured by `tests/nf_coverage.sh` (a JaCoCo agent on the Nextflow head JVM; a
-measurement, not part of the commit gate). Method, first results and the list of fork code that
-nothing executes: [`nextflow_code_coverage.md`](nextflow_code_coverage.md).
+measurement, not part of the commit gate). **Branch coverage is the headline measure** (JaCoCo
+branches, two per conditional jump, so a two-operand `&&` counts six:
+[`nextflow_branch_counting.md`](nextflow_branch_counting.md)); fully covered decision lines are the
+worklist. Method, first results and the list of fork code that nothing executes:
+[`nextflow_code_coverage.md`](nextflow_code_coverage.md).
 
 ---
 
