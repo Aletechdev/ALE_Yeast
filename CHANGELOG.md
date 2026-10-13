@@ -285,7 +285,10 @@
   `mutation_report/main.nf`, lines 176, 304, 409, 470, found in the bytecode); on the 2026-10-02 data
   the merged headline reads 514 / 916 instead of 514 / 920 and the fully covered decision lines 83
   instead of 80 of 254. `tables.txt` lists the excluded branches and the raw totals;
-  `--no-constant-filter` restores JaCoCo's raw counts.
+  `--no-constant-filter` restores JaCoCo's raw counts. Measured again the same day on `99aef57`
+  (11 runs, all exit 0, 1 952 s): branch coverage 514 / 916 (56.1 %) and fully covered decision lines
+  83 / 254, identical to the filtered 2026-10-02 data; fork lines 1 012 / 1 117 after the two files
+  that changed in between. The doc's numbers are now that run's.
 
 - **Samplesheet: `status` and `sex` documented as optional, dropped from the examples** (2026-10-06; `docs/usage/input_samplesheet.md`, `README.md`, `docs/README.md`, `CLAUDE.md`). No code change: nf-schema already fills a missing column from `assets/schema_input.json` (`status` 0, `sex` NA), and a Tier-1 run reads neither, so a sheet without them is the recommended form and is easier to inspect. Verified by parsing a two-sample sheet without either column and building its DAG in preview, identical to the test sheet's. Only `--tools ascat` / `controlfreec` (Tier-2) still need `sex`; the `csv/` restart sheets carry the filled-in values.
 - **Launch form: the iGenomes paragraph left the *Reference genome options* section** (2026-10-04).
