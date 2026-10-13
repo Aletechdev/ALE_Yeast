@@ -179,7 +179,10 @@ first criterion's line (304; 305 is absent), so the line reads 4 branches, at mo
 Fork code has five such defaults (`mutation_report/main.nf:177, 272, 305, 410, 471`). Four are counted, on
 the previous criterion's line: 176, 304, 409 and 470 show `4` where every other criterion shows `2`, 8
 branches of which 4 are uncoverable; 176, 409 and 470 read 3/4 covered and can never be fully covered. The fifth
-(272) is the case below.
+(272) is the case below. Since 2026-10-13 `tests/nf_coverage_report.py` excludes the untakeable side of
+these jumps from every branch view (found as `iconst_0` / `iconst_1` straight into `ifeq` / `ifne` with
+the jump not a jump target; `--no-constant-filter` restores JaCoCo's raw numbers, which is what
+`branch_lines_all.tsv` holds).
 
 **5b. A criteria closure with no line table.** The `branch` at `mutation_report/main.nf:270-273`
 (`ch_collapsed = COLLAPSE_SV_PAIRS.out.vcf.branch { meta, vcf -> tiddit: … / other: true }`) ran (line
@@ -315,7 +318,7 @@ python $P/xml_lines.py $W/nf/probe.xml $P/main.nf
 python $P/make_branch_dump.py
 python $P/branch_dump.py --dump output_coverage/classes --logs 'output_coverage/logs/*.nextflow.log' \
   --upstream output_coverage/tools/sarek-3.5.1 --xml all=output_coverage/xml/all.xml --no-tables --at-commit 438a9dc \
-  --branch-dump all > $W/branch_lines_all.tsv
+  --no-constant-filter --branch-dump all > $W/branch_lines_all.tsv       # raw JaCoCo counts, as the TSV was recorded
 python $P/branch_dump.py --dump output_coverage/classes --logs 'output_coverage/logs/*.nextflow.log' \
   --upstream output_coverage/tools/sarek-3.5.1 --xml all=output_coverage/xml/all.xml --no-tables --at-commit 438a9dc \
   --fork-dump > $W/fork_lines.tsv

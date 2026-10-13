@@ -153,7 +153,7 @@ case "$cmd" in
     for x in nextflow nf-test java javap python curl; do command -v "$x" >/dev/null || { echo "$x not on PATH" >&2; exit 1; }; done
     tools; failed=0
     if [ $# -eq 0 ]; then
-      rm -rf "$out"/exec/* "$out"/classes/* "$out"/logs/* "$out"/javap_l.txt
+      rm -rf "$out"/exec/* "$out"/classes/* "$out"/logs/* "$out"/javap_l.txt "$out"/javap_cl.txt
       { echo "date	$(date -u +%Y-%m-%dT%H:%MZ)"
         echo "commit	$(git -C "$here" rev-parse --short HEAD)$(git -C "$here" status --porcelain --untracked-files=no | grep -q . && echo ' + uncommitted changes')"
         echo "versions	nextflow $NXF_VER, groovy $(groovy_version), java $(java_version), $(nf-test version 2>/dev/null | grep -m1 -oE 'nf-test [0-9.]+' || echo nf-test), JaCoCo $jacoco, fork baseline sarek $upstream"

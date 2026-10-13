@@ -6,8 +6,8 @@ how that is measured, what the first measurement found, and what the numbers can
 > **Status (2026-10-02): a measurement, not a gate.** `tests/nf_coverage.sh run` produces the report
 > in about 35 minutes. Nothing in the commit gate or CI depends on it, and no threshold is proposed.
 > 2026-10-13: branch coverage made the headline measure and *Conditions seen every way* renamed
-> *Fully covered decision lines* after the branch-counting probe; every number is still that of the
-> 2026-10-02 run.
+> *Fully covered decision lines* after the branch-counting probe, and the side of a jump on a constant
+> that no run can take excluded from the branch counts; every number is still that of the 2026-10-02 run.
 > Every number on this page comes from one run (see [Provenance](#provenance)) and is labelled
 > *measured*, *inferred* or *assumed* where the difference matters
 > ([`testing_best_practices.md` §13](testing_best_practices.md#13-benchmark-claims--provenance-evidence-labels-script-before-numbers)).
@@ -53,7 +53,7 @@ comment line.
 |---|---|---|
 | **Lines** | Executable lines with at least one executed instruction | The familiar number. High floor: wiring runs without data. |
 | **Data-driven closures** | Closures that only run when a channel item or a task arrives: operator bodies (`.map { }`), a process's `script:` / `when:` / directive closures, lazy config values (`ext.args = { }`) | Zero in a plan-only run for process and config code, so it measures work, not wiring. A process's `script:` closure is entered when a task is created for it. |
-| **Branch coverage** (the headline) | JaCoCo branches taken, of all branches on the lines: two per conditional jump in the bytecode (see the note below) | The one figure that moves with every test level, from 18 % plan-only to 56 % merged, and the one a floor could be set on. |
+| **Branch coverage** (the headline) | JaCoCo branches taken, of all branches on the lines: two per conditional jump in the bytecode, less the side of a jump on a constant that no run can take (both notes below) | The one figure that moves with every test level, from 18 % plan-only to 56 % merged, and the one a floor could be set on. |
 | **Fully covered decision lines** (the worklist) | Lines carrying branches (an `if`, `?:`, `&&`) with no branch missed | A plain `if (flag)` has two branches. A suite that only ever runs with the flag on leaves one untaken. `uncovered.txt` lists the lines with a branch still missing. |
 
 **What a branch is.** JaCoCo counts two per conditional jump in the bytecode, and Groovy emits more
@@ -70,6 +70,23 @@ textbook branch coverage: every operand, not only the whole condition, has to ha
 per-construct table, the bytecode and the share of our denominator this accounts for:
 [`nextflow_branch_counting.md`](nextflow_branch_counting.md). The `b m/n` column of `uncovered.txt`
 and the `m/n` of `annotate` are the same count.
+
+**Excluded from the branch counts: the side of a constant that cannot be taken.** Nextflow compiles
+the catch-all of a `branch { … name: true }` to a jump on a compile-time constant (`iconst_1; ifeq`).
+JaCoCo counts two branches for it, and the false side can never be taken. The report script finds such
+jumps in the bytecode (`iconst_0` or `iconst_1` straight into `ifeq` or `ifne`, the jump not itself the
+target of any other jump or exception handler, so Groovy's `&&` / `!` re-test, which reaches its test
+with both values, is left alone) and removes that one branch from the line's total and from its missed
+count in every view: the branch tables, the fully covered decision lines, the `b m/n` of
+`uncovered.txt` and `annotate`, `lcov.info`. Fork code has four, all in `mutation_report/main.nf`
+(lines 176, 304, 409, 470), the only fork-written file that uses `branch`; sarek's own `branch` calls
+are outside the fork count and use explicit criteria, which compile to real tests. `tables.txt` prints
+the list and the raw totals every time (`4 branches on constant conditions excluded (…)`), so a change
+in the count shows up; `--no-constant-filter` restores JaCoCo's raw numbers. On the 2026-10-02 data the
+exclusion moves the merged headline from 514 / 920 to 514 / 916 and the fully covered decision lines
+from 80 to 83 of 254 (*measured* 2026-10-13 on the recorded data: lines 176, 409 and 470 go from 3/4 to
+3/3; 304 stays partly covered, its `multi` side never ran). The tables below still carry the raw values
+of that run; the next measurement reports the filtered ones.
 
 `tables.txt` also lists **named functions entered** (fork functions only): 8 of 8 in every run set, the
 plan-only run included, because a `.nf` file's functions are called while the DAG is built. The row
@@ -374,12 +391,10 @@ entered none.
   yet `modules/nf-core/svdb/merge/main.nf` and the `withName` block it shares with the TIDDIT alias
   read as covered, and the line that calls it (`mutation_report/main.nf:307`) reads as run, because
   the call is wiring. An entered `script:` closure says that some alias of the step ran, not which.
-- **A `branch` operator's `name: true` default adds a branch no run can take** (*measured*, the
-  recorded dump at `438a9dc`). Nextflow compiles the default to a jump on a constant and attributes it
-  to the previous criterion's line, which then shows 4 branches with at most 3 coverable:
-  `mutation_report/main.nf:176, 304, 409, 470`, so those four lines can never be fully covered and
-  the most branch coverage can reach is 916 of 920. One criteria closure (`:270-273`) was compiled
-  without a line table and is outside every per-line count, its own default included.
+- **One `branch` criteria closure is outside every per-line count** (*measured*, the recorded dump
+  at `438a9dc`). The `branch` at `mutation_report/main.nf:270-273` was compiled without a line table,
+  so its criteria own no bytecode, the closure is not counted, and its catch-all is neither counted nor
+  excluded; the only such closure body among the 2 864 classes of that dump.
 - **`?.` contributes no branch.** Safe navigation is a flag on the call site, not a jump, so a line
   whose only decision is `x?.y` has no branches and never appears in the decision-line counts.
 - **The branch denominator depends on the Groovy compiler**, not only on the code: a Nextflow upgrade
@@ -407,9 +422,9 @@ entered none.
 
 - Whether to run this on a schedule or before a release, and whether any of the measures deserves a
   floor. None is proposed here. The candidate, if one is ever set: a floor on branch coverage, never on
-  fully covered decision lines (the `branch` defaults cap that count below 254 for good), allowing for
-  the 4 uncoverable branches, with Nextflow pinned and the baseline reset at every upgrade, since the
-  denominator moves with the Groovy compiler.
+  fully covered decision lines (a count of lines, where one new `if` moves it by a whole unit), with
+  Nextflow pinned and the baseline reset at every upgrade, since the denominator moves with the Groovy
+  compiler.
 - Python coverage of `bin/` (`coverage.py` inside the task) is the larger half of what we wrote and
   is not covered by any of this.
 - The issue #13 comment of 2026-10-01 needs a correction pointing here.

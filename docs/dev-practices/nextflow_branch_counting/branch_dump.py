@@ -10,7 +10,11 @@ Measures, each reported for one or more named run sets (one JaCoCo XML report pe
               directive closures, lazy config values - whose body was entered at least once
   branches    JaCoCo branch coverage per line: two branches per conditional jump in the bytecode, so a
               two-operand && / || counts six, not four (docs/dev-practices/nextflow_branch_counting.md);
-              "fully covered decision line" = a line with branches, none missed
+              "fully covered decision line" = a line with branches, none missed. A jump on a compile-time
+              constant (iconst_0 / iconst_1 straight into ifeq / ifne, the jump not itself a jump target:
+              Nextflow's `branch { name: true }` catch-all) has a side no run can take; that side is
+              excluded from the line's total and missed counts in every view (--no-constant-filter keeps
+              JaCoCo's raw numbers). tables.txt lists the excluded branches and the raw totals.
   fork ...    the same, restricted to lines that are not in pristine nf-core/sarek (--upstream)
 
 Class -> source file
@@ -23,6 +27,7 @@ Usage
   nf_coverage_report.py --dump CLASSDIR --logs 'GLOB' [--logs ...] [--upstream SAREK_DIR] \\
       --xml NAME=report.xml [--xml ...] [--no-tables] [--files] [--unique A,B,C] \\
       [--uncovered SET] [--annotate SET:path-suffix] [--tsv out.tsv] [--lcov SET:out.info]
+      [--no-constant-filter] [--constant-jumps]
 """
 import argparse, collections, difflib, glob, hashlib, os, re, subprocess, sys
 import xml.etree.ElementTree as ET
@@ -40,6 +45,8 @@ ap.add_argument('--uncovered', help='SET: fork lines, closures and partly covere
 ap.add_argument('--annotate', help='SET:path-suffix - one source file, line by line')
 ap.add_argument('--tsv', help='per-file counts')
 ap.add_argument('--lcov', help='SET:out.info - LCOV tracefile (editor gutters, genhtml, Codecov)')
+ap.add_argument('--no-constant-filter', action='store_true', help="keep JaCoCo's raw branch counts: do not exclude the untakeable side of jumps on constants")
+ap.add_argument('--constant-jumps', action='store_true', help='list the conditional jumps on constants found in the dump (class, source line) and exit; needs --dump only')
 ap.add_argument('--at-commit', help='read sources from this git revision instead of the working tree')
 ap.add_argument('--fork-dump', action='store_true', help='every fork line of every measured file, with an executable flag')
 ap.add_argument('--branch-dump', help='SET: one row per line with branches (file, line, mb, cb, fork, group, text)')
@@ -71,25 +78,67 @@ for d, dirs, fs in os.walk(ROOT):
             _b = at_commit_bytes(os.path.realpath(p))
             cmap.setdefault('Script' + hashlib.md5(_b if _b is not None else open(p, 'rb').read()).hexdigest().upper(), os.path.realpath(p))
 
-# ---------------------------------------------------------------- static: which class owns which lines
-jp = os.path.join(os.path.dirname(os.path.abspath(a.dump)), 'javap_l.txt')
+# ---------------------------------------------------------------- static: which class owns which lines, and the jumps on constants
+# javap -c -l -p of every dumped class, cached next to the dump; the line tables give class -> lines, the code the
+# conditional jumps on a compile-time constant (iconst_0 / iconst_1 followed by ifeq / ifne where the if* is not the
+# target of any jump or exception handler). Such a jump has a side no run can take; Groovy's && / ! re-test
+# (iconst_1; goto L; iconst_0; L: ifeq) reaches its if* with both values and is left alone.
+jp = os.path.join(os.path.dirname(os.path.abspath(a.dump)), 'javap_cl.txt')
 if not os.path.exists(jp) or os.path.getmtime(jp) < os.path.getmtime(a.dump):
-    names = sorted(f for f in os.listdir(a.dump) if f.startswith(('Script', '_nf_config_')))
+    names = sorted(f for f in os.listdir(a.dump) if f.startswith(('Script', '_nf_config_')) or a.constant_jumps)
     with open(jp, 'w') as out:
         for i in range(0, len(names), 400):
-            subprocess.run(['javap', '-l', '-p'] + names[i:i + 400], cwd=a.dump, stdout=out, stderr=subprocess.DEVNULL)
+            subprocess.run(['javap', '-c', '-l', '-p'] + names[i:i + 400], cwd=a.dump, stdout=out, stderr=subprocess.DEVNULL)
 cls_lines = collections.defaultdict(lambda: collections.defaultdict(set))   # class -> method -> lines
+const_jumps = collections.defaultdict(collections.Counter)                   # class -> source line -> jumps on a constant
 cur = meth = None
+code = []; ltab = []; targets = set(); in_exc = False
+def flush():
+    """end of a method: record its jumps on constants, attributed to the line of the if* instruction"""
+    if not (cur and meth and code):
+        return
+    starts = sorted(ltab)
+    def line_of(off):
+        ln = None
+        for o, n in starts:
+            if o <= off:
+                ln = n
+        return ln
+    for (o1, op1, _), (o2, op2, _) in zip(code, code[1:]):
+        if op1 in ('iconst_0', 'iconst_1') and op2 in ('ifeq', 'ifne') and o2 not in targets and line_of(o2) is not None:
+            const_jumps[cur][line_of(o2)] += 1
 for line in open(jp):
     m = re.match(r'^(?:public |final |abstract )*class (\S+)', line)
     if m:
-        cur = m.group(1); meth = None; continue
+        flush(); cur = m.group(1); meth = None; code = []; ltab = []; targets = set(); in_exc = False; continue
     m = re.match(r'^  \S.*?([\w$<>]+)\(.*\);\s*$', line)
     if m:
-        meth = m.group(1); continue
-    m = re.match(r'^\s+line (\d+): \d+', line)
-    if m and cur and meth:
-        cls_lines[cur][meth].add(int(m.group(1)))
+        flush(); meth = m.group(1); code = []; ltab = []; targets = set(); in_exc = False; continue
+    if not (cur and meth):
+        continue
+    m = re.match(r'^\s+line (\d+): (\d+)', line)
+    if m:
+        cls_lines[cur][meth].add(int(m.group(1))); ltab.append((int(m.group(2)), int(m.group(1)))); in_exc = False; continue
+    if re.match(r'^\s+Exception table:', line):
+        in_exc = True; continue
+    if in_exc:
+        m = re.match(r'^\s+(\d+)\s+(\d+)\s+(\d+)\s+\S', line)
+        if m:
+            targets.add(int(m.group(3))); continue
+        in_exc = False
+    m = re.match(r'^\s+(\d+): ([a-z_0-9]+)(.*)$', line)
+    if m and not m.group(2).isdigit():
+        off, op, rest = int(m.group(1)), m.group(2), m.group(3)
+        code.append((off, op, rest))
+        if op.startswith(('if', 'goto', 'jsr')):
+            t = re.match(r'\s*(\d+)', rest)
+            if t:
+                targets.add(int(t.group(1)))
+        continue
+    m = re.match(r'^\s+(?:\d+|default): (\d+)\s*$', line)      # a tableswitch / lookupswitch target
+    if m:
+        targets.add(int(m.group(1)))
+flush()
 
 def all_lines(cls):
     return set().union(*cls_lines[cls].values()) if cls_lines.get(cls) else set()
@@ -112,6 +161,15 @@ def code_lines(f):
         if t and not t.startswith('//'):
             out.add(i)
     return out
+
+if a.constant_jumps:
+    n = 0
+    for c in sorted(const_jumps):
+        f = cmap.get(c.split('$', 1)[0])
+        for ln, k in sorted(const_jumps[c].items()):
+            n += k; print(f"{(f or '?').replace(ROOT, '')}\t{ln}\t{k}\t{c}")
+    print(f"# {n} conditional jump(s) on a constant in {len(const_jumps)} class(es)", file=sys.stderr)
+    sys.exit()
 
 # nextflow.config and -c files: the hash in _nf_config_<hash> is not derivable here, so each class is
 # matched to the one candidate file whose code lines contain all of the class's lines (closest fit)
@@ -160,6 +218,8 @@ def hit(el):
     return any(x.get('type') == 'INSTRUCTION' and int(x.get('covered')) > 0 for x in el.findall('counter'))
 
 runs = collections.OrderedDict()
+raw_br = {}              # run set -> file -> line -> (mb, cb) as JaCoCo reported them
+excluded = {}            # (file, line) -> branches excluded as the untakeable side of a jump on a constant
 closures = {}            # class -> (file, first line)
 funcs = {}               # (class, method) -> (file, first line)
 exe = collections.defaultdict(set)   # file -> executable lines
@@ -177,6 +237,19 @@ for spec in a.xml:
                 cov[f].add(nr)
             if int(l.get('mb')) + int(l.get('cb')) > 0:
                 br[f][nr] = (int(l.get('mb')), int(l.get('cb')))
+    raw_br[name] = {f: dict(v) for f, v in br.items()}
+    if not a.no_constant_filter:
+        for c, lines in const_jumps.items():
+            f = cmap.get(c.split('$', 1)[0])
+            if not f:
+                continue
+            for nr, k in lines.items():
+                if nr in br[f]:
+                    mb, cb = br[f][nr]
+                    if mb >= k:
+                        br[f][nr] = (mb - k, cb); excluded[(f, nr)] = k
+                    else:
+                        print(f"# constant jump at {f.replace(ROOT, '')}:{nr} has {mb} missed branch(es) for {k} jump(s); not excluded", file=sys.stderr)
     for c in root.iter('class'):
         cn = c.get('name'); f = cmap.get(cn.split('$', 1)[0])
         if not f:
@@ -315,6 +388,25 @@ if not a.no_tables:
         table('Data-driven closures entered - fork closures only', clo_sel(True))
         table('Named functions entered - fork functions only', fn_sel(True))
         table('JaCoCo branch coverage - fork lines only (per conditional jump)', br_sel(True, 'branches'))
+        if a.no_constant_filter:
+            print("constant-condition filter off (--no-constant-filter): raw JaCoCo counts throughout")
+        else:
+            ex = sorted((f, nr) for (f, nr) in excluded if f in files)
+            byf = collections.OrderedDict()
+            for f, nr in ex:
+                byf.setdefault(f, []).append(str(nr))
+            print(f"{sum(excluded[k] for k in ex)} branches on constant conditions excluded ("
+                  + '; '.join(f"{f.replace(ROOT, '')}:{', '.join(ls)}" for f, ls in byf.items()) + ")")
+            raw = []
+            for n in names:
+                c = t = 0
+                for f in files:
+                    fl = fork_lines(f)[0]
+                    for nr, (mb, cb) in raw_br[n].get(f, {}).items():
+                        if nr in fl:
+                            c += cb; t += mb + cb
+                raw.append(f"{n} {c}/{t}")
+            print("raw JaCoCo branch totals before the exclusion, fork lines only: " + '  '.join(raw))
         table('Fully covered decision lines - fork lines only (lines with branches, none missed)', br_sel(True, 'lines'))
 
 if a.unique:
