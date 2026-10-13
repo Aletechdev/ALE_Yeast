@@ -19,7 +19,7 @@
 # Output: $COV_DIR, default output_coverage/ at the repo root (gitignored):
 #   tables.txt     lines / closures / branches per code group, for a plan-only run, the QC-only run,
 #                  the e2e alone and everything merged; all code and fork lines only
-#   uncovered.txt  fork lines, closures and one-sided conditions that nothing executed
+#   uncovered.txt  fork lines, closures and partly covered decision lines that nothing executed
 #   levels.txt     the same tables per test level: process, workflow, plan-only pipeline, full-run pipeline
 #   unique.txt     what each test file covers that no other does
 #   coverage.tsv   per-file counts          lcov.info  for editor gutters / genhtml / Codecov
@@ -64,6 +64,16 @@ tools() {
 agent() { echo "-javaagent:$out/tools/jacocoagent.jar=destfile=$out/exec/$1.exec,classdumpdir=$out/classes,inclnolocationclasses=true,includes=Script*:_nf_config_*"; }
 
 note() { printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$out/RUN_INFO.txt"; echo "  $1: exit $2, ${3}s"; }
+
+# the compiler behind the branch counts (docs/dev-practices/nextflow_branch_counting.md): Groovy is merged into
+# Nextflow's one-jar, which exists once that version has been launched; "?" when it has not
+groovy_version() {
+  local jar="${NXF_HOME:-$HOME/.nextflow}/framework/$NXF_VER/nextflow-$NXF_VER-one.jar"
+  [ -f "$jar" ] && python -c 'import sys, zipfile
+p = dict(l.split("=", 1) for l in zipfile.ZipFile(sys.argv[1]).read("META-INF/groovy-release-info.properties").decode().splitlines() if "=" in l and not l.startswith("#"))
+print(p.get("ImplementationVersion", "?"))' "$jar" 2>/dev/null || echo "?"
+}
+java_version() { java -version 2>&1 | sed -n '1s/.*"\([^"]*\)".*/\1/p' | grep . || echo "?"; }
 
 # a direct pipeline run from its own directory, so the repo's .nextflow/history stays clean
 pipeline_run() {   # <set name> <extra args...>
@@ -134,7 +144,7 @@ report() {
     lv+=(--xml "$lvl=$out/levels/$lvl.xml")
   done
   "${py[@]}" "${lv[@]}" --xml "all=$out/xml/all.xml" > "$out/levels.txt"
-  sed -n '/^## Executable lines covered - fork/,/^$/p; /^## Data-driven closures entered - fork/,/^$/p; /^## Conditions seen every way/,/^$/p' "$out/tables.txt"
+  sed -n '/^## Executable lines covered - fork/,/^$/p; /^## Data-driven closures entered - fork/,/^$/p; /^## JaCoCo branch coverage/,/^$/p; /^## Fully covered decision lines/,/^$/p' "$out/tables.txt"
   echo "report: $out/tables.txt  levels.txt  uncovered.txt  unique.txt  coverage.tsv  lcov.info"
 }
 
@@ -146,7 +156,7 @@ case "$cmd" in
       rm -rf "$out"/exec/* "$out"/classes/* "$out"/logs/* "$out"/javap_l.txt
       { echo "date	$(date -u +%Y-%m-%dT%H:%MZ)"
         echo "commit	$(git -C "$here" rev-parse --short HEAD)$(git -C "$here" status --porcelain --untracked-files=no | grep -q . && echo ' + uncommitted changes')"
-        echo "versions	nextflow $NXF_VER, $(nf-test version 2>/dev/null | grep -m1 -oE 'nf-test [0-9.]+' || echo nf-test), JaCoCo $jacoco, fork baseline sarek $upstream"
+        echo "versions	nextflow $NXF_VER, groovy $(groovy_version), java $(java_version), $(nf-test version 2>/dev/null | grep -m1 -oE 'nf-test [0-9.]+' || echo nf-test), JaCoCo $jacoco, fork baseline sarek $upstream"
         echo "run	exit	seconds"; } > "$out/RUN_INFO.txt"
       pipeline_run preview -preview || failed=1
       pipeline_run qc_only --qc_only || failed=1

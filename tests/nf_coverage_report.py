@@ -8,7 +8,9 @@ Measures, each reported for one or more named run sets (one JaCoCo XML report pe
   lines       executable lines (lines that own bytecode) with at least one covered instruction
   closures    closures that run only when data arrives - operator bodies, a process's script / when /
               directive closures, lazy config values - whose body was entered at least once
-  branches    JaCoCo's branch counter per line; "seen every way" = a line with branches, none missed
+  branches    JaCoCo branch coverage per line: two branches per conditional jump in the bytecode, so a
+              two-operand && / || counts six, not four (docs/dev-practices/nextflow_branch_counting.md);
+              "fully covered decision line" = a line with branches, none missed
   fork ...    the same, restricted to lines that are not in pristine nf-core/sarek (--upstream)
 
 Class -> source file
@@ -34,7 +36,7 @@ ap.add_argument('--xml', action='append', default=[], help='NAME=jacoco-report.x
 ap.add_argument('--no-tables', action='store_true', help='skip the summary tables')
 ap.add_argument('--files', action='store_true', help='per-file fork lines and closures')
 ap.add_argument('--unique', help='A,B,C: what each of these run sets covers that none of the others does')
-ap.add_argument('--uncovered', help='SET: fork lines, closures and one-sided conditions that set never executed')
+ap.add_argument('--uncovered', help='SET: fork lines, closures and partly covered decision lines that set never executed')
 ap.add_argument('--annotate', help='SET:path-suffix - one source file, line by line')
 ap.add_argument('--tsv', help='per-file counts')
 ap.add_argument('--lcov', help='SET:out.info - LCOV tracefile (editor gutters, genhtml, Codecov)')
@@ -226,7 +228,7 @@ if a.annotate:
     inside = {ln for c, (cf, _) in closures.items() if cf == f for ln in all_lines(c)}
     dead = {ln for c, (cf, _) in closures.items() if cf == f and c not in ccov for ln in all_lines(c)}
     print(f"# {f.replace(ROOT, '')} [{setn}]   + ran   - never ran   ~ the line ran, but a closure on it was never entered   (blank: no bytecode)")
-    print("#   F = not in upstream sarek   c = inside a closure that needs data   m/n = m of n branches never taken")
+    print("#   F = not in upstream sarek   c = inside a closure that needs data   m/n = m of n JaCoCo branches never taken (two per conditional jump; a two-operand && is six)")
     for i, t in enumerate(text(f), 1):
         mark = ' ' if i not in exe[f] else ('-' if i not in cov[f] else ('~' if i in dead else '+'))
         b = br[f].get(i); bs = f"{b[0]}/{b[0] + b[1]}" if b and b[0] else ''
@@ -282,8 +284,8 @@ if not a.no_tables:
         table('Executable lines covered - fork lines only', line_sel(True))
         table('Data-driven closures entered - fork closures only', clo_sel(True))
         table('Named functions entered - fork functions only', fn_sel(True))
-        table('Branches taken - fork lines only', br_sel(True, 'branches'))
-        table('Conditions seen every way - fork lines only (lines with branches, none missed)', br_sel(True, 'lines'))
+        table('JaCoCo branch coverage - fork lines only (per conditional jump)', br_sel(True, 'branches'))
+        table('Fully covered decision lines - fork lines only (lines with branches, none missed)', br_sel(True, 'lines'))
 
 if a.unique:
     us = a.unique.split(',')
@@ -315,7 +317,7 @@ if a.files:
 if a.uncovered:
     cov, ccov, _, br = runs[a.uncovered]
     print(f"\n## Fork code that run set '{a.uncovered}' never executed")
-    print("##   (blank) the line never ran   c = inside a closure that was never entered   b m/n = the line ran, but m of its n branches were never taken")
+    print("##   (blank) the line never ran   c = inside a closure that was never entered   b m/n = the line ran, but m of its n JaCoCo branches (two per conditional jump) were never taken")
     for f in files:
         fl = fork_lines(f)[0]; miss = (exe[f] & fl) - cov[f]
         dead = {ln for c, (cf, _) in closures.items() if cf == f and c not in ccov for ln in all_lines(c)} & fl
@@ -323,7 +325,7 @@ if a.uncovered:
         rows = sorted(miss | dead | set(part))
         if not rows:
             continue
-        print(f"\n{f.replace(ROOT, '')}  ({len(miss)} lines never ran, {len(dead - miss)} more inside unentered closures, {len(set(part) - miss)} one-sided conditions)")
+        print(f"\n{f.replace(ROOT, '')}  ({len(miss)} lines never ran, {len(dead - miss)} more inside unentered closures, {len(set(part) - miss)} partly covered decision lines)")
         for ln in rows:
             tag = 'c' if ln in dead else (f"b {part[ln][0]}/{sum(part[ln])}" if ln in part and ln not in miss else ' ')
             print(f"   {tag:7} {ln:4}  {text(f)[ln - 1].strip()[:110]}")
