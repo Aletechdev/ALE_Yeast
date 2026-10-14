@@ -404,6 +404,13 @@ entered none.
 - **The branch denominator depends on the Groovy compiler**, not only on the code: a Nextflow upgrade
   that brings a new Groovy can move the 916 without any change to a `.nf` file. Record the Groovy and
   Java versions with every number (`RUN_INFO.txt` does from the next run on).
+- **The method is tied to Nextflow's class names.** The agent records only `Script*` and `_nf_config_*`
+  classes, and the report maps them to files through the `Script_<hash>: <path>` log lines. Nextflow 26.x
+  (strict parser) names the script classes `Main` and `_nf_script_<hash>`, so a run there records config
+  code only and still exits 0; since 2026-10-14 `tests/nf_coverage.sh` fails such a run ("holds no
+  `Script_*` class"). Probe, per-line counts (unchanged) and the four changes the migration needs:
+  [`nextflow_branch_counting/nf26/RESULTS.md`](nextflow_branch_counting/nf26/RESULTS.md),
+  [`ale_sarek_upgrade_runbook.md`](ale_sarek_upgrade_runbook.md) → *Coverage tooling on Nextflow 26*.
 - **Coverage is not correctness.** The e2e executes the soft-filter step's `ext.args`, yet a JEXL
   expression that matches nothing would execute just the same (§11, layer 2).
 - **A killed head job loses its data** (*assumed*, not tried): the agent writes at JVM exit. A run

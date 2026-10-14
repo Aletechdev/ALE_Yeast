@@ -63,6 +63,19 @@ tools() {
 # classes must stay uninstrumented: instrumenting everything crashes the launcher.
 agent() { echo "-javaagent:$out/tools/jacocoagent.jar=destfile=$out/exec/$1.exec,classdumpdir=$out/classes,inclnolocationclasses=true,includes=Script*:_nf_config_*"; }
 
+# A run whose data holds no Script_* class recorded config code only: the agent's includes filter no longer
+# matches the script classes. Nextflow 26.x (strict parser) names them Main / _nf_script_<hash> instead, and
+# the run still exits 0, so without this check the report would silently shrink to config lines
+# (docs/dev-practices/nextflow_branch_counting/nf26/RESULTS.md).
+check_scripts_recorded() {   # <exec file>
+  [ -s "$1" ] || return 0
+  $cli execinfo "$1" 2>/dev/null | grep -q ' Script_' && return 0
+  { echo "FAILED: $(basename "$1") holds no Script_* class - the run recorded config classes only."
+    echo "  Likely cause: Nextflow $NXF_VER names the script classes differently (26.x strict: Main, _nf_script_<hash>),"
+    echo "  so the agent's includes=Script*:_nf_config_* filter misses them. Needed changes: docs/dev-practices/nextflow_branch_counting/nf26/RESULTS.md"; } >&2
+  return 1
+}
+
 note() { printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$out/RUN_INFO.txt"; echo "  $1: exit $2, ${3}s"; }
 
 # the compiler behind the branch counts (docs/dev-practices/nextflow_branch_counting.md): Groovy is merged into
@@ -82,6 +95,7 @@ pipeline_run() {   # <set name> <extra args...>
   (cd "$d" && NXF_JVM_ARGS=$(agent "$name") nextflow run "$here/main.nf" -profile ottilie_test,docker \
       -c "$here/tests/ottilie_nftest_resources.config" --outdir out -w work -ansi-log false "$@" > run.log 2>&1) || rc=$?
   cp "$d/.nextflow.log" "$out/logs/$name.nextflow.log"
+  check_scripts_recorded "$out/exec/$name.exec" || rc=1
   note "$name" "$rc" $((SECONDS - start))
   [ "${KEEP_WORK:-0}" = 1 ] || rm -rf "$d/work" "$d/out"
   return $rc
@@ -96,6 +110,7 @@ nftest_run() {     # <test name>
   for l in "$out/nft/$t"/tests/*/meta/nextflow.log; do      # the class -> file map of each launch
     if [ -f "$l" ]; then cp "$l" "$out/logs/t_${t}__$(basename "$(dirname "$(dirname "$l")")").nextflow.log"; fi
   done
+  check_scripts_recorded "$out/exec/t_$t.exec" || rc=1
   note "t_$t" "$rc" $((SECONDS - start))
   [ "${KEEP_WORK:-0}" = 1 ] || rm -rf "$out/nft/$t"
   return $rc

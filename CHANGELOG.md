@@ -290,6 +290,20 @@
   83 / 254, identical to the filtered 2026-10-02 data; fork lines 1 012 / 1 117 after the two files
   that changed in between. The doc's numbers are now that run's.
 
+- **Coverage tooling probed on Nextflow 26.10.0 (strict parser); the script now fails a run that recorded
+  config classes only** (dev tooling, 2026-10-14; `tests/nf_coverage.sh`,
+  `docs/dev-practices/nextflow_branch_counting/nf26/`, `docs/dev-practices/ale_sarek_upgrade_runbook.md`,
+  `docs/dev-practices/nextflow_branch_counting.md`). A strict-syntax companion of the branch-counting probe,
+  run on 26.10.0 / Groovy 4.0.33 with 25.10.4 as the control, gives identical per-line branch counts (0 of 7
+  rows differ) but shows the method's blind spot: the strict parser names the script classes `Main` and
+  `_nf_script_<hash>` instead of `Script_<hash>`, so the agent's `includes` filter records config classes
+  only and the run still exits 0. `tests/nf_coverage.sh` now checks every run's data with `jacococli
+  execinfo` and fails with the cause when no `Script_*` class is in it (tested on the plan-only run with a
+  wrong filter, then restored). The four changes the migration needs (filter, class-to-file map, one `Main`
+  per merged report, the `Boolean.TRUE; invokedynamic cast; ifeq` catch-all pattern) and the lint estimate
+  (432 errors in 94 files of the pipeline tree, 67 in `main.nf`, 19 in `nextflow.config`) are in the
+  upgrade runbook; evidence in `nf26/RESULTS.md`. No pipeline code changed.
+
 - **Samplesheet: `status` and `sex` documented as optional, dropped from the examples** (2026-10-06; `docs/usage/input_samplesheet.md`, `README.md`, `docs/README.md`, `CLAUDE.md`). No code change: nf-schema already fills a missing column from `assets/schema_input.json` (`status` 0, `sex` NA), and a Tier-1 run reads neither, so a sheet without them is the recommended form and is easier to inspect. Verified by parsing a two-sample sheet without either column and building its DAG in preview, identical to the test sheet's. Only `--tools ascat` / `controlfreec` (Tier-2) still need `sex`; the `csv/` restart sheets carry the filled-in values.
 - **Launch form: the iGenomes paragraph left the *Reference genome options* section** (2026-10-04).
   Upstream's section help text ("The pipeline config files come bundled with paths to the Illumina

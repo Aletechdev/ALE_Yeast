@@ -325,3 +325,14 @@ python $P/branch_dump.py --dump output_coverage/classes --logs 'output_coverage/
 python $P/classify.py $W/branch_lines_all.tsv $W/fork_lines.tsv
 python $P/artefacts.py $W/branch_lines_all.tsv
 ```
+
+## Nextflow 26.x companion (2026-10-14)
+
+[`nf26/`](nextflow_branch_counting/nf26/RESULTS.md) repeats the probe in strict syntax on Nextflow 26.10.0 /
+Groovy 4.0.33 (the 26.x default parsers), with 25.10.4 as the control. The per-line branch counts are
+identical on both (`&&` 6, `!` 4, chained Elvis 4, ternary on `&&` 6; 0 of 7 rows differ). What changed is
+around the counts: the script classes are named `Main` (entry) and `_nf_script_<hash>` (included) instead of
+`Script_<hash>`, `includeConfig`'d files are `_nf_config_<hash>` instead of `Script<MD5>`, and the `branch`
+catch-all compiles to `getstatic Boolean.TRUE; invokedynamic cast; ifeq` instead of `iconst_1; ifeq`, so the
+constant-jump exclusion of `nf_coverage_report.py` would not match it. The ready-to-apply changes are listed
+in [`ale_sarek_upgrade_runbook.md`](ale_sarek_upgrade_runbook.md) → *Coverage tooling on Nextflow 26*.

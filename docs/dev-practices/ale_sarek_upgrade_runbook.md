@@ -152,6 +152,40 @@ on a 25.3.x compute environment until the 26.x migration is done.
 
 Line numbers drift as the config changes — match on the construct, not the number.
 
+## Coverage tooling on Nextflow 26 / strict syntax (probed 2026-10-14 on 26.10.0; couples with the 26.x migration)
+
+The coverage method (`tests/nf_coverage.sh`, `tests/nf_coverage_report.py`,
+[`nextflow_code_coverage.md`](nextflow_code_coverage.md)) was probed on Nextflow 26.10.0 / Groovy 4.0.33 with the
+strict parser on by default: [`nextflow_branch_counting/nf26/RESULTS.md`](nextflow_branch_counting/nf26/RESULTS.md).
+The agent attaches and the per-line branch counts are identical to 25.10.4 (0 of 7 probe rows differ), but the
+tooling records **config classes only** on 26.x, with exit 0. Since 2026-10-14 the script fails that case
+(`check_scripts_recorded`, "holds no Script_* class"). Four changes, ready to apply at the migration:
+
+1. **Agent filter** (`agent()` in `tests/nf_coverage.sh`): `includes=Script*:_nf_config_*` must become
+   `includes=Script*:_nf_config_*:Main*:_nf_script_*`. The entry script compiles to the fixed-name class `Main`,
+   included scripts to `_nf_script_<16 hex>`; `includeConfig`'d files are `_nf_config_<16 hex>` like the top config
+   (no longer `Script<MD5>`). The filter itself stays required: without one the launcher dies with
+   `NoClassDefFoundError: jdk/internal/reflect/GeneratedConstructorAccessor1` on both versions.
+2. **Class-to-file map** (`tests/nf_coverage_report.py`): the log block `Parsed script files:` still lists
+   `<class>: <path>` per script, so widen the regex from `Script_\w+` to `(Main|_nf_script_\w+|Script_\w+)`; the
+   config line is `ConfigCmdAdapter - Parsing config file:` (was `ConfigBuilder`); `includeConfig`'d files join
+   the `_nf_config_` line-fit candidates instead of the `'Script' + md5` name; the javap pass must select
+   `Main*` and `_nf_script_*` too.
+3. **One `Main` per merged report**: `jacococli report` fails with `Can't add different class with same name: Main`
+   when two different `Main.<id>.class` sit in `--classfiles`, and every nf-test test launches its own entry
+   script. Keep the `Main` whose log line maps to the repo's `main.nf`, drop the rest before the report.
+4. **Constant-jump filter**: the `branch { … name: true }` catch-all compiles to
+   `getstatic Boolean.TRUE; invokedynamic cast; ifeq` instead of `iconst_1; ifeq`. Add that pattern (same
+   "not itself a jump target" guard) or the four `mutation_report/main.nf` defaults return to the counts and
+   the headline reads 514 / 920 again.
+
+**Strict-syntax migration estimate** (`NXF_VER=26.10.0 nextflow lint .`, nothing fixed, the lines for tracked files in
+`nextflow_branch_counting/nf26/out/ale_lint.txt`): **432 errors in 94 files** of the pipeline tree, 67 in
+`main.nf` (26 top-level `params.*` statements mixed with declarations, the rest cascading "not defined"), 19 in
+`nextflow.config` (the four blockers above plus the computed `includeConfig` paths), 257 in `subworkflows/local/`
+(46 files), 44 in `conf/` (27 files), 31 in unmodified `modules/nf-core/` (17 files), 0 in `modules/local/`.
+Many are cascades of one root cause per file; the count sizes the lint output, not the work.
+
 ## Known Rebase Hazards: SnpEff cache (couples with any 3.9.0+ rebase; verified 2026-09-07)
 
 Two upstream changes in this one area land together at the next rebase. Neither is caused by ALE code,

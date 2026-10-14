@@ -100,6 +100,8 @@ docs/archive/investigate_filter/
 # Output and work directories at any level
 **/output_*/
 **/work_*/
+# Regenerated class dumps of the Nextflow 26.x coverage probe (run_probe.sh); out/ale_lint.txt is committed
+docs/dev-practices/nextflow_branch_counting/nf26/out/*/
 
 # Quality control - ignore data, output, and comparison folders
 quality_control/*/data/
