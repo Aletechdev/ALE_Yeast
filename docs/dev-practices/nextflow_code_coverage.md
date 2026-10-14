@@ -97,6 +97,8 @@ the surface §11 of the testing guide calls "our own modifications". nf-core mod
 installed that sarek 3.5.1 does not ship (`bcftools/view`, `bcftools/filter`,
 `gatk4/variantfiltration`, `manta/convertinversion`) have no baseline here and are counted as
 upstream code.
+We measure the code we wrote or changed; unmodified nf-core and sarek code is excluded, the same way
+a vendor folder would be. The per-line comparison with sarek 3.5.1 is how that is implemented.
 
 ## Running it
 
@@ -400,7 +402,7 @@ entered none.
 - **`?.` contributes no branch.** Safe navigation is a flag on the call site, not a jump, so a line
   whose only decision is `x?.y` has no branches and never appears in the decision-line counts.
 - **The branch denominator depends on the Groovy compiler**, not only on the code: a Nextflow upgrade
-  that brings a new Groovy can move the 920 without any change to a `.nf` file. Record the Groovy and
+  that brings a new Groovy can move the 916 without any change to a `.nf` file. Record the Groovy and
   Java versions with every number (`RUN_INFO.txt` does from the next run on).
 - **Coverage is not correctness.** The e2e executes the soft-filter step's `ext.args`, yet a JEXL
   expression that matches nothing would execute just the same (§11, layer 2).
