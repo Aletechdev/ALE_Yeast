@@ -84,7 +84,14 @@ lines. Python has no such phase. So branch coverage is the number we read.
   e2e and the coverage run on a schedule; a coverage floor only once the number is stable.
 - Reference: sarek 3.5.1 and 3.10 run lint and tests on every PR with binary acceptance, and report no
   coverage and no numeric threshold (read from the `.github/workflows/` files of nf-core/sarek, 2026-10-15).
-- Upgrades (sarek 3.10, Nextflow 26, the strict syntax) are separate tasks and do not change this strategy.
+- Upgrades (sarek 3.10, Nextflow 26, the strict syntax) are separate tasks and do not change this strategy.[^upgrades]
+
+[^upgrades]: Nextflow 26.10 with the strict parser was probed on 2026-10-14: the JaCoCo agent still attaches
+    there, four tooling changes are listed and ready, and the branch counts are identical
+    ([`ale_sarek_upgrade_runbook.md`](ale_sarek_upgrade_runbook.md), *Coverage tooling on Nextflow 26*). The pipeline
+    itself needs the strict-syntax migration first (432 lint errors in 94 files). Sarek 3.10 has not been tried; its
+    rebase hazards are in the same runbook, and its own CI is the nf-test pattern this doc adopts, so the levels and
+    measures carry over. The e2e snapshot will be re-recorded at either upgrade, as after any output change.
 
 ## 6. Running it
 
