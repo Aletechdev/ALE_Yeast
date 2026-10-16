@@ -159,7 +159,7 @@ Three categories of `*.nf.test` files exist in the repo; only the first is ours 
 
 | Category | Location | Tests | Policy |
 |----------|----------|-------|--------|
-| **ALE suite (ours)** | `tests/*.nf.test` | the fork's own tests, at *any* nf-test layer: nine files as of 2026-10-13 (2 process, 3 subworkflow, 4 pipeline; the §11 layer table names them) | **maintained.** All of ours live here regardless of layer — including component-level ones — see [Why our component tests live in `tests/`](#why-our-component-tests-live-in-tests-not-co-located) below |
+| **ALE suite (ours)** | `tests/*.nf.test` | the fork's own tests, at *any* nf-test layer: ten files as of 2026-10-16 (2 process, 4 subworkflow, 4 pipeline; the §11 layer table names them) | **maintained.** All of ours live here regardless of layer — including component-level ones — see [Why our component tests live in `tests/`](#why-our-component-tests-live-in-tests-not-co-located) below |
 | **Upstream pipeline-level** | `tests/*.nf.test` (inherited) | whole-pipeline scenarios on human test data | triaged out — see the next section |
 | **Upstream component-level** | `modules/nf-core/*/tests/`, `subworkflows/*/tests/` | one module/subworkflow in isolation | **leave untouched** — co-located with upstream code; deleting them creates a rebase patch per upgrade, and they don't fail from our fork changes |
 
@@ -312,7 +312,7 @@ was already copied into `ottilie_e2e.nf.test`. They are deleted (with their orph
 
 **`ottilie_e2e.nf.test` is the end-to-end case for the v1.0.0 release** (the full ALE workflow on the
 ottilie 2-sample dataset via the `ottilie_test` profile); `split_joint_vcf.nf.test` is the one
-subworkflow unit test. Those two were what we maintained at v1.0.0; the suite is nine files now (§11).
+subworkflow unit test. Those two were what we maintained at v1.0.0; the suite is ten files now (§11).
 
 **Legacy pytest-workflow stack removed in the same triage.** The `tests/` dir also inherited the
 upstream **pytest-workflow** apparatus — nf-core's *older* test framework (`- name:` / `command:` /
@@ -352,7 +352,7 @@ pristine upstream config. (Our own bcftools-norm investigation under `tests/test
 > ⚠️ **This is not a permanent state.** A future full re-fork / sarek migration copies clean upstream
 > back, so the same triage must be redone then. The planned migration would obsolete these tests
 > anyway, so we do **not** invest in adapting them — the minimal ALE suite (ottilie e2e +
-> split_joint_vcf at v1.0.0, nine files now) is what survives a migration. The 100 upstream component
+> split_joint_vcf at v1.0.0, ten files now) is what survives a migration. The 100 upstream component
 > test files (94 module + 6 subworkflow) are **not** part of this triage (see the table above).
 
 ---
@@ -406,7 +406,7 @@ nf-test's four test types, and what each maps to in this fork:
 |-------|--------------|-------------|--------|
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
 | Process | `nextflow_process` | the 19 fork-added `modules/local/` directories (the `SAREK_MODIFICATIONS.md` inventory; 20 processes, `breseq/` holds two; the three inherited from sarek, `add_info_to_vcf`, `create_intervals_bed`, `samtools/reindex_bam`, are upstream code) + upstream modules whose behaviour we own via config | **2** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 11 cases, one of them on the `nextflow.config` defaults alone, 1 000-pair fixture; `preflight_reference` — the task-level reference preflight, 4 cases on hand-made fixtures: OK with an embedded `##FASTA`, SKIPPED without a GFF3, ERROR/exit 65 on renamed contigs, OK-with-note when the GFF3 has a contig the FASTA lacks) |
-| Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **3** (`split_joint_vcf`; `manta_experiment_grouping` — `BAM_VARIANT_CALLING_GERMLINE_MANTA` under `--joint_manta`, stub mode: one Manta task per experiment, keyed and named as documented; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
+| Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **4** (`split_joint_vcf`; `joint_calling_output_selection` — `BAM_JOINT_CALLING_GERMLINE_GATK`, stub mode: the three-tier output selection, one case per tier (fallback only, VQSR present, neither); `manta_experiment_grouping` — `BAM_VARIANT_CALLING_GERMLINE_MANTA` under `--joint_manta`, stub mode: one Manta task per experiment, keyed and named as documented; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
 | Pipeline | `nextflow_pipeline` | supported end-to-end routes | **4** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `tools_without_annotation`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`; 8 cases incl. the three `--qc_only` ones) |
 | Gate | bash, outside nf-test | the `--qc_only` starvation gate (`workflows/sarek/main.nf`) | **`tests/qc_gate.sh`** — (a) minutes: a QC-only run of the test set executes *exactly* the allow-listed processes (read QC + reference prep, 15 processes / 18 tasks (2026-09-28, with the reference preflight task; 17 before); since 2026-09-29 the MultiQC process on the list is `MULTIQC_READ_QC` — the alignment-QC and complete-QC reports must not run); a stray process means something downstream of alignment fires on empty input (`toList`/`ifEmpty`/value channel) and the failure message names it. (b) one e2e: `-resume` of run (a) without the flag caches every run-1 task but the read-QC MultiQC report (`MULTIQC_READ_QC`; its input checks and summary record `qc_only`), matches a one-shot run's task list, and `tests/qc_gate_compare.py` finds the deliverables identical (md5 for the `.nftignore`-kept files, records for every VCF). Not nf-test because it needs two launches sharing a session. Run (a) after any `workflows/`/`subworkflows/` change (commit-gate trailer), (b) when the gate or the resume contract itself changes |
 
@@ -498,18 +498,31 @@ Channel wiring and metadata propagation — where this fork's real risk lives.
 
 **First: `bam_joint_calling_germline_gatk` — the three-tier output selection.** The subworkflow picks
 `recal_vcf ?: fallback_vcf ?: joint_vcf` (VQSR > filter-annotated > unfiltered) via two chained joins
-on remapped keys. Two reasons it needs a test:
+on remapped keys. **Tested since 2026-10-16** (`tests/joint_calling_output_selection.nf.test`, stub mode,
+three cases: no resources → the soft-filtered VCF; stub resources → the APPLYVQSR_INDEL VCF wins; the
+fallback switched off by `ext.when` → `genotype_vcf` is empty, see the known issue below). The output-selection
+logic now has a dedicated test; GenomicsDBImport and GenotypeGVCFs themselves still run only in the e2e.
+The two reasons it needed one:
 
 - **Only one branch is ever exercised.** No `known_snps_vqsr` / `known_indels_vqsr` / `dbsnp_vqsr` is
   set anywhere in our configs, so VQSR never runs and the fallback branch is always taken. The
-  VQSR-wins branch is effectively dead code in ALE — untested, and it would only ever activate on the
+  VQSR-wins branch is effectively dead code in ALE — untested until this test, and it would only ever activate on the
   day someone supplies known sites, i.e. the worst moment to discover it's broken.
 - **The joins are asymmetric.** The VQSR join uses `remainder: true`; the fallback join does not. That
   is correct *today* only because `VARIANTFILTRATION_FALLBACK` is unconditional — give it an
   `ext.when` and `genotype_vcf` goes silently empty rather than failing. Worth pinning as a contract.
 
-A workflow test covers both by feeding the three inputs directly and asserting which VCF comes out —
+The test covers both by feeding the resource channels directly and asserting which VCF comes out —
 no GATK run needed for the selection logic itself.
+
+> **Known issue (2026-10-16):** the fallback join (`main.nf:145`, and `:154` for the index) has no
+> `remainder: true`, so with no fallback VCF it emits nothing and the third tier (`?: joint_vcf`) is
+> unreachable — the "neither" case asserts that empty output as-is, with the intended assertion in
+> its comment, and `vcf_out` can reach 3 of 4 branches, not 4, until the join is fixed (a pipeline
+> change: e2e contract test required). Selector lesson from the same test: in nf-test's unit
+> isolation the process is `BAM_JOINT_CALLING_GERMLINE_GATK:VARIANTFILTRATION_FALLBACK` with nothing
+> before it, so `withName: '.*:BAM_JOINT_…'` never matches there; `'.*BAM_JOINT_…'` (no leading
+> colon) matches both that and the pipeline's full path.
 
 **Then**, all `subworkflows/local/`: `vcf_filter_haplotypecaller_joint`, `mutation_report` (tool-presence branching on `params.tools`),
 `fastq_variant_calling_breseq` (the `subMap` regrouping),
@@ -526,8 +539,8 @@ want the CI/`--changed-since` work to land first.
 ### Sequencing
 
 Start with the VQSR-fallback pair — the `VARIANTFILTRATION_FALLBACK` process test *and* the
-`bam_joint_calling_germline_gatk` selection test. They're two halves of one modification, both have
-silent failure modes, and neither is reachable by the e2e snapshot. Then the rest of layer 2 (largest
+`bam_joint_calling_germline_gatk` selection test (the latter done 2026-10-16). They're two halves of one
+modification, both have silent failure modes, and neither is reachable by the e2e snapshot. Then the rest of layer 2 (largest
 gap, cheapest fixtures, fastest feedback), then 3, then the ploidy scenarios at layer 4; layer 1 is
 opportunistic. Prerequisite for all of it: a fixtures convention beyond the
 current hand-committed `tests/fixtures/` — decide committed-small vs. Azure Blob before the file

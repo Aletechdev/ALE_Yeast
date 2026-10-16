@@ -11,6 +11,19 @@
 
 ### Added
 
+- **The joint-calling output selection has a dedicated test** (2026-10-16;
+  `tests/joint_calling_output_selection.nf.test`, stub mode, 86 s). Three cases drive
+  `BAM_JOINT_CALLING_GERMLINE_GATK` as a unit through the three-tier choice
+  `recal_vcf ?: fallback_vcf ?: joint_vcf`: no known-variant resources (the ALE route) emits the
+  soft-filtered VCF; stub resources launch the four VQSR steps and the recalibrated VCF wins; the
+  fallback switched off by `ext.when` (a config next to the test) leaves `genotype_vcf` empty, which the
+  case asserts as the current behaviour, intended assertion in its comment. Each case also pins which
+  processes launched. Zero-byte placeholders under `tests/fixtures/stub_cram/` (four added). The
+  VQSR-wins tier had never run in this fork. GenomicsDBImport and GenotypeGVCFs still run only in the
+  e2e. The commit gate maps the subworkflow and `conf/modules/joint_germline.config` to the test.
+  Found on the way: the selector trap again (`'.*:BAM_JOINT_…'` never matches in unit isolation, the
+  process name there has nothing before it; the no-leading-colon form resolves in both contexts) and
+  the join defect below. `testing_best_practices.md` §11 layer 3.
 - **SNV / InDel events table: every PASS site is in the page** (2026-10-07; `docs/igvreports/generate_index.py`,
   `docs/igvreports/templates/index.html.j2`). A third view, *All PASS sites*, lists the strain background every sample
   shares and the carried sites with no sample to compare against; the default views (*Protein-changing*, *All differing*)
@@ -542,6 +555,12 @@
   downstream as changing IGV-report hashes. The CRAMs are now sorted by name before the joint call.
 
 ### Known limitations
+
+- **The joint-calling subworkflow cannot emit the raw joint VCF** (found 2026-10-16 by
+  `tests/joint_calling_output_selection.nf.test`): the fallback join at
+  `subworkflows/local/bam_joint_calling_germline_gatk/main.nf:145` (and `:154`) has no `remainder: true`,
+  so without a fallback VCF `genotype_vcf` is empty rather than the third tier the comment promises. No
+  run is affected today (the fallback is unconditional); the fix is a pipeline change and needs the e2e.
 
 - **Manta at its default settings (the ALE default) drops high-depth junctions and hub-adjacent
   events.** On the 4-sample pilot the joint run loses the `MaxDepth`-tagged engineered-cassette

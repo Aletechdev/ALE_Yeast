@@ -1,0 +1,189 @@
+nextflow_workflow {
+
+    name "BAM_JOINT_CALLING_GERMLINE_GATK output selection"
+    script "../subworkflows/local/bam_joint_calling_germline_gatk/main.nf"
+    workflow "BAM_JOINT_CALLING_GERMLINE_GATK"
+    tag "ottilie"
+    tag "subworkflow"
+
+    // Run with: nf-test test -c tests/nf-test-ottilie.config tests/joint_calling_output_selection.nf.test
+    //
+    // Guards the three-tier output selection at the end of our joint-calling subworkflow
+    // (main.nf lines 133-161): `vcf_out = recal_vcf ?: fallback_vcf ?: joint_vcf`, i.e. the VQSR
+    // VCF when known-variant resources exist, else the soft-filtered VCF of VARIANTFILTRATION_FALLBACK
+    // (the ALE route: the custom yeast genome has no known sites), else the raw merged VCF. Every
+    // ALE run takes the middle tier, so the e2e exercises exactly one of the three and nothing in the
+    // suite would notice if the VQSR tier stopped winning or the joins stopped emitting.
+    //
+    // STUB MODE (`options "-stub"`). No GATK runs: each module's stub block writes an empty file
+    // with the name its ext.prefix dictates. That is the point: what is under test is the wiring
+    // (which process launches, what reaches the joins, what comes out with which meta), not
+    // genotyping. Seconds instead of ~10 min, no gVCFs needed.
+    //
+    // Inputs are OPAQUE PLACEHOLDERS - zero-byte files under tests/fixtures/stub_cram/, there only
+    // so Nextflow has something to stage; nothing reads them. Distinct names per sample because
+    // GenomicsDBImport groups both samples' gVCFs into one task. Two samples, one interval: the
+    // smallest shape that takes the subworkflow's groupTuple-by-interval path.
+    //
+    // What drives the cases: VQSR is present exactly when the resource channels carry files. With
+    // Channel.empty() for the resource VCF/TBI and the `*_vqsr` label channels (what the pipeline
+    // builds when no known sites are configured) VARIANTRECALIBRATOR_* never launch, so APPLYVQSR_*
+    // never launch, and the `ifEmpty([[:], []])` on line 137 puts `[]` in the recal_vcf slot. The
+    // fallback step is unconditional, so "fallback absent" can only be produced by config: the
+    // third case switches it off with `ext.when = false` (joint_calling_output_selection.config).
+    //
+    // KNOWN DEFECT, ASSERTED AS-IS (third case): the fallback join on line 145 has no
+    // `remainder: true`, so with no fallback VCF the join emits nothing and the map on line 149 never
+    // runs - genotype_vcf is EMPTY, not the raw joint VCF the line-131 comment promises. The third
+    // tier is therefore unreachable today. When the join is fixed, that case must flip to asserting
+    // the raw joint VCF (joint_germline.vcf.gz); see the case comment.
+
+    def FIX = "\$projectDir/tests/fixtures/stub_cram"
+
+    // take: input = [ meta, gvcf, tbi, intervals ] per sample; meta needs num_intervals for the
+    // groupTuple/regroup, and both samples must carry the SAME interval file to land in one
+    // GenomicsDB task. Plus the reference trio and the dbsnp pair as the pipeline passes them when
+    // no dbsnp is configured (value channels of []), which is what lets GenotypeGVCFs launch.
+    def TWO_SAMPLES_ONE_INTERVAL = """
+        input[0] = Channel.of(
+            [ [ patient:'expA', sample:'s1', id:'s1', ploidy:1, num_intervals:1 ], file("${FIX}/s1.cram"), file("${FIX}/s1.cram.crai"), file("${FIX}/chrI.bed") ],
+            [ [ patient:'expA', sample:'s2', id:'s2', ploidy:1, num_intervals:1 ], file("${FIX}/s2.cram"), file("${FIX}/s2.cram.crai"), file("${FIX}/chrI.bed") ]
+        )
+        input[1] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.fasta") ])
+        input[2] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.fasta.fai") ])
+        input[3] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.dict") ])
+        input[4] = Channel.value([])   // dbsnp
+        input[5] = Channel.value([])   // dbsnp_tbi
+        input[6] = Channel.empty()     // dbsnp_vqsr (label)
+    """
+
+    // No known-variant resources: the pipeline's shape on the custom yeast genome.
+    def NO_RESOURCES = """
+        input[7]  = Channel.empty()    // resource_indels_vcf
+        input[8]  = Channel.empty()    // resource_indels_tbi
+        input[9]  = Channel.empty()    // known_indels_vqsr (label)
+        input[10] = Channel.empty()    // resource_snps_vcf
+        input[11] = Channel.empty()    // resource_snps_tbi
+        input[12] = Channel.empty()    // known_snps_vqsr (label)
+    """
+
+    // A stand-in resource for both VQSR modes: one placeholder VCF+TBI and the label string the
+    // pipeline would build from params.known_indels_vqsr / params.known_snps_vqsr.
+    def STUB_RESOURCES = """
+        input[7]  = Channel.value(file("${FIX}/known_sites.vcf.gz"))
+        input[8]  = Channel.value(file("${FIX}/known_sites.vcf.gz.tbi"))
+        input[9]  = Channel.value('--resource:known_sites,known=false,training=true,truth=true,prior=10.0 known_sites.vcf.gz')
+        input[10] = Channel.value(file("${FIX}/known_sites.vcf.gz"))
+        input[11] = Channel.value(file("${FIX}/known_sites.vcf.gz.tbi"))
+        input[12] = Channel.value('--resource:known_sites,known=false,training=true,truth=true,prior=10.0 known_sites.vcf.gz')
+    """
+
+    // The meta every consumer downstream (SPLIT_JOINT_VCF, annotation, the mutation report) keys on.
+    def JOINT_META = [ id:'joint_variant_calling', patient:'all_samples', variantcaller:'haplotypecaller' ]
+
+    // Process names that launched, from the trace (alias names, e.g. 'VARIANTFILTRATION_FALLBACK').
+    def launched = { wf -> wf.trace.tasks().collect { it.name.tokenize(':').last().replaceAll(/ \(.*\)$/, '') }.sort() }
+
+    def CORE = [ 'BCFTOOLS_SORT', 'GATK4_GENOMICSDBIMPORT', 'GATK4_GENOTYPEGVCFS', 'MERGE_GENOTYPEGVCFS' ]
+    def VQSR = [ 'GATK4_APPLYVQSR_INDEL', 'GATK4_APPLYVQSR_SNP', 'VARIANTRECALIBRATOR_INDEL', 'VARIANTRECALIBRATOR_SNP' ]
+
+    test("fallback only (the ALE route): no resources -> the soft-filtered VCF is emitted") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                ${TWO_SAMPLES_ONE_INTERVAL}
+                ${NO_RESOURCES}
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // The VQSR arm never launched; the fallback did. (The control for the next case.)
+            assert launched(workflow) == (CORE + [ 'VARIANTFILTRATION_FALLBACK' ]).sort()
+
+            // Exactly one VCF, and it is the fallback's - not joint_germline.vcf.gz (raw merge) and
+            // not a VQSR file. The name is the ext.prefix of VARIANTFILTRATION_FALLBACK in
+            // conf/modules/joint_germline.config, so a selector that stopped resolving fails here too.
+            assert workflow.out.genotype_vcf.size() == 1
+            assert file(workflow.out.genotype_vcf[0][1]).name == 'HaplotypeCaller_joint_calling_soft_filtered.vcf.gz'
+            assert workflow.out.genotype_vcf[0][0] == JOINT_META
+
+            // The index channel is selected by the same logic, separately: it must pair with the VCF.
+            assert workflow.out.genotype_index.size() == 1
+            assert file(workflow.out.genotype_index[0][1]).name == 'HaplotypeCaller_joint_calling_soft_filtered.vcf.gz.tbi'
+            assert workflow.out.genotype_index[0][0] == JOINT_META
+        }
+    }
+
+    test("VQSR present: stub resources -> the recalibrated VCF wins over the fallback") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                ${TWO_SAMPLES_ONE_INTERVAL}
+                ${STUB_RESOURCES}
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Both arms launched: the fallback still runs (it is unconditional), VQSR runs because
+            // the resource channels carry files. The selection, not the launch, decides the output.
+            assert launched(workflow) == (CORE + VQSR + [ 'VARIANTFILTRATION_FALLBACK' ]).sort()
+
+            // First tier: the APPLYVQSR_INDEL output (ext.prefix 'joint_germline_recalibrated'),
+            // although a fallback VCF exists. A swapped `?:` order emits the fallback name here.
+            assert workflow.out.genotype_vcf.size() == 1
+            assert file(workflow.out.genotype_vcf[0][1]).name == 'joint_germline_recalibrated.vcf.gz'
+            assert workflow.out.genotype_vcf[0][0] == JOINT_META
+
+            assert workflow.out.genotype_index.size() == 1
+            assert file(workflow.out.genotype_index[0][1]).name == 'joint_germline_recalibrated.vcf.gz.tbi'
+            assert workflow.out.genotype_index[0][0] == JOINT_META
+        }
+    }
+
+    test("neither: fallback switched off -> genotype_vcf is EMPTY (current defect, asserted as-is)") {
+
+        options "-stub"
+        config "./joint_calling_output_selection.config"
+
+        when {
+            workflow {
+                """
+                ${TWO_SAMPLES_ONE_INTERVAL}
+                ${NO_RESOURCES}
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // The config took effect: no fallback task. Without this line a selector that failed to
+            // match would make the case pass for the wrong reason (the fallback VCF would be emitted
+            // and the size assertion below would fail, but this names the cause).
+            assert launched(workflow) == CORE.sort()
+
+            // DEFECT, pinned: the fallback join (main.nf line 145) lacks `remainder: true`, so with
+            // no fallback VCF it emits nothing and the third tier (`?: joint_vcf`) is never reached.
+            // The intended behaviour is the raw joint VCF. WHEN THE JOIN IS FIXED, replace these two
+            // assertions with:
+            //   assert workflow.out.genotype_vcf.size() == 1
+            //   assert file(workflow.out.genotype_vcf[0][1]).name == 'joint_germline.vcf.gz'
+            //   assert workflow.out.genotype_vcf[0][0] == JOINT_META
+            // (and the same for genotype_index with 'joint_germline.vcf.gz.tbi').
+            assert workflow.out.genotype_vcf.size() == 0
+            assert workflow.out.genotype_index.size() == 0
+        }
+    }
+}
