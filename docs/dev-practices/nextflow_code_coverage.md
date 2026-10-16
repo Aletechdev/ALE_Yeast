@@ -17,14 +17,17 @@ how that is measured, what the first measurement found, and what the numbers can
 
 - **It works.** A JaCoCo agent on the Nextflow head JVM records per-line execution of every pipeline
   script and config file, through `nf-test` as well as through a direct `nextflow run`. All nine
-  test files pass with the agent attached, the e2e contract test against its snapshot.
+  test files pass with the agent attached, the e2e contract test against its snapshot (ten files
+  since 2026-10-16).
 - **Line coverage alone says little.** A plan-only run (`-preview`, zero tasks) already executes
   71 % of our own lines, because workflow code runs once at start-up to wire the steps together.
 - **Closure coverage separates wiring from work.** Counting only the closures that run when data
   arrives, the same plan-only run scores 2 % and the whole suite 80 %.
 - **Branch coverage is the headline.** Of the 916 JaCoCo branches on our own lines, a plan-only run
   takes 162 (17.7 %), the `--qc_only` run 197 (21.5 %), the e2e alone 384 (41.9 %) and the whole suite
-  514 (56.1 %) (*measured*). It is the measured cousin of the "option coverage" that
+  514 (56.1 %) (*measured*, 2026-10-13; 516 on 2026-10-16 after the joint-calling output-selection
+  test, see [Results (2026-10-16)](#results-2026-10-16-after-the-joint-calling-output-selection-test)).
+  It is the measured cousin of the "option coverage" that
   [issue #13](https://github.com/Aletechdev/ALE_Yeast/issues/13) proposes, not the same count: option
   coverage counts the launch form's switches, branches count both sides of every `if`, `?:` and
   `&&` / `||` operand in the code. One switch can sit behind several conditions, and many conditions
@@ -275,6 +278,62 @@ What each measure says at each level:
   branches to the full run's 384 and fully cover 35 decision lines to its 38, almost entirely different
   ones (2 in common), because each case flips one parameter. They enter almost no closures.
 
+## Results (2026-10-16): after the joint-calling output-selection test
+
+A second measurement, three days after the first, with one test file added
+(`tests/joint_calling_output_selection.nf.test`, commit `84e8274`) and no change to any `.nf` or
+`conf/` file. The 2026-10-13 figures above stand as recorded; this section is the before/after.
+
+### Provenance
+
+- **Script:** `tests/nf_coverage.sh run`, report by `tests/nf_coverage_report.py`, as on 2026-10-13.
+- **Run directory:** `output_coverage/` on the dev VM; the 2026-10-13 run kept beside it as
+  `output_coverage_99aef57/`. Started 2026-10-16 08:54 UTC.
+- **Code:** `84e8274`, clean working tree.
+- **Runs:** 12, all exit 0: the plan-only run, the `--qc_only` run and the ten files under `tests/`.
+  2 109 s of run time; the e2e took 846 s, the new test 95 s.
+- **Versions** (`RUN_INFO.txt`): identical to 2026-10-13 (Nextflow 25.10.4, Groovy 4.0.28, Java 17.0.15,
+  nf-test 0.9.3, JaCoCo 0.8.12, fork baseline sarek 3.5.1), so the 916-branch denominator is the same.
+
+### Before and after (fork code, everything merged)
+
+| Measure | 2026-10-13, `99aef57` | 2026-10-16, `84e8274` |
+|---|---|---|
+| **Branch coverage** | 514 / 916 (56.1 %) | **516 / 916 (56.3 %)** |
+| Fully covered decision lines | 83 / 254 | 83 / 254 |
+| Data-driven closures entered | 233 / 291 | 233 / 291 |
+| Executable lines | 1 012 / 1 117 | 1 014 / 1 119 (a tooling effect, below) |
+
+- **The two branches** are the two output-selection lines, `bam_joint_calling_germline_gatk/main.nf:149`
+  (`vcf_out = recal_vcf ?: fallback_vcf ?: joint_vcf`) and `:158` (the index): **2 of 4 → 3 of 4** each
+  (`uncovered.txt` now reads `b 1/4` on both). The "VQSR present" case takes the `recal_vcf`-truthy
+  direction for the first time. `annotate e2e` still reads 2/4 on both lines; `annotate
+  t_joint_calling_output_selection` reads 3/4 on its own. The fourth direction (`fallback_vcf` falsy,
+  `joint_vcf` emitted) is unreachable until the fallback join gets `remainder: true` (known issue,
+  `testing_best_practices.md` §11 layer 3): 3 of 4 is the ceiling of this test, not 4 of 4.
+- **Subworkflow level** (`levels.txt`, fork code): four files, 12 cases; lines 306 → 318, closures
+  21 → 33, branches 68 → 74 of 916, fully covered decision lines 8 → 8.
+- **What each test contributes** (`unique.txt`): the e2e's unique lines 430 → 418 (fork 146 → 143) and
+  unique closures 423 → 376 (fork 185 → 173), because the joint-calling subworkflow and the GATK modules
+  it calls now also run under the new test. The new test's own unique share: 41 lines (2 fork) and
+  30 closures (0 fork): the VQSR modules' stub blocks and its config file.
+- **Unchanged:** every plan-only, `--qc_only` and e2e-alone column; every group's branch and decision-line
+  count except `subworkflows/local/` branches 220 → 222.
+
+### A tooling effect, not coverage: the `-c` config mapping
+
+The per-file table lost its `tests/ottilie_nftest_resources.config` row (2 lines, loaded by every
+run) and gained `tests/joint_calling_output_selection.config` (4 lines, loaded by one case) showing
+2 of 4 lines covered in runs that never load it. Cause (*measured*, the mapping rule in
+[How a class is mapped to its file](#how-a-class-is-mapped-to-its-file)): a `_nf_config_*` class is
+matched to the `-c` file whose code lines contain all of the class's lines with the fewest left over.
+The resources config's class holds lines 14 and 15; those fall inside the new config's code lines
+(12 to 16, two left over) as well as inside its own (14 to 20, five left over), so both classes map
+to the new file. The +4 / −2 is the whole of the line-denominator change; no branch, closure or
+decision-line count is touched (neither file has any). The mapping assumption in the table above
+is marked accordingly; the fix belongs in `tests/nf_coverage_report.py` (prefer the file a class was
+parsed from, which the log's `Parsing config file:` order gives) and is not made here.
+
 ## What no test executes
 
 From `uncovered.txt` (fork code, everything merged), grouped by what a test would have to switch on.
@@ -366,7 +425,7 @@ and `split_joint_vcf/main.nf:29` are in the same position.
 |---|---|---|---|
 | `.nf` file | `Script_<16 hex>` | Listed with its path in `.nextflow.log` (nf-test: `<workdir>/tests/<hash>/meta/nextflow.log`) | 214 of 214 classes mapped |
 | `includeConfig`'d file | `Script<32 HEX>` | The MD5 of the file's text, upper case | 44 of 44 files. Twelve more classes carry such a name without being files: one-line texts evaluated at run time (one of them empty), present in every run set; two in the 2026-10-02 run, ten more since `nextflow.config` gained its ten `report_qc_*` defaults (*inferred* from the counts, not traced) |
-| `nextflow.config`, `-c` files | `_nf_config_<8 hex>` | Hash not derived; matched by line numbers to the files in the log's `Parsing config file:` lines | Both files of this run. *Assumed* to stay unambiguous with more `-c` files |
+| `nextflow.config`, `-c` files | `_nf_config_<8 hex>` | Hash not derived; matched by line numbers to the files in the log's `Parsing config file:` lines | Both files of the 2026-10-13 run. *Assumed* to stay unambiguous with more `-c` files; **false since the first per-test `-c` config** (*measured* 2026-10-16: a short config whose code lines fall inside another's is mapped to that other file, see Results (2026-10-16)) |
 
 Two properties make merging across runs safe, both *measured*: the same source compiles to the same
 bytecode in every launch (2 001 `.nf` classes, closures included, each with a single bytecode id

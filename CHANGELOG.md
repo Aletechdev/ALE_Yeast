@@ -24,6 +24,11 @@
   Found on the way: the selector trap again (`'.*:BAM_JOINT_…'` never matches in unit isolation, the
   process name there has nothing before it; the no-leading-colon form resolves in both contexts) and
   the join defect below. `testing_best_practices.md` §11 layer 3.
+- **Coverage re-measured after it** (2026-10-16, `84e8274`, same versions as 2026-10-13): branch coverage
+  of fork code 514 → 516 of 916; the two output-selection lines 2/4 → 3/4 (the ceiling until the join
+  is fixed); closures and fully covered decision lines unchanged. Found on the way: with a third `-c`
+  config the report maps a short config's class to the wrong file (line denominators only; recorded
+  as a limit, fix pending). `nextflow_code_coverage.md` → *Results (2026-10-16)*.
 - **SNV / InDel events table: every PASS site is in the page** (2026-10-07; `docs/igvreports/generate_index.py`,
   `docs/igvreports/templates/index.html.j2`). A third view, *All PASS sites*, lists the strain background every sample
   shares and the carried sites with no sample to compare against; the default views (*Protein-changing*, *All differing*)
