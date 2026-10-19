@@ -60,7 +60,9 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   downstream of alignment can fire on EMPTY input — a `toList()`, an `ifEmpty(...)`, a `Channel.value`
   / `Channel.of`, or a plain-file input as a process's *only* inputs would make that process run in a
   QC-only run, silently. Reference preparation, `PREPARE_GFF3` and `PREFLIGHT_REFERENCE` do exactly that
-  and are on the allow-list on purpose. **After any change or rebase that adds such an operator downstream of
+  and are on the allow-list on purpose. A `remainder: true` join is another way in (*measured* 2026-10-19:
+  `bam_joint_calling_germline_gatk` emitted a `[meta, null]` row from its `ifEmpty` placeholder once both
+  output joins had a remainder, and the run died on `vcf.baseName`; a `filter` on the merged VCF guards it). **After any change or rebase that adds such an operator downstream of
   alignment, run `tests/qc_gate.sh a`** (minutes; the commit gate demands its trailer for `workflows/`
   and `subworkflows/` changes) — either gate the new process on `params.qc_only` or, if it is harmless
   reference prep, add it to `ALLOW` in the script. Side finding recorded here, not fixed: the breseq

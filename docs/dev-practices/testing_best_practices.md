@@ -406,7 +406,7 @@ nf-test's four test types, and what each maps to in this fork:
 |-------|--------------|-------------|--------|
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
 | Process | `nextflow_process` | the 19 fork-added `modules/local/` directories (the `SAREK_MODIFICATIONS.md` inventory; 20 processes, `breseq/` holds two; the three inherited from sarek, `add_info_to_vcf`, `create_intervals_bed`, `samtools/reindex_bam`, are upstream code) + upstream modules whose behaviour we own via config | **2** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 11 cases, one of them on the `nextflow.config` defaults alone, 1 000-pair fixture; `preflight_reference` — the task-level reference preflight, 4 cases on hand-made fixtures: OK with an embedded `##FASTA`, SKIPPED without a GFF3, ERROR/exit 65 on renamed contigs, OK-with-note when the GFF3 has a contig the FASTA lacks) |
-| Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **4** (`split_joint_vcf`; `joint_calling_output_selection` — `BAM_JOINT_CALLING_GERMLINE_GATK`, stub mode: the three-tier output selection, one case per tier (fallback only, VQSR present, neither); `manta_experiment_grouping` — `BAM_VARIANT_CALLING_GERMLINE_MANTA` under `--joint_manta`, stub mode: one Manta task per experiment, keyed and named as documented; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
+| Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **4** (`split_joint_vcf`; `joint_calling_output_selection` — `BAM_JOINT_CALLING_GERMLINE_GATK`, stub mode: the three-tier output selection, one case per tier (fallback only, VQSR present, neither) plus the no-input starvation shape; `manta_experiment_grouping` — `BAM_VARIANT_CALLING_GERMLINE_MANTA` under `--joint_manta`, stub mode: one Manta task per experiment, keyed and named as documented; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
 | Pipeline | `nextflow_pipeline` | supported end-to-end routes | **4** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `tools_without_annotation`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`; 8 cases incl. the three `--qc_only` ones) |
 | Gate | bash, outside nf-test | the `--qc_only` starvation gate (`workflows/sarek/main.nf`) | **`tests/qc_gate.sh`** — (a) minutes: a QC-only run of the test set executes *exactly* the allow-listed processes (read QC + reference prep, 15 processes / 18 tasks (2026-09-28, with the reference preflight task; 17 before); since 2026-09-29 the MultiQC process on the list is `MULTIQC_READ_QC` — the alignment-QC and complete-QC reports must not run); a stray process means something downstream of alignment fires on empty input (`toList`/`ifEmpty`/value channel) and the failure message names it. (b) one e2e: `-resume` of run (a) without the flag caches every run-1 task but the read-QC MultiQC report (`MULTIQC_READ_QC`; its input checks and summary record `qc_only`), matches a one-shot run's task list, and `tests/qc_gate_compare.py` finds the deliverables identical (md5 for the `.nftignore`-kept files, records for every VCF). Not nf-test because it needs two launches sharing a session. Run (a) after any `workflows/`/`subworkflows/` change (commit-gate trailer), (b) when the gate or the resume contract itself changes |
 
@@ -500,7 +500,7 @@ Channel wiring and metadata propagation — where this fork's real risk lives.
 `recal_vcf ?: fallback_vcf ?: joint_vcf` (VQSR > filter-annotated > unfiltered) via two chained joins
 on remapped keys. **Tested since 2026-10-16** (`tests/joint_calling_output_selection.nf.test`, stub mode,
 three cases: no resources → the soft-filtered VCF; stub resources → the APPLYVQSR_INDEL VCF wins; the
-fallback switched off by `ext.when` → `genotype_vcf` is empty, see the known issue below). The output-selection
+fallback switched off by `ext.when` → the raw joint VCF, the third tier). The output-selection
 logic now has a dedicated test; GenomicsDBImport and GenotypeGVCFs themselves still run only in the e2e.
 The two reasons it needed one:
 
@@ -515,12 +515,16 @@ The two reasons it needed one:
 The test covers both by feeding the resource channels directly and asserting which VCF comes out —
 no GATK run needed for the selection logic itself.
 
-> **Known issue (2026-10-16):** the fallback join (`main.nf:145`, and `:154` for the index) has no
-> `remainder: true`, so with no fallback VCF it emits nothing and the third tier (`?: joint_vcf`) is
-> unreachable — the "neither" case asserts that empty output as-is, with the intended assertion in
-> its comment, and `vcf_out` can reach 3 of 4 branches, not 4, until the join is fixed (a pipeline
-> change: e2e contract test required). Selector lesson from the same test: in nf-test's unit
-> isolation the process is `BAM_JOINT_CALLING_GERMLINE_GATK:VARIANTFILTRATION_FALLBACK` with nothing
+> **Found by this test (2026-10-16), fixed 2026-10-19:** the fallback join (`main.nf:145`, and `:154`
+> for the index) had no `remainder: true`, so with no fallback VCF it emitted nothing and the third
+> tier (`?: joint_vcf`) was unreachable; no run was affected, since the fallback step is unconditional.
+> Both joins now carry `remainder: true` and the "neither" case asserts the raw joint VCF (it asserted
+> the empty output as-is for the three days in between). The fix's first version broke the `--qc_only`
+> starvation gate, caught by `tests/qc_gate.sh a`: the `ifEmpty` placeholder on the VQSR channel leaked
+> through the two remainder joins as a `[meta, null]` row when nothing upstream ran; the missing
+> remainder had been the guard by accident. A `filter` on the merged VCF is the guard now, and a fourth
+> case (no input → nothing emitted) pins it at this level. Selector lesson from the same test: in nf-test's
+> unit isolation the process is `BAM_JOINT_CALLING_GERMLINE_GATK:VARIANTFILTRATION_FALLBACK` with nothing
 > before it, so `withName: '.*:BAM_JOINT_…'` never matches there; `'.*BAM_JOINT_…'` (no leading
 > colon) matches both that and the pipeline's full path.
 

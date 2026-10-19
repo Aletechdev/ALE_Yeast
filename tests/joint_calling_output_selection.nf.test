@@ -32,11 +32,15 @@ nextflow_workflow {
     // fallback step is unconditional, so "fallback absent" can only be produced by config: the
     // third case switches it off with `ext.when = false` (joint_calling_output_selection.config).
     //
-    // KNOWN DEFECT, ASSERTED AS-IS (third case): the fallback join on line 145 has no
-    // `remainder: true`, so with no fallback VCF the join emits nothing and the map on line 149 never
-    // runs - genotype_vcf is EMPTY, not the raw joint VCF the line-131 comment promises. The third
-    // tier is therefore unreachable today. When the join is fixed, that case must flip to asserting
-    // the raw joint VCF (joint_germline.vcf.gz); see the case comment.
+    // The third case is the one that found a defect (2026-10-16): until the fix of 2026-10-19 the
+    // fallback join on line 145 had no `remainder: true`, so with no fallback VCF the join emitted
+    // nothing and genotype_vcf was EMPTY instead of the raw joint VCF the comment above it promises.
+    // Both joins now carry `remainder: true`; the case asserts the raw joint VCF and fails if either
+    // is dropped again. The fix had a side effect the --qc_only gate (tests/qc_gate.sh a) caught the
+    // same day: the `ifEmpty([[:], []])` placeholder on line 137 exists even when joint calling never
+    // ran, and with both remainders it came out of the joins as a [meta, null] row that crashed the
+    // consumers. The missing remainder had been the starvation guard by accident; a filter on the
+    // joint VCF is the guard now, and the fourth case pins it at this level.
 
     def FIX = "\$projectDir/tests/fixtures/stub_cram"
 
@@ -152,7 +156,38 @@ nextflow_workflow {
         }
     }
 
-    test("neither: fallback switched off -> genotype_vcf is EMPTY (current defect, asserted as-is)") {
+    test("nothing upstream (the --qc_only shape): no input -> nothing is emitted, no task runs") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.empty()
+                input[1] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.fasta") ])
+                input[2] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.fasta.fai") ])
+                input[3] = Channel.value([ [ id:'ref' ], file("${FIX}/ref.dict") ])
+                input[4] = Channel.value([])
+                input[5] = Channel.value([])
+                input[6] = Channel.empty()
+                ${NO_RESOURCES}
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() == 0
+
+            // The starvation contract: with no merged VCF the ifEmpty placeholder (line 137) must not
+            // leak through the two remainder joins as a [meta, null] row. Measured 2026-10-19: without
+            // the filter it did, and the --qc_only gate crashed on `null.baseName` downstream.
+            assert workflow.out.genotype_vcf.size() == 0
+            assert workflow.out.genotype_index.size() == 0
+        }
+    }
+
+    test("neither: fallback switched off -> the raw joint VCF is emitted (third tier)") {
 
         options "-stub"
         config "./joint_calling_output_selection.config"
@@ -174,16 +209,17 @@ nextflow_workflow {
             // and the size assertion below would fail, but this names the cause).
             assert launched(workflow) == CORE.sort()
 
-            // DEFECT, pinned: the fallback join (main.nf line 145) lacks `remainder: true`, so with
-            // no fallback VCF it emits nothing and the third tier (`?: joint_vcf`) is never reached.
-            // The intended behaviour is the raw joint VCF. WHEN THE JOIN IS FIXED, replace these two
-            // assertions with:
-            //   assert workflow.out.genotype_vcf.size() == 1
-            //   assert file(workflow.out.genotype_vcf[0][1]).name == 'joint_germline.vcf.gz'
-            //   assert workflow.out.genotype_vcf[0][0] == JOINT_META
-            // (and the same for genotype_index with 'joint_germline.vcf.gz.tbi').
-            assert workflow.out.genotype_vcf.size() == 0
-            assert workflow.out.genotype_index.size() == 0
+            // Third tier: the MERGE_GENOTYPEGVCFS output (ext.prefix 'joint_germline') with the joint
+            // meta. This needs `remainder: true` on the fallback join (main.nf line 145): without it
+            // the join drops the row and genotype_vcf is empty, which is what this case asserted
+            // until the fix (size() == 0, 2026-10-16 to 2026-10-19).
+            assert workflow.out.genotype_vcf.size() == 1
+            assert file(workflow.out.genotype_vcf[0][1]).name == 'joint_germline.vcf.gz'
+            assert workflow.out.genotype_vcf[0][0] == JOINT_META
+
+            assert workflow.out.genotype_index.size() == 1
+            assert file(workflow.out.genotype_index[0][1]).name == 'joint_germline.vcf.gz.tbi'
+            assert workflow.out.genotype_index[0][0] == JOINT_META
         }
     }
 }

@@ -128,7 +128,7 @@ workflow BAM_JOINT_CALLING_GERMLINE_GATK {
     // The following logic determines output priority:
     // 1st priority: VQSR filtered VCF (if VQSR succeeds with known variant resources)
     // 2nd priority: Filter-annotated VCF (fallback when VQSR fails - custom genomes)
-    // 3rd priority: Unfiltered VCF (should not happen with our implementation)
+    // 3rd priority: Unfiltered VCF (only if the fallback step produced nothing, e.g. switched off by config)
 
     merge_vcf_for_join = MERGE_GENOTYPEGVCFS.out.vcf.map{meta, vcf -> [[id: 'joint_variant_calling'] , vcf]}
     merge_tbi_for_join = MERGE_GENOTYPEGVCFS.out.tbi.map{meta, tbi -> [[id: 'joint_variant_calling'] , tbi]}
@@ -141,8 +141,14 @@ workflow BAM_JOINT_CALLING_GERMLINE_GATK {
     fallback_vcf_for_join = VARIANTFILTRATION_FALLBACK.out.vcf.map{meta, vcf -> [[id: 'joint_variant_calling'] , vcf]}
     fallback_tbi_for_join = VARIANTFILTRATION_FALLBACK.out.tbi.map{meta, tbi -> [[id: 'joint_variant_calling'] , tbi]}
 
-    // Join on metamap with three-tier priority: VQSR > Filter Annotation > Unfiltered
-    genotype_vcf = merge_vcf_for_join.join(vqsr_vcf_for_join, remainder: true).join(fallback_vcf_for_join).map{
+    // Join on metamap with three-tier priority: VQSR > Filter Annotation > Unfiltered.
+    // Both joins need remainder: true, or an absent VCF on the right drops the row and nothing is emitted.
+    // The filter keeps the starvation contract (--qc_only, or any run where joint calling never happened):
+    // the ifEmpty placeholder above exists even then, the first join emits it as a remainder, and without
+    // the filter a [meta, null] row would reach the consumers (found by tests/qc_gate.sh a, 2026-10-19).
+    genotype_vcf = merge_vcf_for_join.join(vqsr_vcf_for_join, remainder: true).join(fallback_vcf_for_join, remainder: true)
+        .filter{ meta, joint_vcf, recal_vcf, fallback_vcf -> joint_vcf != null }
+        .map{
         meta, joint_vcf, recal_vcf, fallback_vcf ->
 
         // Priority: VQSR > Filter Annotation > Unfiltered
@@ -151,7 +157,9 @@ workflow BAM_JOINT_CALLING_GERMLINE_GATK {
         [[id:"joint_variant_calling", patient:"all_samples", variantcaller:"haplotypecaller"], vcf_out]
     }
 
-    genotype_index = merge_tbi_for_join.join(vqsr_tbi_for_join, remainder: true).join(fallback_tbi_for_join).map{
+    genotype_index = merge_tbi_for_join.join(vqsr_tbi_for_join, remainder: true).join(fallback_tbi_for_join, remainder: true)
+        .filter{ meta, joint_tbi, recal_tbi, fallback_tbi -> joint_tbi != null }
+        .map{
         meta, joint_tbi, recal_tbi, fallback_tbi ->
 
         // Priority: VQSR > Filter Annotation > Unfiltered

@@ -23,7 +23,7 @@
   e2e. The commit gate maps the subworkflow and `conf/modules/joint_germline.config` to the test.
   Found on the way: the selector trap again (`'.*:BAM_JOINT_…'` never matches in unit isolation, the
   process name there has nothing before it; the no-leading-colon form resolves in both contexts) and
-  the join defect below. `testing_best_practices.md` §11 layer 3.
+  the join defect (fixed 2026-10-19, under *Fixed*). `testing_best_practices.md` §11 layer 3.
 - **Coverage re-measured after it** (2026-10-16, `84e8274`, same versions as 2026-10-13): branch coverage
   of fork code 514 → 516 of 916; the two output-selection lines 2/4 → 3/4 (the ceiling until the join
   is fixed); closures and fully covered decision lines unchanged. Found on the way: with a third `-c`
@@ -524,6 +524,19 @@
 
 ### Fixed
 
+- **The joint-calling subworkflow could not emit the raw joint VCF** (found 2026-10-16 by
+  `tests/joint_calling_output_selection.nf.test`, fixed 2026-10-19). The fallback join at
+  `subworkflows/local/bam_joint_calling_germline_gatk/main.nf:145` (and `:154` for the index) had no
+  `remainder: true`, so without a fallback VCF `genotype_vcf` was empty rather than the third tier of
+  `recal_vcf ?: fallback_vcf ?: joint_vcf`. No run was affected (the fallback step is unconditional, so
+  the join always matched); the ALE route and the VQSR route are byte-for-byte what they were. Both joins
+  now carry `remainder: true`; the test's "neither" case asserts the raw joint VCF. The first version of
+  the fix broke the `--qc_only` starvation gate, caught by `tests/qc_gate.sh a` in two minutes: the
+  `ifEmpty([[:], []])` placeholder on the VQSR channel exists even when joint calling never ran, and with
+  both remainders it left the joins as a `[meta, null]` row that crashed on `vcf.baseName` in
+  `workflows/sarek/main.nf`. The missing remainder had been the starvation guard by accident. A
+  `filter` on the merged VCF is the guard now, on both the VCF and the index channel, and a fourth test
+  case (no input, no task, nothing emitted) pins it; it fails with the filter removed (checked).
 - **The chromosome copy-number CSV button in the mutation report index was dead in every bundle**
   (found 2026-09-30, fixed 2026-10-01). `BUILD_CN_MATRIX` writes a `cn_matrices/` directory and was
   published into `data/cn_matrices/`, so its five tables landed under
@@ -560,12 +573,6 @@
   downstream as changing IGV-report hashes. The CRAMs are now sorted by name before the joint call.
 
 ### Known limitations
-
-- **The joint-calling subworkflow cannot emit the raw joint VCF** (found 2026-10-16 by
-  `tests/joint_calling_output_selection.nf.test`): the fallback join at
-  `subworkflows/local/bam_joint_calling_germline_gatk/main.nf:145` (and `:154`) has no `remainder: true`,
-  so without a fallback VCF `genotype_vcf` is empty rather than the third tier the comment promises. No
-  run is affected today (the fallback is unconditional); the fix is a pipeline change and needs the e2e.
 
 - **Manta at its default settings (the ALE default) drops high-depth junctions and hub-adjacent
   events.** On the 4-sample pilot the joint run loses the `MaxDepth`-tagged engineered-cassette

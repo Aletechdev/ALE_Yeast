@@ -21,7 +21,7 @@
 | ----------- | ----------------------------------- | ------------------------------------------------------------ | ----------------------- |
 | Unit        | function test                       | one Groovy helper, no tool, no run                           | none yet                |
 | Unit        | module test (nf-test: "process")    | one module: its command line, config and outputs, with the real tool as an unmocked dependency | 2 modules, 15 cases     |
-| Integration | subworkflow test                    | several modules wired together; stub mode runs the wiring without the tools | 4 subworkflows, 12 cases |
+| Integration | subworkflow test                    | several modules wired together; stub mode runs the wiring without the tools | 4 subworkflows, 13 cases |
 | System      | pipeline test, dry run (`-preview`) | the pipeline builds and start-up logic behaves under a parameter change; no tasks, ~40 s | 3 files, 12 cases       |
 | System      | pipeline test, full run             | one complete route against a committed snapshot (names, md5s, report tables, VCF records); 15–25 min | `ottilie_e2e`           |
 | System      | QC-first gate (bash)                | a `--qc_only` run executes exactly the QC steps and nothing downstream; `-resume` equals a one-shot run | `tests/qc_gate.sh`      |
@@ -79,7 +79,7 @@ lines. Python has no such phase. So branch coverage is the number we read.
 - First tests to add, both on the joint-calling path (the fork's largest change: VQSR skipped for lack of a
   known-variant resource, replaced by a soft filter and a three-way output selection): a subworkflow test
   for the output selection (added 2026-10-16, three cases; before it every run took the soft-filter outcome
-  and JaCoCo reported 2 of 4 branches; the raw-joint outcome stays unreachable until a join is fixed, see
+  and JaCoCo reported 2 of 4 branches; the raw-joint outcome needed a join fix, made 2026-10-19, see
   `testing_best_practices.md` §11 layer 3), then a module test for the soft filter.
 - CI in the same pattern as nf-core/sarek: lint and the changed tests on every PR before merge; the full
   e2e and the coverage run on a schedule; a coverage floor only once the number is stable.

@@ -310,7 +310,8 @@ A second measurement, three days after the first, with one test file added
   direction for the first time. `annotate e2e` still reads 2/4 on both lines; `annotate
   t_joint_calling_output_selection` reads 3/4 on its own. The fourth direction (`fallback_vcf` falsy,
   `joint_vcf` emitted) is unreachable until the fallback join gets `remainder: true` (known issue,
-  `testing_best_practices.md` §11 layer 3): 3 of 4 is the ceiling of this test, not 4 of 4.
+  `testing_best_practices.md` §11 layer 3): 3 of 4 is the ceiling of this test, not 4 of 4. The join
+  was fixed on 2026-10-19 (CHANGELOG → Fixed); the fourth direction is not measured until the next full run.
 - **Subworkflow level** (`levels.txt`, fork code): four files, 12 cases; lines 306 → 318, closures
   21 → 33, branches 68 → 74 of 916, fully covered decision lines 8 → 8.
 - **What each test contributes** (`unique.txt`): the e2e's unique lines 430 → 418 (fork 146 → 143) and
