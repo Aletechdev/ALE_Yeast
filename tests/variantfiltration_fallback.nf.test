@@ -1,0 +1,183 @@
+nextflow_process {
+
+    name "VARIANTFILTRATION_FALLBACK soft filter"
+    script "../modules/nf-core/gatk4/variantfiltration/main.nf"
+    process "GATK4_VARIANTFILTRATION"
+    tag "ottilie"
+    tag "process"
+
+    // Run with: nf-test test -c tests/nf-test-ottilie.config tests/variantfiltration_fallback.nf.test
+    //
+    // The module is stock nf-core; OUR logic is the ext.args JEXL in conf/modules/joint_germline.config,
+    // and its failure mode is silent: GATK accepts the unquoted `TYPE == SNP` and matches nothing, so a regression
+    // to that spelling yields a well-formed VCF with every record PASS. The e2e cannot see it (VCFs are
+    // .nftignore-excluded), so this test runs GATK for real on the real input and pins the FILTER column.
+    //
+    // Why real GATK and not a stub: the thing under test is JEXL, and GATK's engine is its only
+    // interpreter. VariantFiltration on 100 records takes seconds on the tree's gatk4:4.5.0.0 image.
+    //
+    // Fixture: tests/fixtures/joint_germline_unfiltered.vcf.gz, the GenotypeGVCFs output of the 2-sample
+    // test set (2026-09-24 e2e, trimming on; FILTER is '.' on all 100 records; 61 SNPs, 39 indels by
+    // GATK's typing). The expected strings were re-derived from the INFO fields under the current
+    // thresholds and agree with GATK's own output of that run on all 100 records (tests/fixtures/README.md).
+    // Reference: the test set's FASTA, bgzipped (1.2 MB) with its .fai/.gzi/.dict under
+    // tests/fixtures/reference/, so the test runs on a fresh clone without data/ottilie/. The module's
+    // gz path is exercised (the pipeline passes a plain FASTA and an empty gzi slot); .dict name as inferred.
+    //
+    // Selector: the process runs here under its own name GATK4_VARIANTFILTRATION, not the pipeline's
+    // alias, so joint_germline.config selects 'VARIANTFILTRATION_FALLBACK|GATK4_VARIANTFILTRATION'. A
+    // selector miss would also give 100 PASS; the ext.prefix assertion separates the two causes.
+    //
+    // Limit of real data: six of the nine filters (QUAL, FS, MQRankSum, ReadPosRankSum, FS_INDEL,
+    // ReadPosRankSum_INDEL) fire on no record here (min QUAL 33.47). They are pinned through the
+    // ##FILTER header, whose Description is the JEXL verbatim, and by not firing.
+
+    def FIX = "\$projectDir/tests/fixtures"
+    def REF = "\$projectDir/tests/fixtures/reference/S288C_R64_test"
+
+    def INPUT = """
+        input[0] = [ [ id:'joint_variant_calling', patient:'all_samples' ],
+                     file("${FIX}/joint_germline_unfiltered.vcf.gz"),
+                     file("${FIX}/joint_germline_unfiltered.vcf.gz.tbi") ]
+        input[1] = [ [ id:'ref' ], file("${REF}.fa.gz") ]
+        input[2] = [ [ id:'ref' ], file("${REF}.fa.gz.fai") ]
+        input[3] = [ [ id:'ref' ], file("${REF}.dict") ]
+        input[4] = [ [ id:'ref' ], file("${REF}.fa.gz.gzi") ]    // the pipeline passes [[:], []] here (plain FASTA)
+    """
+
+    // The JEXL of conf/modules/joint_germline.config, as GATK writes it into ##FILTER Description.
+    def FILTER_DEFS = [
+        'QD_filter'                   : 'QD < 2.0',
+        'QUAL_filter'                 : 'QUAL < 30.0',
+        'FS_filter'                   : 'vc.isSNP() && FS > 60.0',
+        'SOR_FS_filter'               : 'vc.isSNP() && SOR > 3.0 && FS > 0.0',
+        'MQ_filter'                   : 'vc.isSNP() && MQ < 40.0',
+        'MQRankSum_filter'            : 'vc.isSNP() && MQRankSum < -12.5',
+        'ReadPosRankSum_filter'       : 'vc.isSNP() && ReadPosRankSum < -8.0',
+        'FS_INDEL_filter'             : 'vc.isIndel() && FS > 200.0',
+        'ReadPosRankSum_INDEL_filter' : 'vc.isIndel() && ReadPosRankSum < -20.0',
+    ]
+    def SNP_ONLY   = ['FS_filter', 'SOR_FS_filter', 'MQ_filter', 'MQRankSum_filter', 'ReadPosRankSum_filter']
+    def INDEL_ONLY = ['FS_INDEL_filter', 'ReadPosRankSum_INDEL_filter']
+
+    // Expected FILTER per record, CHROM:POS -> string, in input order. GATK joins several tags
+    // alphabetically (MQ_filter;QD_filter). Tally: 83 PASS, 14 MQ_filter, 2 SOR_FS_filter, 1 MQ;QD.
+    def EXPECTED = [
+        'I:6736':'PASS', 'I:19971':'PASS', 'I:25340':'PASS', 'I:27035':'MQ_filter',
+        'I:27036':'MQ_filter', 'I:27044':'MQ_filter', 'I:27060':'MQ_filter', 'I:27063':'MQ_filter',
+        'I:27072':'MQ_filter', 'I:27075':'MQ_filter', 'I:27080':'PASS', 'I:27081':'PASS',
+        'I:27084':'PASS', 'I:27090':'PASS', 'I:27099':'PASS', 'I:27105':'PASS',
+        'I:27126':'PASS', 'I:27129':'PASS', 'I:41475':'PASS', 'I:126880':'PASS',
+        'I:141030':'SOR_FS_filter', 'I:141135':'PASS', 'I:183387':'PASS', 'I:199811':'PASS',
+        'I:206126':'PASS', 'I:206129':'PASS', 'I:206132':'PASS', 'I:206144':'PASS',
+        'I:210818':'PASS', 'I:211019':'PASS', 'IV:7721':'PASS', 'IV:13937':'PASS',
+        'IV:205738':'PASS', 'IV:273629':'PASS', 'IV:344004':'PASS', 'IV:403511':'PASS',
+        'IV:548546':'PASS', 'IV:688062':'PASS', 'IV:727547':'PASS', 'IV:757631':'MQ_filter',
+        'IV:758310':'MQ_filter', 'IV:783598':'PASS', 'IV:817531':'PASS', 'IV:864219':'PASS',
+        'IV:880697':'MQ_filter', 'IV:987244':'MQ_filter', 'IV:1150910':'PASS', 'IV:1184212':'PASS',
+        'IV:1253397':'PASS', 'IV:1279209':'PASS', 'IV:1279214':'PASS', 'IV:1279216':'PASS',
+        'IV:1279218':'PASS', 'IV:1305680':'PASS', 'IV:1402305':'PASS', 'IV:1433710':'PASS',
+        'IV:1515034':'PASS', 'IV:1518948':'PASS', 'IV:1524974':'PASS', 'VII:9':'PASS',
+        'VII:214':'PASS', 'VII:8151':'PASS', 'VII:233903':'PASS', 'VII:386978':'PASS',
+        'VII:386979':'PASS', 'VII:397834':'PASS', 'VII:400550':'PASS', 'VII:400577':'SOR_FS_filter',
+        'VII:401674':'PASS', 'VII:401698':'PASS', 'VII:404474':'PASS', 'VII:404522':'PASS',
+        'VII:404935':'MQ_filter', 'VII:404936':'PASS', 'VII:405085':'PASS', 'VII:496729':'PASS',
+        'VII:530034':'PASS', 'VII:531844':'PASS', 'VII:678070':'PASS', 'VII:807865':'PASS',
+        'VII:910112':'PASS', 'VII:1006274':'PASS', 'VII:1006279':'PASS', 'VII:1073367':'PASS',
+        'XV:40':'PASS', 'XV:90':'PASS', 'XV:50002':'PASS', 'XV:50010':'PASS',
+        'XV:50012':'PASS', 'XV:60240':'PASS', 'XV:79297':'PASS', 'XV:79304':'PASS',
+        'XV:79305':'PASS', 'XV:118287':'MQ_filter', 'XV:159394':'PASS', 'XV:522811':'PASS',
+        'XV:639861':'PASS', 'XV:708819':'MQ_filter;QD_filter', 'XV:708878':'MQ_filter', 'XV:882623':'PASS',
+    ]
+
+    // Parse the output VCF with nf-test's linesGzip (no host bcftools). Type follows GATK's
+    // VariantContext: SNP when ref and every alt are one base, INDEL when every alt differs in
+    // length from ref (no multiallelic, MNP or MIXED record in this fixture).
+    def probe = { vcfPath ->
+        def lines   = path(vcfPath).linesGzip
+        def defs    = lines.findAll { it.startsWith('##FILTER=<ID=') }
+                           .collectEntries { def m = (it =~ /ID=([^,]+),Description="([^"]*)"/)[0]; [ (m[1]): m[2] ] }
+        def records = lines.findAll { !it.startsWith('#') }.collect { l ->
+            def f = l.split('\t')
+            def alts = f[4].split(',')
+            def type = (f[3].size() == 1 && alts.every { it.size() == 1 }) ? 'SNP'
+                     : alts.every { it.size() != f[3].size() }              ? 'INDEL' : 'OTHER'
+            [ key: "${f[0]}:${f[1]}".toString(), type: type, filter: f[6], tags: f[6].split(';') as List ]   // String key: a GString key never matches a String lookup
+        }
+        [ defs: defs, records: records ]
+    }
+
+    test("real 2-sample joint VCF: 100 records kept, exact FILTER per record, SNP/INDEL filters never cross") {
+        when {
+            params { outdir = "$outputDir" }
+            process { INPUT }
+        }
+        then {
+            def vcf  = process.out.vcf[0][1]
+            def p    = probe(vcf)
+            def recs = p.records
+            def got  = recs.collectEntries { [ (it.key): it.filter ] }
+            def mismatches = EXPECTED.findAll { k, v -> got[k] != v }.collect { k, v -> "${k}: expected ${v}, got ${got[k]}" }
+            def fsGated = ['I:27035', 'I:27036', 'I:27044', 'I:27060', 'I:27063', 'IV:880697']   // SNPs with SOR > 3.0 and FS = 0
+            def tally   = recs.countBy { it.filter }
+            assertAll(
+                { assert process.success },
+                // ext.prefix applied, so the selector matched: a miss would ALSO read 100 PASS.
+                { assert vcf.endsWith('/HaplotypeCaller_joint_calling_soft_filtered.vcf.gz') },
+                { assert process.out.tbi[0][1].endsWith('/HaplotypeCaller_joint_calling_soft_filtered.vcf.gz.tbi') },
+
+                // Soft filter: every record kept, in input order.
+                { assert recs.size() == 100 },
+                { assert recs*.key == EXPECTED.keySet() as List },
+                { assert recs.countBy { it.type } == [ SNP: 61, INDEL: 39 ] },
+
+                // The FILTER column, record by record; a failure names the records.
+                { assert mismatches == [] },
+                { assert tally == [ 'PASS': 83, 'MQ_filter': 14, 'SOR_FS_filter': 2, 'MQ_filter;QD_filter': 1 ] },
+
+                // The FS gate on the data that motivated it: SOR > 3.0 with FS = 0 is not tagged
+                // (plain SOR > 3.0 read MQ_filter;SOR_filter on all six).
+                { assert fsGated.every { k -> !(recs.find { it.key == k }.tags.contains('SOR_FS_filter')) } },
+                { assert recs.findAll { it.tags.contains('SOR_FS_filter') }*.key == ['I:141030', 'VII:400577'] },   // SOR > 3.0 AND FS > 0
+
+                // SNP-only filters never fire on an indel, indel-only never on an SNP. Five indels have
+                // SOR > 3.0 and one has MQ 39.46, so a dropped vc.isSNP() gate shows up here.
+                { assert recs.findAll { it.type == 'INDEL' }.every { it.tags.disjoint(SNP_ONLY) } },
+                { assert recs.findAll { it.type == 'SNP' }.every { it.tags.disjoint(INDEL_ONLY) } },
+                { assert ['IV:1279209', 'IV:1279214', 'IV:1279216', 'IV:1279218', 'VII:397834', 'VII:404522'].every { got[it] == 'PASS' } },
+
+                // Every filter defined, Description = the JEXL verbatim (pins the six that never fire).
+                { assert FILTER_DEFS.every { id, jexl -> p.defs[id] == jexl } },
+
+                // The tree's GATK image, not upstream's gcnvkernel one.
+                { assert path(process.out.versions[0]).text.contains('gatk4: 4.5.0.0') },
+            )
+        }
+    }
+
+    test("negative control: the unquoted TYPE == SNP spelling fires no type-gated filter (silent at the output)") {
+        // Measures the failure the config NOTE describes, with the type gates rewritten to the unquoted
+        // spelling (variantfiltration_fallback_typeeq.config): SNP is an undefined JEXL variable, GATK
+        // exits 0, writes a per-record "undefined variable SNP" WARN to its log and tags nothing with the
+        // seven type-gated filters; the two universal filters still fire (XV:708819 keeps QD_filter), so
+        // the output reads 99 PASS + 1 QD_filter instead of 83 PASS. The quoted form TYPE == 'SNP' is
+        // NOT the failure: GATK 4.5.0.0 resolves it and tags the same 17 records (measured 2026-10-19).
+        // The header assertion makes the case self-checking: if the override did not apply, Description
+        // still reads vc.isSNP().
+        config "./variantfiltration_fallback_typeeq.config"
+        when {
+            params { outdir = "$outputDir" }
+            process { INPUT }
+        }
+        then {
+            def p = probe(process.out.vcf[0][1])
+            assertAll(
+                { assert process.success },
+                { assert p.defs['MQ_filter'] == 'TYPE == SNP && MQ < 40.0' },
+                { assert p.records.size() == 100 },
+                { assert p.records.every { it.tags.disjoint(SNP_ONLY + INDEL_ONLY) } },       // 17 records should carry one
+                { assert p.records.findAll { it.filter != 'PASS' }.collect { [ it.key, it.filter ] } == [ ['XV:708819', 'QD_filter'] ] },
+            )
+        }
+    }
+}

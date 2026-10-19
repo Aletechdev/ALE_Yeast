@@ -349,10 +349,10 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 - **[med, post-1.0.0] Build out nf-test coverage over custom code (all four layers).** v1.0.0 ships two
   owned tests (`ottilie_e2e` pipeline + `split_joint_vcf` subworkflow); the 19 `modules/local/` and the
   other custom subworkflows have no isolated coverage, so a regression only surfaces as a diff in the e2e
-  snapshot. Target, priorities and per-layer candidates are in `testing_best_practices.md` §11 — start
-  with the VQSR-fallback pair (`VARIANTFILTRATION_FALLBACK` ext.args + the three-tier output selection in
-  `bam_joint_calling_germline_gatk`), whose failure modes are silent and unreachable by the e2e snapshot;
-  then the rest of the process layer, then subworkflow, then ploidy 1/2/3 pipeline scenarios (these want
+  snapshot. Target, priorities and per-layer candidates are in `testing_best_practices.md` §11 — the
+  VQSR-fallback pair (`VARIANTFILTRATION_FALLBACK` ext.args, 2026-10-19 + the three-tier output selection in
+  `bam_joint_calling_germline_gatk`, 2026-10-16), whose failure modes are silent and unreachable by the e2e
+  snapshot, is done; next the rest of the process layer, then subworkflow, then ploidy 1/2/3 pipeline scenarios (these want
   the CI item below to land first). Also decide the fixtures convention (committed-small vs. Azure Blob)
   before `tests/fixtures/` grows.
 - **[low] 12 "Dependency … not found" warnings on every nf-test run.** Five vendored nf-core module

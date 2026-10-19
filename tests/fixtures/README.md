@@ -132,3 +132,47 @@ sed 's/^chr\([AB]\)\t/\1\t/; s/^##sequence-region chr/##sequence-region /' genes
 The same script run on the real ottilie reference (not committed, `data/ottilie/S288C_reference/`)
 gives OK on 17/17 contigs, ERROR on a copy of `S288C_R64.gff3` with a `chr` prefix added to column 1,
 and an OK row noting `Mito, XVI` when those two contigs are removed from the FASTA (checked 2026-09-28).
+
+## VARIANTFILTRATION_FALLBACK (`tests/variantfiltration_fallback.nf.test`)
+
+### `joint_germline_unfiltered.vcf.gz` (+ `.tbi`) — 2-sample, faithful, **unfiltered**
+
+The GenotypeGVCFs output of the 2-sample test set *before* the soft filter: the real input of
+`VARIANTFILTRATION_FALLBACK` (100 records, 61 SNPs / 39 indels by GATK's typing, FILTER `.` on every
+record; FS, SOR, MQ, QD on all 100, MQRankSum / ReadPosRankSum on 28). Cut from the e2e output of
+2026-09-24 (trimming on, the current recipe). A verbatim copy:
+
+```bash
+SRC=output_ottilie_test/variant_calling/haplotypecaller/joint_variant_calling/joint_germline.vcf.gz
+cp "$SRC"      tests/fixtures/joint_germline_unfiltered.vcf.gz
+cp "$SRC.tbi"  tests/fixtures/joint_germline_unfiltered.vcf.gz.tbi
+```
+
+The test pins the FILTER string of every record. The expected strings were re-derived from the INFO
+fields under the thresholds in `conf/modules/joint_germline.config` and agree with GATK's own
+`HaplotypeCaller_joint_calling_soft_filtered.vcf.gz` of the same run on all 100 records (83 PASS,
+14 `MQ_filter`, 2 `SOR_FS_filter`, 1 `MQ_filter;QD_filter`; GATK joins several tags alphabetically).
+After a recipe change that moves the joint VCF, re-cut the fixture **and** re-derive the map; do not
+copy a FILTER tally from another run's VCF.
+
+> **Caveat — `joint_soft_filtered.vcf.gz` above is NOT this run's filtered output.** It was cut on
+> 2026-08-31 from an untrimmed-read run; the two share the record count (100) but differ at seven
+> sites, and its FILTER column still reads the retired plain `SOR_filter`. It stays the SPLIT_JOINT_VCF
+> fixture (that test reads genotypes, not FILTER), but it cannot serve as an oracle for this one.
+
+### `reference/S288C_R64_test.fa.gz` (+ `.fai`, `.gzi`, `.dict`) — the test set's reference, bgzipped, faithful
+
+The 4-chromosome test reference (`data/ottilie/S288C_reference_test/`, from `generate_test_data.sh`,
+not in the repo), bgzipped so the test runs on a fresh clone: 1.2 MB instead of 4.0 MB. GATK accepts
+a bgzipped FASTA given its `.gzi`, which the module takes in its fifth input (empty in the pipeline,
+which passes the plain FASTA). The `.dict` is the test set's with the local-path `UR:` field removed;
+contig names and lengths match the VCF header, which is all VariantFiltration checks.
+
+```bash
+R=data/ottilie/S288C_reference_test/S288C_R64_test; D=tests/fixtures/reference
+bgzip -c $R.fa > $D/S288C_R64_test.fa.gz
+samtools faidx $D/S288C_R64_test.fa.gz          # writes .fai and .gzi
+sed -E 's/\tUR:[^\t]*//' $R.dict > $D/S288C_R64_test.dict
+```
+
+The negative-control case uses `tests/variantfiltration_fallback_typeeq.config` (no fixture of its own).

@@ -11,6 +11,26 @@
 
 ### Added
 
+- **The soft-filter step has a dedicated test on real data** (2026-10-19;
+  `tests/variantfiltration_fallback.nf.test`, `nextflow_process`, real GATK, 2 cases, ~35 s). The module
+  is stock nf-core; what is ours is the JEXL in `conf/modules/joint_germline.config`, whose failure
+  mode is silent (the unquoted `TYPE == SNP` matches nothing and leaves a well-formed VCF), and the e2e
+  cannot see a VCF's FILTER column. The test feeds the real unfiltered joint VCF of the 2-sample set
+  (new fixture `tests/fixtures/joint_germline_unfiltered.vcf.gz`, 100 records, 61 SNPs / 39 indels) and
+  the test set's reference to the module and pins the exact FILTER string of every record (83 PASS,
+  14 `MQ_filter`, 2 `SOR_FS_filter`, 1 `MQ_filter;QD_filter`, re-derived from the INFO fields and equal
+  to GATK's output of that run), the record count and order, the FS gate on the six SNPs with
+  SOR > 3.0 and FS = 0, that no SNP-only tag lands on an indel and vice versa, every `##FILTER`
+  Description, the `ext.prefix` name and the GATK version. A negative control (a config next to the
+  test) runs the unquoted spelling and asserts what GATK does with it: no type-gated tag, the universal
+  `QD_filter` still on one record, a per-record WARN only in the task log. Found on the way: in
+  `nextflow_process` isolation the module runs under its own name, so the bare
+  `withName: 'VARIANTFILTRATION_FALLBACK'` missed and read exactly like the regression; the selector is
+  now `'VARIANTFILTRATION_FALLBACK|GATK4_VARIANTFILTRATION'` (pipeline behaviour unchanged, e2e snapshot
+  unchanged). Also: the quoted `TYPE == 'SNP'` resolves on GATK 4.5.0.0, and the 2026-08-31 fixture
+  `joint_soft_filtered.vcf.gz` is from a different run than the current `output_ottilie_test/` VCF
+  (same count, seven different sites). The commit gate maps the module directory and the config to the
+  test (a path may now cite several tests). `testing_best_practices.md` §11 layer 2 item 1.
 - **The joint-calling output selection has a dedicated test** (2026-10-16;
   `tests/joint_calling_output_selection.nf.test`, stub mode, 86 s). Three cases drive
   `BAM_JOINT_CALLING_GERMLINE_GATK` as a unit through the three-tier choice

@@ -122,6 +122,14 @@ The `TYPE==SNP` and `TYPE==INDEL` JEXL expressions **silently match nothing** in
 
 **Always use `vc.isSNP()` / `vc.isIndel()`** for type-specific filtering in GATK VariantFiltration.
 
+Re-measured 2026-10-19 on the 2-sample test set (GATK 4.5.0.0, `tests/variantfiltration_fallback.nf.test`,
+negative control): the unquoted form exits 0, writes one `JexlEngine ... undefined variable SNP` WARN per
+record to the task log (which nothing reads), and applies none of the seven type-gated filters; the two
+universal filters still fire, so the output reads 99 PASS + 1 `QD_filter` instead of 83 PASS. The *quoted*
+`TYPE == 'SNP'` does resolve on that version and tags the same 17 records as `vc.isSNP()`; only the
+unquoted spelling is the trap. The test pins the exact FILTER string of all 100 records against the
+pipeline's own config.
+
 ## Filter Performance
 
 ### Pre-fix baseline (CEN.PK 6 samples, TYPE== era — INDEL filters were no-ops)

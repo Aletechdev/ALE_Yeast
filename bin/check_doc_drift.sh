@@ -86,11 +86,13 @@ check_inventory 'conf/'               '^## `conf/` — ADDED'               'con
 mapped=()
 while IFS= read -r e; do
     [ -z "$e" ] && continue
-    p=$(sed -E "s/^\['([^']+)'\]=.*/\1/" <<<"$e"); t=${e##*=}
+    p=$(sed -E "s/^\['([^']+)'\]=.*/\1/" <<<"$e"); ts=${e##*=}; ts=${ts//\'/}
     [ -e "$p" ] || drift "$GATE: TESTMAP path '$p' does not exist"
-    [ -f "tests/$t.nf.test" ] || drift "$GATE: TESTMAP names tests/$t.nf.test, which does not exist"
-    mapped+=("$t")
-done < <(grep -oE "\['[^']+'\]=[A-Za-z0-9_]+" "$GATE")
+    for t in $ts; do
+        [ -f "tests/$t.nf.test" ] || drift "$GATE: TESTMAP names tests/$t.nf.test, which does not exist"
+        mapped+=("$t")
+    done
+done < <(grep -oE "\['[^']+'\]=('[A-Za-z0-9_ ]+'|[A-Za-z0-9_]+)" "$GATE")
 [ ${#mapped[@]} -gt 0 ] || drift "$GATE: no TESTMAP entries parsed (format changed?)"
 for f in tests/*.nf.test; do
     t=$(basename "$f" .nf.test)

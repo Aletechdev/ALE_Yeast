@@ -75,7 +75,8 @@ EOT
 fi
 
 # 4. path -> module/subworkflow test map: each touched entry needs "Module test: <name> green" in the
-#    message. bin/check_doc_drift.sh demands an entry for every process / workflow test under tests/.
+#    message, one line per test when a value names several (space-separated). bin/check_doc_drift.sh
+#    demands an entry for every process / workflow test under tests/.
 declare -A TESTMAP=(
   ['conf/modules/trimming.config']=fastp_preprocessing
   ['modules/nf-core/fastp/']=fastp_preprocessing
@@ -86,22 +87,24 @@ declare -A TESTMAP=(
   ['subworkflows/local/utils_nfcore_sarek_pipeline/']=preflight
   ['subworkflows/local/bam_variant_calling_germline_manta/']=manta_experiment_grouping
   ['subworkflows/local/bam_joint_calling_germline_gatk/']=joint_calling_output_selection
-  ['conf/modules/joint_germline.config']=joint_calling_output_selection   # the test asserts the ext.prefix names it sets
+  ['conf/modules/joint_germline.config']='joint_calling_output_selection variantfiltration_fallback'   # ext.prefix names (stub) + the soft-filter ext.args on real data
+  ['modules/nf-core/gatk4/variantfiltration/']=variantfiltration_fallback
   ['modules/local/preflight_reference/']=preflight_reference
   ['bin/preflight_reference.sh']=preflight_reference
   ['conf/modules/preflight.config']=preflight_reference
 )
 for path in "${!TESTMAP[@]}"; do
   if grep -q "^${path}" <<<"$staged"; then
-    t=${TESTMAP[$path]}
-    if ! grep -qi "^Module test: ${t} green" <<<"$msg"; then
-      fail=1
-      cat >&2 <<EOT
+    for t in ${TESTMAP[$path]}; do
+      if ! grep -qi "^Module test: ${t} green" <<<"$msg"; then
+        fail=1
+        cat >&2 <<EOT
 BLOCKED: $path is staged; its unit test must be cited in the commit message:
       Module test: ${t} green
   (run: nf-test test -c tests/nf-test-ottilie.config tests/${t}.nf.test)
 EOT
-    fi
+      fi
+    done
   fi
 done
 

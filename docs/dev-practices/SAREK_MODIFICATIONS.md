@@ -275,7 +275,7 @@ last at `63eacf9` — the generated Launchpad box in `deploy/azure/seqera-sp/` i
 
 `base.config`, `modules/cnvkit.config` (ploidy on call+export; germline CNVKIT_CALL prefix),
 `modules/joint_germline.config`
-(VARIANTFILTRATION_FALLBACK params only — the SPLIT_JOINT_VCF rules moved to `split_joint_vcf.config`), `modules/freebayes.config`,
+(VARIANTFILTRATION_FALLBACK params only — the SPLIT_JOINT_VCF rules moved to `split_joint_vcf.config`; its selector also names the module's own `GATK4_VARIANTFILTRATION`, which is what the process runs as in `tests/variantfiltration_fallback.nf.test`), `modules/freebayes.config`,
 `modules/tiddit.config`, `modules/modules.config` (vcftools conditional `ext.when`),
 `modules/trimming.config` (fastp: `filter_quality` off-switch for the read filter, `--cut_<mode>` per
 end, explicit adapters — `fastq_preprocessing_audit.md` §2.1). Post-trim FastQC (2026-09-23):

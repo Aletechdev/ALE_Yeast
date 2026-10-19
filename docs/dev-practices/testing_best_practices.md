@@ -405,7 +405,7 @@ nf-test's four test types, and what each maps to in this fork:
 | Layer | nf-test type | Our surface | Status |
 |-------|--------------|-------------|--------|
 | Function | `nextflow_function` | Groovy helpers we changed | **0 owned** |
-| Process | `nextflow_process` | the 19 fork-added `modules/local/` directories (the `SAREK_MODIFICATIONS.md` inventory; 20 processes, `breseq/` holds two; the three inherited from sarek, `add_info_to_vcf`, `create_intervals_bed`, `samtools/reindex_bam`, are upstream code) + upstream modules whose behaviour we own via config | **2** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 11 cases, one of them on the `nextflow.config` defaults alone, 1 000-pair fixture; `preflight_reference` — the task-level reference preflight, 4 cases on hand-made fixtures: OK with an embedded `##FASTA`, SKIPPED without a GFF3, ERROR/exit 65 on renamed contigs, OK-with-note when the GFF3 has a contig the FASTA lacks) |
+| Process | `nextflow_process` | the 19 fork-added `modules/local/` directories (the `SAREK_MODIFICATIONS.md` inventory; 20 processes, `breseq/` holds two; the three inherited from sarek, `add_info_to_vcf`, `create_intervals_bed`, `samtools/reindex_bam`, are upstream code) + upstream modules whose behaviour we own via config | **3** (`fastp_preprocessing` — `FASTP` under `conf/modules/trimming.config`, 11 cases, one of them on the `nextflow.config` defaults alone, 1 000-pair fixture; `preflight_reference` — the task-level reference preflight, 4 cases on hand-made fixtures: OK with an embedded `##FASTA`, SKIPPED without a GFF3, ERROR/exit 65 on renamed contigs, OK-with-note when the GFF3 has a contig the FASTA lacks; `variantfiltration_fallback` — the soft-filter `ext.args` of `conf/modules/joint_germline.config` run by real GATK on the real 100-record joint VCF, 2 cases: the exact FILTER string of every record plus a negative control with the broken `TYPE == SNP` spelling) |
 | Subworkflow | `nextflow_workflow` | the custom `subworkflows/local/` | **4** (`split_joint_vcf`; `joint_calling_output_selection` — `BAM_JOINT_CALLING_GERMLINE_GATK`, stub mode: the three-tier output selection, one case per tier (fallback only, VQSR present, neither) plus the no-input starvation shape; `manta_experiment_grouping` — `BAM_VARIANT_CALLING_GERMLINE_MANTA` under `--joint_manta`, stub mode: one Manta task per experiment, keyed and named as documented; `fastqc_trimmed` — `FASTQC_TRIMMED_QC`: unsplit pair, fastp-named shards incl. an empty one, single-end lone file; 136 KB of shard fixtures) |
 | Pipeline | `nextflow_pipeline` | supported end-to-end routes | **4** (`ottilie_e2e`; preview-mode smoke tests `report_gff3_optional`, `tools_without_annotation`, `preflight` — the latter reads `[yAMP preflight]` lines from nf-test's `meta/nextflow.log` and error text from `workflow.stdout`; 8 cases incl. the three `--qc_only` ones) |
 | Gate | bash, outside nf-test | the `--qc_only` starvation gate (`workflows/sarek/main.nf`) | **`tests/qc_gate.sh`** — (a) minutes: a QC-only run of the test set executes *exactly* the allow-listed processes (read QC + reference prep, 15 processes / 18 tasks (2026-09-28, with the reference preflight task; 17 before); since 2026-09-29 the MultiQC process on the list is `MULTIQC_READ_QC` — the alignment-QC and complete-QC reports must not run); a stray process means something downstream of alignment fires on empty input (`toList`/`ifEmpty`/value channel) and the failure message names it. (b) one e2e: `-resume` of run (a) without the flag caches every run-1 task but the read-QC MultiQC report (`MULTIQC_READ_QC`; its input checks and summary record `qc_only`), matches a one-shot run's task list, and `tests/qc_gate_compare.py` finds the deliverables identical (md5 for the `.nftignore`-kept files, records for every VCF). Not nf-test because it needs two launches sharing a session. Run (a) after any `workflows/`/`subworkflows/` change (commit-gate trailer), (b) when the gate or the resume contract itself changes |
@@ -449,27 +449,42 @@ prefer a case in our own `tests/` file (see §10 rationale).
 
 ### Layer 2 — `nextflow_process` (biggest gap)
 
-18 of the 19 fork-added `modules/local/` are untested in isolation (`preflight_reference` has had a process test since 2026-09-28), as is the one upstream module whose *behaviour we
-own via config* (`VARIANTFILTRATION_FALLBACK`). Today they're only exercised transitively through the
+18 of the 19 fork-added `modules/local/` are untested in isolation (`preflight_reference` has had a process test since 2026-09-28). The one upstream module whose *behaviour we
+own via config* (`VARIANTFILTRATION_FALLBACK`) has had one since 2026-10-19. The rest are only exercised transitively through the
 e2e snapshot, which tells you *that* something changed, not *what* broke. Priority order by logic
 density:
 
-1. **`VARIANTFILTRATION_FALLBACK`** — highest value in the repo, because its failure mode is
-   **silent**. `conf/modules/joint_germline.config:92` records that JEXL `TYPE==SNP` / `TYPE==INDEL`
-   *matches nothing* rather than erroring (hence `vc.isSNP()` / `vc.isIndel()`); a regression back to
-   the intuitive syntax produces a well-formed VCF with every record marked `PASS` and no visible
-   failure anywhere in the run. The e2e snapshot can't catch it either — the VCFs are `.nftignore`-
-   excluded as non-deterministic. A process test pins it directly: feed a fixture with SNP and INDEL
-   records straddling each threshold, assert the exact FILTER strings per record, assert the SNP-only
-   filters never fire on INDELs (and vice versa), and assert the record count is **unchanged** (this
-   is a soft filter — flags, never removes). The contract in one line: **without this step every
-   record's FILTER is `.`**, so `bcftools view -f PASS` returns zero and the downstream hard filter
-   has nothing to act on — see `docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`.
-   Cheap and fully deterministic.
-   *Caveat:* the module itself is stock nf-core — **our** logic is the `ext.args` JEXL, so the test
-   only means anything if the config selector resolves in unit isolation. Same trap
-   `split_joint_vcf.nf.test` hit (it needed the `.*SPLIT_JOINT_VCF:…` selector, no leading colon);
-   `VARIANTFILTRATION_FALLBACK` uses a bare `withName:` so it should already apply — verify first.
+1. **`VARIANTFILTRATION_FALLBACK` — DONE 2026-10-19** (`tests/variantfiltration_fallback.nf.test`, 2 cases,
+   ~35 s). Highest value in the repo, because its failure mode is **silent**:
+   `conf/modules/joint_germline.config` records that the unquoted JEXL `TYPE==SNP` / `TYPE==INDEL`
+   *matches nothing* rather than erroring (hence `vc.isSNP()` / `vc.isIndel()`), and the e2e snapshot
+   can't see it — the VCFs are `.nftignore`-excluded as non-deterministic. The test runs **real GATK**
+   (the JEXL has no other interpreter; a stub would exercise nothing) on the **real** unfiltered joint
+   VCF of the 2-sample set (`tests/fixtures/joint_germline_unfiltered.vcf.gz`, 100 records, 61 SNPs /
+   39 indels) against the test set's FASTA/`.fai`/`.dict`, and pins: the record count (soft filter —
+   flags, never removes) and order; the exact FILTER string of every record (83 PASS, 14 `MQ_filter`,
+   2 `SOR_FS_filter`, 1 `MQ_filter;QD_filter`, GATK joins tags alphabetically), re-derived from the
+   INFO fields rather than copied; the FS gate on the six SNPs with SOR > 3.0 and FS = 0 that motivated
+   it; no SNP-only tag on an indel (five indels have SOR > 3.0, one has MQ 39.46) and no indel-only tag
+   on an SNP; every `##FILTER` Description equal to the JEXL verbatim (pins the six filters no record
+   trips — QUAL, FS, MQRankSum, ReadPosRankSum, FS_INDEL, ReadPosRankSum_INDEL; min QUAL is 33.47);
+   the `ext.prefix` file name; gatk4 4.5.0.0 in `versions.yml`. A second case is a **negative
+   control**: a config next to the test rewrites the type gates to the unquoted spelling and asserts
+   what GATK then does — exit 0, a per-record `undefined variable SNP` WARN in the task log, no
+   type-gated tag anywhere, the universal `QD_filter` still on XV:708819 — so the main case's
+   sensitivity is measured, not assumed. Two facts found on the way: the **quoted** `TYPE == 'SNP'`
+   resolves on GATK 4.5.0.0 and tags the same 17 records, so only the unquoted form is the trap; and
+   the earlier fixture `joint_soft_filtered.vcf.gz` is from a different (untrimmed, 2026-08-31) run
+   than the current `output_ottilie_test/` VCF — same count, seven different sites — so its FILTER tally
+   was no oracle. *Selector:* in `nextflow_process` isolation the module runs under its **own** name
+   `GATK4_VARIANTFILTRATION` (nf-test's mock calls `${process}(*input)`, no alias possible), so a bare
+   `withName: 'VARIANTFILTRATION_FALLBACK'` silently misses there — and a miss reads exactly like the
+   JEXL regression (no `ext.args` → every `.` rewritten to `PASS`). The config now selects
+   `'VARIANTFILTRATION_FALLBACK|GATK4_VARIANTFILTRATION'` (the bare name is included nowhere else) and
+   the test asserts the `ext.prefix` name to tell the two causes apart. The `fastp_preprocessing` model
+   only worked because `FASTP` is both the module's name and the selector. The contract in one line:
+   **without this step every record's FILTER is `.`**, so `bcftools view -f PASS` returns zero — see
+   `docs/variant-calling/haplotypecaller/SOFT_FILTER_HAPLOTYPECALLER_JOINT.md`.
 2. **Matrix/cohort builders** — `build_cn_matrix`, `build_cn_cohort`, `build_sv_matrix`. Real
    transformation logic with known edge cases (the Jensen's-inequality collapse bug, `fold_change`
    re-derivation). Pure table-in/table-out — cheap, deterministic fixtures.
@@ -543,7 +558,7 @@ want the CI/`--changed-since` work to land first.
 ### Sequencing
 
 Start with the VQSR-fallback pair — the `VARIANTFILTRATION_FALLBACK` process test *and* the
-`bam_joint_calling_germline_gatk` selection test (the latter done 2026-10-16). They're two halves of one
+`bam_joint_calling_germline_gatk` selection test (done 2026-10-19 and 2026-10-16). They're two halves of one
 modification, both have silent failure modes, and neither is reachable by the e2e snapshot. Then the rest of layer 2 (largest
 gap, cheapest fixtures, fastest feedback), then 3, then the ploidy scenarios at layer 4; layer 1 is
 opportunistic. Prerequisite for all of it: a fixtures convention beyond the
