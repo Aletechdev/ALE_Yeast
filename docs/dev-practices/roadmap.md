@@ -398,6 +398,36 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   lint currently aborts on `split_fastq` because of an nf-core/tools bug, not a schema defect — see the
   `split_fastq` item under *Deployment — Seqera launch UI / schema* (report upstream first; the overlay
   workaround there is the fallback if the fix has not shipped by the time CI needs the gate).
+- **[med] CI shape: which test layer runs where, and what each reads (decided 2026-10-19, not built).**
+  Settled while making the `VARIANTFILTRATION_FALLBACK` test self-contained (`d60829f`: the test set's
+  reference committed bgzipped under `tests/fixtures/reference/`, 1.2 MB, so a module test no longer
+  needs `data/ottilie/`). The layout copies upstream sarek 3.10.0, whose `conf/test.config` and
+  `tests/nextflow.config` still read small test data from `raw.githubusercontent.com/nf-core/test-datasets/`
+  while iGenomes, the annotation caches and the full-size inputs sit on anonymous S3
+  (`aws.client.anonymous = true`); unchanged since the 3.5.1 base, so it survives a rebase. For this fork:
+  - **Module and subworkflow tests run on every PR from `tests/fixtures/` only**: no download, no
+    credentials, no dataset version. Rule: a process or workflow test may depend on nothing outside the
+    repo. Ceiling to write into `tests/fixtures/README.md`: about 1–2 MB per file, a few MB in total;
+    anything larger goes to the public blob with a download step, not into git. This half-answers the
+    fixtures convention question in the coverage item above (committed-small for the module layer).
+  - **The e2e contract test runs on a schedule or on pushes to `main`**, reading the 2-sample set
+    (FASTQs, reference, SnpEff cache, about 400 MB) from the public blob — `download_test_data.sh`
+    (no credentials) or the streaming `ottilie_test_ci` profile via `bin/test_ottilie_blob.sh`, which
+    untars only the SnpEff cache (a directory parameter cannot come from a URL). Fits a standard
+    GitHub runner (the nf-test resource config caps at 4 CPUs / 14 GB; about 14 min here); too slow
+    for every PR. Cache the dataset by version on the runner.
+  - **Prerequisite: make the e2e's data base a parameter** (the upstream `pipelines_testdata_base_path`
+    idiom) instead of the URLs hard-coded in the `ottilie_test_ci` profile, so a CI job or another site
+    points at a mirror without editing the profile. Host second: the public blob stays for now; a
+    GitHub-hosted mirror in our own org (Release assets, up to 2 GB a file, no git bloat) would drop
+    the Azure account as a dependency. nf-core's own `test-datasets` repository is not the target: it is
+    curated for nf-core components, and this strain-specific set serves none; GitHub also throttles
+    anonymous `raw.githubusercontent.com` reads, which is why some sites run their own S3 mirror.
+  - **Image pulls are the real CI cost**, not fixture size: the module tests pull the GATK image, the
+    e2e pulls every image. Cache images before worrying about data.
+  - **The commit gate becomes CI's job**: the PR workflow runs the mapped module tests (the gate's
+    TESTMAP and the `triggers` lists already encode which test a path owns; `--changed-since` is the
+    item above), the scheduled job runs the e2e against the snapshot.
 
 - **[low, tooling] Commit gate: install the git `commit-msg` hook; make the Claude hook fail honestly.**
   Found 2026-10-19 while committing `f3e9109`: `bin/hook_git_commit_gate.sh` (the Claude Code
