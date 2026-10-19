@@ -679,7 +679,7 @@ lacked four SV modules; nobody had compared it with the tree). Three rules follo
    second prose copy. The three ADDED tables in `SAREK_MODIFICATIONS.md` are the inventory; the rebase
    runbook and this file point at them. `bin/check_doc_drift.sh` compares each table with the tree
    both ways (undocumented path, phantom row) and checks the counts in the headings and Summary, the
-   `TESTMAP` against `tests/`, and `docs/README.md` against `docs/usage/` + `docs/dev-practices/`.
+   `TESTMAP` against `tests/`, and `docs/README.md` against `docs/usage/` + `docs/dev-practices/` (tracked or staged files only: an untracked draft owes no row until it is staged, 2026-10-19).
 2. **A measured count lives in one dated place** — its CHANGELOG entry — and other docs point there.
    The gate cannot derive "18 tasks"; fewer copies is the only fix.
 3. **The doc set of a commit is derived from the *type* of change, not from the plan's doc column.**

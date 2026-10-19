@@ -105,7 +105,10 @@ for f in tests/*.nf.test; do
 done
 
 # --- 3. docs index ---------------------------------------------------------------------------------
+#     Tracked or staged files only: an untracked draft (another session's work in progress) is part
+#     of no commit, so it cannot owe a row yet; the row is demanded the moment it is staged.
 for f in docs/usage/*.md docs/dev-practices/*.md; do
+    git ls-files --error-unmatch -- "$f" >/dev/null 2>&1 || continue
     rel=${f#docs/}
     grep -qF -- "($rel)" "$INDEX" || drift "$INDEX: no link to $f"
 done
