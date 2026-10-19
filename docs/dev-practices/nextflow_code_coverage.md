@@ -26,14 +26,17 @@ how that is measured, what the first measurement found, and what the numbers can
 - **Branch coverage is the headline.** Of the 916 JaCoCo branches on our own lines, a plan-only run
   takes 162 (17.7 %), the `--qc_only` run 197 (21.5 %), the e2e alone 384 (41.9 %) and the whole suite
   514 (56.1 %) (*measured*, 2026-10-13; 516 on 2026-10-16 after the joint-calling output-selection
-  test, see [Results (2026-10-16)](#results-2026-10-16-after-the-joint-calling-output-selection-test)).
+  test, see [Results (2026-10-16)](#results-2026-10-16-after-the-joint-calling-output-selection-test);
+  522 of 920 on 2026-10-19 after the join fix and the soft-filter test, see
+  [Results (2026-10-19)](#results-2026-10-19-after-the-join-fix-and-the-soft-filter-test)).
   It is the measured cousin of the "option coverage" that
   [issue #13](https://github.com/Aletechdev/ALE_Yeast/issues/13) proposes, not the same count: option
   coverage counts the launch form's switches, branches count both sides of every `if`, `?:` and
   `&&` / `||` operand in the code. One switch can sit behind several conditions, and many conditions
   depend on the data or on module boilerplate rather than on a switch.
 - **Fully covered decision lines are the worklist.** 83 of the 254 lines that carry a decision have
-  had every branch taken; `uncovered.txt` names the other 171 with the branch that was missed.
+  had every branch taken; `uncovered.txt` names the other 171 with the branch that was missed
+  (87 of 256 on 2026-10-19).
 - **The e2e carries almost all line and closure coverage.** What the other tests add is branches.
   [What no test executes](#what-no-test-executes) is the actionable list.
 
@@ -311,7 +314,8 @@ A second measurement, three days after the first, with one test file added
   t_joint_calling_output_selection` reads 3/4 on its own. The fourth direction (`fallback_vcf` falsy,
   `joint_vcf` emitted) is unreachable until the fallback join gets `remainder: true` (known issue,
   `testing_best_practices.md` §11 layer 3): 3 of 4 is the ceiling of this test, not 4 of 4. The join
-  was fixed on 2026-10-19 (CHANGELOG → Fixed); the fourth direction is not measured until the next full run.
+  was fixed on 2026-10-19 (CHANGELOG → Fixed); the fourth direction was measured the same evening, see
+  [Results (2026-10-19)](#results-2026-10-19-after-the-join-fix-and-the-soft-filter-test): both lines fully covered.
 - **Subworkflow level** (`levels.txt`, fork code): four files, 12 cases; lines 306 → 318, closures
   21 → 33, branches 68 → 74 of 916, fully covered decision lines 8 → 8.
 - **What each test contributes** (`unique.txt`): the e2e's unique lines 430 → 418 (fork 146 → 143) and
@@ -334,6 +338,74 @@ to the new file. The +4 / −2 is the whole of the line-denominator change; no b
 decision-line count is touched (neither file has any). The mapping assumption in the table above
 is marked accordingly; the fix belongs in `tests/nf_coverage_report.py` (prefer the file a class was
 parsed from, which the log's `Parsing config file:` order gives) and is not made here.
+
+## Results (2026-10-19): after the join fix and the soft-filter test
+
+A third measurement, three days after the second. Between them: the fallback-join fix
+(`f3e9109`, two `remainder: true` and two starvation-guard `filter` lines in
+`bam_joint_calling_germline_gatk/main.nf`), the "neither" case of the output-selection test now
+asserting the raw joint VCF, and one test file added (`tests/variantfiltration_fallback.nf.test`
+with its negative-control config, commit `d60829f`; the `joint_germline.config` selector widened in the
+same commit, behaviour unchanged). The earlier figures stand as recorded; this is the before/after.
+
+### Provenance
+
+- **Script:** `tests/nf_coverage.sh run`, report by `tests/nf_coverage_report.py`, unchanged.
+- **Run directory:** `output_coverage_d3dc805/` on the dev VM; the 2026-10-16 run kept beside it as
+  `output_coverage/`, the 2026-10-13 run as `output_coverage_99aef57/`. Started 2026-10-19 14:59 UTC.
+- **Code:** `d3dc805`, clean working tree (the working tree also held another session's untracked
+  `bin/test_inventory.py` and a draft doc; neither is pipeline code).
+- **Runs:** 13, all exit 0: the plan-only run, the `--qc_only` run and the eleven files under `tests/`.
+  2 069 s of run time; the e2e took 818 s, the output-selection test 113 s, the new test 43 s.
+- **Versions** (`RUN_INFO.txt`): identical to the two earlier runs (Nextflow 25.10.4, Groovy 4.0.28,
+  Java 17.0.15, nf-test 0.9.3, JaCoCo 0.8.12, fork baseline sarek 3.5.1). The denominators moved for
+  the first time, because fork code changed (below).
+- **A one-off HTML render** of this run's `lcov.info` with `genhtml` (lcov 2.5, a throwaway conda env,
+  not in `environment.yml`) sits in `output_coverage_d3dc805/html/` (930 pages). Its index headline is
+  for *all* code (62.4 % lines) and its branch rate (24.5 %) is lcov's, on a different denominator than
+  the JaCoCo per-jump count below; the fork-only figures in this document are the ones to quote. How
+  coverage should be reported is an open roadmap row (*Review and decide how coverage is reported*).
+
+### Before and after (fork code, everything merged)
+
+| Measure | 2026-10-16, `84e8274` | 2026-10-19, `d3dc805` |
+|---|---|---|
+| **Branch coverage** | 516 / 916 (56.3 %) | **522 / 920 (56.7 %)** |
+| Fully covered decision lines | 83 / 254 | **87 / 256** |
+| Data-driven closures entered | 233 / 291 | 236 / 294 |
+| Executable lines | 1 014 / 1 119 | 1 019 / 1 124 |
+
+- **The denominators** (*measured*, with the cause *inferred* from the diff `84e8274..d3dc805`): +4 branches,
+  +2 decision lines, +2 closures and +2 lines are the two guard lines of the join fix
+  (`bam_joint_calling_germline_gatk/main.nf:150` and `:161`, each a `filter{ … != null }` closure with one
+  decision); +3 lines and +1 closure are `tests/variantfiltration_fallback_typeeq.config` (the
+  negative-control `ext.args` closure), loaded by one case. Nothing else in fork code changed.
+- **The numerators:** +6 branches and +4 fully covered decision lines, all in
+  `bam_joint_calling_germline_gatk/main.nf`. The two output-selection lines (now `:155`
+  `vcf_out = recal_vcf ?: fallback_vcf ?: joint_vcf` and `:166`, the index) go **3 of 4 → fully covered**:
+  the "neither" case takes the `joint_vcf` direction the missing `remainder: true` had made
+  unreachable. `annotate e2e` still reads 2/4 on both (a full run always has a fallback VCF);
+  `annotate t_joint_calling_output_selection` reads them fully covered on its own. The two new guard
+  lines are fully covered as well (both sides: the `--qc_only` run and the fourth output-selection
+  case take the null side, every full run the other). The subworkflow no longer appears in
+  `uncovered.txt` at all (2026-10-16: "2 partly covered decision lines"). Every one of the five new
+  lines and three new closures executed.
+- **Per column** (`tables.txt`, fork branches): plan-only 162 → 162 (of 920), `--qc_only` 197 → 199,
+  e2e alone 384 → 386, all 516 → 522. At the `--qc_only` level (`levels.txt`) the fully covered decision
+  lines go 8 → 12; at the e2e level 38 → 38.
+- **Per group:** `subworkflows/local` branches 222 / 338 → 228 / 342, fully covered decision lines
+  44 / 99 → 48 / 101; every other group unchanged.
+- **What each test contributes** (`unique.txt`): the e2e's unique lines 418 → 409 (fork 143 → 143) and
+  unique closures 376 → 375 (fork 173 → 173): the `gatk4/variantfiltration` module (upstream code, so the
+  fork counts hold) now also runs under the new test (*inferred*). The new test's own unique share is
+  small by design: 4 lines (3 fork) and 1 closure (1 fork), its negative-control config. The e2e already
+  enters the real `ext.args` closure of `joint_germline.config` once; what the new test adds is not
+  visible as coverage but as assertions (the FILTER string of all 100 records), which is the limit this
+  document keeps repeating: coverage shows that the JEXL closure ran, never what it matched.
+- **The `-c` config mapping** caveat of 2026-10-16 applies to the new config file too: its row
+  (`tests/variantfiltration_fallback_typeeq.config`, 3 of 3 lines) is matched to its class by line
+  numbers, not by the file it was parsed from. Not re-examined here; the fix still belongs in
+  `tests/nf_coverage_report.py`.
 
 ## What no test executes
 
@@ -388,7 +460,10 @@ references.
 
 **Not visible here at all:** the guide's first priority, the soft-filter step
 (`VARIANTFILTRATION_FALLBACK`). The e2e executes it, so it reads as covered; its risk is an
-expression that runs and matches nothing (see [Limits](#limits)).
+expression that runs and matches nothing (see [Limits](#limits)). Since 2026-10-19 that risk has
+its own test, `tests/variantfiltration_fallback.nf.test` (real GATK on the real joint VCF, the FILTER
+string of every record pinned, a negative control for the matching-nothing spelling); this
+measurement still cannot see what that test asserts, only that the `ext.args` closure ran.
 
 ### Choosing the test for a gap
 
