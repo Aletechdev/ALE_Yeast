@@ -399,6 +399,25 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   `split_fastq` item under *Deployment — Seqera launch UI / schema* (report upstream first; the overlay
   workaround there is the fallback if the fix has not shipped by the time CI needs the gate).
 
+- **[low, tooling] Commit gate: install the git `commit-msg` hook; make the Claude hook fail honestly.**
+  Found 2026-10-19 while committing `f3e9109`: `bin/hook_git_commit_gate.sh` (the Claude Code
+  PreToolUse adapter) reads the `-F <path>` literally from the command text, so a message path passed
+  through a shell variable (`M=…; git commit -F "$M"`) is invisible to it; it then runs
+  `bin/check_snapshot_staged.sh` with an empty message and prints three `BLOCKED` lines claiming the
+  trailers are missing when they are not. Same blind spot for `-m` messages. Structural: a hook that
+  sees only command text cannot expand a variable that text defines. Two parts, both tooling only (no
+  behaviour path, drift check only):
+  1. Install the git hook the gate script was written for, `ln -s ../../bin/check_snapshot_staged.sh
+     .git/hooks/commit-msg` (not installed on the dev VM as of 2026-10-19): git passes the assembled
+     message file as `$1`, whatever the command form, and commits made outside Claude Code are gated
+     too. Per clone (`.git/hooks` is not versioned), so add the line to
+     `docs/usage/new_machine_setup.md`. The Claude hook stays as the early warning.
+  2. In `hook_git_commit_gate.sh`, after `msg_file` is resolved: if it is neither `-` nor readable,
+     exit 2 with "cannot read the commit message from the command text (-F <token>); name the path
+     literally, or install the git commit-msg hook", instead of running the gate on an empty message.
+     Not worth it: parsing `-m "…"` from command text (multi-line quoting is fragile; the git hook
+     covers it).
+
 ## Documentation
 
 - **[low] Single-source the report Methodology + SV maintainer doc (option B).** The user-facing
