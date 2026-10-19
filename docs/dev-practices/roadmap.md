@@ -428,6 +428,34 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
   - **The commit gate becomes CI's job**: the PR workflow runs the mapped module tests (the gate's
     TESTMAP and the `triggers` lists already encode which test a path owns; `--changed-since` is the
     item above), the scheduled job runs the e2e against the snapshot.
+- **[med] Review and decide how coverage is reported (opened 2026-10-19).** The measurement exists
+  (`tests/nf_coverage.sh`, `nextflow_code_coverage.md`); how its result reaches a reader is undecided.
+  Prompted by rendering the 2026-10-19 run (`d3dc805`, `output_coverage_d3dc805/`) once for someone
+  outside the project. What a run already writes: JaCoCo binary (`all.exec`) and XML (`xml/`, hashed
+  Groovy class names, what SonarQube / Codecov ingest), `lcov.info` (same data on real file paths, 246
+  files; the handoff format for `genhtml`, editor gutters and Codecov), and the script's own text report
+  (`tables.txt`, `levels.txt`, `uncovered.txt`, `unique.txt`, `coverage.tsv`) with the fork-only filtering
+  the docs quote. Decide, in this order:
+  - **Which headline.** The project's is fork code only, from `tables.txt` (522 / 920 branches on
+    2026-10-19). A `genhtml` index reports *all* code including pristine sarek (62.4 % lines there) and
+    an lcov branch rate on a different denominator (24.5 %) that is not comparable to the JaCoCo
+    per-jump count. Any published page must print the fork-only line beside it or readers will quote
+    the wrong number (§13 of `testing_best_practices.md`: a number names its script and run).
+  - **Which rendering.** Options: `genhtml` static HTML (done once: 930 pages, 13 MB, opens from disk,
+    per-line colouring, the subworkflow page shows the 4/4 output-selection lines directly); Codecov or
+    similar from `lcov.info` (trend and PR comments, an external service and token); or the text tables
+    alone in a CI job summary. Static HTML as a workflow artifact or GitHub Pages is the offline route
+    the CI item above assumes.
+  - **The renderer dependency.** `genhtml` (lcov 2.5) is not in `environment.yml`; the 2026-10-19 render
+    used a throwaway conda env (`lcov-tmp`). Either add `lcov` to the spec so local and CI renders match,
+    or treat it as a CI-only `apt` install and document the local command. lcov 2.x needs
+    `--ignore-errors inconsistent,unused,category,negative,mismatch,source` on this data (lines hit
+    with no branch evaluated: Groovy constant conditions).
+  - **Recording per run.** Today each measurement gets a dated *Results* section in
+    `nextflow_code_coverage.md` by hand, naming its run directory; the 2026-10-19 run is not yet written
+    up. Decide whether that stays the record (fits §13) or a generated trend replaces it once CI runs
+    the measurement, and what the run-directory naming is (`output_coverage_<commit>` was used today;
+    `output_coverage/` and a dated form exist too).
 
 - **[low, tooling] Commit gate: install the git `commit-msg` hook; make the Claude hook fail honestly.**
   Found 2026-10-19 while committing `f3e9109`: `bin/hook_git_commit_gate.sh` (the Claude Code
