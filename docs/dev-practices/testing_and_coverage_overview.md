@@ -1,8 +1,16 @@
 # Testing and code coverage of yAMP: overview
 
-*Status 2026-10-16. The short version; the engineering records are
+*Status 2026-10-20. The short version; the engineering records are
 [`testing_best_practices.md`](testing_best_practices.md) (what we test and why) and
 [`nextflow_code_coverage.md`](nextflow_code_coverage.md) (how coverage is measured, full results, limits).*
+
+**Context, for readers from outside this repository.** yAMP is a fork of nf-core/sarek 3.5.1 for yeast
+adaptive laboratory evolution (ALE) experiments: one production route (joint germline HaplotypeCaller, CNVKit,
+Manta + TIDDIT, SnpEff) where sarek ships many. "Fork code" means the lines that are not in pristine sarek 3.5.1,
+and every figure on this page is measured on those lines, with the 2-sample, 4-chromosome test set that ships with
+the repository. Terms: e2e, the one end-to-end full run; QC, read quality control; DAG, the graph of steps Nextflow builds
+before any task runs; VQSR, GATK's variant-quality recalibration; JaCoCo, the Java code-coverage agent; nf-test,
+the test framework of nf-core pipelines.
 
 ## Documents
 
@@ -23,6 +31,11 @@ Fork code, everything merged; each row links to its section of the coverage docu
 | [2026-10-13](nextflow_code_coverage.md#results-2026-10-13) | `99aef57` | 514 / 916 (56.1 %) | 83 / 254 | 2 / 4 |
 | [2026-10-16](nextflow_code_coverage.md#results-2026-10-16-after-the-joint-calling-output-selection-test), after the output-selection test | `84e8274` | 516 / 916 (56.3 %) | 83 / 254 | 3 / 4 |
 | [2026-10-19](nextflow_code_coverage.md#results-2026-10-19-after-the-join-fix-and-the-soft-filter-test), after the join fix and the soft-filter test | `d3dc805` | 522 / 920 (56.7 %) | 87 / 256 | 4 / 4 |
+
+For scale, measured the same way on 2026-10-20: nf-core/sarek 3.5.1's own default test covers 13.7 % of sarek's
+branches (794 / 5 806); our one e2e covers 42.0 % of fork code (386 / 920). Each tree is measured by its own tests on
+its own code, and the denominators differ six-fold, so this compares two suites, not two pipelines
+([`sarek_351_benchmark_2026-10-20.md`](sarek_351_benchmark_2026-10-20.md) §3).
 
 ## 1. Three questions, three tools
 
@@ -119,9 +132,30 @@ lines. Python has no such phase. So branch coverage is the number we read.
 
 ## 6. Running it
 
+From a clean clone, with Docker on the machine:
+
 ```bash
-conda activate nf-env
+conda env create -f environment.yml && conda activate nf-env      # nextflow 25.10.4, nf-test 0.9.3, java 17
+bash docs/benchmarking/ottilie_xenobiotic_ale/01_data_retrieval/release/download_test_data.sh
+                                                         # once per machine: the test set, public blob, no credentials
 nf-test test -c tests/nf-test-ottilie.config tests/     # the suite
 tests/qc_gate.sh a                                       # the QC-first gate
 tests/nf_coverage.sh run                                 # coverage, ~35 min; report in output_coverage/
 ```
+
+## 7. What transfers to another Nextflow pipeline
+
+The method is general; the figures and two of the tools are ours.
+
+- **Transfers as is.** The three questions and their tools (§1); the test levels, which are nf-test's own types (§2);
+  the measurement itself: a JaCoCo agent attached to the Nextflow head JVM through `NXF_JVM_ARGS`, which sees every
+  `.nf` and `.config` file as compiled Groovy, works through `nf-test` and through a direct `nextflow run`, and needs
+  no change to the pipeline (the agent line is in [`nextflow_code_coverage.md`](nextflow_code_coverage.md) →
+  *Running it*); the reading rules: branch coverage over line coverage, because DAG build alone executes most lines
+  (§3), coverage is not correctness (§4), and the JaCoCo branch counts for Groovy constructs, which hold for any
+  Nextflow code ([`nextflow_branch_counting.md`](nextflow_branch_counting.md)).
+- **Specific to this repository.** The fork-versus-pristine denominator: a pipeline that is not a fork measures all
+  of its own code, as the sarek benchmark does. The commit gate, the contract-test rule and the test-set names.
+- **The scripts.** `tests/nf_coverage.sh` (the runs and the agent) and `tests/nf_coverage_report.py` (the tables) can
+  be lifted, but they assume this repository: the `tests/` layout, the pristine-sarek download that drives the fork
+  split, `output_coverage/` at the root. Lifting them means editing those three things; they are not packaged.

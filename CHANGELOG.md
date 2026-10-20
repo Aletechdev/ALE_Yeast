@@ -314,6 +314,11 @@
   row linked to its section of `nextflow_code_coverage.md`). In `testing_best_practices.md`, §1–§9 are
   marked as the pre-1.0.0 plan kept for the record and §10–§14 as the rules in force; no heading,
   anchor or section moved. The docs index marks the overview as the place to start.
+- **The testing overview reads for a team outside this repository** (docs only, 2026-10-20):
+  `testing_and_coverage_overview.md` gains a context paragraph (what the fork is, what "fork code" and
+  the other terms mean), the sarek 3.5.1 comparison beside the *Results so far* table, a *Running it*
+  block that works from a clean clone (environment, test-data download), and a last section on what of
+  the method transfers to another Nextflow pipeline and what is specific to this one.
 - **Coverage report: branch coverage is the headline measure; *Conditions seen every way* renamed
   *Fully covered decision lines*** (dev tooling, 2026-10-13; `tests/nf_coverage_report.py`,
   `tests/nf_coverage.sh`, `docs/dev-practices/nextflow_code_coverage.md`). A probe of how JaCoCo counts
