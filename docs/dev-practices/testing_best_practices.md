@@ -4,9 +4,13 @@
 
 This document outlines a testing strategy for the ALE_nextflow fork of nf-core/Sarek 3.5.1 before releasing.
 
+§1–§9 are that original plan, written before v1.0.0 and kept for the record. The rules in force are §10–§14 (what exists, the target coverage layers, what counts as validated, benchmark provenance, cross-session state). The entry point to the testing documents is [`testing_and_coverage_overview.md`](testing_and_coverage_overview.md) → *Documents*.
+
 ---
 
 ## 1. Tiered Testing Strategy
+
+*Pre-1.0.0 plan, kept for the record; the rules in force are §10–§14 and the overview.*
 
 ### Unit Tests (per-module)
 - **nf-test**: The nf-core standard for module-level testing. Each module in `modules/nf-core/` can have a `tests/` directory with `main.nf.test` files.
@@ -25,6 +29,8 @@ This document outlines a testing strategy for the ALE_nextflow fork of nf-core/S
 
 ## 2. Test Data
 
+*Pre-1.0.0 plan, kept for the record; the rules in force are §10–§14 and the overview.*
+
 - **Minimal test profile**: Create a `test` profile in `nextflow.config` with:
   - Downsampled FASTQs (e.g., 10K–100K reads per sample)
   - Small reference (single chromosome or region)
@@ -35,6 +41,8 @@ This document outlines a testing strategy for the ALE_nextflow fork of nf-core/S
 ---
 
 ## 3. What to Validate
+
+*Pre-1.0.0 plan, kept for the record; the rules in force are §10–§14 and the overview.*
 
 | Layer | Check |
 |-------|-------|
@@ -50,6 +58,8 @@ This document outlines a testing strategy for the ALE_nextflow fork of nf-core/S
 ---
 
 ## 4. CI/CD Approach
+
+*Pre-1.0.0 plan, kept for the record; the rules in force are §10–§14 and the overview.*
 
 ```bash
 # Minimal CI test (GitHub Actions or Azure DevOps)
@@ -70,6 +80,8 @@ nextflow run main.nf \
 
 ## 5. nf-core Conventions to Follow
 
+*Pre-1.0.0 plan, kept for the record; the rules in force are §10–§14 and the overview.*
+
 - **`nf-test`** (replaces pytest-workflow): install via `nf-core tools`
 - **Linting**: `nf-core pipelines lint` — won't pass 100% on a fork but catches structural issues
 - **`nextflow_schema.json`**: Validate custom params (`--split_haplotypecaller_joint_vcf`, ploidy column) are documented
@@ -85,6 +97,8 @@ nextflow run main.nf \
 
 ## 6. Regression/Truth Set Testing
 
+*Pre-1.0.0 plan, kept for the record; the rules in force are §10–§14 and the overview.*
+
 For ALE use case specifically:
 
 1. **Create a truth set**: Run the pipeline on test data, manually review outputs, freeze as "known good"
@@ -99,6 +113,8 @@ For ALE use case specifically:
 
 ## 7. Pre-Release Checklist
 
+*Pre-1.0.0 plan, kept for the record; the rules in force are §10–§14 and the overview.*
+
 - [ ] All test profiles pass (`test`, `test_full` if available)
 - [ ] `nf-core pipelines lint` has no critical errors
 - [ ] Custom modules have nf-test coverage
@@ -111,6 +127,8 @@ For ALE use case specifically:
 ---
 
 ## 8. Quick Start: Setting Up nf-test
+
+*Pre-1.0.0 plan, kept for the record; the rules in force are §10–§14 and the overview.*
 
 ```bash
 # Install nf-test
@@ -131,6 +149,8 @@ nf-test test
 ---
 
 ## 9. Priority Items for This Fork
+
+*Pre-1.0.0 plan, kept for the record; the rules in force are §10–§14 and the overview.*
 
 The highest-value testing items are:
 

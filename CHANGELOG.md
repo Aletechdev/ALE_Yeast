@@ -307,6 +307,13 @@
 
 ### Changed
 
+- **The testing documents have one entry point** (docs only, 2026-10-20; issue #14).
+  `docs/dev-practices/testing_and_coverage_overview.md` opens with a *Documents* section (the five
+  testing documents in reading order, one line each on what the document answers) and a *Results so
+  far* table (the three coverage measurements of 2026-10-13, 2026-10-16 and 2026-10-19 by commit, each
+  row linked to its section of `nextflow_code_coverage.md`). In `testing_best_practices.md`, §1–§9 are
+  marked as the pre-1.0.0 plan kept for the record and §10–§14 as the rules in force; no heading,
+  anchor or section moved. The docs index marks the overview as the place to start.
 - **Coverage report: branch coverage is the headline measure; *Conditions seen every way* renamed
   *Fully covered decision lines*** (dev tooling, 2026-10-13; `tests/nf_coverage_report.py`,
   `tests/nf_coverage.sh`, `docs/dev-practices/nextflow_code_coverage.md`). A probe of how JaCoCo counts

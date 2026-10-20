@@ -27,7 +27,8 @@ import sys
 from urllib.parse import unquote
 
 INLINE_LINK = re.compile(r"\[[^\]\n]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
-REF_DEF = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(\S+)", re.M)
+# reference definitions; a footnote definition `[^label]: text` is prose, not a link target
+REF_DEF = re.compile(r"^\s{0,3}\[[^\]^][^\]]*\]:\s*(\S+)", re.M)
 FENCE = re.compile(r"```.*?```", re.S)
 CODE_SPAN = re.compile(r"`([^`\n]+)`")
 LINE_ANCHOR = re.compile(r":\d+(?:-\d+)?$")

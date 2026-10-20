@@ -4,6 +4,26 @@
 [`testing_best_practices.md`](testing_best_practices.md) (what we test and why) and
 [`nextflow_code_coverage.md`](nextflow_code_coverage.md) (how coverage is measured, full results, limits).*
 
+## Documents
+
+Five documents, in reading order. Each answers one question.
+
+1. [`testing_and_coverage_overview.md`](testing_and_coverage_overview.md) (this page): what we test, at which levels, what we measure and what the numbers mean. Start here.
+2. [`testing_best_practices.md`](testing_best_practices.md) §10–§14: the rules in force: the test infrastructure we have, the four nf-test layers to fill, what counts as validated (the contract-test rule and the commit gate), how a benchmark number earns its provenance, and where cross-session state lives. §1–§9 are the pre-1.0.0 plan, kept for the record.
+3. [`nextflow_code_coverage.md`](nextflow_code_coverage.md): how coverage is measured (JaCoCo on the Nextflow head JVM), how to run it, the dated results and the list of fork code no test executes.
+4. [`test_inventory_2026-10-19.md`](test_inventory_2026-10-19.md): which of the files the fork added or changed a test reaches, per scope, against pristine sarek 3.5.1.
+5. [`sarek_351_benchmark_2026-10-20.md`](sarek_351_benchmark_2026-10-20.md): the same method on upstream's own test: how much of sarek 3.5.1 its default route covers, beside our figures.
+
+## Results so far
+
+Fork code, everything merged; each row links to its section of the coverage document, which holds the provenance.
+
+| Measurement | Commit | Branch coverage | Fully covered decision lines | Output-selection line (`vcf_out = recal_vcf ?: fallback_vcf ?: joint_vcf`), branches taken |
+|---|---|---|---|---|
+| [2026-10-13](nextflow_code_coverage.md#results-2026-10-13) | `99aef57` | 514 / 916 (56.1 %) | 83 / 254 | 2 / 4 |
+| [2026-10-16](nextflow_code_coverage.md#results-2026-10-16-after-the-joint-calling-output-selection-test), after the output-selection test | `84e8274` | 516 / 916 (56.3 %) | 83 / 254 | 3 / 4 |
+| [2026-10-19](nextflow_code_coverage.md#results-2026-10-19-after-the-join-fix-and-the-soft-filter-test), after the join fix and the soft-filter test | `d3dc805` | 522 / 920 (56.7 %) | 87 / 256 | 4 / 4 |
+
 ## 1. Three questions, three tools
 
 | Question                                   | Tool                                                         | Gives                                                 |
