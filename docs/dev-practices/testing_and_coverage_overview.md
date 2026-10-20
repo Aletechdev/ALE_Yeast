@@ -85,6 +85,9 @@ lines. Python has no such phase. So branch coverage is the number we read.
   e2e and the coverage run on a schedule; a coverage floor only once the number is stable.
 - Reference: sarek 3.5.1 and 3.10 run lint and tests on every PR with binary acceptance, and report no
   coverage and no numeric threshold (read from the `.github/workflows/` files of nf-core/sarek, 2026-10-15).
+  Measured on 2026-10-20 under our method, sarek 3.5.1's own default route covers 13.7 % of its own branches
+  (794 / 5 806) against our e2e's 42.0 % of fork code; each tree on its own-code denominator
+  ([`sarek_351_benchmark_2026-10-20.md`](sarek_351_benchmark_2026-10-20.md)).
 - Upgrades (sarek 3.10, Nextflow 26, the strict syntax) are separate tasks and do not change this strategy.[^upgrades]
 
 [^upgrades]: Nextflow 26.10 with the strict parser was probed on 2026-10-14: the JaCoCo agent still attaches
