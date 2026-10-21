@@ -11,7 +11,9 @@ repo. Every number below is* measured *unless stated otherwise.*
 Issue #14, item 5: "Benchmark: pristine sarek 3.5.1 `test,docker` under the same JaCoCo method, compared
 pipeline-level to pipeline-level". The three-row form of the benchmark ("sarek's own test route" / "ours,
 pipeline-level only" / "ours, all levels") is not written in any repo doc; the definition applied here was agreed in
-the session of 2026-10-20:
+the session of 2026-10-20. The original benchmark definition has three primary rows. The summary table in §2
+additionally includes one whole-tree yAMP context row, using the already-recorded all-code denominator, so that
+the sarek and yAMP pipeline-level runs can also be viewed at the same broad code-tree scope.
 
 - **Each tree is measured by its own tests on its own code.** For pristine sarek, its own code is every `.nf` and
   `.config` file of the tree (the fork-vs-upstream split of `tests/nf_coverage_report.py` does not apply; see §4 for
@@ -27,16 +29,26 @@ the session of 2026-10-20:
   much of sarek the ALE recipe exercises, which our all-code figures already approximate (§3, last table), not how
   well sarek's own suite covers sarek.
 
-## 2. The three rows
+## 2. Benchmark comparison
 
 | Row | Tree, ref | Runs in the row | Executable lines | Data-driven closures | **Branch coverage** | Fully covered decision lines |
 |---|---|---|---|---|---|---|
 | **sarek default route** | nf-core/sarek 3.5.1, release tarball (GitHub archive of tag `3.5.1`) | `tests/default.nf.test`: 2 cases (the `test` profile full run, 23 tasks; a samplesheet-rejection case), nf-test 0.9.3 | 3 353 / 6 275 (53.4 %) | 297 / 1 549 (19.2 %) | **794 / 5 806 (13.7 %)** | 9 / 1 614 (0.6 %) |
+| **ours, whole-tree e2e context** | Aletechdev/ALE_Yeast `d3dc805`, all compiled `.nf` and `.config` code | `tests/ottilie_e2e.nf.test`: 1 case (the `full_run` level of `levels.txt`) | 4 280 / 7 073 (60.5 %) | 653 / 1 834 (35.6 %) | **1 422 / 6 862 (20.7 %)** | 48 / 1 898 (2.5 %) |
 | **ours, pipeline-level only** | Aletechdev/ALE_Yeast `d3dc805` | `tests/ottilie_e2e.nf.test`: 1 case (the `full_run` level of `levels.txt`) | 974 / 1 124 (86.7 %) | 233 / 294 (79.3 %) | **386 / 920 (42.0 %)** | 38 / 256 (14.8 %) |
 | **ours, all levels** | Aletechdev/ALE_Yeast `d3dc805` | 13 runs: plan-only, `--qc_only`, 11 test files (`all` of `tables.txt`) | 1 019 / 1 124 (90.7 %) | 236 / 294 (80.3 %) | **522 / 920 (56.7 %)** | 87 / 256 (34.0 %) |
 
-Denominators: for sarek, all of its own code that compiled in at least one recorded run (208 files; see §4 on the
-count); for yAMP, fork lines (59 files with fork lines). Each row names its denominator in the cell.
+The first two rows use whole-tree denominators for the compiled Nextflow layer. The final two rows use the yAMP
+fork-delta denominator: lines added or changed relative to pristine Sarek 3.5.1. The whole-tree row provides
+integrated-pipeline context; the fork-delta rows remain the engineering coverage figures used to track code
+maintained by yAMP.
+
+Denominators, three scopes: **sarek whole-tree**, all of sarek's own `.nf` / `.config` code that compiled in at
+least one recorded run (208 files; see §4 on the count); **yAMP whole-tree**, all of our `.nf` / `.config` code,
+pristine sarek lines included, that compiled in a recorded run (246 of 415 files; the "All code to all code"
+table in §3 is its provenance); **yAMP fork-delta**, the lines of those same files that are not in pristine
+sarek 3.5.1 (59 files with fork lines). Each row names its denominator in the cell. None of the three measures
+the Bash task bodies, the Python utilities or the code inside the containers (§6).
 
 **Supplementary lines**, same method, for the floor and for the other definitions of "pipeline-level":
 
@@ -81,8 +93,9 @@ The last two lines are JaCoCo merges of the recorded d3dc805 `.exec` files (read
   excluded`, as `nextflow_code_coverage.md` predicted: sarek's `branch` calls use explicit criteria. Our 4 excluded
   branches are the fork's `mutation_report` catch-alls.
 
-**All code to all code** (a fourth comparison, not one of the three rows): our whole tree, pristine sarek lines
-included, on the same empty-baseline denominator as the sarek rows. This is the figure a `genhtml` index of our
+**All code to all code** (a fourth comparison, not one of the three primary rows; the "e2e alone" line is the
+provenance of the whole-tree context row in §2): our whole tree, pristine sarek lines included, on the same
+empty-baseline denominator as the sarek rows. This is the figure a `genhtml` index of our
 `lcov.info` shows (roadmap: *Review and decide how coverage is reported*) and it is what "sarek on the ALE
 recipe" would come close to, since 95 % of our tree is pristine sarek code:
 
