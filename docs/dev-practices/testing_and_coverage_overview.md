@@ -68,26 +68,26 @@ vendor folder would be; the implementation is a line-by-line comparison with pri
 
 Four measures, from "did data reach the step" to "what is left to test":
 
-| Measure                      | Counts                                               | Fork code, 2026-10-13                      | Use                                             |
+| Measure                      | Counts                                               | Fork code, 2026-10-19 (`d3dc805`)          | Use                                             |
 | ---------------------------- | ---------------------------------------------------- | ------------------------------------------ | ----------------------------------------------- |
-| Closures entered             | steps and closures that only run when data arrives   | 80.1 % (233 / 291)                         | did data reach every step                       |
-| Lines executed               | executable lines run at least once                   | 90.6 % (1 012 / 1 117), of which 71 % before any task runs | context only; see below                         |
-| **Branch coverage**          | every direction of every decision (`if`, `?:`, `&&`) | **56.1 %** (514 / 916)                     | **the figure we report and track**              |
-| Fully covered decision lines | lines with no direction left untaken                 | 83 / 254                                   | the list of what to test next (`uncovered.txt`) |
+| Closures entered             | steps and closures that only run when data arrives   | 80.3 % (236 / 294)                         | did data reach every step                       |
+| Lines executed               | executable lines run at least once                   | 90.7 % (1 019 / 1 124), of which 70 % before any task runs | context only; see below                         |
+| **Branch coverage**          | every direction of every decision (`if`, `?:`, `&&`) | **56.7 %** (522 / 920)                     | **the figure we report and track**              |
+| Fully covered decision lines | lines with no direction left untaken                 | 87 / 256                                   | the list of what to test next (`uncovered.txt`) |
 
 Lines executed is the broad measure. The other three each take a subset of those lines and ask more of it:
 
 - **Closures entered**: the lines inside data-driven closures. A line counts as executed once the closure is
   created; it counts as entered only when the body runs on an item.
-- **Branch coverage**: the 254 decision lines. Executed means reached; covered means every direction taken.
+- **Branch coverage**: the 256 decision lines. Executed means reached; covered means every direction taken.
 - **Fully covered decision lines**: the same branches, read per line instead of per direction.
 
 **Why line coverage misleads here.** A Nextflow pipeline first builds its whole graph (every workflow body
-runs, every parameter `if` is evaluated) and only then executes tasks. Building alone executes 71 % of our
+runs, every parameter `if` is evaluated) and only then executes tasks. Building alone executes 70 % of our
 lines. Python has no such phase. So branch coverage is the number we read.
 
-**What each test level adds.** Branch coverage from the full e2e alone is 41.9 %; with all tests merged it is
-56.1 %. One route takes every switch one way; the small tests flip them.
+**What each test level adds.** Branch coverage from the full e2e alone is 42.0 %; with all tests merged it is
+56.7 %. One route takes every switch one way; the small tests flip them.
 
 ## 4. Limits of the measurement
 
