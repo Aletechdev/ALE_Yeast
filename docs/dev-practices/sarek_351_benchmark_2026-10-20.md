@@ -15,10 +15,11 @@ the session of 2026-10-20. The original benchmark definition has three primary r
 additionally includes one whole-tree yAMP context row, using the already-recorded all-code denominator, so that
 the sarek and yAMP pipeline-level runs can also be viewed at the same broad code-tree scope.
 
-- **Each tree is measured by its own tests on its own code.** For pristine sarek, its own code is every `.nf` and
-  `.config` file of the tree (the fork-vs-upstream split of `tests/nf_coverage_report.py` does not apply; see §4 for
-  how the script was given that denominator without being changed). For yAMP, its own code is the fork lines: lines
-  not in pristine sarek 3.5.1, as in every published yAMP figure.
+- **Primary benchmark scopes.** For pristine sarek, the denominator is all `.nf` and `.config` code compiled in the
+  recorded runs (the fork-vs-upstream split of `tests/nf_coverage_report.py` does not apply; see §4 for how the
+  script was given that denominator without being changed). For yAMP, the primary engineering figures use the fork
+  delta: lines added or changed relative to pristine Sarek 3.5.1, as in every published yAMP figure. The additional
+  whole-tree yAMP row is contextual and uses all compiled yAMP `.nf` and `.config` code.
 - **Same method settings:** Nextflow 25.10.4, Groovy 4.0.28, Java 17.0.15, JaCoCo 0.8.12 with the same agent line and
   includes filter, nf-test 0.9.3, the same report script (`tests/nf_coverage_report.py` at `67b4784`, unchanged since
   the d3dc805 measurement), the same constant-jump exclusion. Resource caps are similar: sarek's `test` profile caps at
@@ -75,8 +76,10 @@ The last two lines are JaCoCo merges of the recorded d3dc805 `.exec` files (read
 - **The floor is where the two trees differ most.** A plan-only run already executes 48.5 % of sarek's lines and 70.4 %
   of ours: both pipelines evaluate most of their wiring and every parameter `if` while the DAG is built, which is why
   neither project should quote line coverage (`testing_and_coverage_overview.md` §3).
-- **One route test adds about 5 points of branches in both trees** (sarek: 8.0 → 13.7 %; ours, e2e over plan-only:
-  17.6 → 42.0 %, which is more because the fork code is the route that runs). The per-group table in `tables.txt`
+- **One full-route test raises branch coverage above the preview floor in both trees, but by different amounts.**
+  Sarek rises from 8.0 % to 13.7 % (+5.7 percentage points); ours, e2e over plan-only, rises from 17.6 % to 42.0 %
+  (+24.4 percentage points). The larger yAMP increase is expected because the fork-delta denominator largely
+  consists of the ALE route exercised by the end-to-end test. The per-group table in `tables.txt`
   shows where sarek's default run goes: `workflows/sarek/main.nf` 80 / 224 branches, `conf/modules/` 215 / 1 014,
   `modules/nf-core/` 169 / 3 106 (one hundred modules, most never instantiated on the Strelka route).
 - **Sarek's second route (joint germline) is the one closest to ours.** It covers 684 branches alone and adds 175 to
