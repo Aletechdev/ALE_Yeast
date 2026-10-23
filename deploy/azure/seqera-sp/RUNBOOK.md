@@ -1737,3 +1737,32 @@ in Main options, the reordered sections). Both from the command line, nothing ty
   16:14, the complete one 16:22, `index.html` 16:23. **Not compared** against the baseline or a
   local e2e; nothing was downloaded.
 
+
+### 2026-10-23: ✅ the `yAMP` entry follows the repo transfer to `nnf-bright-biofoundry/ALE_Yeast`; ⚠️ `tw pipelines update` drops the engine pin; ⚠️ the GitHub credential no longer matches
+
+The GitHub repository moved from `Aletechdev/ALE_Yeast` to `nnf-bright-biofoundry/ALE_Yeast` (GitHub
+redirects the old URL, so the entry kept launching, but `manifest.name` must equal the handle, see
+`CLAUDE.md` → Pipeline Identity). Same-day changes, entry id `166797736834160` unchanged:
+
+- **Entry URL** set with `tw pipelines update -i 166797736834160 --version-id 14AaZHjBoe8nA3LBLOxdaT
+  --pipeline https://github.com/nnf-bright-biofoundry/ALE_Yeast`. Platform made a new default
+  version (`yAMP-ottilie-test-az-3`). **Read back: `launch.nextflowVersion` had become `null`** — the
+  CLI's update sends the fields it knows and the engine pin is not one of them. The pin is the only
+  one since 2026-08-12 (the CE carries none) and 26.x cannot parse `nextflow.config`, so a launch from
+  that version would have failed at start-up. Restored with the same `PUT /pipelines/{id}` the
+  `--update` path of `14_register_pipeline.sh` sends (every `launch` field as read back, `computeEnvId`
+  from the `computeEnv` object, `nextflowVersion: "25.10.4"`): HTTP 200, version
+  `yAMP-ottilie-test-az-4` (`dyUIT4qpwCwCzOPoE3oh8`) is the default; read back `pipeline` = the new
+  URL, `revision main`, `nextflowVersion 25.10.4`, profiles `docker,ottilie_test_az`, CE
+  `yAMP-ce-nofusion-256`, the committed params box intact. **Rule:** after any `tw pipelines update`,
+  read `nextflowVersion` back; `--update` in the script copies the pin *as the entry has it*, so it
+  cannot repair a dropped one. The script's default `REPO` is the new URL.
+- **`github_ALE_Yeast_finegrained` (`2NhER3hJHchursPHekAV1P`) no longer applies.** Its `baseUrl` is
+  still `https://github.com/Aletechdev/ALE_Yeast`, which Platform matches against the entry URL, so
+  the form's GitHub API calls now go unauthenticated (the *Drop* case of the roadmap item of
+  2026-10-09, in effect); and the token itself names `Aletechdev` as resource owner, so it cannot read
+  the repository under its new owner even if re-pointed. The head job's clone is anonymous HTTPS of a
+  public repo and is unaffected. **Open:** delete the credential, or mint a fine-grained PAT with
+  resource owner `nnf-bright-biofoundry` (the org must allow fine-grained tokens) and register it with
+  `--base-url https://github.com/nnf-bright-biofoundry/ALE_Yeast`. Not launched today; the next launch
+  from the entry is the check.

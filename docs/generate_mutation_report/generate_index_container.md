@@ -65,7 +65,7 @@ self-owned image above. Kept as a fallback recipe:
 - **Docker Hub** (canonical): namespace `aledbucsd`, accessed by signing in with the
   Google account **aledbsoftware@gmail.com** (Google SSO). This is the account that owns
   the `ale-reports` repo and issues the `DOCKERHUB_TOKEN` used by CI.
-- **ghcr** (mirror): the `Aletechdev` GitHub org. CI pushes via the repo's built-in
+- **ghcr** (mirror): the GitHub org that owns the repo (`nnf-bright-biofoundry` since the 2026-10-23 transfer; `Aletechdev` before, where the 1.0.0 mirror still sits). CI pushes via the repo's built-in
   `GITHUB_TOKEN` — the `ALE_Yeast` repo must have Write access to the `ale-reports`
   package (Package settings → Manage Actions access) since the package was pre-created
   manually.

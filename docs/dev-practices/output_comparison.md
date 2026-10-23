@@ -116,12 +116,17 @@ This is how all 17 reports (16 per-sample + cohort) were verified equivalent bet
 ### 2.6 Provenance that *should* differ — `versions.yml`
 
 ```
-Aletechdev/ALE_Yeast: v1.0.0            # run from a local directory
-Aletechdev/ALE_Yeast: v1.0.0-g86c4672   # run from a Git clone (Seqera Platform, nextflow run <org/repo>)
+nnf-bright-biofoundry/ALE_Yeast: v1.0.0            # run from a local directory
+nnf-bright-biofoundry/ALE_Yeast: v1.0.0-g86c4672   # run from a Git clone (Seqera Platform, nextflow run <org/repo>)
 ```
 
 nf-core appends the short commit when a commit id exists. **Not a regression** — it is provenance, and
 it means `versions.yml` can never be byte-compared across those two launch modes.
+
+The key is `manifest.name`, which follows the GitHub handle: `Aletechdev/ALE_Yeast` from 2026-08-06 to
+2026-10-23, `nnf-bright-biofoundry/ALE_Yeast` since the repo transfer. Every output produced before
+2026-10-23 (including every baseline in §2.10) therefore differs on this line, and on the MultiQC summary
+section id (`<handle with / → ->-summary`, visible in `multiqc_data/`), from a run of the current code.
 
 ⚠️ The verified Azure Batch baseline at `az://aletest/ottilie-azurebatch-out/` was produced under the
 old `manifest.name` (`Aletechdev/AMP`), so that line differs there too. See

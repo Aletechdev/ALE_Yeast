@@ -67,7 +67,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 # The entry was renamed from `yAMP-ottilie-test-az` to `yAMP` in the UI (default follows since 2026-10-05).
 NAME="${PIPELINE_NAME:-yAMP}"
 WORKSPACE="${SEQERA_WORKSPACE:-DTU-Biosustain/RECON-ALE}"
-REPO="${PIPELINE_REPO:-https://github.com/Aletechdev/ALE_Yeast}"
+REPO="${PIPELINE_REPO:-https://github.com/nnf-bright-biofoundry/ALE_Yeast}"
 REVISION="${PIPELINE_REVISION:-main}"
 COMPUTE_ENV="${SEQERA_COMPUTE_ENV:-yAMP-ce-nofusion-256}"
 WORK_DIR="${SEQERA_WORK_DIR:-az://aletest/nf-work}"

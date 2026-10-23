@@ -532,7 +532,7 @@ Full project history lives in `git log` and `CHANGELOG.md`; resolved items are s
 ## Onboarding — a test run anyone can launch (public repo)
 
 Public since 2026-09-04, so someone registering the repo on their own Seqera workspace, AWS Batch or
-HPC must be able to run the contract test with no Aletechdev credentials and no pre-launch step. The
+HPC must be able to run the contract test with no credentials of ours and no pre-launch step. The
 data side is solved: the 2-sample set (402 MB) is on the public account `aletestdatapublic` (anonymous
 read, SHA256SUMS, per-file https samplesheet). One blocker remains: `snpeff_cache` is a *directory*
 param and Nextflow's http provider cannot stage a directory, so `ottilie_test_ci` relies on a local
@@ -725,9 +725,13 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
   per param is the only lever, and it also drops the param from plain `--help` (`--help_full` shows it).
   Power users bypass the form anyway via a params file (user page planned: `docs/usage/launch_params_file.md`).
 - **[low] Decide whether the Seqera GitHub credential stays now that the repo is public (checked 2026-10-09).**
+  *2026-10-23, repo transferred to `nnf-bright-biofoundry/ALE_Yeast`:* the credential's `baseUrl` still
+  names the old handle, so it matches nothing, and a fine-grained PAT is owner-scoped, so the token
+  cannot be re-pointed. The *Drop* case below is in effect; a replacement needs a token whose resource
+  owner is the new org (`RUNBOOK.md` 2026-10-23 entry).
   The fine-grained PAT `github_ALE_Yeast_finegrained` (personal account, expires 2027-08-07; record in
   `deploy/azure/seqera-sp/RUNBOOK.md` → *GitHub PAT*) was needed to clone a *private* repository;
-  `Aletechdev/ALE_Yeast` has been public since 2026-09-04. *Measured 2026-10-09:* the unauthenticated
+  `nnf-bright-biofoundry/ALE_Yeast` has been public since 2026-09-04. *Measured 2026-10-09:* the unauthenticated
   GitHub API reports `visibility: public` and an anonymous `git ls-remote` lists every branch; Seqera's
   Git docs say a public pipeline launches from its URL and that GitHub credentials only raise the GitHub
   API rate limit; the `yAMP` Launchpad entry binds no GitHub credential (Platform matches one by base URL
@@ -744,7 +748,7 @@ launch form renders. Mark advanced/Tier-2 params `"hidden": true` (already done 
   the org-owned GitHub App open item closes with it.
 - **[post-1.0.0] Cherry-pick `worktree-seqera-cloud` into `main`** once the Seqera cloud run is
   validated. Not a strict/clean merge — cherry-pick the cloud-specific changes as needed. The branch
-  lives on `Aletechdev/ALE_Yeast`; don't merge before cloud validation (avoids pulling unvalidated
+  lives on `nnf-bright-biofoundry/ALE_Yeast`; don't merge before cloud validation (avoids pulling unvalidated
   cloud-path changes into `main`). Carried over from an earlier, now-removed release-planning doc.
 
 ---

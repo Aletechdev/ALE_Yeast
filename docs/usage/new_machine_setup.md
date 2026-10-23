@@ -115,7 +115,7 @@ docker run --rm hello-world
 Install [Miniforge](https://github.com/conda-forge/miniforge#install) if conda isn't present, then:
 
 ```bash
-git clone git@github.com:Aletechdev/ALE_Yeast.git
+git clone git@github.com:nnf-bright-biofoundry/ALE_Yeast.git
 cd ALE_Yeast
 conda env create -f environment.yml
 conda activate nf-env

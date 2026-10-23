@@ -4,6 +4,20 @@
 
 ### Repository
 
+- **Repository transferred to `nnf-bright-biofoundry/ALE_Yeast` (2026-10-23)**, from
+  `Aletechdev/ALE_Yeast`. `manifest.name` and `manifest.homePage` follow the handle (the project rule:
+  `nextflow run <name>` resolves against GitHub, and Seqera shows one name per pipeline only when the two
+  agree), so the pipeline line of `versions.yml` reads `nnf-bright-biofoundry/ALE_Yeast: v1.0.0` and the
+  MultiQC Workflow Summary section is keyed `nnf-bright-biofoundry-ALE_Yeast-summary` (re-keyed in
+  `assets/multiqc_config.yml` and the e2e test). The README and new-machine clone commands, the launch
+  form's image URLs, the Launchpad registration script and the Launchpad entry itself point at the new
+  handle. GitHub redirects the old URL, so existing clones keep working; `git remote set-url origin
+  git@github.com:nnf-bright-biofoundry/ALE_Yeast.git` is still the right move. Dated records (RUNBOOK
+  entries, baseline comparisons, the sarek 3.5.1 benchmark rows) keep the handle that was current when
+  they were written. The ghcr mirror of the report image is named after the repo owner by the CI
+  workflow, so the next tag push publishes to `ghcr.io/nnf-bright-biofoundry/ale-reports` and needs that
+  org's package permissions; the Docker Hub image the pipeline pins is unaffected.
+
 - **Git history rewritten (2026-08-31)** with `git filter-repo` to purge private experiment data
   before open-sourcing. Every commit SHA changed; SHAs recorded before this date refer to the
   pre-rewrite history. Purge list + full old→new commit map:

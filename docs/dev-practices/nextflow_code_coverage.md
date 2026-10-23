@@ -30,7 +30,7 @@ how that is measured, what the first measurement found, and what the numbers can
   522 of 920 on 2026-10-19 after the join fix and the soft-filter test, see
   [Results (2026-10-19)](#results-2026-10-19-after-the-join-fix-and-the-soft-filter-test)).
   It is the measured cousin of the "option coverage" that
-  [issue #13](https://github.com/Aletechdev/ALE_Yeast/issues/13) proposes, not the same count: option
+  [issue #13](https://github.com/nnf-bright-biofoundry/ALE_Yeast/issues/13) proposes, not the same count: option
   coverage counts the launch form's switches, branches count both sides of every `if`, `?:` and
   `&&` / `||` operand in the code. One switch can sit behind several conditions, and many conditions
   depend on the data or on module boilerplate rather than on a switch.

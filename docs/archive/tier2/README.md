@@ -37,7 +37,7 @@ git show tier2-tools-archive:subworkflows/local/vcf_filter_freebayes/main.nf    
 git checkout tier2-tools-archive -- subworkflows/local/vcf_filter_freebayes           # restore a tree
 git diff tier2-tools-archive -- workflows/sarek/main.nf                                # see the wiring that went
 ```
-Browse on GitHub: `https://github.com/Aletechdev/ALE_Yeast/tree/tier2-tools-archive/<path>`.
+Browse on GitHub: `https://github.com/nnf-bright-biofoundry/ALE_Yeast/tree/tier2-tools-archive/<path>`.
 Restoring means re-wiring against whatever `workflows/sarek/main.nf` looks like then — the tag is a
 reference, not a patch that applies cleanly after a sarek upgrade.
 

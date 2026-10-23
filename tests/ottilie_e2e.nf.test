@@ -95,7 +95,7 @@ nextflow_pipeline {
             def read_qc      = sections_of("$outputDir/multiqc/yAMP-read-QC_multiqc_report.html")
             def alignment_qc = sections_of("$outputDir/multiqc/yAMP-alignment-QC_multiqc_report.html")
             def input_checks = path("$mqc_data/multiqc_yamp_input_checks_table.txt").readLines().drop(1).collect { it.split('\t') }
-            def summary_id   = 'Aletechdev-ALE_Yeast-summary'
+            def summary_id   = 'nnf-bright-biofoundry-ALE_Yeast-summary'
             def fastqc_samples = { pass -> path("$mqc_data/multiqc_fastqc_fastqc_${pass}.txt").readLines().drop(1).collect { it.split('\t')[0] }.sort() }
             def gs_rows   = path("$mqc_data/multiqc_general_stats.txt").readLines().collect { it.split('\t', -1) }
             def gs_col    = { name -> gs_rows[0].findIndexOf { it == name } }

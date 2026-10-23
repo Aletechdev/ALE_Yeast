@@ -97,10 +97,11 @@ for f in main.nf nextflow.config nextflow_schema.json workflows/sarek/main.nf; d
   section ids and the `fastqc_after_preprocessing-` General Stats prefix are asserted by the e2e test.
   Re-measure at every MultiQC bump. `report_comment` is a yAMP sentence (2026-09-24): 1.35 validates
   the file against a config schema and upstream's `false` fails it (warning only).
-  `report_section_order` keys the Workflow Summary as `Aletechdev-ALE_Yeast-summary` (2026-09-29): the
-  section id is `<manifest.name with / → ->-summary`, so upstream's `nf-core-sarek-summary` stopped
-  matching when `manifest.name` changed (2026-07-27) and the summary rendered second instead of last.
-  Re-key it whenever `manifest.name` changes.
+  `report_section_order` keys the Workflow Summary as `nnf-bright-biofoundry-ALE_Yeast-summary` (keyed
+  2026-09-29, re-keyed 2026-10-23 with the repo transfer): the section id is
+  `<manifest.name with / → ->-summary`, so upstream's `nf-core-sarek-summary` stopped matching when
+  `manifest.name` changed (2026-07-27) and the summary rendered second instead of last. Re-key it (and the
+  `summary_id` in `tests/ottilie_e2e.nf.test`) whenever `manifest.name` changes.
 - **`main.nf`** — removed the old outer MUTATION_REPORT path-discovery call (superseded by the inline
   call); `NFCORE_SAREK` takes a second input, `preflight_mqc`, passed on to `SAREK` as its last
   argument (2026-09-29, the input-checks table); otherwise close to upstream.

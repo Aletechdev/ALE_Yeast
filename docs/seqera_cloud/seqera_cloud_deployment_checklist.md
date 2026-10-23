@@ -72,7 +72,7 @@ git push origin worktree-seqera-cloud
 ```
 
 Pipeline reference for Seqera:
-- **Repository**: `https://github.com/Aletechdev/ALE_Yeast`
+- **Repository**: `https://github.com/nnf-bright-biofoundry/ALE_Yeast`
 - **Revision**: `worktree-seqera-cloud`
 - **Main script**: `main.nf` (repo root)
 
@@ -134,7 +134,7 @@ Pipeline configuration:
 | Setting | Value |
 |---------|-------|
 | Name | `ALE-Sarek-3.5.1` |
-| Repository | `https://github.com/Aletechdev/ALE_Yeast` |
+| Repository | `https://github.com/nnf-bright-biofoundry/ALE_Yeast` |
 | Revision | `worktree-seqera-cloud` |
 | Main script | ~~`nf-core-sarek_3.5.1/3_5_1/main.nf`~~ — not settable in this Seqera version (see notes) |
 | Compute environment | `aledev4test` |

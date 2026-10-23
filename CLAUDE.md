@@ -25,7 +25,7 @@ Two names, and **the identity must match the repo handle**:
 | What | Value | Notes |
 |------|-------|-------|
 | **Brand** (this version) | **yAMP** — *yeast Automated Mutation Pipeline* | Product name; future majors → AMPv3, … Lives in `manifest.description`, and in the Seqera Launchpad entry name (`yAMP` since 2026-10; before that `yAMP-ottilie-test-az`). |
-| **`manifest.name`** = **GitHub repo** | **`Aletechdev/ALE_Yeast`** → https://github.com/Aletechdev/ALE_Yeast | Drives the console banner, MultiQC header, versions `id:`, and the Seqera runs view. Also `manifest.homePage`. |
+| **`manifest.name`** = **GitHub repo** | **`nnf-bright-biofoundry/ALE_Yeast`** → https://github.com/nnf-bright-biofoundry/ALE_Yeast | Drives the console banner, MultiQC header, versions `id:`, and the Seqera runs view. Also `manifest.homePage`. |
 
 **Keep `manifest.name` equal to the `org/repo` handle.** Two reasons, both learned the hard way
 (2026-08-06):
@@ -46,6 +46,14 @@ clean move is to **rename the repo**, keeping the two in sync, rather than to di
 > **Status:** `manifest.name = 'Aletechdev/AMP'` was set 2026-07-27 (v1.0.0 prep) and **changed to
 > `Aletechdev/ALE_Yeast` on 2026-08-06** for the reasons above. Each change moved exactly one output
 > line — `versions.yml`: `nf-core/sarek: v3.5.1` → `Aletechdev/AMP: v1.0.0` → `Aletechdev/ALE_Yeast: v1.0.0`.
+>
+> **Repo transferred to `nnf-bright-biofoundry/ALE_Yeast` on 2026-10-23**; `manifest.name`, `homePage`, the
+> MultiQC header links and summary-section key (`nnf-bright-biofoundry-ALE_Yeast-summary`), the launch-form
+> image URLs and the Launchpad entry followed the same day, and the `versions.yml` line moved once more to
+> `nnf-bright-biofoundry/ALE_Yeast: v1.0.0`. GitHub redirects the old URL, so older clones and the two
+> `worktree-*` branches keep working, but set `git remote set-url origin` to the new handle. Every output
+> produced before that date (all baselines listed below) carries `Aletechdev/ALE_Yeast` in `versions.yml`
+> and `multiqc_data/` — a known, expected difference.
 >
 > ⚠️ The **verified Azure Batch baseline** at `az://aletest/ottilie-azurebatch-out/` was produced under
 > `Aletechdev/AMP`, so any future comparison against it shows that `versions.yml` line as a known,

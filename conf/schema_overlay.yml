@@ -107,7 +107,7 @@ group_overrides:
     # Slimmed 2026-10-05 (86 words to 43): the step list is what the field lines and the figure
     # already say, step 0 (UMI) and split_fastq have no visible field, and the repo path is of no
     # use to someone in the form. The full account is docs/usage/read_preprocessing.md.
-    description: "Optional steps before alignment, run by fastp in the order of the step numbers below.\n\nDefault: adapter trimming (step 1), 3' tail quality trimming (step 3) and the read filter (step 4). For reads exactly as sequenced, set `trim_adapter` to false and clear `trim_quality_3prime`.\n\n![One read through the preprocessing steps in run order; ALE default path in colour, optional steps in grey](https://raw.githubusercontent.com/Aletechdev/ALE_Yeast/main/docs/dev-practices/figures/fastq_trimming/read_preprocessing_steps.svg)"
+    description: "Optional steps before alignment, run by fastp in the order of the step numbers below.\n\nDefault: adapter trimming (step 1), 3' tail quality trimming (step 3) and the read filter (step 4). For reads exactly as sequenced, set `trim_adapter` to false and clear `trim_quality_3prime`.\n\n![One read through the preprocessing steps in run order; ALE default path in colour, optional steps in grey](https://raw.githubusercontent.com/nnf-bright-biofoundry/ALE_Yeast/main/docs/dev-practices/figures/fastq_trimming/read_preprocessing_steps.svg)"
 
 # The launch form prints the line under a field as plain text: Markdown is rendered in section
 # descriptions but not there, so a code span showed its backticks (seen in the form, 2026-10-04).

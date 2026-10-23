@@ -5,8 +5,10 @@ process GENERATE_INDEX {
 
     // generate_index.py needs only pandas + jinja2. No slim biocontainer bundles both,
     // so we ship a self-owned image built from containers/generate_index/Dockerfile.
-    // Canonical: public Docker Hub. Backup/mirror: ghcr.io/aletechdev/ale-reports:1.0.0
-    // (private). Both are published by .github/workflows/build-generate-index-container.yml.
+    // Canonical: public Docker Hub. Backup/mirror (private): ghcr.io/<repo owner>/ale-reports:1.0.0,
+    // where the owner is the GitHub org the repo lives in (nnf-bright-biofoundry since 2026-10-23; the
+    // 1.0.0 mirror was pushed under aletechdev). Both are published by
+    // .github/workflows/build-generate-index-container.yml.
     // On -profile conda/wave the conda directive drives the build; the container is ignored.
     // On -profile docker/singularity the container is used. See
     // docs/generate_mutation_report/generate_index_container.md.

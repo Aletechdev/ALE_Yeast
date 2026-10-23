@@ -8,7 +8,7 @@ empirically and are easy to get wrong.
 
 | Artifact | Where | How it's produced |
 |---|---|---|
-| **git tag** `vX.Y.Z` | `Aletechdev/ALE_Yeast` | manual (`git tag -a`) |
+| **git tag** `vX.Y.Z` | `nnf-bright-biofoundry/ALE_Yeast` | manual (`git tag -a`) |
 | **container image** `ale-reports:X.Y.Z` | Docker Hub (canonical) + ghcr (mirror) | **automatic** — the tag push fires `.github/workflows/build-generate-index-container.yml` |
 | **`manifest.version`** | `nextflow.config` | manual, before tagging |
 | **CHANGELOG entry** | `CHANGELOG.md` | manual, before tagging |
